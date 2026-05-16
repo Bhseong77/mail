@@ -865,7 +865,7 @@ async function dbSaveContacts(contacts) {
     tx.onerror = () => rej(tx.error);
   });
   // SharePoint에도 저장 (기기 간 공유)
-  spSaveContactsThrottled();
+  spSaveContacts();
 }
 
 async function dbLoadContacts() {
@@ -907,40 +907,96 @@ async function spLoadFile(token, filePath) {
 }
 
 async function spSaveFile(token, filePath, data) {
-  const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
-  const json = JSON.stringify(data);
-  const r = await fetch(
-    `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json"
-      },
-      body: json
-    }
-  );
-  return r.ok;
+  try {
+    const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+      {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }
+    );
+    return r.ok;
+  } catch { return false; }
 }
 
-// 연락처 SP 저장 (throttle: 30초에 한번만)
-let _spSaveTimer = null;
-function spSaveContactsThrottled() {
-  if (_spSaveTimer) return;
-  _spSaveTimer = setTimeout(async () => {
-    _spSaveTimer = null;
+// ── SP 통합 캐시 저장 (throttle) ─────────────────────
+const _spTimers = {};
+function spSaveThrottled(key, filePath, getData, delay = 10000) {
+  if (_spTimers[key]) clearTimeout(_spTimers[key]);
+  _spTimers[key] = setTimeout(async () => {
+    delete _spTimers[key];
     try {
       const tok = await getToken();
       await initSite(tok);
-      const contacts = [..._contactCache.values()].map((v, i) => ({
-        email: [..._contactCache.keys()][i], ...v
-      }));
-      // 키-값 쌍으로 재구성
-      const toSave = [];
-      _contactCache.forEach((v, k) => toSave.push({ email: k, ...v }));
-      await spSaveFile(tok, SP_CONTACTS_FILE, toSave);
-    } catch(e) { console.warn("SP 연락처 저장 실패:", e.message); }
-  }, 30000); // 30초 후 저장
+      const data = getData();
+      const ok = await spSaveFile(tok, filePath, data);
+      console.log(`SP 저장 ${key}:`, ok ? "성공" : "실패");
+    } catch(e) { console.warn(`SP 저장 실패 (${key}):`, e.message); }
+  }, delay);
+}
+
+// 연락처 SP 저장
+function spSaveContacts() {
+  spSaveThrottled("contacts", SP_CONTACTS_FILE, () => {
+    const out = [];
+    _contactCache.forEach((v, k) => out.push({ email: k, ...v }));
+    return out;
+  });
+}
+
+// 헤더 캐시 SP 저장
+function spSaveHeaders() {
+  spSaveThrottled("headers", SP_HEADERS_FILE, () =>
+    allMails.map(m => ({
+      cacheKey: m.cacheKey, subject: m.subject, from: m.from,
+      to: m.to, cc: m.cc, date: m.date, dateRaw: m.dateRaw,
+      hasAttachment: m.hasAttachment, headerLoaded: m.headerLoaded,
+      owner: m.owner, ownerName: m.ownerName,
+      fileName: m.fileName, folderPath: m.folderPath
+    }))
+  , 15000);
+}
+
+// ── SP에서 전체 캐시 로딩 ────────────────────────────
+async function spLoadAllCache(token) {
+  let headersOk = false;
+
+  // 1. 헤더 캐시 로딩
+  try {
+    const headers = await spLoadFile(token, SP_HEADERS_FILE);
+    if (headers && Array.isArray(headers) && headers.length > 0) {
+      await dbPutMails(headers);
+      headersOk = true;
+      console.log("SP 헤더 캐시 로딩:", headers.length, "통");
+    }
+  } catch {}
+
+  // 2. 연락처 캐시 로딩
+  try {
+    const contacts = await spLoadFile(token, SP_CONTACTS_FILE);
+    if (contacts && Array.isArray(contacts)) {
+      contacts.forEach(c => _contactCache.set(c.email.toLowerCase(), c));
+      // IndexedDB에도 동기화
+      await dbSaveContactsRaw(contacts);
+      console.log("SP 연락처 캐시 로딩:", contacts.length, "명");
+    }
+  } catch {}
+
+  return headersOk;
+}
+
+async function dbSaveContactsRaw(contacts) {
+  if (!contacts.length) return;
+  const d = await openDB();
+  await new Promise((res, rej) => {
+    const tx = d.transaction("contacts", "readwrite");
+    const store = tx.objectStore("contacts");
+    contacts.forEach(c => store.put(c));
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
 }
 
 async function dbGetAll() {
@@ -1026,13 +1082,20 @@ async function loadAll(forceRefresh = false) {
   allMails = [];
 
   try {
-    // 1. 캐시에서 기존 데이터 로딩 (IndexedDB)
+    // 1. 캐시에서 기존 데이터 로딩 (SP 우선 → IndexedDB 폴백)
     if (!forceRefresh) {
+      // SP에서 로딩 시도 (백그라운드, 빠르게)
+      let spLoaded = false;
+      try {
+        const tok = await getToken();
+        await initSite(tok);
+        spLoaded = await spLoadAllCache(tok);
+      } catch {}
+
       const cached = await dbGetAll();
       if (cached.length > 0) {
         allMails = cached;
         allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
-        // 캐시 로딩 시 전체보기로 초기화 (특정 멤버 선택 상태면 0통으로 보임 방지)
         currentOwner = "all";
         document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
         const navAllEl = document.getElementById("nav-all");
@@ -1201,20 +1264,8 @@ async function loadHeadersBatch(token) {
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
   setSyncState(false);
-
-  // 헤더 캐시 SharePoint에 저장
-  try {
-    const tok = await getToken();
-    const headersToSave = allMails.map(m => ({
-      cacheKey: m.cacheKey, subject: m.subject, from: m.from,
-      date: m.date, dateRaw: m.dateRaw, hasAttachment: m.hasAttachment,
-      headerLoaded: m.headerLoaded, owner: m.owner, ownerName: m.ownerName,
-      fileName: m.fileName, folderPath: m.folderPath,
-      to: m.to, cc: m.cc
-    }));
-    await spSaveFile(tok, SP_HEADERS_FILE, headersToSave);
-    setStatus(`완료 · ${allMails.length}통 · SharePoint 저장됨`, "ok");
-  } catch(e) { console.warn("헤더 SP 저장 실패:", e.message); }
+  // 헤더 캐시 SP에 저장 (15초 후)
+  spSaveHeaders();
 }
 
 // ── 새 파일만 동기화 (백그라운드) ────────────────────
@@ -1826,7 +1877,8 @@ async function enrichContactsFromServer(contactMap) {
         dept: contact.dept, mobile: contact.mobile, tel: contact.tel
       };
       _contactCache.set(contact.email.toLowerCase(), cached);
-      dbSaveContacts([{ email: contact.email, ...cached }]);
+      dbSaveContactsRaw([{ email: contact.email, ...cached }]);
+      spSaveContacts(); // SP에도 저장
 
     } catch {}
 
