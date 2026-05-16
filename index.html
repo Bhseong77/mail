@@ -179,6 +179,114 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
 /* Progress */
 .progress-bar{height:3px;background:var(--border);flex-shrink:0;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.3s;width:0%;}
+
+/* ── 모바일 반응형 ── */
+@media (max-width: 768px) {
+  /* 헤더 */
+  .header{padding:10px 12px;gap:8px;}
+  .logo h1{font-size:13px;}
+  .logo span{display:none;}
+  .main-nav-btn{padding:5px 12px;font-size:12px;}
+  .status-pill{display:none;}
+  .user-badge{display:none;}
+  .btn{padding:5px 10px;font-size:11px;}
+
+  /* 앱 레이아웃: 모바일은 단일 컬럼 */
+  .app{
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr;
+  }
+
+  /* 사이드바: 모바일에서 가로 스크롤 바로 */
+  .sidebar{
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 60px;
+    min-height: 60px;
+  }
+  .sb-section{padding:0;border-bottom:none;display:flex;align-items:center;}
+  .sb-label{display:none;}
+  .sb-item{
+    flex-direction:column;
+    padding:8px 12px;
+    border-left:none;
+    border-bottom:2px solid transparent;
+    white-space:nowrap;
+    min-width:80px;
+    align-items:center;
+    gap:2px;
+  }
+  .sb-item.active{border-left:none;border-bottom-color:var(--accent);}
+  .sb-info{text-align:center;}
+  .sb-mail{display:none;}
+  .sb-cnt{display:none;}
+
+  /* 메일 목록 패널: 전체 너비 */
+  .ml-panel{border-right:none;}
+
+  /* 상세보기: 모바일에서 슬라이드 오버레이로 */
+  .dp{
+    position:fixed;
+    inset:0;
+    z-index:50;
+    transform:translateX(100%);
+    transition:transform 0.25s ease;
+  }
+  .dp.open{transform:translateX(0);}
+
+  /* 상세보기 닫기 버튼 */
+  .dp-back{
+    display:flex !important;
+    align-items:center;
+    gap:8px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    background:var(--bg2);
+    cursor:pointer;
+    font-size:13px;
+    color:var(--accent);
+    flex-shrink:0;
+  }
+
+  /* 주소록 테이블: 모바일 카드형 */
+  .ct-tbl thead{display:none;}
+  .ct-tbl tbody tr{
+    display:block;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  .ct-tbl td{
+    display:block;
+    padding:2px 0;
+    border:none;
+  }
+  .ct-tbl td:before{
+    font-size:10px;
+    color:var(--t2);
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    display:block;
+    margin-bottom:2px;
+  }
+  .ct-head{padding:12px 14px;gap:8px;}
+  .ct-search{min-width:unset;width:100%;}
+  .ct-cnt{display:none;}
+
+  /* 테이블 목록: 모바일에서 숨기고 메일함만 */
+  .tab-bar .tab-item:nth-child(2){display:none;}
+
+  /* 터치 친화적 메일 아이템 */
+  .mi{padding:14px 14px;min-height:70px;}
+}
+
+@media (max-width: 480px) {
+  .main-nav{gap:2px;}
+  .main-nav-btn{padding:4px 10px;font-size:11px;}
+  .header{padding:8px 10px;}
+}
 </style>
 </head>
 <body>
@@ -290,7 +398,8 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     </div>
 
   </div>
-  <div class="dp">
+  <div class="dp" id="dpPanel">
+    <div class="dp-back" style="display:none;" onclick="closeMobileDetail()">← 메일 목록으로</div>
     <div class="dp-empty" id="dpEmpty">
       <div class="dp-empty-icon">✉️</div>
       <div style="font-size:13px;color:var(--t2)">메일을 선택하세요</div>
@@ -847,7 +956,7 @@ async function syncNewFiles() {
 
 // ── EML 헤더만 파싱 (본문 제외) ──────────────────────
 function parseEmlHeaderOnly(text) {
-  const lines = text.split(/?\n/);
+  const lines = text.split(/\r?\n/);
   const headers = {};
   let i = 0;
   while (i < lines.length && lines[i] !== "") {
@@ -978,6 +1087,7 @@ async function showDetail(idx) {
   document.querySelectorAll(".mi").forEach(el => el.classList.remove("active"));
   const el = document.getElementById("mi-"+idx);
   if (el) { el.classList.add("active"); el.scrollIntoView({block:"nearest"}); }
+  openMobileDetail();
 
   document.getElementById("dpEmpty").style.display = "none";
   document.getElementById("dpInner").style.display = "flex";
@@ -1061,58 +1171,71 @@ function switchTab(tab, el) {
 let allContacts = [], filteredContacts = [];
 let contactSortKey = "name", contactSortDir = "asc";
 
-function extractContactFromBody(body, fromEmail) {
-  if (!body) return null;
+function extractContactFromBody(body, fromAddr) {
+  const allLines = (body || "").split(/\r?\n/);
+  // 서명 영역: 구분선(--) 이후 또는 마지막 40줄
+  let sigStart = Math.max(0, allLines.length - 40);
+  for (let i = allLines.length - 1; i >= Math.max(0, allLines.length - 60); i--) {
+    if (/^[-_=]{2,}\s*$/.test(allLines[i]) || /^--\s*$/.test(allLines[i])) {
+      sigStart = i + 1; break;
+    }
+  }
+  const sig = allLines.slice(sigStart).join("\n");
 
-  // 서명 영역 추출 (보통 마지막 30줄 또는 구분선 이후)
-  const lines = body.split(/\r?\n/);
-  const sigStart = Math.max(0, lines.length - 35);
-  const sigLines = lines.slice(sigStart).join("\n");
+  // ── 이메일 ──
+  const emailM = sig.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const email = emailM ? emailM[0].toLowerCase() : extractEmail(fromAddr || "");
 
-  // 이메일 추출
-  const emailMatch = sigLines.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email = emailMatch ? emailMatch[0].toLowerCase() : fromEmail;
+  // ── 이름: From 헤더 우선, 서명에서 보완 ──
+  let name = extractName(fromAddr || "");
+  const korInFrom = (fromAddr||"").match(/([가-힣]{2,4})\s*</);
+  if (korInFrom) name = korInFrom[1];
+  // 서명에서 "홍 길 동  Gil..." 패턴
+  const sigName = sig.match(/^([가-힣]{1,2}\s[가-힣]{1,2}|[가-힣]{2,4})\s{2,}[A-Za-z]/m);
+  if (sigName) name = sigName[1].replace(/\s/g,"");
 
-  // 이름+직함 패턴 (한국어 서명)
-  // 예: 곽 현  Hyeon Kwak 사원 | 제어기술팀
-  const nameLineMatch = sigLines.match(/([가-힣]{1,2}\s[가-힣]{1,2}|[가-힣]{2,4})\s+[A-Za-z\s]+(?:사원|대리|과장|차장|부장|팀장|이사|전무|상무|부사장|대표이사|대표|수석|책임|선임|연구원|주임|인턴)?/);
+  // ── 직함/부서 ──
+  const TITLE_RE = /사원|인턴|주임|연구원|대리|과장|차장|부장|팀장|수석|책임|선임|이사|상무|전무|부사장|사장|대표이사|대표|매니저|Manager|Director|Engineer|Senior|Analyst/;
+  const DEPT_RE  = /[가-힣A-Za-z]{2,15}(?:팀|부|실|센터|본부|그룹|파트)/;
+  const titleM = sig.match(TITLE_RE);
+  const deptM  = sig.match(DEPT_RE);
+  const title  = titleM ? titleM[0] : "";
+  const dept   = deptM  ? deptM[0]  : "";
+  const deptFull = [dept, title].filter(Boolean).join(" ").trim();
 
-  // 직함 추출
-  const titleMatch = sigLines.match(/(?:사원|대리|과장|차장|부장|팀장|이사|전무|상무|부사장|대표이사|대표|수석|책임|선임|연구원|주임|Senior|Manager|Director|Engineer|Researcher)/);
-  const title = titleMatch ? titleMatch[0] : "";
+  // ── 전화번호 ──
+  // M 모바일
+  let mobile = "";
+  const mM = sig.match(/(?:^|\|\s*)M\s+(\+?[\d\s.\-]{9,20})/m)
+           || sig.match(/(?:Mobile|H\.P|Cell|HP)\s*[:|]?\s*(\+?[\d\s.\-]{9,20})/i);
+  if (mM) mobile = mM[1].trim().replace(/\s+/g," ").slice(0,20);
 
-  // 부서 추출
-  const deptMatch = sigLines.match(/([가-힣A-Za-z]+(?:팀|부|실|센터|본부|그룹|파트|Division|Team|Dept))/);
-  const dept = deptMatch ? deptMatch[1] : "";
+  // T 직통
+  let tel = "";
+  const tM = sig.match(/(?:^|\|\s*)T\s+(\+?[\d\s.\-]{8,20})/m)
+           || sig.match(/(?:Tel|Phone)\s*[:|]?\s*(\+?[\d\s.\-]{8,20})/i);
+  if (tM) tel = tM[1].trim().replace(/\s+/g," ").slice(0,20);
 
-  // 전화번호 추출 (M=모바일, T=직통, F=팩스)
-  const mobileMatch = sigLines.match(/(?:M|Mobile|H\.P|Cell)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
-  const telMatch    = sigLines.match(/(?:T|Tel|Phone|D|Direct)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
-  const faxMatch    = sigLines.match(/(?:F|Fax)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
+  // 없으면 한국 전화번호 패턴으로
+  if (!mobile && !tel) {
+    const phones = [...sig.matchAll(/(\+?82[\s.]?0?\d[\s.]\d{3,4}[\s.]\d{4}|0\d{1,2}[\s.\-]\d{3,4}[\s.\-]\d{4})/g)].map(m=>m[1]);
+    if (phones[0]) mobile = phones[0];
+    if (phones[1]) tel    = phones[1];
+  }
 
-  const mobile = mobileMatch ? mobileMatch[1].trim().replace(/\s+/g," ") : "";
-  const tel    = telMatch    ? telMatch[1].trim().replace(/\s+/g," ") : "";
-  const fax    = faxMatch    ? faxMatch[1].trim().replace(/\s+/g," ") : "";
+  // ── 회사명 ──
+  let company = "";
+  const coPatterns = [
+    /([가-힣A-Za-z\s()（）]{2,20}(?:주식회사|㈜|\(주\)))/,
+    /([가-힣A-Za-z\s]{2,25}(?:은행|증권|보험|캐피탈|카드|생명|화재|투자증권|자산운용))/,
+    /([가-힣A-Za-z][가-힣A-Za-z\s&.]{2,25}(?:Co\.,?\s*Ltd\.?|Inc\.?|Corp\.))/i,
+  ];
+  for (const p of coPatterns) {
+    const m = sig.match(p);
+    if (m) { company = m[1].trim(); break; }
+  }
 
-  // 회사명 추출
-  const companyMatch = sigLines.match(/([가-힣A-Za-z\s()（）]+(?:주식회사|㈜|\(주\)|Co\.,?\s*Ltd\.?|Inc\.?|Corp\.?|Co\.))/i);
-  const company = companyMatch ? companyMatch[1].trim() : "";
-
-  // 이름 추출 (From 헤더에서)
-  const nameFromHeader = fromEmail ? extractName(fromEmail.includes("<") ? fromEmail : "") : "";
-
-  // 의미있는 데이터가 없으면 null 반환
-  if (!email && !mobile && !tel) return null;
-
-  return {
-    email,
-    name: nameFromHeader,
-    company,
-    dept: [dept, title].filter(Boolean).join(" / "),
-    mobile,
-    tel,
-    fax,
-  };
+  return { email, name, company, dept: deptFull, mobile, tel };
 }
 
 function buildContacts() {
@@ -1308,6 +1431,19 @@ function extractEmail(from) {
   if((from||"").includes("@")) return (from||"").trim();
   return from||"";
 }
+
+// ── 모바일 상세보기 ─────────────────────────────────
+function openMobileDetail() {
+  if (window.innerWidth <= 768) {
+    document.getElementById("dpPanel").classList.add("open");
+    document.querySelector(".dp-back").style.display = "flex";
+  }
+}
+function closeMobileDetail() {
+  document.getElementById("dpPanel").classList.remove("open");
+  document.querySelectorAll(".mi").forEach(el => el.classList.remove("active"));
+}
+
 function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 </script>
 </body>
