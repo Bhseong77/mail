@@ -539,6 +539,174 @@
     color: var(--text2);
     font-family: 'JetBrains Mono', monospace;
   }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 16px 0 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    padding: 8px 20px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    bottom: -1px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-btn.active {
+    background: var(--bg2);
+    border-color: var(--border);
+    border-bottom-color: var(--bg2);
+    color: var(--accent);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Table view */
+  .table-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+
+  .table-toolbar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--bg3);
+    flex-wrap: wrap;
+  }
+
+  .table-search {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .table-search:focus { border-color: var(--accent); }
+  .table-search::placeholder { color: var(--text2); }
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    transition: color 0.15s;
+  }
+
+  th:hover { color: var(--accent); }
+  th.sort-asc::after { content: ' ▲'; color: var(--accent); }
+  th.sort-desc::after { content: ' ▼'; color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: var(--bg3); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 10px 16px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .td-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+
+  .td-name { font-weight: 500; white-space: nowrap; }
+  .td-email { color: var(--text2); font-size: 12px; white-space: nowrap; }
+  .td-subject { max-width: 400px; }
+  .td-subject-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
+    display: block;
+  }
+
+  .attach-icon { color: var(--yellow); font-size: 12px; }
+
+  .table-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg3);
+  }
+
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text2);
+    font-size: 12px;
+    font-family: 'Pretendard', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -602,6 +770,14 @@
     </div>
   </div>
 
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('inbox')">📧 메일함</button>
+    <button class="tab-btn" onclick="switchTab('table')">📋 목록 보기</button>
+  </div>
+
+  <!-- Tab: 메일함 -->
+  <div class="tab-content active" id="tab-inbox">
   <!-- Main -->
   <div class="main">
     <!-- Mail List -->
@@ -650,18 +826,59 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
+  </div><!-- end main -->
+  </div><!-- end tab-inbox -->
 
+  <!-- Tab: 목록 보기 -->
+  <div class="tab-content" id="tab-table">
+    <div class="table-panel">
+      <div class="table-toolbar">
+        <input class="table-search" id="tableSearch" placeholder="🔍 발신자, 제목 검색..." oninput="filterTable()">
+        <button class="export-btn" onclick="exportCSV()">⬇️ CSV 내보내기</button>
+      </div>
+      <div class="table-wrap">
+        <table id="mailTable">
+          <thead>
+            <tr>
+              <th onclick="sortTable('date')">수신 날짜</th>
+              <th onclick="sortTable('name')">발신자 이름</th>
+              <th onclick="sortTable('email')">발신자 이메일</th>
+              <th onclick="sortTable('subject')">제목</th>
+              <th>첨부</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text2)">메일을 불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span id="tableCount">0개</span>
+        <span style="font-size:11px">클릭하면 메일 상세보기</span>
+      </div>
+    </div>
+  </div><!-- end tab-table -->
+
+</div><!-- end container -->
 <script>
 let allEmails = [];
 let serverUrl = localStorage.getItem('mailServerUrl') || '';
+let tableSortKey = 'date';
+let tableSortDir = 'desc';
+let tableFiltered = [];
 
-// Init
 if (serverUrl) {
   document.getElementById('configModal').style.display = 'none';
   document.getElementById('serverUrl').value = serverUrl;
   loadEmails();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'table') renderTable(tableFiltered.length ? tableFiltered : allEmails);
 }
 
 function saveConfig() {
@@ -674,130 +891,161 @@ function saveConfig() {
 }
 
 async function loadEmails() {
-  if (!serverUrl) {
-    document.getElementById('configModal').style.display = 'flex';
-    return;
-  }
-
-  document.getElementById('mailList').innerHTML = `
-    <div class="loading"><div class="spinner"></div>메일을 불러오는 중...</div>`;
-  
+  if (!serverUrl) { document.getElementById('configModal').style.display = 'flex'; return; }
+  document.getElementById('mailList').innerHTML = `<div class="loading"><div class="spinner"></div>메일을 불러오는 중...</div>`;
   setStatus('연결 중...', false);
-
   try {
     const res = await fetch(`${serverUrl}/api/emails`);
     if (!res.ok) throw new Error('서버 오류');
     const data = await res.json();
-    
     if (data.error) throw new Error(data.error);
-    
     allEmails = data;
+    tableFiltered = [...allEmails];
     renderEmails(allEmails);
+    renderTable(allEmails);
     updateStats(allEmails);
     setStatus('연결됨', true);
-    document.getElementById('lastUpdated').textContent = 
-      '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+    document.getElementById('lastUpdated').textContent = '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
   } catch (e) {
     setStatus('오류: ' + e.message, false, true);
-    document.getElementById('mailList').innerHTML = `
-      <div class="loading" style="color:#e74c3c">
-        ⚠️ 연결 실패<br>
-        <span style="font-size:12px;margin-top:8px;display:block">${e.message}</span>
-      </div>`;
+    document.getElementById('mailList').innerHTML = `<div class="loading" style="color:#e74c3c">⚠️ 연결 실패<br><span style="font-size:12px;margin-top:8px;display:block">${e.message}</span></div>`;
   }
 }
 
 function setStatus(text, ok, error = false) {
   document.getElementById('statusText').textContent = text;
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot' + (error ? ' error' : '');
+  document.getElementById('statusDot').className = 'status-dot' + (error ? ' error' : '');
 }
 
 function updateStats(emails) {
   const today = new Date().toISOString().slice(0, 10);
-  const todayCount = emails.filter(e => e.date && e.date.startsWith(today)).length;
-  const attachCount = emails.filter(e => e.has_attachment).length;
-  const senders = new Set(emails.map(e => e.sender)).size;
-
   document.getElementById('statTotal').textContent = emails.length;
-  document.getElementById('statToday').textContent = todayCount;
-  document.getElementById('statAttach').textContent = attachCount;
-  document.getElementById('statSenders').textContent = senders;
+  document.getElementById('statToday').textContent = emails.filter(e => e.date && e.date.startsWith(today)).length;
+  document.getElementById('statAttach').textContent = emails.filter(e => e.has_attachment).length;
+  document.getElementById('statSenders').textContent = new Set(emails.map(e => e.sender)).size;
   document.getElementById('mailCount').textContent = emails.length + '통';
 }
 
 function filterEmails() {
   const q = document.getElementById('searchInput').value.toLowerCase();
-  const filtered = allEmails.filter(e =>
-    e.subject.toLowerCase().includes(q) ||
-    e.sender.toLowerCase().includes(q)
-  );
-  renderEmails(filtered);
+  renderEmails(allEmails.filter(e => (e.subject||'').toLowerCase().includes(q) || (e.sender||'').toLowerCase().includes(q)));
+}
+
+function filterTable() {
+  const q = document.getElementById('tableSearch').value.toLowerCase();
+  tableFiltered = allEmails.filter(e => (e.subject||'').toLowerCase().includes(q) || (e.sender||'').toLowerCase().includes(q));
+  renderTable(tableFiltered);
+}
+
+function sortTable(key) {
+  if (tableSortKey === key) tableSortDir = tableSortDir === 'asc' ? 'desc' : 'asc';
+  else { tableSortKey = key; tableSortDir = 'asc'; }
+  document.querySelectorAll('#mailTable thead th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  const thIdx = {date:0,name:1,email:2,subject:3}[key];
+  const ths = document.querySelectorAll('#mailTable thead th');
+  if (ths[thIdx]) ths[thIdx].classList.add(tableSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  const arr = [...(tableFiltered.length ? tableFiltered : allEmails)];
+  arr.sort((a,b) => {
+    let va='', vb='';
+    if (key==='date') { va=a.date||''; vb=b.date||''; }
+    else if (key==='name') { va=extractName(a.sender); vb=extractName(b.sender); }
+    else if (key==='email') { va=extractEmail(a.sender); vb=extractEmail(b.sender); }
+    else { va=a.subject||''; vb=b.subject||''; }
+    return tableSortDir==='asc' ? va.localeCompare(vb,'ko') : vb.localeCompare(va,'ko');
+  });
+  renderTable(arr);
+}
+
+function renderTable(emails) {
+  const tbody = document.getElementById('tableBody');
+  document.getElementById('tableCount').textContent = emails.length + '개';
+  if (!emails.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text2)">📭 메일이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = emails.map(mail => {
+    const idx = allEmails.indexOf(mail);
+    return `<tr onclick="goToMail(${idx})">
+      <td class="td-date">${escHtml(mail.date||'')}</td>
+      <td class="td-name">${escHtml(extractName(mail.sender))}</td>
+      <td class="td-email">${escHtml(extractEmail(mail.sender))}</td>
+      <td class="td-subject"><span class="td-subject-text" title="${escHtml(mail.subject||'')}">${escHtml(mail.subject||'(제목 없음)')}</span></td>
+      <td>${mail.has_attachment ? '<span class="attach-icon">📎</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function goToMail(idx) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('.tab-content').forEach((c,i) => c.classList.toggle('active', i===0));
+  setTimeout(() => showDetail(idx), 50);
+}
+
+function exportCSV() {
+  const emails = tableFiltered.length ? tableFiltered : allEmails;
+  const rows = [['수신날짜','발신자이름','발신자이메일','제목','첨부파일']];
+  emails.forEach(m => rows.push([m.date||'', extractName(m.sender), extractEmail(m.sender), m.subject||'', m.has_attachment?(m.attachments||[]).join(';'):'']));
+  const csv = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'}));
+  a.download = 'enjet_mail_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 }
 
 function renderEmails(emails) {
   const list = document.getElementById('mailList');
-  if (!emails.length) {
-    list.innerHTML = `<div class="loading">📭 메일이 없습니다</div>`;
-    return;
-  }
-
-  list.innerHTML = emails.map((mail, i) => `
-    <div class="mail-item" onclick="showDetail(${allEmails.indexOf(mail)})" id="mail-item-${allEmails.indexOf(mail)}">
+  if (!emails.length) { list.innerHTML = `<div class="loading">📭 메일이 없습니다</div>`; return; }
+  list.innerHTML = emails.map(mail => {
+    const idx = allEmails.indexOf(mail);
+    return `<div class="mail-item" onclick="showDetail(${idx})" id="mail-item-${idx}">
       <div class="mail-item-header">
         <span class="mail-sender">${escHtml(extractName(mail.sender))}</span>
-        <span class="mail-date">${mail.date ? mail.date.slice(5, 16) : ''}</span>
+        <span class="mail-date">${mail.date ? mail.date.slice(5,16) : ''}</span>
       </div>
-      <div class="mail-subject">${escHtml(mail.subject || '(제목 없음)')}</div>
-      <div class="mail-preview">${escHtml((mail.body || '').replace(/<[^>]+>/g,'').slice(0, 60))}</div>
-      <div class="mail-tags">
-        ${mail.has_attachment ? '<span class="tag attach">📎 첨부</span>' : ''}
-      </div>
-    </div>
-  `).join('');
+      <div class="mail-subject">${escHtml(mail.subject||'(제목 없음)')}</div>
+      <div class="mail-preview">${escHtml((mail.body||'').replace(/<[^>]+>/g,'').slice(0,60))}</div>
+      <div class="mail-tags">${mail.has_attachment?'<span class="tag attach">📎 첨부</span>':''}</div>
+    </div>`;
+  }).join('');
 }
 
 function showDetail(idx) {
   const mail = allEmails[idx];
   if (!mail) return;
-
   document.querySelectorAll('.mail-item').forEach(el => el.classList.remove('active'));
   const item = document.getElementById(`mail-item-${idx}`);
-  if (item) item.classList.add('active');
-
+  if (item) { item.classList.add('active'); item.scrollIntoView({block:'nearest'}); }
   document.getElementById('detailEmpty').style.display = 'none';
   document.getElementById('detailContent').style.display = 'flex';
   document.getElementById('detailContent').style.flexDirection = 'column';
-
   document.getElementById('detailSubject').textContent = mail.subject || '(제목 없음)';
   document.getElementById('detailSender').textContent = mail.sender;
   document.getElementById('detailDate').textContent = mail.date;
-
-  const body = (mail.body || '').replace(/<[^>]+>/g, '').trim();
-  document.getElementById('detailBody').textContent = body || '(본문 없음)';
-
+  document.getElementById('detailBody').textContent = (mail.body||'').replace(/<[^>]+>/g,'').trim() || '(본문 없음)';
   const attSec = document.getElementById('attachmentsSection');
   if (mail.has_attachment && mail.attachments?.length) {
     attSec.style.display = 'block';
-    document.getElementById('attachmentsList').innerHTML = mail.attachments.map(f => `
-      <div class="attachment-item">📄 ${escHtml(f)}</div>
-    `).join('');
-  } else {
-    attSec.style.display = 'none';
-  }
+    document.getElementById('attachmentsList').innerHTML = mail.attachments.map(f=>`<div class="attachment-item">📄 ${escHtml(f)}</div>`).join('');
+  } else { attSec.style.display = 'none'; }
 }
 
 function extractName(sender) {
-  const match = sender.match(/^"?([^"<]+)"?\s*</);
-  return match ? match[1].trim() : sender.split('@')[0];
+  const m = (sender||'').match(/^"?([^"<]+)"?\s*</);
+  return m ? m[1].trim() : (sender||'').split('@')[0];
+}
+
+function extractEmail(sender) {
+  const m = (sender||'').match(/<([^>]+)>/);
+  if (m) return m[1];
+  if ((sender||'').includes('@')) return sender.trim();
+  return sender||'';
 }
 
 function escHtml(str) {
-  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// Auto refresh every 5 minutes
-setInterval(loadEmails, 5 * 60 * 1000);
+setInterval(loadEmails, 5*60*1000);
 </script>
 </body>
 </html>
