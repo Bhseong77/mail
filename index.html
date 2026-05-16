@@ -886,16 +886,14 @@ async function loadAll(forceRefresh = false) {
         updateCounts();
         filterMails();
         const noHeader = allMails.filter(m => !m.headerLoaded).length;
-        setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
-        setProgress(0);
-        // 헤더 없는 메일이 있으면 백그라운드 로딩
         if (noHeader > 0) {
-          const tok = await getToken();
-          await initSite(tok);
-          loadHeadersBatch(tok);
+          setStatus(`캐시 로딩됨 · ${allMails.length}통 (제목 미로딩 ${noHeader}건)`, "ok");
         } else {
-          syncNewFiles();
+          setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
         }
+        setProgress(0);
+        // 새 파일만 확인 (헤더 재로딩 없음 - 🔃 전체동기화로만 가능)
+        syncNewFiles();
         return;
       }
     } else {
