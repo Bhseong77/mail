@@ -464,7 +464,8 @@ const MSAL_TENANT_ID = "58b310e1-9278-47ab-8e49-792728818c9e";
 const SP_HOST        = "enjetco.sharepoint.com";
 const SP_SITE_PATH   = "/sites/06.BackOffice";
 const MAIL_FOLDER    = "📦영업/10.mail_backup";
-// 드라이브 ID 직접 지정 (enjetco SharePoint "문서" 라이브러리)
+// Render.com 백엔드 (eml 파싱용)
+const RENDER_URL     = "https://enjet-mail-api.onrender.com";
 const DRIVE_ID_CACHE = "b!1Va0aO9NoEaz4dpZxMSwjDgP35aZ2VBCgGsTHl1ORaP52YVq1dDmTZVIyBhR5YG-";
 
 const SCOPES = ["User.Read","Files.Read.All","Sites.Read.All"];
@@ -1144,14 +1145,33 @@ async function showDetail(idx) {
     document.getElementById("dAttSec").style.display = "none";
     try {
       const token = await getToken();
-      const text = await getFileText(token, `${mail.folderPath}/${mail.fileName}`);
-      const parsed = parseEml(text);
-      mail.body = parsed.body;
-      mail.attachments = parsed.attachments;
+
+      // 1. SharePoint에서 eml 바이트 다운로드
+      const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
+      const emlRes = await fetchWithRetry(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (!emlRes.ok) throw new Error(`eml 다운로드 실패 ${emlRes.status}`);
+      const emlBytes = await emlRes.arrayBuffer();
+
+      // 2. Render.com Python 서버로 파싱 요청
+      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: emlBytes
+      });
+      if (!parseRes.ok) throw new Error(`파싱 서버 오류 ${parseRes.status}`);
+      const parsed = await parseRes.json();
+
+      // 3. 결과 저장
+      mail.body        = parsed.body || "";
+      mail.attachments = parsed.attachments || [];
       mail.hasAttachment = parsed.hasAttachment;
-      mail.bodyLoaded = true;
-      mail.loadFailed = false;
+      mail.bodyLoaded  = true;
+      mail.loadFailed  = false;
       await dbPutMails([mail]);
+
     } catch(e) {
       mail.loadFailed = true;
       document.getElementById("dBody").innerHTML =
