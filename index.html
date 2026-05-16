@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENJET 메일 대시보드</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #4f7fff;
+    --accent2: #7c5cff;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --text3: #5555777;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --yellow: #f39c12;
+    --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(79,127,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,127,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 24px 0 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo span {
+    font-size: 12px;
+    color: var(--text2);
+    font-weight: 400;
+    display: block;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 20px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.error { background: var(--red); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #3d6eee; border-color: #3d6eee; color: #fff; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 20px 0;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+
+  .stat-card:hover { border-color: var(--accent); }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+
+  /* Main layout */
+  .main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 16px;
+    padding-bottom: 40px;
+  }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .detail-panel { display: none; }
+    .detail-panel.active { display: flex; }
+  }
+
+  /* Mail list */
+  .mail-list-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 280px);
+  }
+
+  .panel-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg3);
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .search-bar {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text2); }
+
+  .mail-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .mail-list::-webkit-scrollbar { width: 4px; }
+  .mail-list::-webkit-scrollbar-track { background: transparent; }
+  .mail-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .mail-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+  }
+
+  .mail-item:hover { background: var(--bg3); }
+  .mail-item.active { background: rgba(79,127,255,0.08); border-left: 2px solid var(--accent); }
+  .mail-item.unread .mail-subject { font-weight: 600; }
+
+  .mail-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    gap: 8px;
+  }
+
+  .mail-sender {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .mail-date {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .mail-subject {
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .mail-preview {
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mail-tags {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .tag.attach { background: rgba(243,156,18,0.15); color: var(--yellow); }
+  .tag.unread { background: rgba(79,127,255,0.15); color: var(--accent); }
+
+  /* Detail panel */
+  .detail-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 280px);
+    overflow: hidden;
+  }
+
+  .detail-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text2);
+    gap: 12px;
+  }
+
+  .detail-empty-icon { font-size: 48px; opacity: 0.3; }
+  .detail-empty-text { font-size: 14px; }
+
+  .detail-content { 
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .detail-content::-webkit-scrollbar { width: 4px; }
+  .detail-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .detail-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg3);
+  }
+
+  .detail-subject {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .meta-label {
+    color: var(--text2);
+    min-width: 50px;
+    flex-shrink: 0;
+  }
+
+  .meta-value { color: var(--text); word-break: break-all; }
+
+  .detail-body {
+    padding: 20px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .attachments-section {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .attachments-title {
+    font-size: 11px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+
+  .attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Config modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .modal h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .modal p {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 20px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .error-msg {
+    background: rgba(231,76,60,0.1);
+    border: 1px solid rgba(231,76,60,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #e74c3c;
+    margin-bottom: 14px;
+  }
+
+  .last-updated {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>⚙️ 서버 설정</h2>
+    <p>Python 백엔드 서버 URL을 입력하세요. Render.com에 배포한 서버 주소입니다.</p>
+    <div id="configError" class="error-msg" style="display:none;"></div>
+    <div class="form-group">
+      <label class="form-label">백엔드 서버 URL</label>
+      <input class="form-input" id="serverUrl" type="text" 
+             placeholder="https://your-app.onrender.com" 
+             value="">
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="saveConfig()" style="flex:1">연결하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📧</div>
+      <div>
+        <h1>ENJET 메일 대시보드</h1>
+        <span>baekhoon@enjet.co.kr</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">연결 중...</span>
+      </div>
+      <span class="last-updated" id="lastUpdated"></span>
+      <button class="btn" onclick="loadEmails()">🔄 새로고침</button>
+      <button class="btn" onclick="document.getElementById('configModal').style.display='flex'">⚙️ 설정</button>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">전체 메일</div>
+      <div class="stat-value accent" id="statTotal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">첨부파일</div>
+      <div class="stat-value yellow" id="statAttach">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">오늘 수신</div>
+      <div class="stat-value green" id="statToday">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">발신자 수</div>
+      <div class="stat-value" id="statSenders">—</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Mail List -->
+    <div class="mail-list-panel">
+      <div class="panel-header">
+        <span class="panel-title">받은 메일함</span>
+        <span class="last-updated" id="mailCount"></span>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="searchInput" 
+               placeholder="🔍 제목, 발신자 검색..." 
+               oninput="filterEmails()">
+      </div>
+      <div class="mail-list" id="mailList">
+        <div class="loading">
+          <div class="spinner"></div>
+          메일을 불러오는 중...
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-empty" id="detailEmpty">
+        <div class="detail-empty-icon">✉️</div>
+        <div class="detail-empty-text">메일을 선택하세요</div>
+      </div>
+      <div class="detail-content" id="detailContent" style="display:none;">
+        <div class="detail-header">
+          <div class="detail-subject" id="detailSubject"></div>
+          <div class="detail-meta">
+            <div class="meta-row">
+              <span class="meta-label">보낸 이</span>
+              <span class="meta-value" id="detailSender"></span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">날짜</span>
+              <span class="meta-value" id="detailDate"></span>
+            </div>
+          </div>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+        <div class="attachments-section" id="attachmentsSection" style="display:none;">
+          <div class="attachments-title">📎 첨부파일</div>
+          <div id="attachmentsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allEmails = [];
+let serverUrl = localStorage.getItem('mailServerUrl') || '';
+
+// Init
+if (serverUrl) {
+  document.getElementById('configModal').style.display = 'none';
+  document.getElementById('serverUrl').value = serverUrl;
+  loadEmails();
+}
+
+function saveConfig() {
+  const url = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
+  if (!url) return;
+  serverUrl = url;
+  localStorage.setItem('mailServerUrl', url);
+  document.getElementById('configModal').style.display = 'none';
+  loadEmails();
+}
+
+async function loadEmails() {
+  if (!serverUrl) {
+    document.getElementById('configModal').style.display = 'flex';
+    return;
+  }
+
+  document.getElementById('mailList').innerHTML = `
+    <div class="loading"><div class="spinner"></div>메일을 불러오는 중...</div>`;
+  
+  setStatus('연결 중...', false);
+
+  try {
+    const res = await fetch(`${serverUrl}/api/emails`);
+    if (!res.ok) throw new Error('서버 오류');
+    const data = await res.json();
+    
+    if (data.error) throw new Error(data.error);
+    
+    allEmails = data;
+    renderEmails(allEmails);
+    updateStats(allEmails);
+    setStatus('연결됨', true);
+    document.getElementById('lastUpdated').textContent = 
+      '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+  } catch (e) {
+    setStatus('오류: ' + e.message, false, true);
+    document.getElementById('mailList').innerHTML = `
+      <div class="loading" style="color:#e74c3c">
+        ⚠️ 연결 실패<br>
+        <span style="font-size:12px;margin-top:8px;display:block">${e.message}</span>
+      </div>`;
+  }
+}
+
+function setStatus(text, ok, error = false) {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (error ? ' error' : '');
+}
+
+function updateStats(emails) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCount = emails.filter(e => e.date && e.date.startsWith(today)).length;
+  const attachCount = emails.filter(e => e.has_attachment).length;
+  const senders = new Set(emails.map(e => e.sender)).size;
+
+  document.getElementById('statTotal').textContent = emails.length;
+  document.getElementById('statToday').textContent = todayCount;
+  document.getElementById('statAttach').textContent = attachCount;
+  document.getElementById('statSenders').textContent = senders;
+  document.getElementById('mailCount').textContent = emails.length + '통';
+}
+
+function filterEmails() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allEmails.filter(e =>
+    e.subject.toLowerCase().includes(q) ||
+    e.sender.toLowerCase().includes(q)
+  );
+  renderEmails(filtered);
+}
+
+function renderEmails(emails) {
+  const list = document.getElementById('mailList');
+  if (!emails.length) {
+    list.innerHTML = `<div class="loading">📭 메일이 없습니다</div>`;
+    return;
+  }
+
+  list.innerHTML = emails.map((mail, i) => `
+    <div class="mail-item" onclick="showDetail(${allEmails.indexOf(mail)})" id="mail-item-${allEmails.indexOf(mail)}">
+      <div class="mail-item-header">
+        <span class="mail-sender">${escHtml(extractName(mail.sender))}</span>
+        <span class="mail-date">${mail.date ? mail.date.slice(5, 16) : ''}</span>
+      </div>
+      <div class="mail-subject">${escHtml(mail.subject || '(제목 없음)')}</div>
+      <div class="mail-preview">${escHtml((mail.body || '').replace(/<[^>]+>/g,'').slice(0, 60))}</div>
+      <div class="mail-tags">
+        ${mail.has_attachment ? '<span class="tag attach">📎 첨부</span>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function showDetail(idx) {
+  const mail = allEmails[idx];
+  if (!mail) return;
+
+  document.querySelectorAll('.mail-item').forEach(el => el.classList.remove('active'));
+  const item = document.getElementById(`mail-item-${idx}`);
+  if (item) item.classList.add('active');
+
+  document.getElementById('detailEmpty').style.display = 'none';
+  document.getElementById('detailContent').style.display = 'flex';
+  document.getElementById('detailContent').style.flexDirection = 'column';
+
+  document.getElementById('detailSubject').textContent = mail.subject || '(제목 없음)';
+  document.getElementById('detailSender').textContent = mail.sender;
+  document.getElementById('detailDate').textContent = mail.date;
+
+  const body = (mail.body || '').replace(/<[^>]+>/g, '').trim();
+  document.getElementById('detailBody').textContent = body || '(본문 없음)';
+
+  const attSec = document.getElementById('attachmentsSection');
+  if (mail.has_attachment && mail.attachments?.length) {
+    attSec.style.display = 'block';
+    document.getElementById('attachmentsList').innerHTML = mail.attachments.map(f => `
+      <div class="attachment-item">📄 ${escHtml(f)}</div>
+    `).join('');
+  } else {
+    attSec.style.display = 'none';
+  }
+}
+
+function extractName(sender) {
+  const match = sender.match(/^"?([^"<]+)"?\s*</);
+  return match ? match[1].trim() : sender.split('@')[0];
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Auto refresh every 5 minutes
+setInterval(loadEmails, 5 * 60 * 1000);
+</script>
+</body>
+</html>
