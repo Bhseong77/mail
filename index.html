@@ -213,7 +213,8 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
       <span id="statusTxt">초기화 중...</span>
     </div>
     <div class="user-badge">👤 <span id="userNameBadge"></span></div>
-    <button class="btn" onclick="loadAll()">🔄 새로고침</button>
+    <button class="btn" onclick="loadAll(false)">🔄 새로고침</button>
+    <button class="btn" onclick="loadAll(true)" title="캐시 초기화 후 전체 재동기화">🔃 전체동기화</button>
     <button class="btn danger" onclick="doLogout()">로그아웃</button>
   </div>
 </div>
@@ -607,62 +608,177 @@ function parseEml(text) {
   return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, body: body.slice(0,1200), hasAttachment: attachments.length > 0, attachments };
 }
 
-// ── Load all ────────────────────────────────────────
-async function loadAll() {
+// ── Cache (IndexedDB) ───────────────────────────────
+const DB_NAME = "enjet_mail_v1";
+let db;
+
+async function openDB() {
+  if (db) return db;
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains("mails")) {
+        d.createObjectStore("mails", { keyPath: "cacheKey" });
+      }
+      if (!d.objectStoreNames.contains("meta")) {
+        d.createObjectStore("meta", { keyPath: "key" });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbGetAll() {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction("mails", "readonly");
+    const req = tx.objectStore("mails").getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbPutMails(mails) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction("mails", "readwrite");
+    const store = tx.objectStore("mails");
+    mails.forEach(m => store.put(m));
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function dbGetMeta(key) {
+  const d = await openDB();
+  return new Promise((res) => {
+    const tx = d.transaction("meta", "readonly");
+    const req = tx.objectStore("meta").get(key);
+    req.onsuccess = () => res(req.result?.value);
+    req.onerror = () => res(null);
+  });
+}
+
+async function dbSetMeta(key, value) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction("meta", "readwrite");
+    tx.objectStore("meta").put({ key, value });
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function dbClearAll() {
+  const d = await openDB();
+  return new Promise((res) => {
+    const tx = d.transaction(["mails","meta"], "readwrite");
+    tx.objectStore("mails").clear();
+    tx.objectStore("meta").clear();
+    tx.oncomplete = res;
+  });
+}
+
+// ── Load all (목록만, on-demand 본문) ─────────────────
+async function loadAll(forceRefresh = false) {
   setStatus("연결 중...", "spin");
-  setProgress(0);
-  document.getElementById("tabList").innerHTML = '<div class="lb"><div class="spinner"></div>SharePoint 연결 중...</div>';
+  setProgress(5);
+  document.getElementById("tabList").innerHTML = '<div class="lb"><div class="spinner"></div>캐시 확인 중...</div>';
   allMails = [];
 
   try {
+    // 1. 캐시에서 기존 데이터 로딩
+    if (!forceRefresh) {
+      const cached = await dbGetAll();
+      if (cached.length > 0) {
+        allMails = cached;
+        allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
+        filtered = [...allMails];
+        updateCounts();
+        filterMails();
+        setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
+        setProgress(0);
+        // 백그라운드에서 새 파일만 동기화
+        syncNewFiles();
+        return;
+      }
+    } else {
+      await dbClearAll();
+    }
+
+    // 2. 첫 로딩: 파일 목록만 가져와서 헤더만 파싱
     const token = await getToken();
     await initSite(token);
     setProgress(10);
 
     let totalFiles = 0;
-    for (const m of MEMBERS) {
-      try {
-        const files = await listFolder(token, `${MAIL_FOLDER}/${m.email}/messages`);
-        totalFiles += files.filter(f => f.name?.toLowerCase().endsWith(".eml")).length;
-      } catch {}
-    }
+    const allFileList = [];
 
-    let loaded = 0;
-    for (let mi = 0; mi < MEMBERS.length; mi++) {
-      const member = MEMBERS[mi];
-      // 다우오피스 백업 구조: 이메일폴더/messages/*.eml
-      const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
-      setStatus(`${member.name} 로딩 중...`, "spin");
-
+    for (const member of MEMBERS) {
       try {
+        const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
         const files = await listFolder(token, folderPath);
         const emls = files.filter(f => f.name?.toLowerCase().endsWith(".eml"));
-
-        const BATCH = 15;
-        for (let b = 0; b < emls.length; b += BATCH) {
-          const batch = emls.slice(b, b + BATCH);
-          await Promise.all(batch.map(async file => {
-            try {
-              const text = await getFileText(token, `${folderPath}/${file.name}`);
-              const parsed = parseEml(text);
-              allMails.push({ ...parsed, owner: member.email, ownerName: member.name, fileName: file.name });
-            } catch {}
-            loaded++;
-            setProgress(10 + Math.round(loaded / totalFiles * 85));
-            document.getElementById("tabList").innerHTML =
-              `<div class="lb"><div class="spinner"></div>${member.name}: ${loaded}/${totalFiles}개 로딩 중...</div>`;
-          }));
-        }
-      } catch(e) {
-        console.warn(member.email, e.message);
-      }
+        totalFiles += emls.length;
+        emls.forEach(f => allFileList.push({ file: f, member, folderPath }));
+      } catch(e) { console.warn(member.email, e.message); }
     }
 
+    setProgress(20);
+    document.getElementById("tabList").innerHTML =
+      `<div class="lb"><div class="spinner"></div>헤더 파싱 중... (0/${totalFiles})</div>`;
+
+    // 3. 헤더만 파싱 (파일 첫 4KB만 다운로드)
+    let loaded = 0;
+    const BATCH = 20;
+    const newMails = [];
+
+    for (let b = 0; b < allFileList.length; b += BATCH) {
+      const batch = allFileList.slice(b, b + BATCH);
+      await Promise.all(batch.map(async ({ file, member, folderPath }) => {
+        try {
+          // 헤더만 읽기 (Range 헤더로 첫 4KB만)
+          const parts = `${folderPath}/${file.name}`.split("/").map(p => encodeURIComponent(p)).join("/");
+          const r = await fetch(
+            `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+            { headers: { Authorization: "Bearer " + (await getToken()), Range: "bytes=0-4095" } }
+          );
+          const buf = await r.arrayBuffer();
+          const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+          const headerOnly = parseEmlHeaderOnly(text);
+          const mail = {
+            ...headerOnly,
+            cacheKey: `${member.email}/${file.name}`,
+            owner: member.email,
+            ownerName: member.name,
+            fileName: file.name,
+            folderPath,
+            bodyLoaded: false,
+            body: "",
+          };
+          newMails.push(mail);
+        } catch {}
+        loaded++;
+        setProgress(20 + Math.round(loaded / totalFiles * 75));
+        if (loaded % 20 === 0) {
+          document.getElementById("tabList").innerHTML =
+            `<div class="lb"><div class="spinner"></div>헤더 파싱 중... (${loaded}/${totalFiles})</div>`;
+        }
+      }));
+    }
+
+    // 4. 캐시 저장
+    await dbPutMails(newMails);
+    await dbSetMeta("lastSync", new Date().toISOString());
+
+    allMails = newMails;
     allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
     filtered = [...allMails];
     updateCounts();
     filterMails();
-    setStatus(`연결됨 · ${allMails.length}통`, "ok");
+    setStatus(`완료 · ${allMails.length}통`, "ok");
     setProgress(100);
     setTimeout(() => setProgress(0), 1500);
 
@@ -671,6 +787,96 @@ async function loadAll() {
     document.getElementById("tabList").innerHTML =
       `<div class="lb" style="color:var(--red)">⚠️ ${esc(e.message)}</div>`;
   }
+}
+
+// ── 새 파일만 동기화 (백그라운드) ────────────────────
+async function syncNewFiles() {
+  try {
+    const token = await getToken();
+    await initSite(token);
+    const existingKeys = new Set(allMails.map(m => m.cacheKey));
+    const newMails = [];
+
+    for (const member of MEMBERS) {
+      try {
+        const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
+        const files = await listFolder(token, folderPath);
+        const emls = files.filter(f => f.name?.toLowerCase().endsWith(".eml"));
+        const newFiles = emls.filter(f => !existingKeys.has(`${member.email}/${f.name}`));
+
+        for (const file of newFiles) {
+          try {
+            const parts = `${folderPath}/${file.name}`.split("/").map(p => encodeURIComponent(p)).join("/");
+            const r = await fetch(
+              `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+              { headers: { Authorization: "Bearer " + token, Range: "bytes=0-4095" } }
+            );
+            const buf = await r.arrayBuffer();
+            const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+            const headerOnly = parseEmlHeaderOnly(text);
+            newMails.push({
+              ...headerOnly,
+              cacheKey: `${member.email}/${file.name}`,
+              owner: member.email,
+              ownerName: member.name,
+              fileName: file.name,
+              folderPath,
+              bodyLoaded: false,
+              body: "",
+            });
+          } catch {}
+        }
+      } catch {}
+    }
+
+    if (newMails.length > 0) {
+      await dbPutMails(newMails);
+      allMails = [...allMails, ...newMails];
+      allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
+      filtered = [...allMails];
+      updateCounts();
+      filterMails();
+      setStatus(`완료 · ${allMails.length}통 (+${newMails.length} 신규)`, "ok");
+    } else {
+      setStatus(`최신 상태 · ${allMails.length}통`, "ok");
+    }
+  } catch(e) {
+    console.warn("백그라운드 동기화 오류:", e.message);
+  }
+}
+
+// ── EML 헤더만 파싱 (본문 제외) ──────────────────────
+function parseEmlHeaderOnly(text) {
+  const lines = text.split(/?\n/);
+  const headers = {};
+  let i = 0;
+  while (i < lines.length && lines[i] !== "") {
+    const line = lines[i];
+    if (/^[ \t]/.test(line)) {
+      const keys = Object.keys(headers);
+      if (keys.length) headers[keys[keys.length-1]] += " " + line.trim();
+    } else {
+      const col = line.indexOf(":");
+      if (col > 0) {
+        const k = line.slice(0,col).toLowerCase().trim();
+        headers[k] = line.slice(col+1).trim();
+      }
+    }
+    i++;
+  }
+  const subject = decodeWord(headers["subject"] || "");
+  const from    = decodeWord(headers["from"] || "");
+  const to      = decodeWord(headers["to"] || "");
+  const cc      = decodeWord(headers["cc"] || "");
+  const dateRaw = headers["date"] || "";
+  let dateFmt = dateRaw;
+  try {
+    const d = new Date(dateRaw);
+    if (!isNaN(d)) dateFmt = d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+  } catch {}
+  const ct = headers["content-type"] || "";
+  const hasAttachment = ct.includes("mixed") || text.includes("Content-Disposition: attachment");
+  return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, hasAttachment, attachments: [] };
 }
 
 // ── Counts ──────────────────────────────────────────
@@ -765,8 +971,8 @@ function renderTable(mails) {
   }).join("");
 }
 
-// ── Show detail ──────────────────────────────────────
-function showDetail(idx) {
+// ── Show detail (본문 on-demand 로딩) ────────────────
+async function showDetail(idx) {
   const mail = allMails[idx];
   if (!mail) return;
   document.querySelectorAll(".mi").forEach(el => el.classList.remove("active"));
@@ -787,6 +993,27 @@ function showDetail(idx) {
     ccEl.textContent = mail.cc.map(c=>c.name?`${c.name} <${c.email}>`:c.email).join(", ");
     ccEl.style.display = ""; ccK.style.display = "";
   } else { ccEl.style.display = "none"; ccK.style.display = "none"; }
+
+  // 본문 on-demand 로딩
+  if (!mail.bodyLoaded) {
+    document.getElementById("dBody").textContent = "⏳ 본문 로딩 중...";
+    document.getElementById("dAttSec").style.display = "none";
+    try {
+      const token = await getToken();
+      const text = await getFileText(token, `${mail.folderPath}/${mail.fileName}`);
+      const parsed = parseEml(text);
+      // 메일 데이터 업데이트
+      mail.body = parsed.body;
+      mail.attachments = parsed.attachments;
+      mail.hasAttachment = parsed.hasAttachment;
+      mail.bodyLoaded = true;
+      // IndexedDB 캐시 업데이트
+      await dbPutMails([mail]);
+    } catch(e) {
+      document.getElementById("dBody").textContent = "⚠️ 본문 로딩 실패: " + e.message;
+      return;
+    }
+  }
 
   document.getElementById("dBody").textContent = mail.body || "(본문 없음)";
 
