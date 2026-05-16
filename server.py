@@ -228,32 +228,36 @@ def health():
 # ── OpenAI 연락처 분석 캐시 ──────────────────────────
 _ai_cache = {}
 
-def ai_extract_contact(domain, signature, from_addr):
-    """OpenAI로 도메인+서명에서 연락처 정보 추출"""
-    cache_key = domain + "|" + signature[:100]
+def ai_extract_contact(domain, body_text, from_addr):
+    """OpenAI로 도메인+본문에서 연락처 정보 추출"""
+    cache_key = domain + "|" + body_text[:100]
     if cache_key in _ai_cache:
         return _ai_cache[cache_key]
 
-    prompt = f"""다음 이메일 서명에서 연락처 정보를 JSON으로 추출해주세요.
+    prompt = f"""다음 이메일 본문에서 발신자의 연락처 정보를 JSON으로 추출해주세요.
 
 이메일 도메인: {domain}
-발신자: {from_addr}
-서명 텍스트:
-{signature}
+발신자 주소: {from_addr}
+
+이메일 본문:
+{body_text}
 
 다음 형식의 JSON만 반환하세요 (설명 없이):
 {{
   "name": "한글이름 (성+이름, 공백없이)",
-  "company": "회사명 (도메인 기반으로 정확한 한국 회사명/기관명)",
-  "dept": "부서명 직함",
+  "company": "회사명",
+  "dept": "부서명과 직함",
   "mobile": "휴대폰번호",
   "tel": "직통전화번호"
 }}
 
-규칙:
-- company는 도메인을 참고해 실제 회사/기관명으로 (예: gachon.ac.kr → 가천대학교, samsung.com → 삼성전자)
-- 정보가 없으면 빈 문자열
-- 전화번호는 있는 그대로
+추출 규칙:
+1. name: 발신자 이름. 서명에 "홍길동입니다", "홍 길 동  Gildong Hong 과장" 등 패턴에서 추출
+2. company: 도메인으로 실제 회사/기관명 추정 (samsung.com→삼성전자, gachon.ac.kr→가천대학교, kopti.re.kr→한국생산기술연구원)
+3. dept: "기구공정기술2G 서보범입니다" → dept: "기구공정기술2G", "영업팀 과장" → dept: "영업팀 과장"
+4. 본문 첫 줄 "XXX팀 OOO입니다" 패턴에서도 이름과 부서 추출
+5. M/Mobile/T/Tel 패턴 전화번호 추출
+6. 정보 없으면 빈 문자열, 추측하지 말 것
 """
 
     try:
@@ -275,7 +279,6 @@ def ai_extract_contact(domain, signature, from_addr):
         with urllib.request.urlopen(req, timeout=10) as r:
             result = json.loads(r.read())
             text = result["choices"][0]["message"]["content"].strip()
-            # JSON 파싱
             if "```" in text:
                 text = text.split("```")[1]
                 if text.startswith("json"):
@@ -305,21 +308,14 @@ def parse_eml_contact_ai():
         domain = from_email.split("@")[1] if "@" in from_email else ""
         body = extract_body(msg)
 
-        # 서명 영역만 추출 (마지막 30줄)
-        lines = body.split("\n")
-        sig_lines = lines[max(0, len(lines)-30):]
-        # 구분선 이후
-        for i in range(len(sig_lines)-1, -1, -1):
-            if re.match(r'^[-_=]{2,}\s*$', sig_lines[i].strip()):
-                sig_lines = sig_lines[i+1:]
-                break
-        signature = "\n".join(sig_lines).strip()
+        if not body and not domain:
+            return jsonify({"error": "본문 없음"}), 400
 
-        if not signature and not domain:
-            return jsonify({"error": "서명 없음"}), 400
+        # 본문 전체 전송 (최대 800자) - 서명뿐 아니라 첫줄 소개도 포함
+        body_text = body[:800].strip()
 
         # OpenAI 분석
-        result = ai_extract_contact(domain, signature[:500], from_addr)
+        result = ai_extract_contact(domain, body_text, from_addr)
         result["email"] = from_email
         result["from"] = from_addr
 
@@ -327,10 +323,6 @@ def parse_eml_contact_ai():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
 
 # ── 서명에서 연락처 추출 ─────────────────────────────
 TITLES = r'사원|인턴|주임|연구원|대리|과장|차장|부장|팀장|수석|책임|선임|이사|상무|전무|부사장|사장|대표이사|대표|매니저|Manager|Director|Engineer|Senior|Analyst'
@@ -470,3 +462,6 @@ def parse_eml_contact():
         return jsonify(contact)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
