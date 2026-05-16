@@ -1439,6 +1439,8 @@ function exportDocTab(type) {
 
 // ── Contact extraction ───────────────────────────────
 let allContacts = [], filteredContacts = [];
+// AI 분석 결과 영구 캐시 (세션 동안 유지)
+const _contactCache = new Map(); // key: email → enriched contact info
 let contactSortKey = "name", contactSortDir = "asc";
 
 function extractContactFromBody(body, fromAddr) {
@@ -1513,21 +1515,27 @@ async function buildContacts() {
   const targetMails = currentOwner === "all" ? allMails :
     allMails.filter(m => m.owner === currentOwner);
 
-  // 1단계: 헤더 기반으로 우선 목록 구성 (빠름)
+  // 1단계: 헤더 기반으로 우선 목록 구성
   for (const mail of targetMails) {
     const fromEmail = extractEmail(mail.from);
     if (!fromEmail || fromEmail.includes("enjet.co.kr")) continue;
     const key = fromEmail.toLowerCase();
     if (!contactMap.has(key)) {
+      // 캐시에 이미 분석된 결과 있으면 그대로 사용
+      const cached = _contactCache.get(key);
       contactMap.set(key, {
         email: fromEmail,
-        name: extractName(mail.from),
-        company: "", dept: "", mobile: "", tel: "",
+        name: cached?.name || extractName(mail.from),
+        company: cached?.company || "",
+        dept: cached?.dept || "",
+        mobile: cached?.mobile || "",
+        tel: cached?.tel || "",
         lastDate: mail.date || "",
         lastDateRaw: mail.dateRaw || "",
         mailCount: 1,
-        enriched: false,
-        mail: mail  // 나중에 본문 파싱용
+        enriched: !!cached,   // 캐시 있으면 이미 분석 완료
+        mail: cached ? null : mail  // 캐시 있으면 재분석 불필요
+      });
       });
     } else {
       const ex = contactMap.get(key);
@@ -1566,7 +1574,8 @@ async function buildContacts() {
 }
 
 async function enrichContactsFromServer(contactMap) {
-  const toEnrich = [...contactMap.values()].filter(c => c.mail);
+  // enriched된 건 스킵, mail 있는 것만
+  const toEnrich = [...contactMap.values()].filter(c => c.mail && !c.enriched);
   if (!toEnrich.length) return;
 
   const token = await getToken().catch(() => null);
@@ -1611,6 +1620,11 @@ async function enrichContactsFromServer(contactMap) {
       if (info.mobile)  contact.mobile  = info.mobile;
       if (info.tel)     contact.tel     = info.tel;
       contact.enriched = true;
+      // 영구 캐시에 저장 (다음 주소록 탭 클릭 시 재사용)
+      _contactCache.set(contact.email.toLowerCase(), {
+        name: contact.name, company: contact.company,
+        dept: contact.dept, mobile: contact.mobile, tel: contact.tel
+      });
 
     } catch {}
 
