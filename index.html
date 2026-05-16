@@ -135,6 +135,42 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
 .exp-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--t2);font-size:11px;font-family:'Pretendard',sans-serif;cursor:pointer;transition:all 0.15s;}
 .exp-btn:hover{border-color:var(--accent);color:var(--accent);}
 
+/* Main nav tabs */
+.main-nav{display:flex;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.main-nav-btn{padding:6px 18px;border-radius:6px;border:none;background:transparent;color:var(--t2);font-size:13px;font-weight:500;font-family:'Pretendard',sans-serif;cursor:pointer;transition:all 0.15s;}
+.main-nav-btn:hover{color:var(--text);}
+.main-nav-btn.active{background:var(--accent);color:#fff;}
+
+/* Contacts full page */
+.contacts-page{flex:1;display:none;flex-direction:column;overflow:hidden;}
+.contacts-page.show{display:flex;}
+.ct-head{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;}
+.ct-title{font-size:17px;font-weight:700;}
+.ct-search{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 13px;color:var(--text);font-size:13px;font-family:'Pretendard',sans-serif;outline:none;transition:border-color 0.15s;min-width:240px;}
+.ct-search:focus{border-color:var(--accent);}
+.ct-search::placeholder{color:var(--t2);}
+.ct-cnt{font-size:12px;color:var(--t2);margin-left:auto;}
+.ct-body{flex:1;overflow:auto;}
+.ct-body::-webkit-scrollbar{width:4px;}
+.ct-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+.ct-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.ct-tbl thead tr{background:var(--bg3);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border);}
+.ct-tbl th{padding:11px 18px;text-align:left;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:0.8px;cursor:pointer;white-space:nowrap;user-select:none;}
+.ct-tbl th:hover{color:var(--accent);}
+.ct-tbl th.asc::after{content:' ▲';color:var(--accent);}
+.ct-tbl th.desc::after{content:' ▼';color:var(--accent);}
+.ct-tbl tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
+.ct-tbl tbody tr:hover{background:var(--bg3);}
+.ct-tbl td{padding:11px 18px;vertical-align:middle;}
+.ct-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.ct-name-cell{display:flex;align-items:center;gap:10px;}
+.ct-name{font-weight:600;font-size:13px;}
+.ct-co{font-size:11px;color:var(--t2);margin-top:2px;}
+.ct-email-link{color:var(--accent);text-decoration:none;font-size:13px;}
+.ct-email-link:hover{text-decoration:underline;}
+.ct-phone{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);}
+.ct-foot{padding:10px 18px;border-top:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--t2);flex-shrink:0;}
+
 /* Loading */
 .lb{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;gap:12px;color:var(--t2);font-size:13px;}
 .spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
@@ -168,6 +204,10 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     </div>
   </div>
   <div class="hright">
+    <div class="main-nav">
+      <button class="main-nav-btn active" onclick="switchMainTab('mail',this)">📧 메일함</button>
+      <button class="main-nav-btn" onclick="switchMainTab('contacts',this)">👤 주소록</button>
+    </div>
     <div class="status-pill">
       <div class="dot" id="statusDot"></div>
       <span id="statusTxt">초기화 중...</span>
@@ -213,7 +253,6 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     <div class="tab-bar">
       <div class="tab-item active" onclick="switchTab('list',this)">메일함</div>
       <div class="tab-item" onclick="switchTab('table',this)">목록</div>
-      <div class="tab-item" onclick="switchTab('contacts',this)">주소록</div>
     </div>
 
     <!-- List -->
@@ -246,29 +285,6 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
       </div>
     </div>
 
-    <!-- Contacts / 주소록 -->
-    <div class="tbl-panel" id="tabContacts">
-      <div class="tbl-toolbar">
-        <input class="si" id="contactSearch" placeholder="🔍 이름, 회사, 이메일 검색..." oninput="filterContacts()" style="flex:1;max-width:240px;">
-        <span style="font-size:11px;color:var(--t2);flex:1" id="contactCount"></span>
-        <button class="exp-btn" onclick="exportContacts()">⬇️ CSV</button>
-      </div>
-      <div class="tw">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortContacts('name')">이름</th>
-              <th onclick="sortContacts('company')">회사명</th>
-              <th onclick="sortContacts('dept')">부서/직함</th>
-              <th onclick="sortContacts('email')">이메일</th>
-              <th onclick="sortContacts('mobile')">휴대폰</th>
-              <th onclick="sortContacts('tel')">직통전화</th>
-              <th onclick="sortContacts('fax')">팩스</th>
-              <th>최근 메일</th>
-            </tr>
-          </thead>
-          <tbody id="contactBody"></tbody>
-        </table>
       </div>
     </div>
 
@@ -296,6 +312,38 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
         <div id="dAttList"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- 주소록 페이지 (별도 전체화면) -->
+<div class="contacts-page" id="contactsPage">
+  <div class="ct-head">
+    <div>
+      <div class="ct-title">👤 주소록</div>
+      <div style="font-size:12px;color:var(--t2);margin-top:2px">메일 발신자 기준 자동 추출 · 중복 제거</div>
+    </div>
+    <input class="ct-search" id="contactSearch" placeholder="🔍 이름, 회사, 이메일, 전화번호 검색..." oninput="filterContacts()">
+    <span class="ct-cnt" id="contactCount"></span>
+    <button class="exp-btn" onclick="exportContacts()">⬇️ CSV 내보내기</button>
+  </div>
+  <div class="ct-body">
+    <table class="ct-tbl">
+      <thead>
+        <tr>
+          <th onclick="sortContacts('name')">이름</th>
+          <th onclick="sortContacts('company')">소속 (회사명)</th>
+          <th onclick="sortContacts('email')">이메일 주소</th>
+          <th onclick="sortContacts('mobile')">전화번호</th>
+        </tr>
+      </thead>
+      <tbody id="contactBody">
+        <tr><td colspan="4" style="text-align:center;padding:60px;color:var(--t2)">메일 로딩 후 자동으로 추출됩니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="ct-foot">
+    <span id="ctFootCount"></span>
+    <span>메일 본문 서명에서 자동 추출 · 이메일 기준 중복 제거</span>
   </div>
 </div>
 
@@ -694,23 +742,34 @@ function showDetail(idx) {
 }
 
 // ── Tab switch ───────────────────────────────────────
+// ── Main tab switch ──────────────────────────────────
+function switchMainTab(tab, el) {
+  document.querySelectorAll(".main-nav-btn").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  const mailApp = document.getElementById("mainApp");
+  const ctPage  = document.getElementById("contactsPage");
+  if (tab === "mail") {
+    mailApp.style.display = "grid";
+    ctPage.classList.remove("show");
+  } else {
+    mailApp.style.display = "none";
+    ctPage.classList.add("show");
+    buildContacts();
+  }
+}
+
 function switchTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
   el.classList.add("active");
-  const listEl     = document.getElementById("tabList");
-  const tblEl      = document.getElementById("tabTable");
-  const contactEl  = document.getElementById("tabContacts");
-  listEl.style.display    = "none";
-  tblEl.style.display     = "none";
-  contactEl.style.display = "none";
+  const listEl = document.getElementById("tabList");
+  const tblEl  = document.getElementById("tabTable");
+  listEl.style.display = "none";
+  tblEl.style.display  = "none";
   if (tab === "list") {
     listEl.style.display = ""; renderList(filtered);
-  } else if (tab === "table") {
+  } else {
     tblEl.style.display = "flex"; tblEl.style.flexDirection = "column"; renderTable(filtered);
-  } else if (tab === "contacts") {
-    contactEl.style.display = "flex"; contactEl.style.flexDirection = "column";
-    buildContacts();
   }
 }
 
@@ -872,29 +931,38 @@ function sortContacts(key) {
 
 function renderContacts(contacts) {
   document.getElementById("contactCount").textContent = contacts.length + "명";
+  const ftEl = document.getElementById("ctFootCount");
+  if (ftEl) ftEl.textContent = `총 ${contacts.length}명`;
   const tbody = document.getElementById("contactBody");
   if (!contacts.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--t2)">📭 연락처가 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:60px;color:var(--t2)">📭 연락처가 없습니다</td></tr>';
     return;
   }
-  tbody.innerHTML = contacts.map(c => `
-    <tr>
-      <td style="font-weight:500">${esc(c.name)}</td>
-      <td class="td-s">${esc(c.company)}</td>
-      <td class="td-s">${esc(c.dept)}</td>
-      <td class="td-s"><a href="mailto:${esc(c.email)}" style="color:var(--accent);text-decoration:none">${esc(c.email)}</a></td>
-      <td class="td-m">${esc(c.mobile)}</td>
-      <td class="td-m">${esc(c.tel)}</td>
-      <td class="td-m">${esc(c.fax)}</td>
-      <td class="td-s">${esc((c.lastDate||"").slice(0,10))}</td>
-    </tr>`).join("");
+  const colors = ["av0","av1","av2","av3","av4"];
+  tbody.innerHTML = contacts.map((c, i) => {
+    const phone = c.mobile || c.tel || "";
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="ct-av ${colors[i%5]}">${(c.name||"?")[0]}</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;">${esc(c.name)}</div>
+            ${c.dept?`<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(c.dept)}</div>`:""}
+          </div>
+        </div>
+      </td>
+      <td style="color:var(--t2);font-size:13px;">${esc(c.company)}</td>
+      <td><a href="mailto:${esc(c.email)}" class="ct-email-link">${esc(c.email)}</a></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">${esc(phone)}</td>
+    </tr>`;
+  }).join("");
 }
 
 function exportContacts() {
-  const rows = [["이름","회사명","부서/직함","이메일","휴대폰","직통전화","팩스","최근메일"]];
+  const rows = [["이름","소속(회사명)","부서/직함","이메일","전화번호","휴대폰","직통전화"]];
   filteredContacts.forEach(c => rows.push([
     c.name||"", c.company||"", c.dept||"", c.email||"",
-    c.mobile||"", c.tel||"", c.fax||"", (c.lastDate||"").slice(0,10)
+    c.mobile||c.tel||"", c.mobile||"", c.tel||""
   ]));
   const csv = rows.map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a");
