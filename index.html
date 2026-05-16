@@ -334,8 +334,8 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
       <span id="statusTxt">초기화 중...</span>
     </div>
     <div class="user-badge">👤 <span id="userNameBadge"></span></div>
-    <button class="btn" onclick="loadAll(false)">🔄 새로고침</button>
-    <button class="btn" onclick="loadAll(true)" title="캐시 초기화 후 전체 재동기화">🔃 전체동기화</button>
+    <button class="btn" id="refreshBtn" onclick="loadAll(false)">🔄 새로고침</button>
+    <button class="btn" id="syncBtn" onclick="loadAll(true)">🔃 전체동기화</button>
     <button class="btn danger" onclick="doLogout()">로그아웃</button>
   </div>
 </div>
@@ -522,6 +522,27 @@ const MEMBERS = [
 // ── State ───────────────────────────────────────────
 let msal_, acct, siteId, driveId;
 let allMails = [], filtered = [];
+let isSyncing = false;
+
+function setSyncState(syncing, label = "") {
+  isSyncing = syncing;
+  const btn = document.getElementById("syncBtn");
+  const rbtn = document.getElementById("refreshBtn");
+  if (!btn) return;
+  if (syncing) {
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "not-allowed";
+    btn.textContent = label || "⏳ 동기화 중...";
+    if (rbtn) { rbtn.disabled = true; rbtn.style.opacity = "0.5"; }
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = "";
+    btn.style.cursor = "";
+    btn.textContent = "🔃 전체동기화";
+    if (rbtn) { rbtn.disabled = false; rbtn.style.opacity = ""; }
+  }
+}
 let currentOwner = "all", currentTab = "list";
 let sortKey = "date", sortDir = "desc";
 
@@ -870,6 +891,8 @@ async function dbClearAll() {
 
 // ── Load all (목록만, on-demand 본문) ─────────────────
 async function loadAll(forceRefresh = false) {
+  if (isSyncing && forceRefresh) return; // 중복 방지
+  setSyncState(true, forceRefresh ? "⏳ 동기화 중..." : "⏳ 확인 중...");
   setStatus("연결 중...", "spin");
   setProgress(5);
   document.getElementById("tabList").innerHTML = '<div class="lb"><div class="spinner"></div>캐시 확인 중...</div>';
@@ -886,14 +909,19 @@ async function loadAll(forceRefresh = false) {
         updateCounts();
         filterMails();
         const noHeader = allMails.filter(m => !m.headerLoaded).length;
+        setProgress(0);
+
         if (noHeader > 0) {
-          setStatus(`캐시 로딩됨 · ${allMails.length}통 (제목 미로딩 ${noHeader}건)`, "ok");
+          // 미완료 헤더 있으면 자동으로 이어서 로딩
+          setStatus(`캐시 로딩됨 · ${allMails.length}통 · 제목 이어서 로딩...`, "spin");
+          const tok = await getToken();
+          await initSite(tok);
+          loadHeadersBatch(tok);
         } else {
           setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
+          setSyncState(false);
+          syncNewFiles();
         }
-        setProgress(0);
-        // 새 파일만 확인 (헤더 재로딩 없음 - 🔃 전체동기화로만 가능)
-        syncNewFiles();
         return;
       }
     } else {
@@ -962,7 +990,7 @@ async function loadAll(forceRefresh = false) {
     filtered = [...allMails];
     updateCounts();
     filterMails();
-    setStatus(`완료 · ${allMails.length}통`, "ok");
+    setStatus(`목록 완료 · ${allMails.length}통 · 제목 로딩 중...`, "spin");
     setProgress(100);
     setTimeout(() => setProgress(0), 800);
 
@@ -970,6 +998,7 @@ async function loadAll(forceRefresh = false) {
     loadHeadersBatch(token);
 
   } catch(e) {
+    setSyncState(false);
     setStatus("오류: " + e.message, "err");
     document.getElementById("tabList").innerHTML =
       `<div class="lb" style="color:var(--red)">⚠️ ${esc(e.message)}</div>`;
@@ -987,7 +1016,7 @@ function formatDate(iso) {
 // ── 헤더 배치 로딩 (백그라운드) ──────────────────────
 async function loadHeadersBatch(token) {
   const noHeader = allMails.filter(m => !m.headerLoaded);
-  if (!noHeader.length) { syncNewFiles(); return; }
+  if (!noHeader.length) { setSyncState(false); syncNewFiles(); return; }
 
   const total = noHeader.length;
   const BATCH = 3;
@@ -1019,16 +1048,17 @@ async function loadHeadersBatch(token) {
       done++;
     }));
 
-    // 매 배치마다 화면 업데이트
+    // 버튼과 상태에 진행상황 표시
+    setSyncState(true, `⏳ ${done}/${total}`);
+    setStatus(`제목 로딩 중 · ${done}/${total}`, "spin");
     filterMails();
-    setStatus(`헤더 로딩 · ${done}/${total}`, "spin");
 
-    // 배치 간 딜레이 (429 방지)
     await new Promise(r => setTimeout(r, 800));
   }
 
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
+  setSyncState(false);
   syncNewFiles();
 }
 
