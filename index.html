@@ -213,6 +213,7 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     <div class="tab-bar">
       <div class="tab-item active" onclick="switchTab('list',this)">메일함</div>
       <div class="tab-item" onclick="switchTab('table',this)">목록</div>
+      <div class="tab-item" onclick="switchTab('contacts',this)">주소록</div>
     </div>
 
     <!-- List -->
@@ -244,9 +245,34 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
         </table>
       </div>
     </div>
-  </div>
 
-  <!-- Detail -->
+    <!-- Contacts / 주소록 -->
+    <div class="tbl-panel" id="tabContacts">
+      <div class="tbl-toolbar">
+        <input class="si" id="contactSearch" placeholder="🔍 이름, 회사, 이메일 검색..." oninput="filterContacts()" style="flex:1;max-width:240px;">
+        <span style="font-size:11px;color:var(--t2);flex:1" id="contactCount"></span>
+        <button class="exp-btn" onclick="exportContacts()">⬇️ CSV</button>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortContacts('name')">이름</th>
+              <th onclick="sortContacts('company')">회사명</th>
+              <th onclick="sortContacts('dept')">부서/직함</th>
+              <th onclick="sortContacts('email')">이메일</th>
+              <th onclick="sortContacts('mobile')">휴대폰</th>
+              <th onclick="sortContacts('tel')">직통전화</th>
+              <th onclick="sortContacts('fax')">팩스</th>
+              <th>최근 메일</th>
+            </tr>
+          </thead>
+          <tbody id="contactBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
   <div class="dp">
     <div class="dp-empty" id="dpEmpty">
       <div class="dp-empty-icon">✉️</div>
@@ -662,13 +688,209 @@ function switchTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
   el.classList.add("active");
-  const listEl = document.getElementById("tabList");
-  const tblEl  = document.getElementById("tabTable");
+  const listEl     = document.getElementById("tabList");
+  const tblEl      = document.getElementById("tabTable");
+  const contactEl  = document.getElementById("tabContacts");
+  listEl.style.display    = "none";
+  tblEl.style.display     = "none";
+  contactEl.style.display = "none";
   if (tab === "list") {
-    listEl.style.display = ""; tblEl.style.display = "none"; renderList(filtered);
-  } else {
-    listEl.style.display = "none"; tblEl.style.display = "flex"; tblEl.style.flexDirection = "column"; renderTable(filtered);
+    listEl.style.display = ""; renderList(filtered);
+  } else if (tab === "table") {
+    tblEl.style.display = "flex"; tblEl.style.flexDirection = "column"; renderTable(filtered);
+  } else if (tab === "contacts") {
+    contactEl.style.display = "flex"; contactEl.style.flexDirection = "column";
+    buildContacts();
   }
+}
+
+// ── Contact extraction ───────────────────────────────
+let allContacts = [], filteredContacts = [];
+let contactSortKey = "name", contactSortDir = "asc";
+
+function extractContactFromBody(body, fromEmail) {
+  if (!body) return null;
+
+  // 서명 영역 추출 (보통 마지막 30줄 또는 구분선 이후)
+  const lines = body.split(/\r?\n/);
+  const sigStart = Math.max(0, lines.length - 35);
+  const sigLines = lines.slice(sigStart).join("\n");
+
+  // 이메일 추출
+  const emailMatch = sigLines.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const email = emailMatch ? emailMatch[0].toLowerCase() : fromEmail;
+
+  // 이름+직함 패턴 (한국어 서명)
+  // 예: 곽 현  Hyeon Kwak 사원 | 제어기술팀
+  const nameLineMatch = sigLines.match(/([가-힣]{1,2}\s[가-힣]{1,2}|[가-힣]{2,4})\s+[A-Za-z\s]+(?:사원|대리|과장|차장|부장|팀장|이사|전무|상무|부사장|대표이사|대표|수석|책임|선임|연구원|주임|인턴)?/);
+
+  // 직함 추출
+  const titleMatch = sigLines.match(/(?:사원|대리|과장|차장|부장|팀장|이사|전무|상무|부사장|대표이사|대표|수석|책임|선임|연구원|주임|Senior|Manager|Director|Engineer|Researcher)/);
+  const title = titleMatch ? titleMatch[0] : "";
+
+  // 부서 추출
+  const deptMatch = sigLines.match(/([가-힣A-Za-z]+(?:팀|부|실|센터|본부|그룹|파트|Division|Team|Dept))/);
+  const dept = deptMatch ? deptMatch[1] : "";
+
+  // 전화번호 추출 (M=모바일, T=직통, F=팩스)
+  const mobileMatch = sigLines.match(/(?:M|Mobile|H\.P|Cell)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
+  const telMatch    = sigLines.match(/(?:T|Tel|Phone|D|Direct)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
+  const faxMatch    = sigLines.match(/(?:F|Fax)[\s.:]*(\+?[\d\s.\-()]{9,20})/i);
+
+  const mobile = mobileMatch ? mobileMatch[1].trim().replace(/\s+/g," ") : "";
+  const tel    = telMatch    ? telMatch[1].trim().replace(/\s+/g," ") : "";
+  const fax    = faxMatch    ? faxMatch[1].trim().replace(/\s+/g," ") : "";
+
+  // 회사명 추출
+  const companyMatch = sigLines.match(/([가-힣A-Za-z\s()（）]+(?:주식회사|㈜|\(주\)|Co\.,?\s*Ltd\.?|Inc\.?|Corp\.?|Co\.))/i);
+  const company = companyMatch ? companyMatch[1].trim() : "";
+
+  // 이름 추출 (From 헤더에서)
+  const nameFromHeader = fromEmail ? extractName(fromEmail.includes("<") ? fromEmail : "") : "";
+
+  // 의미있는 데이터가 없으면 null 반환
+  if (!email && !mobile && !tel) return null;
+
+  return {
+    email,
+    name: nameFromHeader,
+    company,
+    dept: [dept, title].filter(Boolean).join(" / "),
+    mobile,
+    tel,
+    fax,
+  };
+}
+
+function buildContacts() {
+  // 모든 메일의 발신자 + 참조에서 연락처 추출
+  const contactMap = new Map(); // key: email
+
+  // 현재 필터된 메일 기준
+  const targetMails = currentOwner === "all" ? allMails :
+    allMails.filter(m => m.owner === currentOwner);
+
+  for (const mail of targetMails) {
+    // 발신자
+    const fromEmail = extractEmail(mail.from);
+    const fromName  = extractName(mail.from);
+
+    if (fromEmail && !fromEmail.includes("enjet.co.kr")) {
+      // 외부 발신자만 (내부 직원 제외)
+      const key = fromEmail.toLowerCase();
+      if (!contactMap.has(key)) {
+        // 본문에서 연락처 추출
+        const extracted = extractContactFromBody(mail.body, mail.from);
+        contactMap.set(key, {
+          email: fromEmail,
+          name: fromName || extracted?.name || fromEmail.split("@")[0],
+          company: extracted?.company || "",
+          dept: extracted?.dept || "",
+          mobile: extracted?.mobile || "",
+          tel: extracted?.tel || "",
+          fax: extracted?.fax || "",
+          lastDate: mail.date || "",
+          lastDateRaw: mail.dateRaw || "",
+          mailCount: 1,
+        });
+      } else {
+        const existing = contactMap.get(key);
+        existing.mailCount++;
+        // 이름/회사 업데이트 (더 많은 정보가 있으면)
+        if (!existing.company) {
+          const ex2 = extractContactFromBody(mail.body, mail.from);
+          if (ex2?.company) existing.company = ex2.company;
+          if (ex2?.mobile && !existing.mobile) existing.mobile = ex2.mobile;
+          if (ex2?.tel && !existing.tel) existing.tel = ex2.tel;
+          if (ex2?.fax && !existing.fax) existing.fax = ex2.fax;
+          if (ex2?.dept && !existing.dept) existing.dept = ex2.dept;
+        }
+      }
+    }
+
+    // 참조자도 추가 (이름+이메일만)
+    for (const cc of (mail.cc || [])) {
+      if (!cc.email || cc.email.includes("enjet.co.kr")) continue;
+      const key = cc.email.toLowerCase();
+      if (!contactMap.has(key)) {
+        contactMap.set(key, {
+          email: cc.email,
+          name: cc.name || cc.email.split("@")[0],
+          company: "", dept: "", mobile: "", tel: "", fax: "",
+          lastDate: mail.date || "", lastDateRaw: mail.dateRaw || "",
+          mailCount: 1,
+        });
+      } else {
+        contactMap.get(key).mailCount++;
+        if (!contactMap.get(key).name && cc.name)
+          contactMap.get(key).name = cc.name;
+      }
+    }
+  }
+
+  allContacts = [...contactMap.values()];
+  filteredContacts = [...allContacts];
+  sortContactsList();
+  renderContacts(filteredContacts);
+}
+
+function filterContacts() {
+  const q = document.getElementById("contactSearch").value.toLowerCase();
+  filteredContacts = allContacts.filter(c =>
+    (c.name||"").toLowerCase().includes(q) ||
+    (c.email||"").toLowerCase().includes(q) ||
+    (c.company||"").toLowerCase().includes(q) ||
+    (c.dept||"").toLowerCase().includes(q)
+  );
+  renderContacts(filteredContacts);
+}
+
+function sortContactsList() {
+  filteredContacts.sort((a,b) => {
+    const va = (a[contactSortKey]||"").toString();
+    const vb = (b[contactSortKey]||"").toString();
+    return contactSortDir === "asc" ? va.localeCompare(vb,"ko") : vb.localeCompare(va,"ko");
+  });
+}
+
+function sortContacts(key) {
+  if (contactSortKey === key) contactSortDir = contactSortDir === "asc" ? "desc" : "asc";
+  else { contactSortKey = key; contactSortDir = "asc"; }
+  sortContactsList();
+  renderContacts(filteredContacts);
+}
+
+function renderContacts(contacts) {
+  document.getElementById("contactCount").textContent = contacts.length + "명";
+  const tbody = document.getElementById("contactBody");
+  if (!contacts.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--t2)">📭 연락처가 없습니다</td></tr>';
+    return;
+  }
+  tbody.innerHTML = contacts.map(c => `
+    <tr>
+      <td style="font-weight:500">${esc(c.name)}</td>
+      <td class="td-s">${esc(c.company)}</td>
+      <td class="td-s">${esc(c.dept)}</td>
+      <td class="td-s"><a href="mailto:${esc(c.email)}" style="color:var(--accent);text-decoration:none">${esc(c.email)}</a></td>
+      <td class="td-m">${esc(c.mobile)}</td>
+      <td class="td-m">${esc(c.tel)}</td>
+      <td class="td-m">${esc(c.fax)}</td>
+      <td class="td-s">${esc((c.lastDate||"").slice(0,10))}</td>
+    </tr>`).join("");
+}
+
+function exportContacts() {
+  const rows = [["이름","회사명","부서/직함","이메일","휴대폰","직통전화","팩스","최근메일"]];
+  filteredContacts.forEach(c => rows.push([
+    c.name||"", c.company||"", c.dept||"", c.email||"",
+    c.mobile||"", c.tel||"", c.fax||"", (c.lastDate||"").slice(0,10)
+  ]));
+  const csv = rows.map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"}));
+  a.download = "enjet_contacts_" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click();
 }
 
 // ── Sort table ───────────────────────────────────────
