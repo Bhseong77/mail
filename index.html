@@ -1536,7 +1536,6 @@ async function buildContacts() {
         enriched: !!cached,   // 캐시 있으면 이미 분석 완료
         mail: cached ? null : mail  // 캐시 있으면 재분석 불필요
       });
-      });
     } else {
       const ex = contactMap.get(key);
       ex.mailCount++;
