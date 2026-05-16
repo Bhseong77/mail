@@ -849,14 +849,20 @@ async function dbGetAll() {
 }
 
 async function dbPutMails(mails) {
+  if (!mails.length) return;
   const d = await openDB();
-  return new Promise((res, rej) => {
-    const tx = d.transaction("mails", "readwrite");
-    const store = tx.objectStore("mails");
-    mails.forEach(m => store.put(m));
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
+  // 500개씩 나눠서 저장 (트랜잭션 크기 제한 방지)
+  const CHUNK = 500;
+  for (let i = 0; i < mails.length; i += CHUNK) {
+    const chunk = mails.slice(i, i + CHUNK);
+    await new Promise((res, rej) => {
+      const tx = d.transaction("mails", "readwrite");
+      const store = tx.objectStore("mails");
+      chunk.forEach(m => store.put(m));
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+  }
 }
 
 async function dbGetMeta(key) {
@@ -1019,8 +1025,9 @@ async function loadHeadersBatch(token) {
   if (!noHeader.length) { setSyncState(false); syncNewFiles(); return; }
 
   const total = noHeader.length;
-  const BATCH = 3;
+  const BATCH = 10;
   let done = 0;
+  let batchToSave = [];
 
   for (let b = 0; b < noHeader.length; b += BATCH) {
     const batch = noHeader.slice(b, b + BATCH);
@@ -1043,18 +1050,26 @@ async function loadHeadersBatch(token) {
         mail.dateRaw       = h.dateRaw || mail.dateRaw;
         mail.hasAttachment = h.hasAttachment;
         mail.headerLoaded  = true;
-        await dbPutMails([mail]);
+        batchToSave.push(mail);
       } catch { mail.headerLoaded = true; }
       done++;
     }));
 
-    // 버튼과 상태에 진행상황 표시
+    // 50개마다 DB 저장 + 화면 업데이트
+    if (batchToSave.length >= 50 || b + BATCH >= noHeader.length) {
+      await dbPutMails(batchToSave);
+      batchToSave = [];
+    }
+
     setSyncState(true, `⏳ ${done}/${total}`);
     setStatus(`제목 로딩 중 · ${done}/${total}`, "spin");
     filterMails();
 
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 300));
   }
+
+  // 남은 것 저장
+  if (batchToSave.length) await dbPutMails(batchToSave);
 
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
