@@ -1299,68 +1299,50 @@ function extractContactFromBody(body, fromAddr) {
   return { email, name, company, dept: deptFull, mobile, tel };
 }
 
-function buildContacts() {
-  // 모든 메일의 발신자 + 참조에서 연락처 추출
-  const contactMap = new Map(); // key: email
-
-  // 현재 필터된 메일 기준
+async function buildContacts() {
+  const contactMap = new Map();
   const targetMails = currentOwner === "all" ? allMails :
     allMails.filter(m => m.owner === currentOwner);
 
+  // 1단계: 헤더 기반으로 우선 목록 구성 (빠름)
   for (const mail of targetMails) {
-    // 발신자
     const fromEmail = extractEmail(mail.from);
-    const fromName  = extractName(mail.from);
-
-    if (fromEmail && !fromEmail.includes("enjet.co.kr")) {
-      // 외부 발신자만 (내부 직원 제외)
-      const key = fromEmail.toLowerCase();
-      if (!contactMap.has(key)) {
-        // 본문에서 연락처 추출
-        const extracted = extractContactFromBody(mail.body, mail.from);
-        contactMap.set(key, {
-          email: fromEmail,
-          name: fromName || extracted?.name || fromEmail.split("@")[0],
-          company: extracted?.company || "",
-          dept: extracted?.dept || "",
-          mobile: extracted?.mobile || "",
-          tel: extracted?.tel || "",
-          fax: extracted?.fax || "",
-          lastDate: mail.date || "",
-          lastDateRaw: mail.dateRaw || "",
-          mailCount: 1,
-        });
-      } else {
-        const existing = contactMap.get(key);
-        existing.mailCount++;
-        // 이름/회사 업데이트 (더 많은 정보가 있으면)
-        if (!existing.company) {
-          const ex2 = extractContactFromBody(mail.body, mail.from);
-          if (ex2?.company) existing.company = ex2.company;
-          if (ex2?.mobile && !existing.mobile) existing.mobile = ex2.mobile;
-          if (ex2?.tel && !existing.tel) existing.tel = ex2.tel;
-          if (ex2?.fax && !existing.fax) existing.fax = ex2.fax;
-          if (ex2?.dept && !existing.dept) existing.dept = ex2.dept;
-        }
-      }
+    if (!fromEmail || fromEmail.includes("enjet.co.kr")) continue;
+    const key = fromEmail.toLowerCase();
+    if (!contactMap.has(key)) {
+      contactMap.set(key, {
+        email: fromEmail,
+        name: extractName(mail.from),
+        company: "", dept: "", mobile: "", tel: "",
+        lastDate: mail.date || "",
+        lastDateRaw: mail.dateRaw || "",
+        mailCount: 1,
+        enriched: false,
+        mail: mail  // 나중에 본문 파싱용
+      });
+    } else {
+      const ex = contactMap.get(key);
+      ex.mailCount++;
+      // 최근 메일 기준 업데이트
+      if (!ex.enriched) ex.mail = mail;
     }
 
-    // 참조자도 추가 (이름+이메일만)
+    // 참조자
     for (const cc of (mail.cc || [])) {
       if (!cc.email || cc.email.includes("enjet.co.kr")) continue;
-      const key = cc.email.toLowerCase();
-      if (!contactMap.has(key)) {
-        contactMap.set(key, {
+      const cKey = cc.email.toLowerCase();
+      if (!contactMap.has(cKey)) {
+        contactMap.set(cKey, {
           email: cc.email,
           name: cc.name || cc.email.split("@")[0],
-          company: "", dept: "", mobile: "", tel: "", fax: "",
+          company: "", dept: "", mobile: "", tel: "",
           lastDate: mail.date || "", lastDateRaw: mail.dateRaw || "",
-          mailCount: 1,
+          mailCount: 1, enriched: false, mail: null
         });
       } else {
-        contactMap.get(key).mailCount++;
-        if (!contactMap.get(key).name && cc.name)
-          contactMap.get(key).name = cc.name;
+        const ex = contactMap.get(cKey);
+        ex.mailCount++;
+        if (!ex.name && cc.name) ex.name = cc.name;
       }
     }
   }
@@ -1369,6 +1351,65 @@ function buildContacts() {
   filteredContacts = [...allContacts];
   sortContactsList();
   renderContacts(filteredContacts);
+
+  // 2단계: 본문 있는 메일에서 서버로 연락처 보강 (백그라운드)
+  enrichContactsFromServer(contactMap);
+}
+
+async function enrichContactsFromServer(contactMap) {
+  const toEnrich = [...contactMap.values()].filter(c => c.mail?.bodyLoaded && c.mail?.body);
+  if (!toEnrich.length) return;
+
+  const token = await getToken().catch(() => null);
+  if (!token) return;
+
+  let enriched = 0;
+  for (const contact of toEnrich) {
+    try {
+      const mail = contact.mail;
+      const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
+      const emlRes = await fetchWithRetry(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (!emlRes.ok) continue;
+      const emlBytes = await emlRes.arrayBuffer();
+
+      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: emlBytes
+      });
+      if (!parseRes.ok) continue;
+      const info = await parseRes.json();
+
+      // 정보 업데이트
+      if (info.name && !contact.name) contact.name = info.name;
+      if (info.company) contact.company = info.company;
+      if (info.dept) contact.dept = info.dept;
+      if (info.mobile) contact.mobile = info.mobile;
+      if (info.tel) contact.tel = info.tel;
+      contact.enriched = true;
+
+      enriched++;
+      // 10개마다 화면 업데이트
+      if (enriched % 10 === 0) {
+        filteredContacts = [...contactMap.values()];
+        sortContactsList();
+        renderContacts(filteredContacts);
+      }
+      // 요청 간 딜레이
+      await new Promise(r => setTimeout(r, 200));
+    } catch {}
+  }
+
+  // 최종 업데이트
+  if (enriched > 0) {
+    allContacts = [...contactMap.values()];
+    filteredContacts = [...allContacts];
+    sortContactsList();
+    renderContacts(filteredContacts);
+  }
 }
 
 function filterContacts() {
