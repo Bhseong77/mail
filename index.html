@@ -841,9 +841,17 @@ async function loadAll(forceRefresh = false) {
         filtered = [...allMails];
         updateCounts();
         filterMails();
+        const noHeader = allMails.filter(m => !m.headerLoaded).length;
         setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
         setProgress(0);
-        syncNewFiles();
+        // 헤더 없는 메일이 있으면 백그라운드 로딩
+        if (noHeader > 0) {
+          const tok = await getToken();
+          await initSite(tok);
+          loadHeadersBatch(tok);
+        } else {
+          syncNewFiles();
+        }
         return;
       }
     } else {
@@ -931,9 +939,10 @@ function formatDate(iso) {
 // ── 헤더 배치 로딩 (백그라운드) ──────────────────────
 async function loadHeadersBatch(token) {
   const noHeader = allMails.filter(m => !m.headerLoaded);
-  if (!noHeader.length) return;
+  if (!noHeader.length) { syncNewFiles(); return; }
 
-  const BATCH = 5;
+  const total = noHeader.length;
+  const BATCH = 3;
   let done = 0;
 
   for (let b = 0; b < noHeader.length; b += BATCH) {
@@ -945,36 +954,34 @@ async function loadHeadersBatch(token) {
           `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
           { headers: { Authorization: "Bearer " + (await getToken()), Range: "bytes=0-8191" } }
         );
-        if (!r.ok) return;
+        if (!r.ok) { mail.headerLoaded = true; return; }
         const buf = await r.arrayBuffer();
         const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
         const h = parseEmlHeaderOnly(text);
-        // 메일 정보 업데이트
-        mail.subject      = h.subject || mail.subject;
-        mail.from         = h.from    || mail.from;
-        mail.to           = h.to      || mail.to;
-        mail.cc           = h.cc      || mail.cc;
-        mail.date         = h.date    || mail.date;
-        mail.dateRaw      = h.dateRaw || mail.dateRaw;
+        mail.subject       = h.subject || "";
+        mail.from          = h.from    || "";
+        mail.to            = h.to      || [];
+        mail.cc            = h.cc      || [];
+        mail.date          = h.date    || mail.date;
+        mail.dateRaw       = h.dateRaw || mail.dateRaw;
         mail.hasAttachment = h.hasAttachment;
-        mail.headerLoaded = true;
-        // 캐시 업데이트
+        mail.headerLoaded  = true;
         await dbPutMails([mail]);
-      } catch {}
+      } catch { mail.headerLoaded = true; }
       done++;
     }));
 
-    // 50개마다 화면 업데이트
-    if (done % 50 === 0 || done === noHeader.length) {
-      filterMails();
-      setStatus(`헤더 로딩 중 · ${done}/${noHeader.length}`, "spin");
-    }
-    // 배치 간 500ms 딜레이 (429 방지)
-    await new Promise(r => setTimeout(r, 500));
+    // 매 배치마다 화면 업데이트
+    filterMails();
+    setStatus(`헤더 로딩 · ${done}/${total}`, "spin");
+
+    // 배치 간 딜레이 (429 방지)
+    await new Promise(r => setTimeout(r, 800));
   }
 
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
+  syncNewFiles();
 }
 
 // ── 새 파일만 동기화 (백그라운드) ────────────────────
