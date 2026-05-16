@@ -1,4 +1,6 @@
 from flask import Flask, jsonify, send_file, request
+import urllib.request
+import json
 from flask_cors import CORS
 import imaplib
 import email
@@ -15,6 +17,7 @@ IMAP_SERVER = os.environ.get("IMAP_SERVER", "gw.enjet.co.kr")
 IMAP_PORT = int(os.environ.get("IMAP_PORT", 993))
 EMAIL_USER = os.environ.get("EMAIL_USER", "")
 EMAIL_PASS = os.environ.get("EMAIL_PASS", "")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 def decode_str(s):
     if s is None: return ""
@@ -221,6 +224,110 @@ def parse_eml_endpoint():
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
+
+# ── OpenAI 연락처 분석 캐시 ──────────────────────────
+_ai_cache = {}
+
+def ai_extract_contact(domain, signature, from_addr):
+    """OpenAI로 도메인+서명에서 연락처 정보 추출"""
+    cache_key = domain + "|" + signature[:100]
+    if cache_key in _ai_cache:
+        return _ai_cache[cache_key]
+
+    prompt = f"""다음 이메일 서명에서 연락처 정보를 JSON으로 추출해주세요.
+
+이메일 도메인: {domain}
+발신자: {from_addr}
+서명 텍스트:
+{signature}
+
+다음 형식의 JSON만 반환하세요 (설명 없이):
+{{
+  "name": "한글이름 (성+이름, 공백없이)",
+  "company": "회사명 (도메인 기반으로 정확한 한국 회사명/기관명)",
+  "dept": "부서명 직함",
+  "mobile": "휴대폰번호",
+  "tel": "직통전화번호"
+}}
+
+규칙:
+- company는 도메인을 참고해 실제 회사/기관명으로 (예: gachon.ac.kr → 가천대학교, samsung.com → 삼성전자)
+- 정보가 없으면 빈 문자열
+- 전화번호는 있는 그대로
+"""
+
+    try:
+        payload = json.dumps({
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 300,
+            "temperature": 0
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {OPENAI_KEY}"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            result = json.loads(r.read())
+            text = result["choices"][0]["message"]["content"].strip()
+            # JSON 파싱
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            parsed = json.loads(text.strip())
+            _ai_cache[cache_key] = parsed
+            return parsed
+    except Exception as e:
+        print(f"OpenAI 오류: {e}")
+        return {}
+
+
+@app.route("/api/parse-eml-contact-ai", methods=["POST"])
+def parse_eml_contact_ai():
+    """OpenAI로 eml에서 연락처 정보 추출"""
+    try:
+        if not OPENAI_KEY:
+            return jsonify({"error": "OPENAI_API_KEY 미설정"}), 400
+
+        eml_bytes = request.get_data()
+        if not eml_bytes:
+            return jsonify({"error": "데이터 없음"}), 400
+
+        msg = email.message_from_bytes(eml_bytes)
+        from_addr = decode_str(msg.get("From", ""))
+        from_email = email.utils.parseaddr(from_addr)[1]
+        domain = from_email.split("@")[1] if "@" in from_email else ""
+        body = extract_body(msg)
+
+        # 서명 영역만 추출 (마지막 30줄)
+        lines = body.split("\n")
+        sig_lines = lines[max(0, len(lines)-30):]
+        # 구분선 이후
+        for i in range(len(sig_lines)-1, -1, -1):
+            if re.match(r'^[-_=]{2,}\s*$', sig_lines[i].strip()):
+                sig_lines = sig_lines[i+1:]
+                break
+        signature = "\n".join(sig_lines).strip()
+
+        if not signature and not domain:
+            return jsonify({"error": "서명 없음"}), 400
+
+        # OpenAI 분석
+        result = ai_extract_contact(domain, signature[:500], from_addr)
+        result["email"] = from_email
+        result["from"] = from_addr
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

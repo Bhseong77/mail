@@ -1408,21 +1408,18 @@ async function buildContacts() {
 }
 
 async function enrichContactsFromServer(contactMap) {
-  // bodyLoaded 여부 상관없이 발신자 메일 있는 연락처 모두 처리
   const toEnrich = [...contactMap.values()].filter(c => c.mail);
   if (!toEnrich.length) return;
 
   const token = await getToken().catch(() => null);
   if (!token) return;
 
-  // 주소록 상태 표시
-  document.getElementById("contactCount").textContent = `연락처 정보 보강 중... (0/${toEnrich.length})`;
+  document.getElementById("contactCount").textContent = `AI 분석 중... (0/${toEnrich.length})`;
 
   let enriched = 0;
   for (const contact of toEnrich) {
     try {
       const mail = contact.mail;
-      // eml 직접 다운로드 (본문 로딩 여부 무관)
       const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
       const emlRes = await fetchWithRetry(
         `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
@@ -1431,18 +1428,26 @@ async function enrichContactsFromServer(contactMap) {
       if (!emlRes.ok) { enriched++; continue; }
       const emlBytes = await emlRes.arrayBuffer();
 
-      // Render 서버로 파싱 요청
-      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml-contact`, {
+      // OpenAI AI 분석 엔드포인트 사용
+      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml-contact-ai`, {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
         body: emlBytes
       });
-      if (!parseRes.ok) { enriched++; continue; }
-      const info = await parseRes.json();
+
+      // AI 실패 시 기존 파이썬 파서로 폴백
+      const endpoint = parseRes.ok ? parseRes :
+        await fetch(`${RENDER_URL}/api/parse-eml-contact`, {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: emlBytes
+        });
+
+      if (!endpoint.ok) { enriched++; continue; }
+      const info = await endpoint.json();
       if (info.error) { enriched++; continue; }
 
-      // 연락처 정보 업데이트
-      if (info.name && !contact.name) contact.name = info.name;
+      if (info.name)    contact.name    = info.name;
       if (info.company) contact.company = info.company;
       if (info.dept)    contact.dept    = info.dept;
       if (info.mobile)  contact.mobile  = info.mobile;
@@ -1453,19 +1458,16 @@ async function enrichContactsFromServer(contactMap) {
 
     enriched++;
     document.getElementById("contactCount").textContent =
-      `연락처 정보 보강 중... (${enriched}/${toEnrich.length})`;
+      `AI 분석 중... (${enriched}/${toEnrich.length})`;
 
-    // 5개마다 화면 업데이트
     if (enriched % 5 === 0) {
       filteredContacts = [...contactMap.values()];
       sortContactsList();
       renderContacts(filteredContacts);
     }
-    // 요청 간 딜레이 (429 방지)
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
   }
 
-  // 최종 업데이트
   allContacts = [...contactMap.values()];
   filteredContacts = [...allContacts];
   sortContactsList();
