@@ -843,7 +843,6 @@ async function loadAll(forceRefresh = false) {
         filterMails();
         setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
         setProgress(0);
-        // 백그라운드에서 새 파일만 동기화
         syncNewFiles();
         return;
       }
@@ -851,67 +850,52 @@ async function loadAll(forceRefresh = false) {
       await dbClearAll();
     }
 
-    // 2. 첫 로딩: 파일 목록만 가져와서 헤더만 파싱
+    // 2. 파일 목록만 가져오기 (다운로드 없음!)
     const token = await getToken();
     await initSite(token);
-    setProgress(10);
+    setProgress(15);
 
-    let totalFiles = 0;
     const allFileList = [];
-
     for (const member of MEMBERS) {
       try {
         const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
-        const files = await listFolder(token, folderPath);
-        const emls = files.filter(f => f.name?.toLowerCase().endsWith(".eml"));
-        totalFiles += emls.length;
+        // $select로 필요한 메타데이터만 요청 (빠름!)
+        const parts = folderPath.split("/").map(p => encodeURIComponent(p)).join("/");
+        const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/children?$top=5000&$select=name,createdDateTime,lastModifiedDateTime,size`;
+        const r = await fetchWithRetry(url, { headers: { Authorization: "Bearer " + token } });
+        if (!r.ok) continue;
+        const data = await r.json();
+        const emls = (data.value||[]).filter(f => f.name?.toLowerCase().endsWith(".eml"));
         emls.forEach(f => allFileList.push({ file: f, member, folderPath }));
       } catch(e) { console.warn(member.email, e.message); }
     }
 
-    setProgress(20);
+    const totalFiles = allFileList.length;
+    setProgress(40);
     document.getElementById("tabList").innerHTML =
-      `<div class="lb"><div class="spinner"></div>헤더 파싱 중... (0/${totalFiles})</div>`;
+      `<div class="lb"><div class="spinner"></div>메일 목록 구성 중... (${totalFiles}통)</div>`;
 
-    // 3. 헤더만 파싱 (파일 첫 4KB만 다운로드)
-    let loaded = 0;
-    const BATCH = 8;  // 배치 크기 줄여서 429 방지
-    const newMails = [];
-
-    for (let b = 0; b < allFileList.length; b += BATCH) {
-      const batch = allFileList.slice(b, b + BATCH);
-      await Promise.all(batch.map(async ({ file, member, folderPath }) => {
-        try {
-          const parts = `${folderPath}/${file.name}`.split("/").map(p => encodeURIComponent(p)).join("/");
-          const r = await fetchWithRetry(
-            `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-            { headers: { Authorization: "Bearer " + (await getToken()), Range: "bytes=0-4095" } }
-          );
-          const buf = await r.arrayBuffer();
-          const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
-          const headerOnly = parseEmlHeaderOnly(text);
-          const mail = {
-            ...headerOnly,
-            cacheKey: `${member.email}/${file.name}`,
-            owner: member.email,
-            ownerName: member.name,
-            fileName: file.name,
-            folderPath,
-            bodyLoaded: false,
-            body: "",
-          };
-          newMails.push(mail);
-        } catch {}
-        loaded++;
-        setProgress(20 + Math.round(loaded / totalFiles * 75));
-        if (loaded % 10 === 0) {
-          document.getElementById("tabList").innerHTML =
-            `<div class="lb"><div class="spinner"></div>헤더 파싱 중... (${loaded}/${totalFiles})</div>`;
-        }
-      }));
-      // 배치 간 100ms 딜레이 (429 방지)
-      if (b + BATCH < allFileList.length) await new Promise(r => setTimeout(r, 100));
-    }
+    // 3. 파일 메타데이터로 메일 객체 생성 (다운로드 없음!)
+    const newMails = allFileList.map(({ file, member, folderPath }) => ({
+      cacheKey:    `${member.email}/${file.name}`,
+      owner:       member.email,
+      ownerName:   member.name,
+      fileName:    file.name,
+      folderPath,
+      // 메타데이터에서 날짜 추출
+      date:        formatDate(file.createdDateTime || file.lastModifiedDateTime || ""),
+      dateRaw:     file.createdDateTime || file.lastModifiedDateTime || "",
+      // 헤더는 첫 클릭 시 로딩
+      subject:     "",
+      from:        "",
+      to:          [],
+      cc:          [],
+      hasAttachment: false,
+      attachments: [],
+      bodyLoaded:  false,
+      headerLoaded: false,
+      body:        "",
+    }));
 
     // 4. 캐시 저장
     await dbPutMails(newMails);
@@ -924,13 +908,73 @@ async function loadAll(forceRefresh = false) {
     filterMails();
     setStatus(`완료 · ${allMails.length}통`, "ok");
     setProgress(100);
-    setTimeout(() => setProgress(0), 1500);
+    setTimeout(() => setProgress(0), 800);
+
+    // 5. 백그라운드에서 헤더 배치 로딩 (제목/발신자 채우기)
+    loadHeadersBatch(token);
 
   } catch(e) {
     setStatus("오류: " + e.message, "err");
     document.getElementById("tabList").innerHTML =
       `<div class="lb" style="color:var(--red)">⚠️ ${esc(e.message)}</div>`;
   }
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("ko-KR", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+  } catch { return iso; }
+}
+
+// ── 헤더 배치 로딩 (백그라운드) ──────────────────────
+async function loadHeadersBatch(token) {
+  const noHeader = allMails.filter(m => !m.headerLoaded);
+  if (!noHeader.length) return;
+
+  const BATCH = 5;
+  let done = 0;
+
+  for (let b = 0; b < noHeader.length; b += BATCH) {
+    const batch = noHeader.slice(b, b + BATCH);
+    await Promise.all(batch.map(async mail => {
+      try {
+        const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
+        const r = await fetchWithRetry(
+          `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+          { headers: { Authorization: "Bearer " + (await getToken()), Range: "bytes=0-8191" } }
+        );
+        if (!r.ok) return;
+        const buf = await r.arrayBuffer();
+        const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+        const h = parseEmlHeaderOnly(text);
+        // 메일 정보 업데이트
+        mail.subject      = h.subject || mail.subject;
+        mail.from         = h.from    || mail.from;
+        mail.to           = h.to      || mail.to;
+        mail.cc           = h.cc      || mail.cc;
+        mail.date         = h.date    || mail.date;
+        mail.dateRaw      = h.dateRaw || mail.dateRaw;
+        mail.hasAttachment = h.hasAttachment;
+        mail.headerLoaded = true;
+        // 캐시 업데이트
+        await dbPutMails([mail]);
+      } catch {}
+      done++;
+    }));
+
+    // 50개마다 화면 업데이트
+    if (done % 50 === 0 || done === noHeader.length) {
+      filterMails();
+      setStatus(`헤더 로딩 중 · ${done}/${noHeader.length}`, "spin");
+    }
+    // 배치 간 500ms 딜레이 (429 방지)
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  filterMails();
+  setStatus(`완료 · ${allMails.length}통`, "ok");
 }
 
 // ── 새 파일만 동기화 (백그라운드) ────────────────────
