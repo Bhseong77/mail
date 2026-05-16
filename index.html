@@ -334,7 +334,7 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
       <span id="statusTxt">초기화 중...</span>
     </div>
     <div class="user-badge">👤 <span id="userNameBadge"></span></div>
-    <button class="btn" id="refreshBtn" onclick="loadAll(false)">🔄 새로고침</button>
+    <button class="btn" id="refreshBtn" onclick="doRefresh()">🔄 새로고침</button>
     <button class="btn" id="syncBtn" onclick="loadAll(true)">🔃 전체동기화</button>
     <button class="btn danger" onclick="doLogout()">로그아웃</button>
   </div>
@@ -478,6 +478,7 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     </div>
     <input class="ct-search" id="contactSearch" placeholder="🔍 이름, 회사, 이메일, 전화번호 검색..." oninput="filterContacts()">
     <span class="ct-cnt" id="contactCount"></span>
+    <button class="exp-btn" onclick="buildContacts()">🔄</button>
     <button class="exp-btn" onclick="exportContacts()">⬇️ CSV 내보내기</button>
   </div>
   <div class="ct-body">
@@ -511,8 +512,11 @@ const MAIL_FOLDER    = "📦영업/10.mail_backup";
 // Render.com 백엔드 (eml 파싱용)
 const RENDER_URL     = "https://enjet-mail-api.onrender.com";
 const DRIVE_ID_CACHE = "b!1Va0aO9NoEaz4dpZxMSwjDgP35aZ2VBCgGsTHl1ORaP52YVq1dDmTZVIyBhR5YG-";
+const SP_CACHE_FOLDER = "📦영업/10.mail_backup";
+const SP_CONTACTS_FILE = "📦영업/10.mail_backup/_contacts_cache.json";
+const SP_HEADERS_FILE  = "📦영업/10.mail_backup/_headers_cache.json";
 
-const SCOPES = ["User.Read","Files.Read.All","Sites.Read.All"];
+const SCOPES = ["User.Read","Files.ReadWrite.All","Sites.ReadWrite.All"];
 
 const MEMBERS = [
   { email: "kwkang@enjet.co.kr",   name: "강경원" },
@@ -561,6 +565,10 @@ window.onload = async () => {
   if (accounts.length > 0) {
     acct = accounts[0];
     showApp();
+    // 저장된 연락처 캐시 미리 로딩
+    dbLoadContacts().then(saved => {
+      saved.forEach(c => _contactCache.set(c.email.toLowerCase(), c));
+    });
     loadAll();
   }
   renderMemberList();
@@ -823,7 +831,7 @@ let db;
 async function openDB() {
   if (db) return db;
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = e => {
       const d = e.target.result;
       if (!d.objectStoreNames.contains("mails")) {
@@ -832,10 +840,106 @@ async function openDB() {
       if (!d.objectStoreNames.contains("meta")) {
         d.createObjectStore("meta", { keyPath: "key" });
       }
+      if (!d.objectStoreNames.contains("contacts")) {
+        d.createObjectStore("contacts", { keyPath: "email" });
+      }
     };
     req.onsuccess = e => { db = e.target.result; res(db); };
     req.onerror = () => rej(req.error);
   });
+}
+
+async function dbSaveContacts(contacts) {
+  if (!contacts.length) return;
+  // IndexedDB에도 저장 (오프라인 백업)
+  const d = await openDB();
+  await new Promise((res, rej) => {
+    const tx = d.transaction("contacts", "readwrite");
+    const store = tx.objectStore("contacts");
+    contacts.forEach(c => store.put({
+      email: c.email, name: c.name, company: c.company,
+      dept: c.dept, mobile: c.mobile, tel: c.tel
+    }));
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+  // SharePoint에도 저장 (기기 간 공유)
+  spSaveContactsThrottled();
+}
+
+async function dbLoadContacts() {
+  // 1. SharePoint에서 먼저 로딩 시도
+  try {
+    const tok = await getToken();
+    await initSite(tok);
+    const data = await spLoadFile(tok, SP_CONTACTS_FILE);
+    if (data && Array.isArray(data)) {
+      // SP 데이터를 IndexedDB에도 동기화
+      const d = await openDB();
+      const tx = d.transaction("contacts", "readwrite");
+      const store = tx.objectStore("contacts");
+      data.forEach(c => store.put(c));
+      return data;
+    }
+  } catch {}
+  // 2. SP 실패 시 IndexedDB에서 로딩
+  const d = await openDB();
+  return new Promise((res) => {
+    const tx = d.transaction("contacts", "readonly");
+    const req = tx.objectStore("contacts").getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror = () => res([]);
+  });
+}
+
+// ── SharePoint 파일 읽기/쓰기 ───────────────────────
+async function spLoadFile(token, filePath) {
+  try {
+    const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function spSaveFile(token, filePath, data) {
+  const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
+  const json = JSON.stringify(data);
+  const r = await fetch(
+    `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: json
+    }
+  );
+  return r.ok;
+}
+
+// 연락처 SP 저장 (throttle: 30초에 한번만)
+let _spSaveTimer = null;
+function spSaveContactsThrottled() {
+  if (_spSaveTimer) return;
+  _spSaveTimer = setTimeout(async () => {
+    _spSaveTimer = null;
+    try {
+      const tok = await getToken();
+      await initSite(tok);
+      const contacts = [..._contactCache.values()].map((v, i) => ({
+        email: [..._contactCache.keys()][i], ...v
+      }));
+      // 키-값 쌍으로 재구성
+      const toSave = [];
+      _contactCache.forEach((v, k) => toSave.push({ email: k, ...v }));
+      await spSaveFile(tok, SP_CONTACTS_FILE, toSave);
+    } catch(e) { console.warn("SP 연락처 저장 실패:", e.message); }
+  }, 30000); // 30초 후 저장
 }
 
 async function dbGetAll() {
@@ -896,6 +1000,11 @@ async function dbClearAll() {
 }
 
 // ── Load all (목록만, on-demand 본문) ─────────────────
+function doRefresh() {
+  // 새 파일만 확인 (캐시 유지)
+  syncNewFiles();
+}
+
 async function loadAll(forceRefresh = false) {
   if (isSyncing && forceRefresh) return; // 중복 방지
   setSyncState(true, forceRefresh ? "⏳ 동기화 중..." : "⏳ 확인 중...");
@@ -907,7 +1016,22 @@ async function loadAll(forceRefresh = false) {
   try {
     // 1. 캐시에서 기존 데이터 로딩
     if (!forceRefresh) {
-      const cached = await dbGetAll();
+      // SP에서 헤더 캐시 먼저 로딩 시도
+      let cached = [];
+      try {
+        const tok = await getToken();
+        await initSite(tok);
+        const spData = await spLoadFile(tok, SP_HEADERS_FILE);
+        if (spData && Array.isArray(spData) && spData.length > 0) {
+          // SP 데이터를 IndexedDB에 동기화
+          await dbPutMails(spData);
+          cached = spData;
+          setStatus(`SharePoint 캐시 로딩됨 · ${cached.length}통`, "ok");
+        }
+      } catch {}
+
+      // SP 실패 시 IndexedDB에서 로딩
+      if (!cached.length) cached = await dbGetAll();
       if (cached.length > 0) {
         allMails = cached;
         allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
@@ -926,7 +1050,7 @@ async function loadAll(forceRefresh = false) {
         } else {
           setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
           setSyncState(false);
-          syncNewFiles();
+          // 새 파일 확인은 🔄 새로고침 버튼으로만
         }
         return;
       }
@@ -1074,7 +1198,20 @@ async function loadHeadersBatch(token) {
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
   setSyncState(false);
-  syncNewFiles();
+
+  // 헤더 캐시 SharePoint에 저장
+  try {
+    const tok = await getToken();
+    const headersToSave = allMails.map(m => ({
+      cacheKey: m.cacheKey, subject: m.subject, from: m.from,
+      date: m.date, dateRaw: m.dateRaw, hasAttachment: m.hasAttachment,
+      headerLoaded: m.headerLoaded, owner: m.owner, ownerName: m.ownerName,
+      fileName: m.fileName, folderPath: m.folderPath,
+      to: m.to, cc: m.cc
+    }));
+    await spSaveFile(tok, SP_HEADERS_FILE, headersToSave);
+    setStatus(`완료 · ${allMails.length}통 · SharePoint 저장됨`, "ok");
+  } catch(e) { console.warn("헤더 SP 저장 실패:", e.message); }
 }
 
 // ── 새 파일만 동기화 (백그라운드) ────────────────────
@@ -1109,6 +1246,7 @@ async function syncNewFiles() {
               ownerName: member.name,
               fileName: file.name,
               folderPath,
+              headerLoaded: true,
               bodyLoaded: false,
               body: "",
             });
@@ -1356,7 +1494,15 @@ function switchMainTab(tab, el) {
   } else {
     mailApp.style.display = "none";
     ctPage.classList.add("show");
-    buildContacts();
+    // 이미 연락처 있으면 재빌드 안함 (새로고침 버튼으로만)
+    if (allContacts.length === 0) {
+      buildContacts();
+    } else {
+      renderContacts(filteredContacts);
+      // 새로 분석할 연락처만 백그라운드로
+      const contactMap = new Map(allContacts.map(c => [c.email.toLowerCase(), c]));
+      enrichContactsFromServer(contactMap);
+    }
   }
 }
 
@@ -1671,11 +1817,13 @@ async function enrichContactsFromServer(contactMap) {
       if (info.mobile)  contact.mobile  = info.mobile;
       if (info.tel)     contact.tel     = info.tel;
       contact.enriched = true;
-      // 영구 캐시에 저장 (다음 주소록 탭 클릭 시 재사용)
-      _contactCache.set(contact.email.toLowerCase(), {
+      // 메모리 캐시 + DB에 저장
+      const cached = {
         name: contact.name, company: contact.company,
         dept: contact.dept, mobile: contact.mobile, tel: contact.tel
-      });
+      };
+      _contactCache.set(contact.email.toLowerCase(), cached);
+      dbSaveContacts([{ email: contact.email, ...cached }]);
 
     } catch {}
 
