@@ -900,6 +900,12 @@ async function loadAll(forceRefresh = false) {
       }
     } else {
       await dbClearAll();
+      // 전체동기화 시 전체보기로 초기화
+      currentOwner = "all";
+      document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
+      const navAll = document.getElementById("nav-all");
+      if (navAll) navAll.classList.add("active");
+      document.getElementById("panelTitle").textContent = "전체 보기";
     }
 
     // 2. 파일 목록만 가져오기 (다운로드 없음!)
@@ -1301,6 +1307,9 @@ function switchMainTab(tab, el) {
   if (tab === "mail") {
     mailApp.style.display = "grid";
     ctPage.classList.remove("show");
+    // 주소록 검색어가 메일 검색창에 안 넘어가도록 초기화
+    document.getElementById("searchInput").value = "";
+    filterMails();
   } else {
     mailApp.style.display = "none";
     ctPage.classList.add("show");
