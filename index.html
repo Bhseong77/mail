@@ -76,7 +76,8 @@ body::before{content:'';position:fixed;top:-200px;left:-200px;width:600px;height
 .si{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;font-family:'Pretendard',sans-serif;outline:none;transition:border-color 0.15s;}
 .si:focus{border-color:var(--accent);}
 .si::placeholder{color:var(--t2);}
-.tab-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3);}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3);overflow-x:auto;}
+.tab-bar::-webkit-scrollbar{display:none;}
 .tab-item{flex:1;padding:8px 6px;text-align:center;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;}
 .tab-item:hover{color:var(--text);}
 .tab-item.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -251,29 +252,41 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     flex-shrink:0;
   }
 
-  /* 주소록 테이블: 모바일 카드형 */
-  .ct-tbl thead{display:none;}
-  .ct-tbl tbody tr{
-    display:block;
-    padding:14px 16px;
-    border-bottom:1px solid var(--border);
+  /* 주소록: 모바일 카드형 (전체 필드 표시) */
+  .ct-tbl thead { display: none; }
+  .ct-tbl tbody tr {
+    display: block;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
   }
-  .ct-tbl td{
-    display:block;
-    padding:2px 0;
-    border:none;
+  .ct-tbl td { display: none; border: none; } /* 기본 숨김 */
+
+  /* 이름 칸: 항상 표시 */
+  .ct-tbl td:nth-child(1) {
+    display: block;
+    padding: 0 0 8px 0;
   }
-  .ct-tbl td:before{
-    font-size:10px;
-    color:var(--t2);
-    text-transform:uppercase;
-    letter-spacing:0.6px;
-    display:block;
-    margin-bottom:2px;
+  /* 회사 칸: 항상 표시 */
+  .ct-tbl td:nth-child(2) {
+    display: block;
+    padding: 0 0 4px 0;
   }
-  .ct-head{padding:12px 14px;gap:8px;}
-  .ct-search{min-width:unset;width:100%;}
-  .ct-cnt{display:none;}
+  /* 이메일 칸: 항상 표시 */
+  .ct-tbl td:nth-child(3) {
+    display: block;
+    padding: 0 0 4px 0;
+    font-size: 13px;
+  }
+  /* 전화번호 칸: 항상 표시 */
+  .ct-tbl td:nth-child(4) {
+    display: block;
+    padding: 4px 0 0 0;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .ct-head { padding: 12px 14px; gap: 8px; }
+  .ct-search { min-width: unset; width: 100%; }
+  .ct-cnt { display: none; }
 
   /* 테이블 목록: 모바일에서 숨기고 메일함만 */
   .tab-bar .tab-item:nth-child(2){display:none;}
@@ -362,6 +375,9 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     <div class="tab-bar">
       <div class="tab-item active" onclick="switchTab('list',this)">메일함</div>
       <div class="tab-item" onclick="switchTab('table',this)">목록</div>
+      <div class="tab-item" onclick="switchTab('tax',this)">🧾 세금계산서</div>
+      <div class="tab-item" onclick="switchTab('quote',this)">📋 견적서</div>
+      <div class="tab-item" onclick="switchTab('po',this)">📦 발주서</div>
     </div>
 
     <!-- List -->
@@ -395,6 +411,33 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     </div>
 
       </div>
+    </div>
+
+    <!-- 세금계산서 -->
+    <div class="tbl-panel" id="tabTax">
+      <div class="tbl-toolbar">
+        <span style="font-size:11px;color:var(--t2);flex:1" id="taxCount"></span>
+        <button class="exp-btn" onclick="exportDocTab('tax')">⬇️ CSV</button>
+      </div>
+      <div class="tw" id="taxList"></div>
+    </div>
+
+    <!-- 견적서 -->
+    <div class="tbl-panel" id="tabQuote">
+      <div class="tbl-toolbar">
+        <span style="font-size:11px;color:var(--t2);flex:1" id="quoteCount"></span>
+        <button class="exp-btn" onclick="exportDocTab('quote')">⬇️ CSV</button>
+      </div>
+      <div class="tw" id="quoteList"></div>
+    </div>
+
+    <!-- 발주서 -->
+    <div class="tbl-panel" id="tabPo">
+      <div class="tbl-toolbar">
+        <span style="font-size:11px;color:var(--t2);flex:1" id="poCount"></span>
+        <button class="exp-btn" onclick="exportDocTab('po')">⬇️ CSV</button>
+      </div>
+      <div class="tw" id="poList"></div>
     </div>
 
   </div>
@@ -1268,15 +1311,129 @@ function switchTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
   el.classList.add("active");
-  const listEl = document.getElementById("tabList");
-  const tblEl  = document.getElementById("tabTable");
-  listEl.style.display = "none";
-  tblEl.style.display  = "none";
+  const listEl  = document.getElementById("tabList");
+  const tblEl   = document.getElementById("tabTable");
+  const taxEl   = document.getElementById("tabTax");
+  const quoteEl = document.getElementById("tabQuote");
+  const poEl    = document.getElementById("tabPo");
+  [listEl, tblEl, taxEl, quoteEl, poEl].forEach(e => { if(e) e.style.display = "none"; });
+
   if (tab === "list") {
     listEl.style.display = ""; renderList(filtered);
-  } else {
+  } else if (tab === "table") {
     tblEl.style.display = "flex"; tblEl.style.flexDirection = "column"; renderTable(filtered);
+  } else if (tab === "tax") {
+    taxEl.style.display = "flex"; taxEl.style.flexDirection = "column"; renderDocTab("tax");
+  } else if (tab === "quote") {
+    quoteEl.style.display = "flex"; quoteEl.style.flexDirection = "column"; renderDocTab("quote");
+  } else if (tab === "po") {
+    poEl.style.display = "flex"; poEl.style.flexDirection = "column"; renderDocTab("po");
   }
+}
+
+// ── 문서 분류 키워드 ─────────────────────────────────
+const DOC_PATTERNS = {
+  tax: {
+    label: "세금계산서",
+    keywords: ["세금계산서","tax invoice","taxinvoice","세금 계산서","계산서발행","계산서 발행",
+                "invoice","인보이스","청구서","청구 내역"],
+    color: "#10b981"
+  },
+  quote: {
+    label: "견적서",
+    keywords: ["견적서","견적","quotation","quote","estimate","proposal","제안서","제안",
+                "견적 요청","견적요청","rfi","rfq"],
+    color: "#f59e0b"
+  },
+  po: {
+    label: "발주서",
+    keywords: ["발주서","발주","purchase order","p.o.","po#","po ","구매 주문","주문서",
+                "order confirmation","주문 확인","발주 확인","납품","납품요청"],
+    color: "#5b8fff"
+  }
+};
+
+function classifyMail(mail) {
+  const text = [
+    mail.subject || "",
+    ...(mail.attachments || []).map(a => a.name || a)
+  ].join(" ").toLowerCase();
+
+  for (const [type, cfg] of Object.entries(DOC_PATTERNS)) {
+    if (cfg.keywords.some(kw => text.includes(kw.toLowerCase()))) {
+      return type;
+    }
+  }
+  return null;
+}
+
+function getDocMails(type) {
+  const target = currentOwner === "all" ? allMails :
+    allMails.filter(m => m.owner === currentOwner);
+  return target.filter(m => classifyMail(m) === type);
+}
+
+function renderDocTab(type) {
+  const cfg = DOC_PATTERNS[type];
+  const mails = getDocMails(type);
+  const countEl = document.getElementById(type + "Count");
+  const listEl  = document.getElementById(type + "List");
+  if (countEl) countEl.textContent = `${cfg.label} ${mails.length}건`;
+
+  if (!mails.length) {
+    listEl.innerHTML = `<div class="lb">📭 ${cfg.label} 메일이 없습니다</div>`;
+    return;
+  }
+
+  listEl.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:var(--bg3);position:sticky;top:0;">
+          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">날짜</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600">제목</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">발신자</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">첨부</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${mails.map((m, i) => {
+          const idx = allMails.indexOf(m);
+          const fromName = extractName(m.from) || m.from || "-";
+          const atts = (m.attachments||[]).filter(a => {
+            const n = (a.name||a||"").toLowerCase();
+            return DOC_PATTERNS[type].keywords.some(k => n.includes(k.toLowerCase()));
+          });
+          const attStr = atts.length ? atts.map(a=>esc(a.name||a)).join(", ") : (m.hasAttachment ? "📎" : "");
+          return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="switchTab('list',document.querySelector('.tab-item'));showDetail(${idx})">
+            <td style="padding:10px 14px;color:var(--t2);white-space:nowrap">${esc((m.date||"").slice(0,10))}</td>
+            <td style="padding:10px 14px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              <span style="background:${cfg.color}22;color:${cfg.color};font-size:10px;padding:1px 6px;border-radius:3px;margin-right:5px;">${cfg.label}</span>
+              ${esc(m.subject||"(제목없음)")}
+            </td>
+            <td style="padding:10px 14px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(fromName)}</td>
+            <td style="padding:10px 14px;color:var(--t2);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${attStr}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function exportDocTab(type) {
+  const cfg = DOC_PATTERNS[type];
+  const mails = getDocMails(type);
+  const rows = [["날짜","제목","발신자","메일함","첨부파일"]];
+  mails.forEach(m => rows.push([
+    (m.date||"").slice(0,10),
+    m.subject||"",
+    m.from||"",
+    m.ownerName||"",
+    (m.attachments||[]).map(a=>a.name||a).join(", ")
+  ]));
+  const csv = rows.map(r => r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));
+  a.download = `enjet_${type}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
 
 // ── Contact extraction ───────────────────────────────
@@ -1576,22 +1733,23 @@ function renderContacts(contacts) {
   const colors = ["av0","av1","av2","av3","av4"];
   tbody.innerHTML = contacts.map((c, i) => {
     const phone = c.mobile || c.tel || "";
-    // 회사명: 서명파싱 > 도메인매핑
     const company = c.company || getCompanyFromDomain(c.email);
     const logoUrl = getLogoUrl(c.email);
-    const domain = (c.email||"").split("@")[1] || "";
-    const deptFull = [c.dept].filter(Boolean).join(" ").trim();
+    const domain  = (c.email||"").split("@")[1] || "";
+    const dept    = c.dept || "";
 
     return `<tr>
+      <!-- 이름 -->
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="ct-av ${colors[i%5]}">${(c.name||"?")[0]}</div>
           <div>
-            <div style="font-weight:600;font-size:13px;">${esc(c.name||c.email.split("@")[0])}</div>
-            ${deptFull?`<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(deptFull)}</div>`:""}
+            <div style="font-weight:600;font-size:13px;">${esc(c.name || c.email.split("@")[0])}</div>
+            ${dept ? `<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(dept)}</div>` : ""}
           </div>
         </div>
       </td>
+      <!-- 회사 -->
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
           <img src="${logoUrl}" alt="" width="18" height="18"
@@ -1599,12 +1757,17 @@ function renderContacts(contacts) {
                onerror="this.style.display='none'">
           <div>
             <div style="font-size:13px;font-weight:500;">${esc(company)}</div>
-            ${domain?`<div style="font-size:10px;color:var(--t2)">${esc(domain)}</div>`:""}
+            ${domain ? `<div style="font-size:10px;color:var(--t2)">${esc(domain)}</div>` : ""}
           </div>
         </div>
       </td>
+      <!-- 이메일 -->
       <td><a href="mailto:${esc(c.email)}" class="ct-email-link">${esc(c.email)}</a></td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">${esc(phone)}</td>
+      <!-- 전화번호 -->
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;">
+        ${phone ? `📞 ${esc(phone)}` : ""}
+        ${c.tel && c.mobile && c.tel !== c.mobile ? `<div style="margin-top:3px;font-size:11px;color:var(--t2)">📟 ${esc(c.tel)}</div>` : ""}
+      </td>
     </tr>`;
   }).join("");
 }
