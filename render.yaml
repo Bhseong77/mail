@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: enjet-mail-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    envVars:
+      - key: IMAP_SERVER
+        value: gw.enjet.co.kr
+      - key: IMAP_PORT
+        value: 993
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
