@@ -336,6 +336,7 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
     <div class="user-badge">👤 <span id="userNameBadge"></span></div>
     <button class="btn" id="refreshBtn" onclick="doRefresh()">🔄 새로고침</button>
     <button class="btn" id="syncBtn" onclick="loadAll(true)">🔃 전체동기화</button>
+    <button class="btn" onclick="diagDB()" style="background:var(--bg4);font-size:11px;">🔍 DB확인</button>
     <button class="btn danger" onclick="doLogout()">로그아웃</button>
   </div>
 </div>
@@ -1005,6 +1006,17 @@ function doRefresh() {
   syncNewFiles();
 }
 
+async function diagDB() {
+  try {
+    const all = await dbGetAll();
+    const loaded = all.filter(m => m.headerLoaded).length;
+    const withSubj = all.filter(m => m.subject).length;
+    alert(`IndexedDB 상태:\n전체: ${all.length}통\nheaderLoaded: ${loaded}통\n제목있음: ${withSubj}통\n\n첫번째 cacheKey: ${all[0]?.cacheKey || "없음"}`);
+  } catch(e) {
+    alert("DB 오류: " + e.message);
+  }
+}
+
 async function loadAll(forceRefresh = false) {
   if (isSyncing && forceRefresh) return; // 중복 방지
   setSyncState(true, forceRefresh ? "⏳ 동기화 중..." : "⏳ 확인 중...");
@@ -1014,24 +1026,9 @@ async function loadAll(forceRefresh = false) {
   allMails = [];
 
   try {
-    // 1. 캐시에서 기존 데이터 로딩
+    // 1. 캐시에서 기존 데이터 로딩 (IndexedDB)
     if (!forceRefresh) {
-      // SP에서 헤더 캐시 먼저 로딩 시도
-      let cached = [];
-      try {
-        const tok = await getToken();
-        await initSite(tok);
-        const spData = await spLoadFile(tok, SP_HEADERS_FILE);
-        if (spData && Array.isArray(spData) && spData.length > 0) {
-          // SP 데이터를 IndexedDB에 동기화
-          await dbPutMails(spData);
-          cached = spData;
-          setStatus(`SharePoint 캐시 로딩됨 · ${cached.length}통`, "ok");
-        }
-      } catch {}
-
-      // SP 실패 시 IndexedDB에서 로딩
-      if (!cached.length) cached = await dbGetAll();
+      const cached = await dbGetAll();
       if (cached.length > 0) {
         allMails = cached;
         allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
