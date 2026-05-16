@@ -306,6 +306,8 @@ const MSAL_TENANT_ID = "58b310e1-9278-47ab-8e49-792728818c9e";
 const SP_HOST        = "enjetco.sharepoint.com";
 const SP_SITE_PATH   = "/sites/06.BackOffice";
 const MAIL_FOLDER    = "📦영업/10.mail_backup";
+// 드라이브 ID 직접 지정 (enjetco SharePoint "문서" 라이브러리)
+const DRIVE_ID_CACHE = "b!1Va0aO9NoEaz4dpZxMSwjDgP35aZ2VBCgGsTHl1ORaP52YVq1dDmTZVIyBhR5YG-";
 
 const SCOPES = ["User.Read","Files.Read.All","Sites.Read.All"];
 
@@ -397,23 +399,21 @@ async function gFetchBinary(token, path) {
 
 async function initSite(token) {
   if (siteId && driveId) return;
+  // 드라이브 ID 직접 사용 (Graph API 조회 생략)
+  driveId = DRIVE_ID_CACHE;
   const site = await gFetch(token, `/sites/${SP_HOST}:${SP_SITE_PATH}`);
   siteId = site.id;
-  const drives = await gFetch(token, `/sites/${siteId}/drives`);
-  const drive = drives.value.find(d => d.driveType === "documentLibrary");
-  if (!drive) throw new Error("문서 라이브러리를 찾을 수 없습니다");
-  driveId = drive.id;
 }
 
 async function listFolder(token, folderPath) {
-  const enc = encodeURIComponent(folderPath);
-  const data = await gFetch(token, `/drives/${driveId}/root:/${enc}:/children?$top=5000`);
+  const parts = folderPath.split("/").map(p => encodeURIComponent(p)).join("/");
+  const data = await gFetch(token, `/drives/${driveId}/root:/${parts}:/children?$top=5000`);
   return data.value || [];
 }
 
 async function getFileText(token, filePath) {
-  const enc = encodeURIComponent(filePath);
-  const buf = await gFetchBinary(token, `/drives/${driveId}/root:/${enc}:/content`);
+  const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
+  const buf = await gFetchBinary(token, `/drives/${driveId}/root:/${parts}:/content`);
   return new TextDecoder("utf-8", { fatal: false }).decode(buf);
 }
 
