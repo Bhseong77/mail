@@ -1499,6 +1499,69 @@ function sortContacts(key) {
   renderContacts(filteredContacts);
 }
 
+// ── 도메인 → 회사명 매핑 ────────────────────────────
+const DOMAIN_MAP = {
+  // 삼성
+  "samsung.com":"삼성전자","samsung.co.kr":"삼성전자","sec.co.kr":"삼성전자",
+  "ssi.samsung.com":"삼성반도체",
+  // LG
+  "lg.com":"LG전자","lgcns.com":"LG CNS","lghausys.com":"LG하우시스",
+  "lgchem.com":"LG화학","lginnotek.com":"LG이노텍",
+  // 현대/기아
+  "hyundai.com":"현대자동차","kia.com":"기아","hyundai-motor.com":"현대자동차",
+  "mobis.co.kr":"현대모비스","hyundai-steel.com":"현대제철",
+  // SK
+  "sk.com":"SK","skhynix.com":"SK하이닉스","sktelekom.co.kr":"SK텔레콤",
+  "sk.co.kr":"SK이노베이션",
+  // 롯데/신세계/CJ
+  "lotte.com":"롯데","shinsegae.com":"신세계","cj.net":"CJ",
+  // 금융
+  "shinhan.com":"신한금융","shinhancard.com":"신한카드",
+  "kb.co.kr":"KB금융","kbcard.com":"KB카드","kbstar.com":"KB증권",
+  "hanabank.com":"하나은행","kebhana.com":"하나은행",
+  "wooribank.com":"우리은행","ibk.co.kr":"IBK기업은행",
+  "kdb.co.kr":"KDB산업은행","nhbank.com":"NH농협은행",
+  "mirae-asset.com":"미래에셋","miraeasset.com":"미래에셋",
+  "daishin.com":"대신증권","kiwoom.com":"키움증권",
+  "samsung-securities.com":"삼성증권",
+  // 통신
+  "sktelecom.com":"SK텔레콤","kt.com":"KT","lguplus.com":"LG유플러스",
+  // IT/포털
+  "naver.com":"네이버","kakao.com":"카카오","daum.net":"카카오",
+  "ncsoft.com":"엔씨소프트","nexon.com":"넥슨","netmarble.com":"넷마블",
+  // 공공기관
+  "kotra.or.kr":"KOTRA","kist.re.kr":"KIST","etri.re.kr":"ETRI",
+  "kipo.go.kr":"특허청","mke.go.kr":"산업통상자원부",
+  // 대학
+  "kaist.ac.kr":"KAIST","snu.ac.kr":"서울대","yonsei.ac.kr":"연세대",
+  "korea.ac.kr":"고려대","postech.ac.kr":"포스텍",
+};
+
+function getCompanyFromDomain(email) {
+  if (!email) return "";
+  const domain = email.split("@")[1] || "";
+  if (!domain) return "";
+  // 정확한 매핑
+  if (DOMAIN_MAP[domain]) return DOMAIN_MAP[domain];
+  // co.kr, or.kr 등 2단계 도메인
+  const parts = domain.split(".");
+  if (parts.length >= 3) {
+    const short = parts.slice(-3).join(".");
+    if (DOMAIN_MAP[short]) return DOMAIN_MAP[short];
+  }
+  // 도메인에서 회사명 추정
+  const name = parts[0];
+  if (name.length <= 2) return domain;
+  // 첫글자 대문자
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function getLogoUrl(email) {
+  const domain = (email||"").split("@")[1] || "";
+  if (!domain) return "";
+  return `https://logo.clearbit.com/${domain}`;
+}
+
 function renderContacts(contacts) {
   document.getElementById("contactCount").textContent = contacts.length + "명";
   const ftEl = document.getElementById("ctFootCount");
@@ -1511,17 +1574,33 @@ function renderContacts(contacts) {
   const colors = ["av0","av1","av2","av3","av4"];
   tbody.innerHTML = contacts.map((c, i) => {
     const phone = c.mobile || c.tel || "";
+    // 회사명: 서명파싱 > 도메인매핑
+    const company = c.company || getCompanyFromDomain(c.email);
+    const logoUrl = getLogoUrl(c.email);
+    const domain = (c.email||"").split("@")[1] || "";
+    const deptFull = [c.dept].filter(Boolean).join(" ").trim();
+
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="ct-av ${colors[i%5]}">${(c.name||"?")[0]}</div>
           <div>
-            <div style="font-weight:600;font-size:13px;">${esc(c.name)}</div>
-            ${c.dept?`<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(c.dept)}</div>`:""}
+            <div style="font-weight:600;font-size:13px;">${esc(c.name||c.email.split("@")[0])}</div>
+            ${deptFull?`<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(deptFull)}</div>`:""}
           </div>
         </div>
       </td>
-      <td style="color:var(--t2);font-size:13px;">${esc(c.company)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="${logoUrl}" alt="" width="18" height="18"
+               style="border-radius:3px;object-fit:contain;flex-shrink:0;"
+               onerror="this.style.display='none'">
+          <div>
+            <div style="font-size:13px;font-weight:500;">${esc(company)}</div>
+            ${domain?`<div style="font-size:10px;color:var(--t2)">${esc(domain)}</div>`:""}
+          </div>
+        </div>
+      </td>
       <td><a href="mailto:${esc(c.email)}" class="ct-email-link">${esc(c.email)}</a></td>
       <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">${esc(phone)}</td>
     </tr>`;
@@ -1529,11 +1608,15 @@ function renderContacts(contacts) {
 }
 
 function exportContacts() {
-  const rows = [["이름","소속(회사명)","부서/직함","이메일","전화번호","휴대폰","직통전화"]];
-  filteredContacts.forEach(c => rows.push([
-    c.name||"", c.company||"", c.dept||"", c.email||"",
-    c.mobile||c.tel||"", c.mobile||"", c.tel||""
-  ]));
+  const rows = [["이름","회사명","도메인","부서/직함","이메일","전화번호","휴대폰","직통전화"]];
+  filteredContacts.forEach(c => {
+    const company = c.company || getCompanyFromDomain(c.email);
+    const domain = (c.email||"").split("@")[1] || "";
+    rows.push([
+      c.name||"", company, domain, c.dept||"", c.email||"",
+      c.mobile||c.tel||"", c.mobile||"", c.tel||""
+    ]);
+  });
   const csv = rows.map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"}));
