@@ -506,7 +506,7 @@ function parseEml(text) {
   let i = 0;
   while (i < lines.length && lines[i] !== "") {
     const line = lines[i];
-    if (/^\s/.test(line)) {
+    if (/^[ \t]/.test(line)) {
       const keys = Object.keys(headers);
       if (keys.length) headers[keys[keys.length-1]] += " " + line.trim();
     } else {
@@ -518,36 +518,93 @@ function parseEml(text) {
     }
     i++;
   }
-
   const subject = decodeWord(headers["subject"] || "");
   const from    = decodeWord(headers["from"] || "");
   const to      = decodeWord(headers["to"] || "");
   const cc      = decodeWord(headers["cc"] || "");
   const dateRaw = headers["date"] || "";
-
   let dateFmt = dateRaw;
   try {
     const d = new Date(dateRaw);
     if (!isNaN(d)) dateFmt = d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
   } catch {}
 
-  // Body extraction
-  const bStart = lines.findIndex((l, idx) => idx > 0 && l === "") + 1;
-  let body = lines.slice(bStart, bStart + 120).join("\n");
-  body = body.replace(/=\r?\n/g,"").replace(/=[0-9A-Fa-f]{2}/g, m => String.fromCharCode(parseInt(m.slice(1),16)));
-  if (/<html|<HTML|<body|<div/i.test(body)) {
-    body = body.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
-  }
-
-  // Attachments
+  const contentType = headers["content-type"] || "";
+  const boundaryMatch = contentType.match(/boundary="?([^";\r\n]+)"?/i);
+  let body = "";
   const attachments = [];
-  const full = lines.join("\n");
-  for (const m of full.matchAll(/Content-Disposition:\s*attachment[^\n]*(?:\r?\n[ \t]+[^\n]*)*/gi)) {
-    const fn = m[0].match(/filename[*]?\s*=\s*"?([^";\r\n]+)"?/i);
-    if (fn) attachments.push(decodeWord(fn[1].trim()));
-  }
 
-  return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, body: body.slice(0,800), hasAttachment: attachments.length > 0, attachments };
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1].trim();
+    const fullText = lines.slice(i+1).join("\n");
+    const parts = fullText.split(new RegExp("--" + boundary.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + "(?:--)?" ));
+    for (const part of parts) {
+      if (!part.trim() || part.trim() === "--") continue;
+      const pLines = part.split(/\r?\n/);
+      const pH = {};
+      let pi = 0;
+      while (pi < pLines.length && pLines[pi].trim() !== "") {
+        const col = pLines[pi].indexOf(":");
+        if (col > 0) { pH[pLines[pi].slice(0,col).toLowerCase().trim()] = pLines[pi].slice(col+1).trim(); }
+        pi++;
+      }
+      const pBody = pLines.slice(pi+1).join("\n");
+      const pCt = pH["content-type"] || "";
+      const pCd = pH["content-disposition"] || "";
+      const pEnc = (pH["content-transfer-encoding"] || "").toLowerCase();
+      if (pCd.toLowerCase().includes("attachment")) {
+        const fn = pCd.match(/filename[*]?\s*=\s*"?([^";\r\n]+)"?/i) || pCt.match(/name\s*=\s*"?([^";\r\n]+)"?/i);
+        if (fn) attachments.push(decodeWord(fn[1].trim()));
+        continue;
+      }
+      if (pCt.toLowerCase().includes("text/plain") || (!body && pCt.toLowerCase().includes("text/html"))) {
+        let decoded = pBody;
+        if (pEnc === "quoted-printable") {
+          decoded = decoded.replace(/=\r?\n/g,"").replace(/=[0-9A-Fa-f]{2}/g, m => String.fromCharCode(parseInt(m.slice(1),16)));
+        } else if (pEnc === "base64") {
+          try {
+            const bin = atob(decoded.replace(/\s/g,""));
+            const bytes = new Uint8Array(bin.length);
+            for (let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
+            try { decoded = new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
+            catch { decoded = new TextDecoder("euc-kr").decode(bytes); }
+          } catch { decoded = ""; }
+        }
+        if (pCt.toLowerCase().includes("text/html")) {
+          decoded = decoded.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"")
+            .replace(/<br\s*\/?>/gi,"\n").replace(/<\/p>/gi,"\n").replace(/<\/div>/gi,"\n")
+            .replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<")
+            .replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/\n{3,}/g,"\n\n").trim();
+        }
+        if (!body || pCt.toLowerCase().includes("text/plain")) body = decoded.trim();
+      }
+    }
+  } else {
+    const enc = (headers["content-transfer-encoding"] || "").toLowerCase();
+    let raw = lines.slice(i+1).join("\n");
+    if (enc === "quoted-printable") {
+      raw = raw.replace(/=\r?\n/g,"").replace(/=[0-9A-Fa-f]{2}/g, m => String.fromCharCode(parseInt(m.slice(1),16)));
+    } else if (enc === "base64") {
+      try {
+        const bin = atob(raw.replace(/\s/g,""));
+        const bytes = new Uint8Array(bin.length);
+        for (let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
+        try { raw = new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
+        catch { raw = new TextDecoder("euc-kr").decode(bytes); }
+      } catch {}
+    }
+    if (/<html|<body/i.test(raw)) {
+      body = raw.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"")
+        .replace(/<br\s*\/?>/gi,"\n").replace(/<\/p>/gi,"\n")
+        .replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/\n{3,}/g,"\n\n").trim();
+    } else { body = raw.trim(); }
+    const full = lines.join("\n");
+    for (const m of full.matchAll(/Content-Disposition:\s*attachment[^\n]*(?:\r?\n[ \t]+[^\n]*)*/gi)) {
+      const fn = m[0].match(/filename[*]?\s*=\s*"?([^";\r\n]+)"?/i);
+      if (fn) attachments.push(decodeWord(fn[1].trim()));
+    }
+  }
+  return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, body: body.slice(0,1200), hasAttachment: attachments.length > 0, attachments };
 }
 
 // ── Load all ────────────────────────────────────────
