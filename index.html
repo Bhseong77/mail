@@ -1032,6 +1032,12 @@ async function loadAll(forceRefresh = false) {
       if (cached.length > 0) {
         allMails = cached;
         allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
+        // 캐시 로딩 시 전체보기로 초기화 (특정 멤버 선택 상태면 0통으로 보임 방지)
+        currentOwner = "all";
+        document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
+        const navAllEl = document.getElementById("nav-all");
+        if (navAllEl) navAllEl.classList.add("active");
+        document.getElementById("panelTitle").textContent = "전체 보기";
         filtered = [...allMails];
         updateCounts();
         filterMails();
