@@ -406,14 +406,24 @@ async function initSite(token) {
 }
 
 async function listFolder(token, folderPath) {
+  // 이모지 폴더명 처리: 각 세그먼트를 개별 인코딩하되 / 는 유지
   const parts = folderPath.split("/").map(p => encodeURIComponent(p)).join("/");
-  const data = await gFetch(token, `/drives/${driveId}/root:/${parts}:/children?$top=5000`);
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/children?$top=5000`;
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) {
+    const err = await r.json().catch(()=>({}));
+    throw new Error(`폴더 오류 ${r.status}: ${err.error?.message || folderPath}`);
+  }
+  const data = await r.json();
   return data.value || [];
 }
 
 async function getFileText(token, filePath) {
   const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
-  const buf = await gFetchBinary(token, `/drives/${driveId}/root:/${parts}:/content`);
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`;
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error(`파일 읽기 실패 ${r.status}`);
+  const buf = await r.arrayBuffer();
   return new TextDecoder("utf-8", { fatal: false }).decode(buf);
 }
 
@@ -505,10 +515,9 @@ async function loadAll() {
     setProgress(10);
 
     let totalFiles = 0;
-    // Count files first
     for (const m of MEMBERS) {
       try {
-        const files = await listFolder(token, `${MAIL_FOLDER}/${m.email}`);
+        const files = await listFolder(token, `${MAIL_FOLDER}/${m.email}/messages`);
         totalFiles += files.filter(f => f.name?.toLowerCase().endsWith(".eml")).length;
       } catch {}
     }
@@ -516,7 +525,8 @@ async function loadAll() {
     let loaded = 0;
     for (let mi = 0; mi < MEMBERS.length; mi++) {
       const member = MEMBERS[mi];
-      const folderPath = `${MAIL_FOLDER}/${member.email}`;
+      // 다우오피스 백업 구조: 이메일폴더/messages/*.eml
+      const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
       setStatus(`${member.name} 로딩 중...`, "spin");
 
       try {
