@@ -681,6 +681,25 @@ function parseEml(text) {
         if (fn) attachments.push(decodeWord(fn[1].trim()));
         continue;
       }
+
+      // 전달 메일 (message/rfc822) 처리
+      if (pCt.toLowerCase().includes("message/rfc822")) {
+        if (!body) {
+          const fwdParsed = parseEml(pBody);
+          if (fwdParsed.body) body = "[전달된 메일]\n" + fwdParsed.body;
+        }
+        continue;
+      }
+
+      // 중첩 multipart 처리
+      if (pCt.toLowerCase().includes("multipart/")) {
+        const subBoundaryM = pCt.match(/boundary="?([^";\r\n]+)"?/i);
+        if (subBoundaryM && !body) {
+          const subParsed = parseEml(part);
+          if (subParsed.body) body = subParsed.body;
+        }
+        continue;
+      }
       if (pCt.toLowerCase().includes("text/plain") || (!body && pCt.toLowerCase().includes("text/html"))) {
         let decoded = pBody;
         if (pEnc === "quoted-printable") {
@@ -1119,31 +1138,35 @@ async function showDetail(idx) {
     ccEl.style.display = ""; ccK.style.display = "";
   } else { ccEl.style.display = "none"; ccK.style.display = "none"; }
 
-  // 본문 on-demand 로딩
-  if (!mail.bodyLoaded) {
+  // 본문 on-demand 로딩 (비어있어도 재시도)
+  if (!mail.bodyLoaded || (!mail.body && !mail.loadFailed)) {
     document.getElementById("dBody").textContent = "⏳ 본문 로딩 중...";
     document.getElementById("dAttSec").style.display = "none";
     try {
       const token = await getToken();
       const text = await getFileText(token, `${mail.folderPath}/${mail.fileName}`);
       const parsed = parseEml(text);
-      // 메일 데이터 업데이트
       mail.body = parsed.body;
       mail.attachments = parsed.attachments;
       mail.hasAttachment = parsed.hasAttachment;
       mail.bodyLoaded = true;
-      // IndexedDB 캐시 업데이트
+      mail.loadFailed = false;
       await dbPutMails([mail]);
     } catch(e) {
-      document.getElementById("dBody").textContent = "⚠️ 본문 로딩 실패: " + e.message;
-      document.getElementById("dBody").insertAdjacentHTML("afterend",
-        `<button onclick="showDetail(${idx})" style="margin:12px 0;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;">🔄 다시 시도</button>`
-      );
+      mail.loadFailed = true;
+      document.getElementById("dBody").innerHTML =
+        `⚠️ 본문 로딩 실패: ${esc(e.message)}<br>
+        <button onclick="showDetail(${idx})" style="margin:12px 0;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;">🔄 다시 시도</button>`;
       return;
     }
   }
 
   document.getElementById("dBody").textContent = mail.body || "(본문 없음)";
+
+  // 본문이 없고 첨부파일만 있는 경우
+  if (!mail.body && mail.hasAttachment) {
+    document.getElementById("dBody").textContent = "(첨부파일만 있는 메일입니다)";
+  }
 
   const attSec = document.getElementById("dAttSec");
   if (mail.hasAttachment && mail.attachments?.length) {
