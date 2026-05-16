@@ -143,7 +143,7 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
 .main-nav-btn.active{background:var(--accent);color:#fff;}
 
 /* Contacts full page */
-.contacts-page{flex:1;display:none;flex-direction:column;overflow:hidden;}
+.contacts-page{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;display:none;flex-direction:column;overflow:hidden;background:var(--bg);}
 .contacts-page.show{display:flex;}
 .ct-head{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;}
 .ct-title{font-size:17px;font-weight:700;}
@@ -410,9 +410,6 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
       </div>
     </div>
 
-      </div>
-    </div>
-
     <!-- 세금계산서 -->
     <div class="tbl-panel" id="tabTax">
       <div class="tbl-toolbar">
@@ -471,6 +468,10 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
 <!-- 주소록 페이지 (별도 전체화면) -->
 <div class="contacts-page" id="contactsPage">
   <div class="ct-head">
+    <button onclick="switchMainTab('mail', document.querySelector('.main-nav-btn'))"
+      style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px;white-space:nowrap;">
+      ← 메일함
+    </button>
     <div>
       <div class="ct-title">👤 주소록</div>
       <div style="font-size:12px;color:var(--t2);margin-top:2px">메일 발신자 기준 자동 추출 · 중복 제거</div>
