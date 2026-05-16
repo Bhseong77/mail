@@ -814,6 +814,14 @@
               <span class="meta-value" id="detailSender"></span>
             </div>
             <div class="meta-row">
+              <span class="meta-label">받는 이</span>
+              <span class="meta-value" id="detailTo"></span>
+            </div>
+            <div class="meta-row" id="detailCcRow" style="display:none;">
+              <span class="meta-label">참조</span>
+              <span class="meta-value" id="detailCc"></span>
+            </div>
+            <div class="meta-row">
               <span class="meta-label">날짜</span>
               <span class="meta-value" id="detailDate"></span>
             </div>
@@ -844,11 +852,13 @@
               <th onclick="sortTable('name')">발신자 이름</th>
               <th onclick="sortTable('email')">발신자 이메일</th>
               <th onclick="sortTable('subject')">제목</th>
+              <th>참조자 이름</th>
+              <th>참조자 이메일</th>
               <th>첨부</th>
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text2)">메일을 불러오는 중...</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text2)">메일을 불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -960,16 +970,20 @@ function renderTable(emails) {
   const tbody = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = emails.length + '개';
   if (!emails.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text2)">📭 메일이 없습니다</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text2)">📭 메일이 없습니다</td></tr>`;
     return;
   }
   tbody.innerHTML = emails.map(mail => {
     const idx = allEmails.indexOf(mail);
+    const ccNames = (mail.cc||[]).map(c=>c.name||c.email).join(', ');
+    const ccEmails = (mail.cc||[]).map(c=>c.email).join(', ');
     return `<tr onclick="goToMail(${idx})">
       <td class="td-date">${escHtml(mail.date||'')}</td>
       <td class="td-name">${escHtml(extractName(mail.sender))}</td>
       <td class="td-email">${escHtml(extractEmail(mail.sender))}</td>
       <td class="td-subject"><span class="td-subject-text" title="${escHtml(mail.subject||'')}">${escHtml(mail.subject||'(제목 없음)')}</span></td>
+      <td class="td-email">${escHtml(ccNames)}</td>
+      <td class="td-email">${escHtml(ccEmails)}</td>
       <td>${mail.has_attachment ? '<span class="attach-icon">📎</span>' : ''}</td>
     </tr>`;
   }).join('');
@@ -983,8 +997,20 @@ function goToMail(idx) {
 
 function exportCSV() {
   const emails = tableFiltered.length ? tableFiltered : allEmails;
-  const rows = [['수신날짜','발신자이름','발신자이메일','제목','첨부파일']];
-  emails.forEach(m => rows.push([m.date||'', extractName(m.sender), extractEmail(m.sender), m.subject||'', m.has_attachment?(m.attachments||[]).join(';'):'']));
+  const rows = [['수신날짜','발신자이름','발신자이메일','제목','참조자이름','참조자이메일','첨부파일']];
+  emails.forEach(m => {
+    const ccNames = (m.cc||[]).map(c=>c.name||c.email).join(';');
+    const ccEmails = (m.cc||[]).map(c=>c.email).join(';');
+    rows.push([
+      m.date||'',
+      extractName(m.sender),
+      extractEmail(m.sender),
+      m.subject||'',
+      ccNames,
+      ccEmails,
+      m.has_attachment?(m.attachments||[]).map(a=>a.name||a).join(';'):''
+    ]);
+  });
   const csv = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'}));
@@ -1021,11 +1047,36 @@ function showDetail(idx) {
   document.getElementById('detailSubject').textContent = mail.subject || '(제목 없음)';
   document.getElementById('detailSender').textContent = mail.sender;
   document.getElementById('detailDate').textContent = mail.date;
+
+  // 받는 이
+  const toText = (mail.to||[]).map(t => t.name ? `${t.name} <${t.email}>` : t.email).join(', ');
+  document.getElementById('detailTo').textContent = toText || '-';
+
+  // 참조
+  const ccRow = document.getElementById('detailCcRow');
+  if (mail.cc && mail.cc.length > 0) {
+    const ccText = mail.cc.map(c => c.name ? `${c.name} <${c.email}>` : c.email).join(', ');
+    document.getElementById('detailCc').textContent = ccText;
+    ccRow.style.display = 'flex';
+  } else {
+    ccRow.style.display = 'none';
+  }
+
   document.getElementById('detailBody').textContent = (mail.body||'').replace(/<[^>]+>/g,'').trim() || '(본문 없음)';
+
   const attSec = document.getElementById('attachmentsSection');
   if (mail.has_attachment && mail.attachments?.length) {
     attSec.style.display = 'block';
-    document.getElementById('attachmentsList').innerHTML = mail.attachments.map(f=>`<div class="attachment-item">📄 ${escHtml(f)}</div>`).join('');
+    document.getElementById('attachmentsList').innerHTML = mail.attachments.map((att, i) => {
+      const fname = att.name || att;
+      const dlUrl = `${serverUrl}/api/email/${mail.id}/attachment/${i}`;
+      return `<div class="attachment-item">
+        <span>📄 ${escHtml(fname)}</span>
+        <a href="${dlUrl}" target="_blank"
+           style="margin-left:auto;font-size:11px;color:var(--accent);text-decoration:none;padding:3px 10px;border:1px solid var(--accent);border-radius:4px;"
+           onclick="event.stopPropagation()">⬇️ 다운로드</a>
+      </div>`;
+    }).join('');
   } else { attSec.style.display = 'none'; }
 }
 
