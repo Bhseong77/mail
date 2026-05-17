@@ -1910,18 +1910,31 @@ function extractContactFromBody(body, fromAddr) {
 }
 
 async function buildContacts() {
+  // 로딩 표시
+  document.getElementById("contactBody").innerHTML =
+    '<tr><td colspan="4"><div class="lb"><div class="spinner"></div>연락처 추출 중...</div></td></tr>';
+  document.getElementById("contactCount").textContent = "추출 중...";
+
   const contactMap = new Map();
   const targetMails = currentOwner === "all" ? allMails :
     allMails.filter(m => m.owner === currentOwner);
 
-  // 1단계: 헤더 기반으로 우선 목록 구성
+  // _contactCache에서 먼저 복원
+  _contactCache.forEach((v, k) => {
+    contactMap.set(k, {
+      email: k, name: v.name || "", company: v.company || "",
+      dept: v.dept || "", mobile: v.mobile || "", tel: v.tel || "",
+      lastDate: "", mailCount: 0, enriched: true, mail: null
+    });
+  });
+
+  // 헤더 기반 목록 구성
   for (const mail of targetMails) {
     const fromEmail = extractEmail(mail.from);
     if (!fromEmail || fromEmail.includes("enjet.co.kr")) continue;
     const key = fromEmail.toLowerCase();
+    const cached = _contactCache.get(key);
     if (!contactMap.has(key)) {
-      // 캐시에 이미 분석된 결과 있으면 그대로 사용
-      const cached = _contactCache.get(key);
       contactMap.set(key, {
         email: fromEmail,
         name: cached?.name || extractName(mail.from),
@@ -1932,14 +1945,14 @@ async function buildContacts() {
         lastDate: mail.date || "",
         lastDateRaw: mail.dateRaw || "",
         mailCount: 1,
-        enriched: !!cached,   // 캐시 있으면 이미 분석 완료
-        mail: cached ? null : mail  // 캐시 있으면 재분석 불필요
+        enriched: !!cached,
+        mail: cached ? null : mail
       });
     } else {
       const ex = contactMap.get(key);
       ex.mailCount++;
-      // 최근 메일 기준 업데이트
-      if (!ex.enriched) ex.mail = mail;
+      if (!ex.name && mail.from) ex.name = extractName(mail.from);
+      if (!ex.mail && !ex.enriched) ex.mail = mail;
     }
 
     // 참조자
@@ -1947,17 +1960,17 @@ async function buildContacts() {
       if (!cc.email || cc.email.includes("enjet.co.kr")) continue;
       const cKey = cc.email.toLowerCase();
       if (!contactMap.has(cKey)) {
+        const ccCached = _contactCache.get(cKey);
         contactMap.set(cKey, {
           email: cc.email,
-          name: cc.name || cc.email.split("@")[0],
-          company: "", dept: "", mobile: "", tel: "",
+          name: ccCached?.name || cc.name || cc.email.split("@")[0],
+          company: ccCached?.company || "", dept: ccCached?.dept || "",
+          mobile: ccCached?.mobile || "", tel: ccCached?.tel || "",
           lastDate: mail.date || "", lastDateRaw: mail.dateRaw || "",
-          mailCount: 1, enriched: false, mail: null
+          mailCount: 1, enriched: !!ccCached, mail: null
         });
       } else {
-        const ex = contactMap.get(cKey);
-        ex.mailCount++;
-        if (!ex.name && cc.name) ex.name = cc.name;
+        contactMap.get(cKey).mailCount++;
       }
     }
   }
@@ -1966,8 +1979,6 @@ async function buildContacts() {
   filteredContacts = [...allContacts];
   sortContactsList();
   renderContacts(filteredContacts);
-
-  // 2단계: 본문 있는 메일에서 서버로 연락처 보강 (백그라운드)
   enrichContactsFromServer(contactMap);
 }
 
