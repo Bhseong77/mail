@@ -322,6 +322,7 @@ async function spLoad(path){try{const r=await fetchSP(spUrl(path)+"/content");if
 
 // 로딩
 async function loadAll(){
+  // 1. IndexedDB 캐시 확인
   const cached=await dbGet("mails");
   if(cached.length>0){
     allMails=cached;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
@@ -331,6 +332,20 @@ async function loadAll(){
     else setSt(`${allMails.length}통`,"ok");
     return;
   }
+  // 2. SP 캐시 파일 로딩 시도 (_headers_cache.json)
+  setSt("SP 캐시 확인중...","spin");setSyncUI(true,"⏳");
+  try{
+    const spData=await spLoad(SP_HDR);
+    if(spData&&Array.isArray(spData)&&spData.length>0){
+      const restored=spData.map(m=>({...m,bodyLoaded:false,body:""}));
+      await dbPut("mails",restored);
+      allMails=restored;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
+      curOwner="all";applyFilter();renderSB();
+      setSt(`SP캐시 ${allMails.length}통 로딩됨`,"ok");setSyncUI(false);
+      return;
+    }
+  }catch(e){console.warn("SP캐시 로딩 실패:",e.message);}
+  // 3. 처음: 파일 목록만 가져오기
   setSt("연결중...","spin");setSyncUI(true,"⏳ 연결중");
   try{
     const newMails=[];
@@ -369,8 +384,8 @@ async function loadHdrs(total){
     }));
     if(toSave.length>=100||b+10>=noH.length){await dbPut("mails",toSave);toSave=[];}
     const now=Date.now();
-    if(now-lastUI>4000||b+10>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
-    await new Promise(r=>setTimeout(r,300));
+    if(now-lastUI>5000||b+10>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
+    await new Promise(r=>setTimeout(r,600));
   }
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
