@@ -370,8 +370,9 @@ async function loadAll(){
 async function loadHdrs(total){
   const noH=allMails.filter(m=>!m.headerLoaded);
   let done=0,toSave=[],lastUI=0;
-  for(let b=0;b<noH.length;b+=10){
-    const batch=noH.slice(b,b+10);
+  const BATCH=3; // 동시 요청 3개로 줄임
+  for(let b=0;b<noH.length;b+=BATCH){
+    const batch=noH.slice(b,b+BATCH);
     await Promise.all(batch.map(async m=>{
       try{
         const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{headers:{Range:"bytes=0-8191"}});
@@ -382,10 +383,13 @@ async function loadHdrs(total){
       }catch{m.headerLoaded=true;}
       done++;
     }));
-    if(toSave.length>=100||b+10>=noH.length){await dbPut("mails",toSave);toSave=[];}
+    // 100개마다 DB 저장
+    if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
+    // 5초마다 UI 업데이트
     const now=Date.now();
-    if(now-lastUI>5000||b+10>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
-    await new Promise(r=>setTimeout(r,600));
+    if(now-lastUI>5000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
+    // 배치 간 1초 딜레이 (429 방지)
+    await new Promise(r=>setTimeout(r,1000));
   }
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
