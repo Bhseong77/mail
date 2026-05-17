@@ -3,2182 +3,603 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ENJET 팀 메일 대시보드</title>
+<title>ENJET 팀 메일</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ── 디자인 토큰 (영업 대시보드와 동일) ── */
-:root{
-  --bg:#f4f6fa; --bg2:#fff; --bg3:#eef1f6; --bg4:#e5e9f2;
-  --border:rgba(0,0,0,0.07); --border2:rgba(0,0,0,0.13);
-  --accent:#1a6fd4; --accent2:#1558b0;
-  --pd:rgba(26,111,212,0.08);
-  --g:#00875a; --gd:rgba(0,135,90,0.08);
-  --r:#c8201e; --rd:rgba(200,32,30,0.08);
-  --y:#9a6400; --yd:rgba(154,100,0,0.09);
-  --pu:#6b35b8; --pud:rgba(107,53,184,0.08);
-  --text:#111827; --t2:#4b5563; --t3:#9ca3af;
-  --red:#c8201e;
-}
+:root{--bg:#f4f6fa;--bg2:#fff;--bg3:#eef1f6;--border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.15);--p:#1a6fd4;--pd:rgba(26,111,212,0.08);--g:#00875a;--r:#c8201e;--y:#9a6400;--t:#111827;--t2:#4b5563;--t3:#9ca3af;--m:"JetBrains Mono",monospace;--s:"Pretendard",sans-serif;}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
-
-/* ── 헤더 ── */
-.header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px;border-bottom:1px solid var(--border);
-  background:var(--bg2);flex-shrink:0;gap:10px;flex-wrap:wrap;
-  position:sticky;top:0;z-index:100;
-}
-.logo{display:flex;align-items:center;gap:10px;}
-.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;
-  display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:900;}
-.logo h1{font-size:15px;font-weight:800;color:var(--text);}
-.logo span{font-size:11px;color:var(--t3);display:block;margin-top:1px;}
-.hright{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-
-/* 메인 네비 */
-.main-nav{display:flex;gap:3px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:3px;}
-.main-nav-btn{padding:5px 14px;border-radius:6px;border:none;background:transparent;
-  color:var(--t2);font-size:13px;font-weight:600;font-family:'Pretendard',sans-serif;cursor:pointer;transition:all 0.15s;}
-.main-nav-btn:hover{color:var(--text);}
-.main-nav-btn.active{background:var(--accent);color:#fff;}
-
-/* 상태/버튼 */
-.status-pill{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);}
-.dot{width:6px;height:6px;border-radius:50%;background:var(--t3);flex-shrink:0;}
-.dot.ok{background:var(--g);animation:pulse 2s infinite}
-.dot.spin{background:var(--y)}
-.dot.err{background:var(--red)}
+body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+.hd{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.hd-icon{width:28px;height:28px;background:var(--p);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;flex-shrink:0;}
+.hd-title{font-size:13px;font-weight:800;}
+.hd-sub{font-size:10px;color:var(--t3);}
+.hd-nav{display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:2px;margin-left:4px;}
+.hd-tab{padding:4px 11px;border-radius:4px;border:none;background:transparent;font-size:12px;font-weight:600;font-family:var(--s);cursor:pointer;color:var(--t2);}
+.hd-tab.on{background:var(--p);color:#fff;}
+.hd-r{display:flex;align-items:center;gap:5px;margin-left:auto;}
+.st{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--t3);}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--t3);}
+.dot.ok{background:var(--g)}.dot.spin{background:var(--y);animation:pulse 1s infinite}.dot.err{background:var(--r)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.user-badge{font-size:12px;font-weight:600;color:var(--t2);background:var(--bg3);
-  border:1px solid var(--border2);padding:4px 10px;border-radius:6px;}
-.btn{padding:5px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);
-  font-size:13px;color:var(--t2);cursor:pointer;font-family:'Pretendard',sans-serif;font-weight:600;transition:all .15s;}
-.btn:hover{border-color:var(--accent);color:var(--accent);}
-.btn.danger{color:var(--red);}
-.btn.danger:hover{border-color:var(--red);}
-.btn:disabled{opacity:0.5;cursor:not-allowed;}
-.exp-btn{padding:5px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);
-  font-size:12px;color:var(--t2);cursor:pointer;font-family:'Pretendard',sans-serif;font-weight:600;transition:all .15s;}
-.exp-btn:hover{border-color:var(--accent);color:var(--accent);}
-
-/* ── 앱 레이아웃 ── */
-.app{display:grid;grid-template-columns:180px 320px 1fr;flex:1;height:calc(100vh - 93px);overflow:hidden;}
-
-/* ── 사이드바 ── */
-.sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);}
-.sb-section{padding:8px;flex:1;overflow-y:auto;}
-.sb-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);
-  padding:8px 8px 2px;font-weight:700;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
-  cursor:pointer;font-size:13px;color:var(--t2);font-weight:500;margin-bottom:1px;transition:all .15s;}
-.sb-item:hover{background:var(--bg3);}
-.sb-item.active{background:var(--pd);color:var(--accent);font-weight:700;}
-.sb-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
-.sb-info{flex:1;min-width:0;}
-.sb-name{font-size:13px;font-weight:600;color:inherit;}
-.sb-mail{font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.sb-cnt{font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;
-  background:var(--pd);color:var(--accent);padding:1px 6px;border-radius:4px;}
-
-/* ── 메일 목록 패널 ── */
-.ml-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;background:var(--bg2);}
-.ml-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-#panelTitle{font-size:14px;font-weight:700;color:var(--text);}
-#panelCount{font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;font-weight:600;}
-.si{width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;
-  background:var(--bg3);font-size:13px;font-family:'Pretendard',sans-serif;
-  color:var(--text);outline:none;transition:border-color .15s;}
-.si:focus{border-color:var(--accent);background:var(--bg2);}
-.si::placeholder{color:var(--t3);}
-.search-wrap{padding:8px 10px;border-bottom:1px solid var(--border);}
-
-/* 탭 */
-.tab-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3);overflow-x:auto;}
-.tab-bar::-webkit-scrollbar{display:none;}
-.tab-item{padding:8px 14px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;
-  white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;}
-.tab-item:hover{color:var(--text);}
-.tab-item.active{color:var(--accent);border-bottom-color:var(--accent);}
-
-/* 메일 목록 */
-.mail-scroll{flex:1;overflow-y:auto;}
-.mail-scroll::-webkit-scrollbar{width:3px;}
-.mail-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
-.mi{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
-.mi:hover{background:var(--bg3);}
-.mi.active{background:var(--pd);border-left:2px solid var(--accent);}
-.mi-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;}
-.mi-from{font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-.mi-date{font-size:10px;color:var(--t3);white-space:nowrap;flex-shrink:0;margin-left:6px;}
-.mi-subj{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
-.mi-meta{display:flex;gap:5px;align-items:center;}
-.mi-owner{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;}
-.mi-att{font-size:10px;color:var(--t3);}
-
-/* 아바타 색상 */
-.av0{background:#dbeafe;color:#1d4ed8;}
-.av1{background:#fce7f3;color:#be185d;}
-.av2{background:#d1fae5;color:#065f46;}
-.av3{background:#fef3c7;color:#92400e;}
-.av4{background:#ede9fe;color:#5b21b6;}
-
-/* 테이블 뷰 */
-.tbl-panel{display:none;flex-direction:column;overflow:hidden;background:var(--bg2);}
-.tbl-toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.tw{flex:1;overflow:auto;}
-.tw::-webkit-scrollbar{width:3px;height:3px;}
-.tw::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-thead tr{background:var(--bg3);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border2);}
-th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--t3);
-  text-transform:uppercase;letter-spacing:.8px;cursor:pointer;white-space:nowrap;user-select:none;}
-th:hover{color:var(--accent);}
-th.asc::after{content:' ▲';color:var(--accent);}
-th.desc::after{content:' ▼';color:var(--accent);}
-tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
-tbody tr:hover{background:var(--bg3);}
-td{padding:9px 14px;color:var(--t2);vertical-align:middle;}
-.td-s{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.td-m{font-family:'JetBrains Mono',monospace;font-size:11px;}
-
-/* 상세보기 */
-.dp{background:var(--bg2);display:flex;flex-direction:column;overflow:hidden;}
-.dp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:100%;gap:10px;color:var(--t3);}
-.dp-empty-icon{font-size:40px;opacity:.5;}
-.dp-inner{display:flex;flex-direction:column;height:100%;}
-.dp-head{padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.dp-subj{font-size:16px;font-weight:800;color:var(--text);margin-bottom:12px;line-height:1.4;}
-.meta-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:12px;}
-.mk{color:var(--t3);font-weight:600;white-space:nowrap;}
-.mv{color:var(--text);}
-.dp-body-wrap{flex:1;overflow-y:auto;padding:16px 20px;}
-.dp-body{font-size:13px;line-height:1.7;color:var(--t2);white-space:pre-wrap;font-family:'Pretendard',sans-serif;}
-.att-sec{padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;}
-.att-title{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
-.att-item{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;
-  background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
-  font-size:12px;color:var(--t2);margin:2px;}
-
-/* 로그인 */
-#loginScreen{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;
-  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
-.login-card{background:#fff;border-radius:16px;padding:38px;width:380px;max-width:90vw;
-  text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2);}
-.login-logo{font-size:22px;font-weight:900;color:var(--accent);letter-spacing:3px;
-  font-family:'JetBrains Mono',monospace;margin-bottom:4px;}
-.login-sub{color:var(--t3);font-size:14px;margin-bottom:8px;}
-.login-desc{color:var(--t2);font-size:14px;line-height:1.6;margin-bottom:24px;}
-.login-btn{background:#2f2f2f;color:#fff;border:none;width:100%;padding:12px;font-size:15px;
-  font-weight:700;font-family:'Pretendard',sans-serif;border-radius:8px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;}
-.login-btn:hover{background:#111;}
-.login-foot{margin-top:12px;font-size:12px;color:var(--t3);}
-
-/* 주소록 */
-.contacts-page{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;
-  display:none;flex-direction:column;overflow:hidden;background:var(--bg);}
-.contacts-page.show{display:flex;}
-/* mainHeader가 보일 때 아래로 밀기 - JS에서 처리 */
-.ct-head{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg2);
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;}
-.ct-title{font-size:16px;font-weight:800;color:var(--text);}
-.ct-search{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
-  padding:7px 12px;color:var(--text);font-size:13px;font-family:'Pretendard',sans-serif;
-  outline:none;transition:border-color .15s;min-width:220px;}
-.ct-search:focus{border-color:var(--accent);background:var(--bg2);}
-.ct-search::placeholder{color:var(--t3);}
-.ct-cnt{font-size:12px;color:var(--t3);margin-left:auto;}
-.ct-body{flex:1;overflow:auto;background:var(--bg2);}
-.ct-body::-webkit-scrollbar{width:3px;}
-.ct-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
-.ct-tbl{width:100%;border-collapse:collapse;font-size:13px;}
-.ct-tbl thead tr{background:var(--bg3);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border2);}
-.ct-tbl th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--t3);
-  text-transform:uppercase;letter-spacing:.8px;cursor:pointer;white-space:nowrap;user-select:none;}
-.ct-tbl th:hover{color:var(--accent);}
-.ct-tbl th.asc::after{content:' ▲';color:var(--accent);}
-.ct-tbl th.desc::after{content:' ▼';color:var(--accent);}
-.ct-tbl tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
-.ct-tbl tbody tr:hover{background:var(--bg3);}
-.ct-tbl td{padding:10px 16px;vertical-align:middle;}
-.ct-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
-.ct-email-link{color:var(--accent);text-decoration:none;font-size:13px;}
-.ct-email-link:hover{text-decoration:underline;}
-.ct-editable{border-radius:4px;padding:2px 4px;margin:-2px -4px;transition:background .15s;cursor:pointer;}
-.ct-editable:hover{background:var(--bg3);}
-.ct-foot{padding:8px 16px;border-top:1px solid var(--border);background:var(--bg3);
-  display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--t3);}
-
-/* 로딩 */
-.lb{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:50px 20px;gap:10px;color:var(--t3);font-size:13px;}
-.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);
-  border-radius:50%;animation:spin 0.7s linear infinite;}
+.btn{padding:4px 9px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);font-size:12px;font-weight:600;font-family:var(--s);color:var(--t2);cursor:pointer;}
+.btn:hover{border-color:var(--p);color:var(--p)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.red{color:var(--r)}.btn.red:hover{border-color:var(--r)}
+.pb{height:3px;background:var(--border);flex-shrink:0;}
+.pf{height:100%;background:var(--p);transition:width .3s;width:0%;}
+.app{display:grid;grid-template-columns:155px 290px 1fr;flex:1;min-height:0;}
+.sb{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;}
+.sb-lbl{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;padding:8px 8px 3px;}
+.sb-it{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2);margin:1px 6px;transition:background .1s;}
+.sb-it:hover{background:var(--bg3)}.sb-it.on{background:var(--pd);color:var(--p);font-weight:700}
+.sb-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.sb-cnt{font-size:10px;font-family:var(--m);font-weight:700;background:var(--pd);color:var(--p);padding:1px 5px;border-radius:4px;margin-left:auto;}
+.av0{background:#dbeafe;color:#1d4ed8}.av1{background:#fce7f3;color:#be185d}.av2{background:#d1fae5;color:#065f46}
+.ml{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2);overflow:hidden;}
+.ml-top{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ml-title{font-size:12px;font-weight:700}.ml-cnt{font-size:10px;color:var(--t3);font-family:var(--m)}
+.ml-si{width:calc(100% - 20px);margin:6px 10px;padding:6px 10px;border:1px solid var(--border2);border-radius:7px;background:var(--bg3);font-size:12px;font-family:var(--s);color:var(--t);outline:none;display:block;}
+.ml-si:focus{border-color:var(--p);background:var(--bg2)}
+.ml-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;background:var(--bg3);}
+.ml-tabs::-webkit-scrollbar{display:none}
+.ml-tab{padding:6px 11px;font-size:11px;font-weight:600;color:var(--t3);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
+.ml-tab.on{color:var(--p);border-bottom-color:var(--p)}
+.ml-list{flex:1;overflow-y:auto;}
+.ml-list::-webkit-scrollbar{width:3px}.ml-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.mi{padding:9px 11px;border-bottom:1px solid var(--border);cursor:pointer;}
+.mi:hover{background:var(--bg3)}.mi.on{background:var(--pd);border-left:2px solid var(--p)}
+.mi-r1{display:flex;justify-content:space-between;margin-bottom:2px}
+.mi-from{font-size:12px;font-weight:700;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.mi-date{font-size:10px;color:var(--t3);flex-shrink:0;margin-left:5px}
+.mi-subj{font-size:11px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
+.mi-tags{display:flex;gap:3px}
+.mi-tag{font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700}
+.tkw{background:var(--pd);color:var(--p)}.tbh{background:#ede9fe;color:#5b21b6}
+.tbl-panel{display:none;flex-direction:column;overflow:hidden}
+.tbl-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tw{flex:1;overflow:auto}
+.tw::-webkit-scrollbar{width:3px;height:3px}.tw::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--bg3);position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border2)}
+th{padding:7px 11px;text-align:left;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer}
+tbody tr:hover td{background:var(--bg3)}
+td{padding:7px 11px;font-size:12px;color:var(--t2);vertical-align:middle}
+.td-s{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t)}
+.dp{background:var(--bg2);display:flex;flex-direction:column;overflow:hidden}
+.dp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--t3)}
+.dp-inner{display:flex;flex-direction:column;height:100%}
+.dp-hd{padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dp-subj{font-size:14px;font-weight:800;color:var(--t);margin-bottom:9px;line-height:1.4}
+.dp-meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px}
+.dp-mk{color:var(--t3);font-weight:600;white-space:nowrap}.dp-mv{color:var(--t)}
+.dp-body{flex:1;overflow-y:auto;padding:13px 16px}
+.dp-body::-webkit-scrollbar{width:3px}.dp-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.dp-text{font-size:12px;line-height:1.7;color:var(--t2);white-space:pre-wrap}
+.dp-att{padding:9px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.dp-att-ttl{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:5px}
+.att-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;font-size:11px;color:var(--t2);margin:2px}
+.login-ov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.login-box{background:#fff;border-radius:16px;padding:36px;width:350px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.l-logo{font-size:22px;font-weight:900;color:var(--p);letter-spacing:3px;font-family:var(--m);margin-bottom:4px}
+.l-sub{color:var(--t3);font-size:13px;margin-bottom:20px}
+.l-btn{background:#2f2f2f;color:#fff;border:none;width:100%;padding:11px;font-size:14px;font-weight:700;font-family:var(--s);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.l-btn:hover{background:#111}
+.l-foot{margin-top:10px;font-size:11px;color:var(--t3)}
+.ct-page{position:fixed;left:0;right:0;bottom:0;z-index:20;display:none;flex-direction:column;background:var(--bg)}
+.ct-page.on{display:flex}
+.ct-hd{padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.ct-title{font-size:14px;font-weight:800}
+.ct-si{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--t);font-size:12px;font-family:var(--s);outline:none;min-width:180px}
+.ct-si:focus{border-color:var(--p)}
+.ct-si::placeholder{color:var(--t3)}
+.ct-cnt{font-size:11px;color:var(--t3);margin-left:auto}
+.ct-body{flex:1;overflow:auto;background:var(--bg2)}
+.ct-tbl{width:100%;border-collapse:collapse}
+.ct-tbl thead tr{background:var(--bg3);position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border2)}
+.ct-tbl th{padding:8px 13px;text-align:left;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;cursor:pointer;white-space:nowrap}
+.ct-tbl th:hover{color:var(--p)}
+.ct-tbl tbody tr{border-bottom:1px solid var(--border)}
+.ct-tbl tbody tr:hover td{background:var(--bg3)}
+.ct-tbl td{padding:8px 13px;vertical-align:middle}
+.ct-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.ct-em{color:var(--p);text-decoration:none;font-size:12px}
+.ct-em:hover{text-decoration:underline}
+.ct-ed{border-radius:3px;padding:2px 4px;margin:-2px -4px;cursor:pointer}
+.ct-ed:hover{background:var(--bg3)}
+.ct-foot{padding:7px 13px;border-top:1px solid var(--border);background:var(--bg3);font-size:11px;color:var(--t3);display:flex;justify-content:space-between}
+.lb{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;gap:10px;color:var(--t3);font-size:13px}
+.sp{width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* 프로그레스 */
-.progress-bar{height:3px;background:var(--border);flex-shrink:0;}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#5b8fff);transition:width .3s;width:0%;}
-
-/* ── 모바일 반응형 ── */
-@media (max-width: 768px) {
-  .header{padding:8px 12px;gap:6px;}
-  .logo h1{font-size:13px;}
-  .logo span{display:none;}
-  .main-nav-btn{padding:4px 10px;font-size:12px;}
-  .status-pill{display:none;}
-  .user-badge{display:none;}
-  .btn{padding:4px 10px;font-size:11px;}
-  .app{grid-template-columns:1fr !important;grid-template-rows:auto 1fr;}
-  .sidebar{flex-direction:row;overflow-x:auto;overflow-y:hidden;
-    border-right:none;border-bottom:1px solid var(--border);max-height:56px;min-height:56px;}
-  .sb-section{padding:0;border-bottom:none;display:flex;align-items:center;}
-  .sb-label{display:none;}
-  .sb-item{flex-direction:column;padding:6px 10px;border-left:none;
-    border-bottom:2px solid transparent;white-space:nowrap;min-width:70px;align-items:center;gap:2px;}
-  .sb-item.active{border-left:none;border-bottom-color:var(--accent);background:var(--pd);}
-  .sb-mail{display:none;}
-  .sb-cnt{display:none;}
-  .ml-panel{border-right:none;}
-  .dp{position:fixed;inset:0;z-index:50;transform:translateX(100%);transition:transform .25s ease;}
-  .dp.open{transform:translateX(0);}
-  .dp-back{display:flex !important;align-items:center;gap:8px;padding:10px 14px;
-    border-bottom:1px solid var(--border);background:var(--bg2);cursor:pointer;
-    font-size:13px;color:var(--accent);flex-shrink:0;}
-  /* 주소록 모바일 카드 */
-  .ct-tbl thead{display:none;}
-  .ct-tbl tbody tr{display:block;padding:12px 14px;border-bottom:1px solid var(--border);}
-  .ct-tbl td{display:none;border:none;}
-  .ct-tbl td:nth-child(1){display:block;padding:0 0 6px 0;}
-  .ct-tbl td:nth-child(2){display:block;padding:0 0 4px 0;}
-  .ct-tbl td:nth-child(3){display:block;padding:0 0 4px 0;font-size:13px;}
-  .ct-tbl td:nth-child(4){display:block;padding:4px 0 0 0;font-size:13px;}
-  .ct-head{padding:10px 12px;gap:6px;}
-  .ct-search{min-width:unset;width:100%;}
-  .ct-cnt{display:none;}
-  .tab-bar .tab-item:nth-child(2){display:none;}
-  .mi{padding:12px 12px;min-height:64px;}
-}
-@media (max-width: 480px) {
-  .main-nav{gap:2px;}
-  .main-nav-btn{padding:3px 8px;font-size:11px;}
+.doc-b{font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700;display:inline-block}
+.doc-tax{background:#d1fae5;color:#065f46}.doc-quote{background:#fef3c7;color:#92400e}.doc-po{background:#dbeafe;color:#1d4ed8}
+.dp-back{display:none}
+@media(max-width:768px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sb{display:flex;flex-direction:row;max-height:50px;min-height:50px;overflow-x:auto;overflow-y:hidden;border-right:none;border-bottom:1px solid var(--border)}
+  .sb-lbl{display:none}
+  .sb-it{flex-direction:column;gap:1px;padding:5px 9px;border-radius:0;white-space:nowrap;min-width:55px;align-items:center;border-bottom:2px solid transparent;margin:0}
+  .sb-it.on{border-bottom-color:var(--p);background:var(--pd)}
+  .sb-cnt{display:none}
+  .dp{position:fixed;inset:0;z-index:50;transform:translateX(100%);transition:transform .25s}
+  .dp.open{transform:translateX(0)}
+  .dp-back{display:flex!important;align-items:center;gap:6px;padding:9px 13px;border-bottom:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:13px;color:var(--p);flex-shrink:0}
+  .ct-tbl thead{display:none}
+  .ct-tbl tbody tr{display:block;padding:10px 13px;border-bottom:1px solid var(--border)}
+  .ct-tbl td{display:none;padding:2px 0}
+  .ct-tbl td:nth-child(1),.ct-tbl td:nth-child(2),.ct-tbl td:nth-child(3),.ct-tbl td:nth-child(4){display:block}
+  .hd{gap:5px}
+  .hd-sub{display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div id="loginScreen">
-  <div class="login-card">
-    <div class="login-logo">ENJET</div>
-    <div class="login-sub">Team Mail Dashboard</div>
-    <div class="login-desc">SharePoint 메일 백업 연동<br>ENJET 조직 계정으로 로그인하세요</div>
-    <button class="login-btn" onclick="doLogin()">
-      <div style="width:18px;height:18px;background-image:linear-gradient(to right,#f25022 50%,#7fba00 50%),linear-gradient(to right,#00a4ef 50%,#ffb900 50%);background-size:100% 50%;background-repeat:no-repeat;background-position:top,bottom;border-radius:2px;"></div>
+<div class="login-ov" id="loginScreen">
+  <div class="login-box">
+    <div class="l-logo">ENJET</div>
+    <div class="l-sub">SharePoint 메일 백업 연동<br>ENJET 조직 계정으로 로그인하세요</div>
+    <button class="l-btn" onclick="doLogin()">
+      <span style="width:16px;height:16px;display:inline-block;background-image:linear-gradient(to right,#f25022 50%,#7fba00 50%),linear-gradient(to right,#00a4ef 50%,#ffb900 50%);background-size:100% 50%;background-repeat:no-repeat;background-position:top,bottom;border-radius:2px;flex-shrink:0"></span>
       Microsoft 계정으로 로그인
     </button>
-    <div class="login-foot">🔒 ENJET 조직 계정만 접근 가능</div>
+    <div class="l-foot">🔒 ENJET 조직 계정만 접근 가능</div>
   </div>
 </div>
 
-<!-- Header -->
-<div class="header" id="mainHeader" style="display:none;">
-  <div class="logo">
-    <div class="logo-icon">E</div>
-    <div>
-      <h1>ENJET 팀 메일</h1>
-      <span>SharePoint 백업 연동</span>
-    </div>
+<div class="hd" id="mainHeader" style="display:none">
+  <div class="hd-icon">E</div>
+  <div><div class="hd-title">ENJET 팀 메일</div><div class="hd-sub">SharePoint 백업 연동</div></div>
+  <div class="hd-nav">
+    <button class="hd-tab on" onclick="switchTab('mail',this)">📧 메일함</button>
+    <button class="hd-tab" onclick="switchTab('contacts',this)">👤 주소록</button>
   </div>
-  <div class="hright">
-    <div class="main-nav">
-      <button class="main-nav-btn active" onclick="switchMainTab('mail',this)">📧 메일함</button>
-      <button class="main-nav-btn" onclick="switchMainTab('contacts',this)">👤 주소록</button>
-    </div>
-    <div class="status-pill">
-      <div class="dot" id="statusDot"></div>
-      <span id="statusTxt">초기화 중...</span>
-    </div>
-    <div class="user-badge">👤 <span id="userNameBadge"></span></div>
-    <button class="btn" id="refreshBtn" onclick="doRefresh()">🔄 새로고침</button>
-    <button class="btn" id="syncBtn" onclick="loadAll(true)">🔃 전체동기화</button>
-    <button class="btn" onclick="clearAllCache()" style="font-size:11px;color:var(--red);">🗑️ 캐시초기화</button>
-    <button class="btn danger" onclick="doLogout()">로그아웃</button>
+  <div class="hd-r">
+    <div class="st"><div class="dot" id="stDot"></div><span id="stTxt" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
+    <button class="btn" id="refreshBtn" onclick="doRefresh()" title="새로고침">🔄</button>
+    <button class="btn" id="syncBtn" onclick="doFullSync()">🔃 동기화</button>
+    <button class="btn red" onclick="clearCache()" title="캐시초기화">🗑️</button>
+    <button class="btn red" onclick="doLogout()">로그아웃</button>
   </div>
 </div>
-<div class="progress-bar" id="mainProgress" style="display:none;"><div class="progress-fill" id="progressFill"></div></div>
+<div class="pb" id="pb" style="display:none"><div class="pf" id="pf"></div></div>
 
-<!-- App -->
-<div class="app" id="mainApp" style="display:none;">
-
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="sb-section">
-      <div class="sb-label">메일함</div>
-      <div class="sb-item active" onclick="selectOwner('all')" id="nav-all">
-        <div class="sb-av av0" style="font-size:14px;">👥</div>
-        <div class="sb-info">
-          <div class="sb-name">전체 보기</div>
-          <div class="sb-mail">모든 팀원</div>
-        </div>
-        <div class="sb-cnt" id="cnt-all">0</div>
-      </div>
+<div class="app" id="mainApp" style="display:none">
+  <div class="sb" id="sbBody"></div>
+  <div class="ml">
+    <div class="ml-top"><span class="ml-title" id="mlTitle">전체</span><span class="ml-cnt" id="mlCnt"></span></div>
+    <input class="ml-si" id="srch" placeholder="🔍 제목, 발신자 검색..." oninput="onSearch()">
+    <div class="ml-tabs">
+      <div class="ml-tab on" onclick="switchMTab('list',this)">메일함</div>
+      <div class="ml-tab" onclick="switchMTab('table',this)">목록</div>
+      <div class="ml-tab" onclick="switchMTab('tax',this)">🧾 세금계산서</div>
+      <div class="ml-tab" onclick="switchMTab('quote',this)">📋 견적서</div>
+      <div class="ml-tab" onclick="switchMTab('po',this)">📦 발주서</div>
     </div>
-    <div class="sb-section">
-      <div class="sb-label">팀원</div>
-      <div id="memberList"></div>
+    <div class="ml-list" id="mList"></div>
+    <div class="tbl-panel" id="tblPanel">
+      <div class="tbl-bar"><span id="tblInfo" style="font-size:12px;font-weight:600;color:var(--t2)"></span><button class="btn" onclick="exportTbl()">⬇️ CSV</button></div>
+      <div class="tw"><table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table></div>
     </div>
-  </div>
-
-  <!-- Mail list panel -->
-  <div class="ml-panel">
-    <div class="ph">
-      <span class="ph-title" id="panelTitle">받은 메일함</span>
-      <span class="ph-cnt" id="panelCount"></span>
-    </div>
-    <div class="sw">
-      <input class="si" id="searchInput" placeholder="🔍 제목, 발신자 검색..." oninput="filterMails()">
-    </div>
-    <div class="tab-bar">
-      <div class="tab-item active" onclick="switchTab('list',this)">메일함</div>
-      <div class="tab-item" onclick="switchTab('table',this)">목록</div>
-      <div class="tab-item" onclick="switchTab('tax',this)">🧾 세금계산서</div>
-      <div class="tab-item" onclick="switchTab('quote',this)">📋 견적서</div>
-      <div class="tab-item" onclick="switchTab('po',this)">📦 발주서</div>
-    </div>
-
-    <!-- List -->
-    <div id="tabList" class="mail-scroll">
-      <div class="lb"><div class="spinner"></div>로그인 후 로딩됩니다</div>
-    </div>
-
-    <!-- Table -->
-    <div class="tbl-panel" id="tabTable">
-      <div class="tbl-toolbar">
-        <span style="font-size:11px;color:var(--t2);flex:1" id="tblCount"></span>
-        <button class="exp-btn" onclick="exportCSV()">⬇️ CSV 내보내기</button>
-      </div>
-      <div class="tw">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortTbl('date')">날짜</th>
-              <th onclick="sortTbl('owner')">메일함</th>
-              <th onclick="sortTbl('sender')">발신자</th>
-              <th onclick="sortTbl('senderEmail')">발신 이메일</th>
-              <th onclick="sortTbl('subject')">제목</th>
-              <th>참조자 이름</th>
-              <th>참조자 이메일</th>
-              <th>첨부</th>
-            </tr>
-          </thead>
-          <tbody id="tblBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 세금계산서 -->
-    <div class="tbl-panel" id="tabTax">
-      <div class="tbl-toolbar">
-        <span style="font-size:11px;color:var(--t2);flex:1" id="taxCount"></span>
-        <button class="exp-btn" onclick="exportDocTab('tax')">⬇️ CSV</button>
-      </div>
-      <div class="tw" id="taxList"></div>
-    </div>
-
-    <!-- 견적서 -->
-    <div class="tbl-panel" id="tabQuote">
-      <div class="tbl-toolbar">
-        <span style="font-size:11px;color:var(--t2);flex:1" id="quoteCount"></span>
-        <button class="exp-btn" onclick="exportDocTab('quote')">⬇️ CSV</button>
-      </div>
-      <div class="tw" id="quoteList"></div>
-    </div>
-
-    <!-- 발주서 -->
-    <div class="tbl-panel" id="tabPo">
-      <div class="tbl-toolbar">
-        <span style="font-size:11px;color:var(--t2);flex:1" id="poCount"></span>
-        <button class="exp-btn" onclick="exportDocTab('po')">⬇️ CSV</button>
-      </div>
-      <div class="tw" id="poList"></div>
-    </div>
-
   </div>
   <div class="dp" id="dpPanel">
-    <div class="dp-back" style="display:none;" onclick="closeMobileDetail()">← 메일 목록으로</div>
-    <div class="dp-empty" id="dpEmpty">
-      <div class="dp-empty-icon">✉️</div>
-      <div style="font-size:13px;color:var(--t2)">메일을 선택하세요</div>
-    </div>
-    <div class="dp-inner" id="dpInner" style="display:none;">
-      <div class="dp-head">
-        <div class="dp-subj" id="dSubj"></div>
-        <div class="meta-grid">
-          <span class="mk">메일함</span><span class="mv" id="dOwner"></span>
-          <span class="mk">보낸 이</span><span class="mv" id="dFrom"></span>
-          <span class="mk">받는 이</span><span class="mv" id="dTo"></span>
-          <span class="mk" id="dCcK" style="display:none">참 조</span>
-          <span class="mv" id="dCc" style="display:none"></span>
-          <span class="mk">날 짜</span><span class="mv" id="dDate"></span>
+    <div class="dp-back" onclick="closeDp()">← 메일 목록으로</div>
+    <div class="dp-empty" id="dpEmpty"><div style="font-size:36px;opacity:.4">✉️</div><div style="font-size:12px">메일을 선택하세요</div></div>
+    <div class="dp-inner" id="dpInner" style="display:none">
+      <div class="dp-hd">
+        <div class="dp-subj" id="dpSubj"></div>
+        <div class="dp-meta">
+          <span class="dp-mk">메일함</span><span class="dp-mv" id="dpOwner"></span>
+          <span class="dp-mk">보낸이</span><span class="dp-mv" id="dpFrom"></span>
+          <span class="dp-mk">받는이</span><span class="dp-mv" id="dpTo"></span>
+          <span class="dp-mk" id="dpCcK" style="display:none">참 조</span><span class="dp-mv" id="dpCc" style="display:none"></span>
+          <span class="dp-mk">날 짜</span><span class="dp-mv" id="dpDate"></span>
         </div>
       </div>
-      <div class="dp-body-wrap"><div class="dp-body" id="dBody"></div></div>
-      <div class="att-sec" id="dAttSec" style="display:none;">
-        <div class="att-title">📎 첨부파일</div>
-        <div id="dAttList"></div>
-      </div>
+      <div class="dp-body"><div class="dp-text" id="dpBody"></div></div>
+      <div class="dp-att" id="dpAtt" style="display:none"><div class="dp-att-ttl">📎 첨부파일</div><div id="dpAttList"></div></div>
     </div>
   </div>
+</div>
 
-<!-- 주소록 페이지 (별도 전체화면) -->
-<div class="contacts-page" id="contactsPage">
-  <div class="ct-head">
-    <button onclick="switchMainTab('mail', document.querySelector('.main-nav-btn'))"
-      style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px;white-space:nowrap;">
-      ← 메일함
-    </button>
-    <div>
-      <div class="ct-title">👤 주소록</div>
-      <div style="font-size:12px;color:var(--t2);margin-top:2px">메일 발신자 기준 자동 추출 · 중복 제거</div>
-    </div>
-    <input class="ct-search" id="contactSearch" placeholder="🔍 이름, 회사, 이메일, 전화번호 검색..." oninput="filterContacts()">
-    <span class="ct-cnt" id="contactCount"></span>
-    <button class="exp-btn" onclick="buildContacts()">🔄</button>
-    <button class="exp-btn" onclick="exportContacts()">⬇️ CSV 내보내기</button>
+<div class="ct-page" id="ctPage">
+  <div class="ct-hd">
+    <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
+    <div><div class="ct-title">👤 주소록</div><div style="font-size:10px;color:var(--t3)">메일 발신자 자동 추출</div></div>
+    <input class="ct-si" id="ctSrch" placeholder="🔍 이름, 회사, 이메일..." oninput="filterCt()">
+    <span class="ct-cnt" id="ctCnt"></span>
+    <button class="btn" onclick="buildCt()">🔄</button>
+    <button class="btn" onclick="exportCt()">⬇️ CSV</button>
   </div>
   <div class="ct-body">
     <table class="ct-tbl">
-      <thead>
-        <tr>
-          <th onclick="sortContacts('name')">이름</th>
-          <th onclick="sortContacts('company')">소속 (회사명)</th>
-          <th onclick="sortContacts('email')">이메일 주소</th>
-          <th onclick="sortContacts('mobile')">전화번호</th>
-        </tr>
-      </thead>
-      <tbody id="contactBody">
-        <tr><td colspan="4" style="text-align:center;padding:60px;color:var(--t2)">메일 로딩 후 자동으로 추출됩니다</td></tr>
-      </tbody>
+      <thead><tr>
+        <th onclick="sortCt('name')">이름</th>
+        <th onclick="sortCt('company')">회사</th>
+        <th onclick="sortCt('email')">이메일</th>
+        <th onclick="sortCt('mobile')">전화번호</th>
+      </tr></thead>
+      <tbody id="ctBody"></tbody>
     </table>
   </div>
-  <div class="ct-foot">
-    <span id="ctFootCount"></span>
-    <span>메일 본문 서명에서 자동 추출 · 이메일 기준 중복 제거</span>
-  </div>
+  <div class="ct-foot"><span id="ctFoot"></span><span>AI 분석 · 중복제거</span></div>
 </div>
 
 <script>
-// ── Config ─────────────────────────────────────────
-const MSAL_CLIENT_ID = "76793776-3330-496f-97f1-9f0c034f3f07";
-const MSAL_TENANT_ID = "58b310e1-9278-47ab-8e49-792728818c9e";
-const SP_HOST        = "enjetco.sharepoint.com";
-const SP_SITE_PATH   = "/sites/06.BackOffice";
-const MAIL_FOLDER    = "📦영업/10.mail_backup";
-// Render.com 백엔드 (eml 파싱용)
-const RENDER_URL     = "https://enjet-mail-api.onrender.com";
-const DRIVE_ID_CACHE = "b!1Va0aO9NoEaz4dpZxMSwjDgP35aZ2VBCgGsTHl1ORaP52YVq1dDmTZVIyBhR5YG-";
-const SP_CACHE_FOLDER = "📦영업/10.mail_backup";
-const SP_CONTACTS_FILE = "📦영업/10.mail_backup/_contacts_cache.json";
-const SP_HEADERS_FILE  = "📦영업/10.mail_backup/_headers_cache.json";
-
-const SCOPES = ["User.Read","Files.ReadWrite.All","Sites.ReadWrite.All"];
-
-const MEMBERS = [
-  { email: "kwkang@enjet.co.kr",   name: "강경원" },
-  { email: "baekhoon@enjet.co.kr", name: "성백훈" },
+const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
+const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
+const DRIVE_ID="b!1Va0aO9NoEaz4dpZxMSwjDgP35aZ2VBCgGsTHl1ORaP52YVq1dDmTZVIyBhR5YG-";
+const RENDER_URL="https://enjet-mail-api.onrender.com";
+const SCOPES=["User.Read","Files.ReadWrite.All","Sites.ReadWrite.All"];
+const MAIL_FOLDER="📦영업/10.mail_backup";
+const SP_HDR="📦영업/10.mail_backup/_headers_cache.json";
+const SP_CT="📦영업/10.mail_backup/_contacts_cache.json";
+const MEMBERS=[
+  {email:"kwkang@enjet.co.kr",  name:"강경원",color:"av0"},
+  {email:"baekhoon@enjet.co.kr",name:"성백훈",color:"av1"},
 ];
-
-// ── State ───────────────────────────────────────────
-let msal_, acct, siteId, driveId;
-let allMails = [], filtered = [];
-let isSyncing = false;
-
-function setSyncState(syncing, label = "") {
-  isSyncing = syncing;
-  const btn = document.getElementById("syncBtn");
-  const rbtn = document.getElementById("refreshBtn");
-  if (!btn) return;
-  if (syncing) {
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    btn.style.cursor = "not-allowed";
-    btn.textContent = label || "⏳ 동기화 중...";
-    if (rbtn) { rbtn.disabled = true; rbtn.style.opacity = "0.5"; }
-  } else {
-    btn.disabled = false;
-    btn.style.opacity = "";
-    btn.style.cursor = "";
-    btn.textContent = "🔃 전체동기화";
-    if (rbtn) { rbtn.disabled = false; rbtn.style.opacity = ""; }
-  }
-}
-let currentOwner = "all", currentTab = "list";
-let sortKey = "date", sortDir = "desc";
-
-// ── MSAL Init ───────────────────────────────────────
-window.onload = async () => {
-  msal_ = new msal.PublicClientApplication({
-    auth: {
-      clientId: MSAL_CLIENT_ID,
-      authority: "https://login.microsoftonline.com/" + MSAL_TENANT_ID,
-      redirectUri: location.href.split("?")[0].split("#")[0]
-    },
-    cache: { cacheLocation: "localStorage" }
-  });
-  await msal_.initialize();
-  const accounts = msal_.getAllAccounts();
-  if (accounts.length > 0) {
-    acct = accounts[0];
-    showApp();
-    // 저장된 연락처 캐시 미리 로딩
-    dbLoadContacts().then(saved => {
-      saved.forEach(c => _contactCache.set(c.email.toLowerCase(), c));
-    });
-    loadAll();
-  }
-  renderMemberList();
+const DOC_KW={
+  tax:  ["세금계산서","tax invoice","taxinvoice","청구서","invoice"],
+  quote:["견적서","quotation","quote","estimate","rfq","제안서"],
+  po:   ["발주서","발주","purchase order","p.o.","주문서","납품요청"],
 };
+const DOC_LBL={tax:"세금계산서",quote:"견적서",po:"발주서"};
+const DOMAIN_MAP={"samsung.com":"삼성(계열)","skhynix.com":"SK하이닉스","lg.com":"LG","lgcns.com":"LG CNS","lgchem.com":"LG화학","lginnotek.com":"LG이노텍","lgdisplay.com":"LG디스플레이","hyundai.com":"현대자동차","kia.com":"기아","mobis.co.kr":"현대모비스","sk.com":"SK","sktelecom.com":"SK텔레콤","shinhan.com":"신한금융","kb.co.kr":"KB금융","hanabank.com":"하나은행","wooribank.com":"우리은행","ibk.co.kr":"IBK기업은행","kt.com":"KT","lguplus.com":"LG유플러스","naver.com":"네이버","kakao.com":"카카오","kotra.or.kr":"KOTRA","kist.re.kr":"KIST","etri.re.kr":"ETRI","kopti.re.kr":"한국생산기술연구원","kaist.ac.kr":"KAIST","snu.ac.kr":"서울대","yonsei.ac.kr":"연세대","korea.ac.kr":"고려대","gachon.ac.kr":"가천대학교","hanyang.ac.kr":"한양대학교"};
+const AV=["av0","av1","av2","av3"];
 
-async function doLogin() {
-  try {
-    const r = await msal_.loginPopup({ scopes: SCOPES, prompt: "select_account" });
-    acct = r.account;
-    showApp();
-    loadAll();
-  } catch(e) {
-    alert("로그인 실패: " + e.message);
-  }
+let msal_,acct;
+let allMails=[],filtered=[];
+let allCt=[],filtCt=[];
+let curOwner="all",curMTab="list";
+let ctSortK="name",ctSortD="asc";
+let isSyncing=false;
+const _ctCache=new Map();
+
+// DB
+const DB_NAME="enjet_mail_v2";
+let _db;
+async function openDB(){
+  if(_db)return _db;
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("mails"))d.createObjectStore("mails",{keyPath:"cacheKey"});if(!d.objectStoreNames.contains("contacts"))d.createObjectStore("contacts",{keyPath:"email"});};
+    req.onsuccess=e=>{_db=e.target.result;res(_db)};
+    req.onerror=()=>rej(req.error);
+  });
 }
-
-function doLogout() {
-  msal_.logoutPopup({ account: acct });
-  acct = null;
-  document.getElementById("loginScreen").style.display = "flex";
-  document.getElementById("mainHeader").style.display = "none";
-  document.getElementById("mainApp").style.display = "none";
-  document.getElementById("mainProgress").style.display = "none";
+async function dbGet(s){const d=await openDB();return new Promise(res=>{const tx=d.transaction(s,"readonly");const r=tx.objectStore(s).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>res([]);});}
+async function dbPut(s,items){
+  if(!items.length)return;
+  const d=await openDB();const C=500;
+  for(let i=0;i<items.length;i+=C){await new Promise((res,rej)=>{const tx=d.transaction(s,"readwrite");const st=tx.objectStore(s);items.slice(i,i+C).forEach(x=>st.put(x));tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
 }
+async function dbClear(){const d=await openDB();await new Promise(res=>{const tx=d.transaction(["mails","contacts"],"readwrite");tx.objectStore("mails").clear();tx.objectStore("contacts").clear();tx.oncomplete=res;});}
 
-function showApp() {
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("mainHeader").style.display = "flex";
-  document.getElementById("mainApp").style.display = "grid";
-  document.getElementById("mainProgress").style.display = "block";
-  document.getElementById("userNameBadge").textContent = acct?.name || acct?.username || "";
-}
+// UI
+function setSt(txt,type=""){document.getElementById("stTxt").textContent=txt;document.getElementById("stDot").className="dot"+(type?" "+type:"");}
+function setPb(p){const b=document.getElementById("pb");const f=document.getElementById("pf");if(p<=0||p>=100){setTimeout(()=>b.style.display="none",400);}else b.style.display="block";f.style.width=p+"%";}
+function setSyncUI(on,lbl="🔃 동기화"){isSyncing=on;const b=document.getElementById("syncBtn");const rb=document.getElementById("refreshBtn");if(!b)return;b.disabled=on;b.textContent=on?lbl:"🔃 동기화";b.style.opacity=on?".5":"";if(rb){rb.disabled=on;rb.style.opacity=on?".5":"";};}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
-async function getToken() {
-  try {
-    const r = await msal_.acquireTokenSilent({ scopes: SCOPES, account: acct });
-    return r.accessToken;
-  } catch(e) {
-    const r = await msal_.acquireTokenPopup({ scopes: SCOPES });
-    return r.accessToken;
-  }
-}
+// MSAL
+window.onload=async()=>{
+  msal_=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:location.href.split("?")[0].split("#")[0]},cache:{cacheLocation:"localStorage"}});
+  await msal_.initialize();
+  const accs=msal_.getAllAccounts();
+  if(accs.length>0){acct=accs[0];showApp();const saved=await dbGet("contacts");saved.forEach(c=>_ctCache.set(c.email.toLowerCase(),c));loadAll();}
+  renderSB();
+};
+async function getToken(){try{return(await msal_.acquireTokenSilent({scopes:SCOPES,account:acct})).accessToken;}catch{return(await msal_.acquireTokenPopup({scopes:SCOPES})).accessToken;}}
+async function doLogin(){try{const r=await msal_.loginPopup({scopes:SCOPES,prompt:"select_account"});acct=r.account;showApp();loadAll();}catch(e){alert("로그인 실패: "+e.message);}}
+function doLogout(){msal_.logoutPopup({account:acct});acct=null;document.getElementById("loginScreen").style.display="flex";document.getElementById("mainHeader").style.display="none";document.getElementById("mainApp").style.display="none";}
+function showApp(){document.getElementById("loginScreen").style.display="none";document.getElementById("mainHeader").style.display="flex";document.getElementById("mainApp").style.display="grid";document.getElementById("pb").style.display="block";}
 
-// ── Graph API (429 재시도 포함) ──────────────────────
-async function fetchWithRetry(url, options, maxRetries = 4) {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const r = await fetch(url, options);
-    if (r.status === 429 || r.status === 503) {
-      if (attempt === maxRetries) throw new Error(`파일 읽기 실패 ${r.status} (재시도 초과)`);
-      // Retry-After 헤더 확인, 없으면 지수 백오프
-      const retryAfter = parseInt(r.headers.get("Retry-After") || "0");
-      const wait = retryAfter > 0 ? retryAfter * 1000 : Math.min(1000 * Math.pow(2, attempt), 30000);
-      console.log(`429 throttle, ${wait}ms 후 재시도 (${attempt+1}/${maxRetries})`);
-      await new Promise(res => setTimeout(res, wait));
-      continue;
-    }
+// Graph
+async function fetchSP(url,opts={}){
+  const tok=await getToken();
+  for(let i=0;i<=4;i++){
+    const r=await fetch(url,{...opts,headers:{Authorization:"Bearer "+tok,...(opts.headers||{})}});
+    if(r.status===429||r.status===503){const w=parseInt(r.headers.get("Retry-After")||"0")*1000||Math.min(1000*2**i,16000);await new Promise(r=>setTimeout(r,w));continue;}
     return r;
   }
 }
+function spUrl(path){return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${path.split("/").map(encodeURIComponent).join("/")}:`;}
 
-async function gFetch(token, path) {
-  const r = await fetchWithRetry("https://graph.microsoft.com/v1.0" + path, {
-    headers: { Authorization: "Bearer " + token }
-  });
-  if (!r.ok) throw new Error(`Graph 오류 ${r.status}: ${path}`);
-  return r.json();
+// SP 저장 throttle
+const _spT={};
+function spSaveLater(key,path,getData,delay=15000){
+  clearTimeout(_spT[key]);
+  _spT[key]=setTimeout(async()=>{
+    try{const tok=await getToken();await fetch(spUrl(path)+"/content",{method:"PUT",headers:{Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify(getData())});}
+    catch(e){console.warn("SP저장실패",e.message);}
+  },delay);
 }
+async function spLoad(path){try{const r=await fetchSP(spUrl(path)+"/content");if(!r?.ok)return null;return await r.json();}catch{return null;}}
 
-async function gFetchBinary(token, path) {
-  const r = await fetchWithRetry("https://graph.microsoft.com/v1.0" + path, {
-    headers: { Authorization: "Bearer " + token }
-  });
-  if (!r.ok) throw new Error(`파일 읽기 실패 ${r.status}`);
-  return r.arrayBuffer();
-}
-
-async function initSite(token) {
-  if (siteId && driveId) return;
-  driveId = DRIVE_ID_CACHE;
-  const site = await gFetch(token, `/sites/${SP_HOST}:${SP_SITE_PATH}`);
-  siteId = site.id;
-}
-
-async function listFolder(token, folderPath) {
-  const parts = folderPath.split("/").map(p => encodeURIComponent(p)).join("/");
-  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/children?$top=5000`;
-  const r = await fetchWithRetry(url, { headers: { Authorization: "Bearer " + token } });
-  if (!r.ok) {
-    const err = await r.json().catch(()=>({}));
-    throw new Error(`폴더 오류 ${r.status}: ${err.error?.message || folderPath}`);
+// 로딩
+async function loadAll(){
+  const cached=await dbGet("mails");
+  if(cached.length>0){
+    allMails=cached;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
+    curOwner="all";applyFilter();renderSB();
+    const noH=allMails.filter(m=>!m.headerLoaded).length;
+    if(noH>0){setSt(`캐시 ${allMails.length}통 · 로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
+    else setSt(`${allMails.length}통`,"ok");
+    return;
   }
-  const data = await r.json();
-  return data.value || [];
-}
-
-async function getFileText(token, filePath) {
-  const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
-  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`;
-  const r = await fetchWithRetry(url, { headers: { Authorization: "Bearer " + token } });
-  if (!r.ok) throw new Error(`파일 읽기 실패 ${r.status}`);
-  const buf = await r.arrayBuffer();
-  return new TextDecoder("utf-8", { fatal: false }).decode(buf);
-}
-
-// ── EML Parser ──────────────────────────────────────
-function decodeWord(str) {
-  if (!str) return "";
-  return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, cs, enc, txt) => {
-    try {
-      if (enc.toUpperCase() === "B") {
-        return new TextDecoder(cs).decode(Uint8Array.from(atob(txt), c => c.charCodeAt(0)));
-      } else {
-        const d = txt.replace(/_/g," ").replace(/=([0-9A-Fa-f]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16)));
-        return new TextDecoder(cs).decode(Uint8Array.from(d, c => c.charCodeAt(0)));
-      }
-    } catch { return txt; }
-  });
-}
-
-function parseAddrs(str) {
-  if (!str) return [];
-  return str.split(",").map(p => {
-    p = p.trim();
-    const m = p.match(/^"?([^"<]*)"?\s*<?([^>]*)>?$/);
-    if (!m) return { name: "", email: p };
-    return { name: decodeWord(m[1].trim()), email: m[2].trim() };
-  }).filter(x => x.email || x.name);
-}
-
-function parseEml(text) {
-  const lines = text.split(/\r?\n/);
-  const headers = {};
-  let i = 0;
-  while (i < lines.length && lines[i] !== "") {
-    const line = lines[i];
-    if (/^[ \t]/.test(line)) {
-      const keys = Object.keys(headers);
-      if (keys.length) headers[keys[keys.length-1]] += " " + line.trim();
-    } else {
-      const col = line.indexOf(":");
-      if (col > 0) {
-        const k = line.slice(0,col).toLowerCase().trim();
-        headers[k] = line.slice(col+1).trim();
-      }
+  setSt("연결중...","spin");setSyncUI(true,"⏳ 연결중");
+  try{
+    const newMails=[];
+    for(const m of MEMBERS){
+      try{
+        const fp=`${MAIL_FOLDER}/${m.email}/messages`;
+        const r=await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`);
+        if(!r?.ok)continue;
+        const d=await r.json();
+        (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
+          newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[]});
+        });
+      }catch(e){console.warn(m.email,e.message);}
     }
-    i++;
-  }
-  const subject = decodeWord(headers["subject"] || "");
-  const from    = decodeWord(headers["from"] || "");
-  const to      = decodeWord(headers["to"] || "");
-  const cc      = decodeWord(headers["cc"] || "");
-  const dateRaw = headers["date"] || "";
-  let dateFmt = dateRaw;
-  try {
-    const d = new Date(dateRaw);
-    if (!isNaN(d)) dateFmt = d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-  } catch {}
-
-  const contentType = headers["content-type"] || "";
-  const boundaryMatch = contentType.match(/boundary="?([^";\r\n]+)"?/i);
-  let body = "";
-  const attachments = [];
-
-  if (boundaryMatch) {
-    const boundary = boundaryMatch[1].trim();
-    const fullText = lines.slice(i+1).join("\n");
-    const parts = fullText.split(new RegExp("--" + boundary.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + "(?:--)?" ));
-    for (const part of parts) {
-      if (!part.trim() || part.trim() === "--") continue;
-      const pLines = part.split(/\r?\n/);
-      const pH = {};
-      let pi = 0;
-      while (pi < pLines.length && pLines[pi].trim() !== "") {
-        const col = pLines[pi].indexOf(":");
-        if (col > 0) { pH[pLines[pi].slice(0,col).toLowerCase().trim()] = pLines[pi].slice(col+1).trim(); }
-        pi++;
-      }
-      const pBody = pLines.slice(pi+1).join("\n");
-      const pCt = pH["content-type"] || "";
-      const pCd = pH["content-disposition"] || "";
-      const pEnc = (pH["content-transfer-encoding"] || "").toLowerCase();
-      if (pCd.toLowerCase().includes("attachment")) {
-        const fn = pCd.match(/filename[*]?\s*=\s*"?([^";\r\n]+)"?/i) || pCt.match(/name\s*=\s*"?([^";\r\n]+)"?/i);
-        if (fn) attachments.push(decodeWord(fn[1].trim()));
-        continue;
-      }
-
-      // 전달 메일 (message/rfc822) 처리
-      if (pCt.toLowerCase().includes("message/rfc822")) {
-        if (!body) {
-          const fwdParsed = parseEml(pBody);
-          if (fwdParsed.body) body = "[전달된 메일]\n" + fwdParsed.body;
-        }
-        continue;
-      }
-
-      // 중첩 multipart 처리
-      if (pCt.toLowerCase().includes("multipart/")) {
-        const subBoundaryM = pCt.match(/boundary="?([^";\r\n]+)"?/i);
-        if (subBoundaryM && !body) {
-          const subParsed = parseEml(part);
-          if (subParsed.body) body = subParsed.body;
-        }
-        continue;
-      }
-      if (pCt.toLowerCase().includes("text/plain") || (!body && pCt.toLowerCase().includes("text/html"))) {
-        let decoded = pBody;
-        if (pEnc === "quoted-printable") {
-          decoded = decoded.replace(/=\r?\n/g,"").replace(/=[0-9A-Fa-f]{2}/g, m => String.fromCharCode(parseInt(m.slice(1),16)));
-        } else if (pEnc === "base64") {
-          try {
-            const bin = atob(decoded.replace(/\s/g,""));
-            const bytes = new Uint8Array(bin.length);
-            for (let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
-            try { decoded = new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
-            catch { decoded = new TextDecoder("euc-kr").decode(bytes); }
-          } catch { decoded = ""; }
-        }
-        if (pCt.toLowerCase().includes("text/html")) {
-          decoded = decoded.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"")
-            .replace(/<br\s*\/?>/gi,"\n").replace(/<\/p>/gi,"\n").replace(/<\/div>/gi,"\n")
-            .replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<")
-            .replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/\n{3,}/g,"\n\n").trim();
-        }
-        if (!body || pCt.toLowerCase().includes("text/plain")) body = decoded.trim();
-      }
-    }
-  } else {
-    const enc = (headers["content-transfer-encoding"] || "").toLowerCase();
-    let raw = lines.slice(i+1).join("\n");
-    if (enc === "quoted-printable") {
-      raw = raw.replace(/=\r?\n/g,"").replace(/=[0-9A-Fa-f]{2}/g, m => String.fromCharCode(parseInt(m.slice(1),16)));
-    } else if (enc === "base64") {
-      try {
-        const bin = atob(raw.replace(/\s/g,""));
-        const bytes = new Uint8Array(bin.length);
-        for (let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
-        try { raw = new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
-        catch { raw = new TextDecoder("euc-kr").decode(bytes); }
-      } catch {}
-    }
-    if (/<html|<body/i.test(raw)) {
-      body = raw.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"")
-        .replace(/<br\s*\/?>/gi,"\n").replace(/<\/p>/gi,"\n")
-        .replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/\n{3,}/g,"\n\n").trim();
-    } else { body = raw.trim(); }
-    const full = lines.join("\n");
-    for (const m of full.matchAll(/Content-Disposition:\s*attachment[^\n]*(?:\r?\n[ \t]+[^\n]*)*/gi)) {
-      const fn = m[0].match(/filename[*]?\s*=\s*"?([^";\r\n]+)"?/i);
-      if (fn) attachments.push(decodeWord(fn[1].trim()));
-    }
-  }
-  return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, body: body.slice(0,1200), hasAttachment: attachments.length > 0, attachments };
+    await dbPut("mails",newMails);
+    allMails=newMails;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
+    curOwner="all";applyFilter();renderSB();
+    setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${allMails.length}`);
+    loadHdrs(allMails.length);
+  }catch(e){setSt("오류: "+e.message,"err");setSyncUI(false);document.getElementById("mList").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}</div>`;}
 }
-
-// ── Cache (IndexedDB) ───────────────────────────────
-const DB_NAME = "enjet_mail_v1";
-let db;
-
-async function openDB() {
-  if (db) return db;
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, 2);
-    req.onupgradeneeded = e => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains("mails")) {
-        d.createObjectStore("mails", { keyPath: "cacheKey" });
-      }
-      if (!d.objectStoreNames.contains("meta")) {
-        d.createObjectStore("meta", { keyPath: "key" });
-      }
-      if (!d.objectStoreNames.contains("contacts")) {
-        d.createObjectStore("contacts", { keyPath: "email" });
-      }
-    };
-    req.onsuccess = e => { db = e.target.result; res(db); };
-    req.onerror = () => rej(req.error);
-  });
-}
-
-async function dbSaveContacts(contacts) {
-  if (!contacts.length) return;
-  // IndexedDB에도 저장 (오프라인 백업)
-  const d = await openDB();
-  await new Promise((res, rej) => {
-    const tx = d.transaction("contacts", "readwrite");
-    const store = tx.objectStore("contacts");
-    contacts.forEach(c => store.put({
-      email: c.email, name: c.name, company: c.company,
-      dept: c.dept, mobile: c.mobile, tel: c.tel
-    }));
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
-  // SharePoint에도 저장 (기기 간 공유)
-  spSaveContacts();
-}
-
-async function dbLoadContacts() {
-  // 1. SharePoint에서 먼저 로딩 시도
-  try {
-    const tok = await getToken();
-    await initSite(tok);
-    const data = await spLoadFile(tok, SP_CONTACTS_FILE);
-    if (data && Array.isArray(data)) {
-      // SP 데이터를 IndexedDB에도 동기화
-      const d = await openDB();
-      const tx = d.transaction("contacts", "readwrite");
-      const store = tx.objectStore("contacts");
-      data.forEach(c => store.put(c));
-      return data;
-    }
-  } catch {}
-  // 2. SP 실패 시 IndexedDB에서 로딩
-  const d = await openDB();
-  return new Promise((res) => {
-    const tx = d.transaction("contacts", "readonly");
-    const req = tx.objectStore("contacts").getAll();
-    req.onsuccess = () => res(req.result || []);
-    req.onerror = () => res([]);
-  });
-}
-
-// ── SharePoint 파일 읽기/쓰기 ───────────────────────
-async function spLoadFile(token, filePath) {
-  try {
-    const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
-    const r = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-      { headers: { Authorization: "Bearer " + token } }
-    );
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
-}
-
-async function spSaveFile(token, filePath, data) {
-  try {
-    const parts = filePath.split("/").map(p => encodeURIComponent(p)).join("/");
-    const r = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-      {
-        method: "PUT",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      }
-    );
-    return r.ok;
-  } catch { return false; }
-}
-
-// ── SP 통합 캐시 저장 (throttle) ─────────────────────
-const _spTimers = {};
-function spSaveThrottled(key, filePath, getData, delay = 10000) {
-  if (_spTimers[key]) clearTimeout(_spTimers[key]);
-  _spTimers[key] = setTimeout(async () => {
-    delete _spTimers[key];
-    try {
-      const tok = await getToken();
-      await initSite(tok);
-      const data = getData();
-      const ok = await spSaveFile(tok, filePath, data);
-      console.log(`SP 저장 ${key}:`, ok ? "성공" : "실패");
-    } catch(e) { console.warn(`SP 저장 실패 (${key}):`, e.message); }
-  }, delay);
-}
-
-// 연락처 SP 저장
-function spSaveContacts() {
-  spSaveThrottled("contacts", SP_CONTACTS_FILE, () => {
-    const out = [];
-    _contactCache.forEach((v, k) => out.push({ email: k, ...v }));
-    return out;
-  });
-}
-
-// 헤더 캐시 SP 저장
-function spSaveHeaders() {
-  spSaveThrottled("headers", SP_HEADERS_FILE, () =>
-    allMails.map(m => ({
-      cacheKey: m.cacheKey, subject: m.subject, from: m.from,
-      to: m.to, cc: m.cc, date: m.date, dateRaw: m.dateRaw,
-      hasAttachment: m.hasAttachment, headerLoaded: m.headerLoaded,
-      owner: m.owner, ownerName: m.ownerName,
-      fileName: m.fileName, folderPath: m.folderPath
-    }))
-  , 15000);
-}
-
-// ── SP에서 전체 캐시 로딩 ────────────────────────────
-async function spLoadAllCache(token) {
-  let headersOk = false;
-
-  // 1. 헤더 캐시 로딩
-  try {
-    const headers = await spLoadFile(token, SP_HEADERS_FILE);
-    if (headers && Array.isArray(headers) && headers.length > 0) {
-      await dbPutMails(headers);
-      headersOk = true;
-      console.log("SP 헤더 캐시 로딩:", headers.length, "통");
-    }
-  } catch {}
-
-  // 2. 연락처 캐시 로딩
-  try {
-    const contacts = await spLoadFile(token, SP_CONTACTS_FILE);
-    if (contacts && Array.isArray(contacts)) {
-      contacts.forEach(c => _contactCache.set(c.email.toLowerCase(), c));
-      // IndexedDB에도 동기화
-      await dbSaveContactsRaw(contacts);
-      console.log("SP 연락처 캐시 로딩:", contacts.length, "명");
-    }
-  } catch {}
-
-  return headersOk;
-}
-
-async function dbSaveContactsRaw(contacts) {
-  if (!contacts.length) return;
-  const d = await openDB();
-  await new Promise((res, rej) => {
-    const tx = d.transaction("contacts", "readwrite");
-    const store = tx.objectStore("contacts");
-    contacts.forEach(c => store.put(c));
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
-}
-
-async function dbGetAll() {
-  const d = await openDB();
-  return new Promise((res, rej) => {
-    const tx = d.transaction("mails", "readonly");
-    const req = tx.objectStore("mails").getAll();
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-}
-
-async function dbPutMails(mails) {
-  if (!mails.length) return;
-  const d = await openDB();
-  // 500개씩 나눠서 저장 (트랜잭션 크기 제한 방지)
-  const CHUNK = 500;
-  for (let i = 0; i < mails.length; i += CHUNK) {
-    const chunk = mails.slice(i, i + CHUNK);
-    await new Promise((res, rej) => {
-      const tx = d.transaction("mails", "readwrite");
-      const store = tx.objectStore("mails");
-      chunk.forEach(m => store.put(m));
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
-    });
-  }
-}
-
-async function dbGetMeta(key) {
-  const d = await openDB();
-  return new Promise((res) => {
-    const tx = d.transaction("meta", "readonly");
-    const req = tx.objectStore("meta").get(key);
-    req.onsuccess = () => res(req.result?.value);
-    req.onerror = () => res(null);
-  });
-}
-
-async function dbSetMeta(key, value) {
-  const d = await openDB();
-  return new Promise((res, rej) => {
-    const tx = d.transaction("meta", "readwrite");
-    tx.objectStore("meta").put({ key, value });
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
-}
-
-async function dbClearAll() {
-  const d = await openDB();
-  return new Promise((res) => {
-    const tx = d.transaction(["mails","meta"], "readwrite");
-    tx.objectStore("mails").clear();
-    tx.objectStore("meta").clear();
-    tx.oncomplete = res;
-  });
-}
-
-// ── Load all (목록만, on-demand 본문) ─────────────────
-function doRefresh() {
-  // 새 파일만 확인 (캐시 유지)
-  syncNewFiles();
-}
-
-async function clearAllCache() {
-  if (!confirm("IndexedDB 캐시를 전체 초기화합니다.\n다음 접속 시 전체동기화가 필요합니다.\n계속하시겠습니까?")) return;
-  try {
-    await dbClearAll();
-    allMails = []; filtered = [];
-    allContacts = []; filteredContacts = [];
-    _contactCache.clear();
-    alert("캐시 초기화 완료! 페이지를 새로고침합니다.");
-    location.reload();
-  } catch(e) {
-    alert("초기화 실패: " + e.message);
-  }
-}
-
-async function diagDB() {
-  try {
-    const all = await dbGetAll();
-    const loaded = all.filter(m => m.headerLoaded).length;
-    const withSubj = all.filter(m => m.subject).length;
-    alert(`IndexedDB 상태:\n전체: ${all.length}통\nheaderLoaded: ${loaded}통\n제목있음: ${withSubj}통\n\n첫번째 cacheKey: ${all[0]?.cacheKey || "없음"}`);
-  } catch(e) {
-    alert("DB 오류: " + e.message);
-  }
-}
-
-async function loadAll(forceRefresh = false) {
-  if (isSyncing && forceRefresh) return; // 중복 방지
-  setSyncState(true, forceRefresh ? "⏳ 동기화 중..." : "⏳ 확인 중...");
-  setStatus("연결 중...", "spin");
-  setProgress(5);
-  document.getElementById("tabList").innerHTML = '<div class="lb"><div class="spinner"></div>캐시 확인 중...</div>';
-  allMails = [];
-
-  try {
-    // 1. 캐시에서 기존 데이터 로딩 (SP 우선 → IndexedDB 폴백)
-    if (!forceRefresh) {
-      // SP에서 로딩 시도 (백그라운드, 빠르게)
-      let spLoaded = false;
-      try {
-        const tok = await getToken();
-        await initSite(tok);
-        spLoaded = await spLoadAllCache(tok);
-      } catch {}
-
-      const cached = await dbGetAll();
-      if (cached.length > 0) {
-        allMails = cached;
-        allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
-        currentOwner = "all";
-        document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
-        const navAllEl = document.getElementById("nav-all");
-        if (navAllEl) navAllEl.classList.add("active");
-        document.getElementById("panelTitle").textContent = "전체 보기";
-        filtered = [...allMails];
-        updateCounts();
-        filterMails();
-        const noHeader = allMails.filter(m => !m.headerLoaded).length;
-        setProgress(0);
-
-        if (noHeader > 0) {
-          // 미완료 헤더 있으면 자동으로 이어서 로딩
-          setStatus(`캐시 로딩됨 · ${allMails.length}통 · 제목 이어서 로딩...`, "spin");
-          const tok = await getToken();
-          await initSite(tok);
-          loadHeadersBatch(tok);
-        } else {
-          setStatus(`캐시 로딩됨 · ${allMails.length}통`, "ok");
-          setSyncState(false);
-          // 새 파일 확인은 🔄 새로고침 버튼으로만
-        }
-        return;
-      }
-    } else {
-      await dbClearAll();
-      // 전체동기화 시 전체보기로 초기화
-      currentOwner = "all";
-      document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
-      const navAll = document.getElementById("nav-all");
-      if (navAll) navAll.classList.add("active");
-      document.getElementById("panelTitle").textContent = "전체 보기";
-    }
-
-    // 2. 파일 목록만 가져오기 (다운로드 없음!)
-    const token = await getToken();
-    await initSite(token);
-    setProgress(15);
-
-    const allFileList = [];
-    for (const member of MEMBERS) {
-      try {
-        const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
-        // $select로 필요한 메타데이터만 요청 (빠름!)
-        const parts = folderPath.split("/").map(p => encodeURIComponent(p)).join("/");
-        const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/children?$top=5000&$select=name,createdDateTime,lastModifiedDateTime,size`;
-        const r = await fetchWithRetry(url, { headers: { Authorization: "Bearer " + token } });
-        if (!r.ok) continue;
-        const data = await r.json();
-        const emls = (data.value||[]).filter(f => f.name?.toLowerCase().endsWith(".eml"));
-        emls.forEach(f => allFileList.push({ file: f, member, folderPath }));
-      } catch(e) { console.warn(member.email, e.message); }
-    }
-
-    const totalFiles = allFileList.length;
-    setProgress(40);
-    document.getElementById("tabList").innerHTML =
-      `<div class="lb"><div class="spinner"></div>메일 목록 구성 중... (${totalFiles}통)</div>`;
-
-    // 3. 파일 메타데이터로 메일 객체 생성 (다운로드 없음!)
-    const newMails = allFileList.map(({ file, member, folderPath }) => ({
-      cacheKey:    `${member.email}/${file.name}`,
-      owner:       member.email,
-      ownerName:   member.name,
-      fileName:    file.name,
-      folderPath,
-      // 메타데이터에서 날짜 추출
-      date:        formatDate(file.createdDateTime || file.lastModifiedDateTime || ""),
-      dateRaw:     file.createdDateTime || file.lastModifiedDateTime || "",
-      // 헤더는 첫 클릭 시 로딩
-      subject:     "",
-      from:        "",
-      to:          [],
-      cc:          [],
-      hasAttachment: false,
-      attachments: [],
-      bodyLoaded:  false,
-      headerLoaded: false,
-      body:        "",
-    }));
-
-    // 4. 캐시 저장
-    await dbPutMails(newMails);
-    await dbSetMeta("lastSync", new Date().toISOString());
-
-    allMails = newMails;
-    allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
-    filtered = [...allMails];
-    updateCounts();
-    filterMails();
-    setStatus(`목록 완료 · ${allMails.length}통 · 제목 로딩 중...`, "spin");
-    setProgress(100);
-    setTimeout(() => setProgress(0), 800);
-
-    // 5. 백그라운드에서 헤더 배치 로딩 (제목/발신자 채우기)
-    loadHeadersBatch(token);
-
-  } catch(e) {
-    setSyncState(false);
-    setStatus("오류: " + e.message, "err");
-    document.getElementById("tabList").innerHTML =
-      `<div class="lb" style="color:var(--red)">⚠️ ${esc(e.message)}</div>`;
-  }
-}
-
-function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString("ko-KR", {year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-  } catch { return iso; }
-}
-
-// ── 헤더 배치 로딩 (백그라운드) ──────────────────────
-async function loadHeadersBatch(token) {
-  const noHeader = allMails.filter(m => !m.headerLoaded);
-  if (!noHeader.length) { setSyncState(false); return; }
-
-  const total = noHeader.length;
-  const BATCH = 10;
-  let done = 0, batchToSave = [], lastUIUpdate = 0;
-
-  for (let b = 0; b < noHeader.length; b += BATCH) {
-    const batch = noHeader.slice(b, b + BATCH);
-    await Promise.all(batch.map(async mail => {
-      try {
-        const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
-        const r = await fetchWithRetry(
-          `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-          { headers: { Authorization: "Bearer " + (await getToken()), Range: "bytes=0-8191" } }
-        );
-        if (!r.ok) { mail.headerLoaded = true; return; }
-        const buf = await r.arrayBuffer();
-        const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
-        const h = parseEmlHeaderOnly(text);
-        mail.subject = h.subject || ""; mail.from = h.from || "";
-        mail.to = h.to || []; mail.cc = h.cc || [];
-        mail.date = h.date || mail.date; mail.dateRaw = h.dateRaw || mail.dateRaw;
-        mail.hasAttachment = h.hasAttachment; mail.headerLoaded = true;
-        batchToSave.push(mail);
-      } catch { mail.headerLoaded = true; }
+async function loadHdrs(total){
+  const noH=allMails.filter(m=>!m.headerLoaded);
+  let done=0,toSave=[],lastUI=0;
+  for(let b=0;b<noH.length;b+=10){
+    const batch=noH.slice(b,b+10);
+    await Promise.all(batch.map(async m=>{
+      try{
+        const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{headers:{Range:"bytes=0-8191"}});
+        if(!r?.ok){m.headerLoaded=true;return;}
+        const buf=await r.arrayBuffer();
+        const h=parseHdr(new TextDecoder("utf-8",{fatal:false}).decode(buf));
+        Object.assign(m,h,{headerLoaded:true});toSave.push(m);
+      }catch{m.headerLoaded=true;}
       done++;
     }));
-
-    // DB 저장: 100개마다
-    if (batchToSave.length >= 100 || b + BATCH >= noHeader.length) {
-      await dbPutMails(batchToSave);
-      batchToSave = [];
-    }
-
-    // UI 업데이트: 5초에 한번만 (렉 방지)
-    const now = Date.now();
-    if (now - lastUIUpdate > 5000 || b + BATCH >= noHeader.length) {
-      lastUIUpdate = now;
-      setSyncState(true, `⏳ ${done}/${total}`);
-      setStatus(`${done}/${total}`, "spin");
-      if (currentTab === "list") filterMails();
-    }
-    await new Promise(r => setTimeout(r, 300));
+    if(toSave.length>=100||b+10>=noH.length){await dbPut("mails",toSave);toSave=[];}
+    const now=Date.now();
+    if(now-lastUI>4000||b+10>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
+    await new Promise(r=>setTimeout(r,300));
   }
+  applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
+  spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
+}
+function doRefresh(){setSt("최신 상태","ok");}
+async function doFullSync(){if(isSyncing)return;if(!confirm("전체 재동기화합니다?"))return;await dbClear();allMails=[];filtered=[];curOwner="all";applyFilter();renderSB();loadAll();}
+async function clearCache(){if(!confirm("캐시를 초기화합니다."))return;await dbClear();_ctCache.clear();alert("완료!");location.reload();}
 
-  filterMails();
-  setStatus(`완료 · ${allMails.length}통`, "ok");
-  setSyncState(false);
-  spSaveHeaders();
+// EML 파싱
+function parseHdr(text){
+  const lines=text.split(/?
+/);const h={};let i=0;
+  while(i<lines.length&&lines[i]!==""){const line=lines[i];if(/^[ 	]/.test(line)){const k=Object.keys(h).pop();if(k)h[k]+=" "+line.trim();}else{const c=line.indexOf(":");if(c>0)h[line.slice(0,c).toLowerCase().trim()]=line.slice(c+1).trim();}i++;}
+  const subject=dw(h.subject||"");const from=dw(h.from||"");const dateRaw=h.date||"";let date=dateRaw;
+  try{const d=new Date(dateRaw);if(!isNaN(d))date=d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{}
+  return{subject,from,to:parseAddrs(h.to||""),cc:parseAddrs(h.cc||""),date,dateRaw,hasAttachment:(h["content-type"]||"").includes("mixed")};
+}
+function dw(s){if(!s)return"";return s.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g,(_,cs,enc,txt)=>{try{if(enc.toUpperCase()==="B")return new TextDecoder(cs,{fatal:false}).decode(Uint8Array.from(atob(txt),c=>c.charCodeAt(0)));return txt.replace(/=([0-9A-Fa-f]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16))).replace(/_/g," ");}catch{return txt;}});}
+function parseAddrs(s){if(!s)return[];return(s.match(/([^,;<>]+?)\s*<([^>]+)>|([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g)||[]).map(a=>{const m=a.match(/(.+?)\s*<([^>]+)>/);return m?{name:dw(m[1].trim()),email:m[2].trim().toLowerCase()}:{name:"",email:a.trim().toLowerCase()};}).filter(a=>a.email);}
+function exEm(s){const m=(s||"").match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);return m?m[1].toLowerCase():"";}
+function exNm(s){const m=(s||"").match(/^"?([^"<]+)"?\s*</);return m?dw(m[1].trim()):(s||"").split("@")[0];}
+function fmtD(iso){if(!iso)return"";try{const d=new Date(iso);return d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{return iso;}}
+
+// 탭 전환
+function switchTab(tab,el){
+  document.querySelectorAll(".hd-tab").forEach(b=>b.classList.remove("on"));if(el)el.classList.add("on");
+  const ct=document.getElementById("ctPage");
+  if(tab==="contacts"){const hh=document.getElementById("mainHeader").offsetHeight;ct.style.top=hh+"px";ct.classList.add("on");if(allCt.length===0)buildCt();else renderCt(filtCt);}
+  else ct.classList.remove("on");
+}
+let _activeMTab="list";
+function switchMTab(tab,el){
+  document.querySelectorAll(".ml-tab").forEach(t=>t.classList.remove("on"));if(el)el.classList.add("on");
+  _activeMTab=tab;
+  const list=document.getElementById("mList");const tbl=document.getElementById("tblPanel");
+  if(tab==="list"){tbl.style.display="none";list.style.display="";applyFilter();}
+  else{list.style.display="none";tbl.style.display="flex";tbl.style.flexDirection="column";renderDoc(tab);}
 }
 
-// ── 새 파일만 동기화 (백그라운드) ────────────────────
-async function syncNewFiles() {
-  try {
-    const token = await getToken();
-    await initSite(token);
-    const existingKeys = new Set(allMails.map(m => m.cacheKey));
-    const newMails = [];
-
-    for (const member of MEMBERS) {
-      try {
-        const folderPath = `${MAIL_FOLDER}/${member.email}/messages`;
-        const files = await listFolder(token, folderPath);
-        const emls = files.filter(f => f.name?.toLowerCase().endsWith(".eml"));
-        const newFiles = emls.filter(f => !existingKeys.has(`${member.email}/${f.name}`));
-
-        for (const file of newFiles) {
-          try {
-            const parts = `${folderPath}/${file.name}`.split("/").map(p => encodeURIComponent(p)).join("/");
-            const r = await fetch(
-              `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-              { headers: { Authorization: "Bearer " + token, Range: "bytes=0-4095" } }
-            );
-            const buf = await r.arrayBuffer();
-            const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
-            const headerOnly = parseEmlHeaderOnly(text);
-            newMails.push({
-              ...headerOnly,
-              cacheKey: `${member.email}/${file.name}`,
-              owner: member.email,
-              ownerName: member.name,
-              fileName: file.name,
-              folderPath,
-              headerLoaded: true,
-              bodyLoaded: false,
-              body: "",
-            });
-          } catch {}
-        }
-      } catch {}
-    }
-
-    if (newMails.length > 0) {
-      await dbPutMails(newMails);
-      allMails = [...allMails, ...newMails];
-      allMails.sort((a,b) => new Date(b.dateRaw||0) - new Date(a.dateRaw||0));
-      filtered = [...allMails];
-      updateCounts();
-      filterMails();
-      setStatus(`완료 · ${allMails.length}통 (+${newMails.length} 신규)`, "ok");
-    } else {
-      setStatus(`최신 상태 · ${allMails.length}통`, "ok");
-    }
-  } catch(e) {
-    console.warn("백그라운드 동기화 오류:", e.message);
-  }
-}
-
-// ── EML 헤더만 파싱 (본문 제외) ──────────────────────
-function parseEmlHeaderOnly(text) {
-  const lines = text.split(/\r?\n/);
-  const headers = {};
-  let i = 0;
-  while (i < lines.length && lines[i] !== "") {
-    const line = lines[i];
-    if (/^[ \t]/.test(line)) {
-      const keys = Object.keys(headers);
-      if (keys.length) headers[keys[keys.length-1]] += " " + line.trim();
-    } else {
-      const col = line.indexOf(":");
-      if (col > 0) {
-        const k = line.slice(0,col).toLowerCase().trim();
-        headers[k] = line.slice(col+1).trim();
-      }
-    }
-    i++;
-  }
-  const subject = decodeWord(headers["subject"] || "");
-  const from    = decodeWord(headers["from"] || "");
-  const to      = decodeWord(headers["to"] || "");
-  const cc      = decodeWord(headers["cc"] || "");
-  const dateRaw = headers["date"] || "";
-  let dateFmt = dateRaw;
-  try {
-    const d = new Date(dateRaw);
-    if (!isNaN(d)) dateFmt = d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-  } catch {}
-  const ct = headers["content-type"] || "";
-  const hasAttachment = ct.includes("mixed") || text.includes("Content-Disposition: attachment");
-  return { subject, from, to: parseAddrs(to), cc: parseAddrs(cc), date: dateFmt, dateRaw, hasAttachment, attachments: [] };
-}
-
-// ── Counts ──────────────────────────────────────────
-let _countsTimer = null;
-function updateCounts() {
-  if (_countsTimer) clearTimeout(_countsTimer);
-  _countsTimer = setTimeout(_doUpdateCounts, 100);
-}
-function _doUpdateCounts() {
-  document.getElementById("cnt-all").textContent = allMails.length;
-  MEMBERS.forEach(m => {
-    const el = document.getElementById("cnt-" + m.email);
-    if (el) el.textContent = allMails.filter(x => x.owner === m.email).length;
+// 필터/렌더
+let _srchT;
+function onSearch(){clearTimeout(_srchT);_srchT=setTimeout(applyFilter,80);}
+function applyFilter(){
+  const q=(document.getElementById("srch")?.value||"").toLowerCase();
+  filtered=allMails.filter(m=>{
+    if(curOwner!=="all"&&m.owner!==curOwner)return false;
+    if(q&&!(m.subject||"").toLowerCase().includes(q)&&!(m.from||"").toLowerCase().includes(q))return false;
+    return true;
   });
+  document.getElementById("mlTitle").textContent=curOwner==="all"?"전체":(MEMBERS.find(m=>m.email===curOwner)?.name||"");
+  document.getElementById("mlCnt").textContent=filtered.length+"통";
+  if(_activeMTab==="list")renderList();
 }
 
-// ── Render members ───────────────────────────────────
-function renderMemberList() {
-  document.getElementById("memberList").innerHTML = MEMBERS.map((m, i) => `
-    <div class="sb-item" onclick="selectOwner('${m.email}')" id="nav-${m.email}">
-      <div class="sb-av av${i%5}">${m.name[0]}</div>
-      <div class="sb-info">
-        <div class="sb-name">${m.name}</div>
-        <div class="sb-mail">${m.email}</div>
-      </div>
-      <div class="sb-cnt" id="cnt-${m.email}">0</div>
-    </div>`).join("");
+const PAGE=50;let _page=0;
+function renderList(){
+  const list=document.getElementById("mList");
+  if(!filtered.length){list.innerHTML='<div class="lb">📭 메일이 없습니다</div>';return;}
+  _page=0;list.innerHTML=mkItems(filtered.slice(0,PAGE));
+  list.onscroll=()=>{if(list.scrollTop+list.clientHeight>=list.scrollHeight-100){const nx=(_page+1)*PAGE;if(nx<filtered.length){_page++;list.insertAdjacentHTML("beforeend",mkItems(filtered.slice(nx,nx+PAGE)));}}};
 }
-
-// ── Select owner ─────────────────────────────────────
-function selectOwner(owner) {
-  currentOwner = owner;
-  document.querySelectorAll(".sb-item").forEach(el => el.classList.remove("active"));
-  const nav = document.getElementById("nav-" + owner);
-  if (nav) nav.classList.add("active");
-  const m = MEMBERS.find(x => x.email === owner);
-  document.getElementById("panelTitle").textContent = owner === "all" ? "전체 보기" : (m?.name || owner);
-  filterMails();
-}
-
-// ── Filter ───────────────────────────────────────────
-let _filterTimer = null;
-function filterMails() {
-  if (_filterTimer) clearTimeout(_filterTimer);
-  _filterTimer = setTimeout(_doFilterMails, 50);
-}
-function _doFilterMails() {
-  const q = document.getElementById("searchInput").value.toLowerCase();
-  filtered = allMails.filter(m => {
-    const ownerOk = currentOwner === "all" || m.owner === currentOwner;
-    const searchOk = !q || (m.subject||"").toLowerCase().includes(q) || (m.from||"").toLowerCase().includes(q);
-    return ownerOk && searchOk;
-  });
-  document.getElementById("panelCount").textContent = filtered.length + "통";
-  if (currentTab === "list") renderList(filtered);
-  else renderTable(filtered);
-}
-
-// ── Render list ──────────────────────────────────────
-function renderList(mails) {
-  const el = document.getElementById("tabList");
-  if (!mails.length) { el.innerHTML = '<div class="lb">📭 메일이 없습니다</div>'; return; }
-  el.innerHTML = mails.map(mail => {
-    const idx = allMails.indexOf(mail);
-    return `<div class="mi" onclick="showDetail(${idx})" id="mi-${idx}">
-      <div class="mi-top">
-        <span class="mi-sender">${esc(extractName(mail.from))}</span>
-        <span class="mi-date">${(mail.date||"").slice(0,10)}</span>
-      </div>
-      <div class="mi-subj">${esc(mail.subject||"(제목 없음)")}</div>
-      <div class="mi-prev">${esc((mail.body||"").slice(0,60))}</div>
-      <div class="mi-tags">
-        ${currentOwner==="all"?`<span class="tag own">${esc(mail.ownerName)}</span>`:""}
-        ${mail.hasAttachment?'<span class="tag att">📎 첨부</span>':""}
-      </div>
-    </div>`;
+function mkItems(mails){
+  return mails.map(m=>{
+    const idx=allMails.indexOf(m);
+    const nm=exNm(m.from)||m.from||"(발신자없음)";
+    const dt=(m.date||"").slice(0,10);
+    const tc=m.owner==="kwkang@enjet.co.kr"?"tkw":"tbh";
+    const on=MEMBERS.find(x=>x.email===m.owner)?.name||"";
+    const doc=getDoc(m);
+    return `<div class="mi" id="mi-${idx}" onclick="openMail(${idx})"><div class="mi-r1"><div class="mi-from">${esc(nm)}</div><div class="mi-date">${esc(dt)}</div></div><div class="mi-subj">${esc(m.subject||"(제목없음)")}</div><div class="mi-tags"><span class="mi-tag ${tc}">${esc(on)}</span>${m.hasAttachment?'<span class="mi-tag" style="color:var(--t3)">📎</span>':""} ${doc?`<span class="doc-b doc-${doc}">${DOC_LBL[doc]}</span>`:""}</div></div>`;
   }).join("");
 }
 
-// ── Render table ─────────────────────────────────────
-function renderTable(mails) {
-  document.getElementById("tblCount").textContent = mails.length + "개";
-  const tbody = document.getElementById("tblBody");
-  if (!mails.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--t2)">📭 없음</td></tr>';
-    return;
+// 메일 열기
+async function openMail(idx){
+  const m=allMails[idx];if(!m)return;
+  document.querySelectorAll(".mi").forEach(e=>e.classList.remove("on"));
+  const el=document.getElementById("mi-"+idx);if(el){el.classList.add("on");el.scrollIntoView({block:"nearest"});}
+  if(window.innerWidth<=768)document.getElementById("dpPanel").classList.add("open");
+  document.getElementById("dpEmpty").style.display="none";document.getElementById("dpInner").style.display="flex";
+  document.getElementById("dpSubj").textContent=m.subject||"(제목없음)";
+  document.getElementById("dpOwner").textContent=m.ownerName||"";
+  document.getElementById("dpFrom").textContent=m.from||"-";
+  document.getElementById("dpTo").textContent=(m.to||[]).map(t=>t.name?`${t.name} <${t.email}>`:t.email).join(", ")||"-";
+  document.getElementById("dpDate").textContent=m.date||"-";
+  const ccEl=document.getElementById("dpCc");const ccK=document.getElementById("dpCcK");
+  if(m.cc?.length){ccEl.textContent=(m.cc||[]).map(c=>c.name?`${c.name} <${c.email}>`:c.email).join(", ");ccEl.style.display="";ccK.style.display="";}else{ccEl.style.display="none";ccK.style.display="none";}
+  if(!m.bodyLoaded&&!m.loadFailed){
+    document.getElementById("dpBody").textContent="⏳ 본문 로딩 중...";document.getElementById("dpAtt").style.display="none";
+    try{
+      const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");
+      if(!r?.ok)throw new Error("파일읽기실패 "+r?.status);
+      const bytes=await r.arrayBuffer();
+      const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes});
+      if(!pr.ok)throw new Error("파싱오류");
+      const p=await pr.json();
+      m.body=p.body||"";m.attachments=p.attachments||[];m.hasAttachment=(p.attachments?.length>0);
+      m.bodyLoaded=true;m.loadFailed=false;
+      await dbPut("mails",[m]);
+    }catch(e){m.loadFailed=true;document.getElementById("dpBody").innerHTML=`⚠️ 로딩실패: ${esc(e.message)}<br><button onclick="openMail(${idx})" style="margin-top:10px;padding:6px 14px;background:var(--p);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">🔄 다시시도</button>`;return;}
   }
-  tbody.innerHTML = mails.map(mail => {
-    const idx = allMails.indexOf(mail);
-    const ccN = (mail.cc||[]).map(c=>c.name||c.email).join("; ");
-    const ccE = (mail.cc||[]).map(c=>c.email).join("; ");
-    return `<tr onclick="showDetail(${idx})">
-      <td class="td-m">${esc((mail.date||"").slice(0,16))}</td>
-      <td class="td-s">${esc(mail.ownerName)}</td>
-      <td>${esc(extractName(mail.from))}</td>
-      <td class="td-s">${esc(extractEmail(mail.from))}</td>
-      <td><span class="td-t" title="${esc(mail.subject||"")}">${esc(mail.subject||"(제목없음)")}</span></td>
-      <td class="td-s td-t">${esc(ccN)}</td>
-      <td class="td-s td-t">${esc(ccE)}</td>
-      <td>${mail.hasAttachment?"📎":""}</td>
-    </tr>`;
-  }).join("");
+  document.getElementById("dpBody").textContent=m.body||(m.hasAttachment?"(첨부파일만 있는 메일입니다)":"(본문없음)");
+  if(m.attachments?.length){document.getElementById("dpAtt").style.display="block";document.getElementById("dpAttList").innerHTML=m.attachments.map(a=>`<span class="att-chip">📄 ${esc(a.name||a)}</span>`).join("");}
+  else document.getElementById("dpAtt").style.display="none";
 }
+function closeDp(){document.getElementById("dpPanel").classList.remove("open");document.querySelectorAll(".mi").forEach(e=>e.classList.remove("on"));}
 
-// ── Show detail (본문 on-demand 로딩) ────────────────
-async function showDetail(idx) {
-  const mail = allMails[idx];
-  if (!mail) return;
-  document.querySelectorAll(".mi").forEach(el => el.classList.remove("active"));
-  const el = document.getElementById("mi-"+idx);
-  if (el) { el.classList.add("active"); el.scrollIntoView({block:"nearest"}); }
-  openMobileDetail();
-
-  document.getElementById("dpEmpty").style.display = "none";
-  document.getElementById("dpInner").style.display = "flex";
-
-  document.getElementById("dSubj").textContent = mail.subject || "(제목 없음)";
-  document.getElementById("dOwner").textContent = `${mail.ownerName} (${mail.owner})`;
-  document.getElementById("dFrom").textContent = mail.from;
-  document.getElementById("dTo").textContent = (mail.to||[]).map(t=>t.name?`${t.name} <${t.email}>`:t.email).join(", ")||"-";
-  document.getElementById("dDate").textContent = mail.date;
-
-  const ccEl = document.getElementById("dCc"), ccK = document.getElementById("dCcK");
-  if (mail.cc?.length) {
-    ccEl.textContent = mail.cc.map(c=>c.name?`${c.name} <${c.email}>`:c.email).join(", ");
-    ccEl.style.display = ""; ccK.style.display = "";
-  } else { ccEl.style.display = "none"; ccK.style.display = "none"; }
-
-  // 본문 on-demand 로딩 (비어있어도 재시도)
-  if (!mail.bodyLoaded || (!mail.body && !mail.loadFailed)) {
-    document.getElementById("dBody").textContent = "⏳ 본문 로딩 중...";
-    document.getElementById("dAttSec").style.display = "none";
-    try {
-      const token = await getToken();
-
-      // 1. SharePoint에서 eml 바이트 다운로드
-      const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
-      const emlRes = await fetchWithRetry(
-        `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-        { headers: { Authorization: "Bearer " + token } }
-      );
-      if (!emlRes.ok) throw new Error(`eml 다운로드 실패 ${emlRes.status}`);
-      const emlBytes = await emlRes.arrayBuffer();
-
-      // 2. Render.com Python 서버로 파싱 요청
-      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml`, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: emlBytes
-      });
-      if (!parseRes.ok) throw new Error(`파싱 서버 오류 ${parseRes.status}`);
-      const parsed = await parseRes.json();
-
-      // 3. 결과 저장
-      mail.body        = parsed.body || "";
-      mail.attachments = parsed.attachments || [];
-      mail.hasAttachment = parsed.hasAttachment;
-      mail.bodyLoaded  = true;
-      mail.loadFailed  = false;
-      await dbPutMails([mail]);
-
-    } catch(e) {
-      mail.loadFailed = true;
-      document.getElementById("dBody").innerHTML =
-        `⚠️ 본문 로딩 실패: ${esc(e.message)}<br>
-        <button onclick="showDetail(${idx})" style="margin:12px 0;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;">🔄 다시 시도</button>`;
-      return;
-    }
-  }
-
-  document.getElementById("dBody").textContent = mail.body || "(본문 없음)";
-
-  // 본문이 없고 첨부파일만 있는 경우
-  if (!mail.body && mail.hasAttachment) {
-    document.getElementById("dBody").textContent = "(첨부파일만 있는 메일입니다)";
-  }
-
-  const attSec = document.getElementById("dAttSec");
-  if (mail.hasAttachment && mail.attachments?.length) {
-    attSec.style.display = "block";
-    document.getElementById("dAttList").innerHTML = mail.attachments.map(f =>
-      `<div class="att-item">📄 ${esc(f)}</div>`).join("");
-  } else { attSec.style.display = "none"; }
-}
-
-// ── Tab switch ───────────────────────────────────────
-// ── 문서 분류 키워드 ─────────────────────────────────
-const DOC_PATTERNS = {
-  tax: {
-    label: "세금계산서",
-    keywords: ["세금계산서","tax invoice","taxinvoice","세금 계산서","계산서발행","계산서 발행",
-                "invoice","인보이스","청구서","청구 내역"],
-    color: "#10b981"
-  },
-  quote: {
-    label: "견적서",
-    keywords: ["견적서","견적","quotation","quote","estimate","proposal","제안서","제안",
-                "견적 요청","견적요청","rfi","rfq"],
-    color: "#f59e0b"
-  },
-  po: {
-    label: "발주서",
-    keywords: ["발주서","발주","purchase order","p.o.","po#","po ","구매 주문","주문서",
-                "order confirmation","주문 확인","발주 확인","납품","납품요청"],
-    color: "#5b8fff"
-  }
-};
-
-function classifyMail(mail) {
-  const text = [
-    mail.subject || "",
-    ...(mail.attachments || []).map(a => a.name || a)
-  ].join(" ").toLowerCase();
-
-  for (const [type, cfg] of Object.entries(DOC_PATTERNS)) {
-    if (cfg.keywords.some(kw => text.includes(kw.toLowerCase()))) {
-      return type;
-    }
-  }
-  return null;
-}
-
-function getDocMails(type) {
-  const target = currentOwner === "all" ? allMails :
-    allMails.filter(m => m.owner === currentOwner);
-  return target.filter(m => classifyMail(m) === type);
-}
-
-function renderDocTab(type) {
-  const cfg = DOC_PATTERNS[type];
-  const mails = getDocMails(type);
-  const countEl = document.getElementById(type + "Count");
-  const listEl  = document.getElementById(type + "List");
-  if (countEl) countEl.textContent = `${cfg.label} ${mails.length}건`;
-
-  if (!mails.length) {
-    listEl.innerHTML = `<div class="lb">📭 ${cfg.label} 메일이 없습니다</div>`;
-    return;
-  }
-
-  listEl.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead>
-        <tr style="background:var(--bg3);position:sticky;top:0;">
-          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">날짜</th>
-          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600">제목</th>
-          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">발신자</th>
-          <th style="padding:10px 14px;text-align:left;color:var(--t2);font-weight:600;white-space:nowrap">첨부</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${mails.map((m, i) => {
-          const idx = allMails.indexOf(m);
-          const fromName = extractName(m.from) || m.from || "-";
-          const atts = (m.attachments||[]).filter(a => {
-            const n = (a.name||a||"").toLowerCase();
-            return DOC_PATTERNS[type].keywords.some(k => n.includes(k.toLowerCase()));
-          });
-          const attStr = atts.length ? atts.map(a=>esc(a.name||a)).join(", ") : (m.hasAttachment ? "📎" : "");
-          return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="switchTab('list',document.querySelector('.tab-item'));showDetail(${idx})">
-            <td style="padding:10px 14px;color:var(--t2);white-space:nowrap">${esc((m.date||"").slice(0,10))}</td>
-            <td style="padding:10px 14px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              <span style="background:${cfg.color}22;color:${cfg.color};font-size:10px;padding:1px 6px;border-radius:3px;margin-right:5px;">${cfg.label}</span>
-              ${esc(m.subject||"(제목없음)")}
-            </td>
-            <td style="padding:10px 14px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(fromName)}</td>
-            <td style="padding:10px 14px;color:var(--t2);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${attStr}</td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>`;
-}
-
-function exportDocTab(type) {
-  const cfg = DOC_PATTERNS[type];
-  const mails = getDocMails(type);
-  const rows = [["날짜","제목","발신자","메일함","첨부파일"]];
-  mails.forEach(m => rows.push([
-    (m.date||"").slice(0,10),
-    m.subject||"",
-    m.from||"",
-    m.ownerName||"",
-    (m.attachments||[]).map(a=>a.name||a).join(", ")
-  ]));
-  const csv = rows.map(r => r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));
-  a.download = `enjet_${type}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-}
-
-// ── Contact extraction ───────────────────────────────
-let allContacts = [], filteredContacts = [];
-// AI 분석 결과 영구 캐시 (세션 동안 유지)
-const _contactCache = new Map(); // key: email → enriched contact info
-let contactSortKey = "name", contactSortDir = "asc";
-
-function extractContactFromBody(body, fromAddr) {
-  const allLines = (body || "").split(/\r?\n/);
-  // 서명 영역: 구분선(--) 이후 또는 마지막 40줄
-  let sigStart = Math.max(0, allLines.length - 40);
-  for (let i = allLines.length - 1; i >= Math.max(0, allLines.length - 60); i--) {
-    if (/^[-_=]{2,}\s*$/.test(allLines[i]) || /^--\s*$/.test(allLines[i])) {
-      sigStart = i + 1; break;
-    }
-  }
-  const sig = allLines.slice(sigStart).join("\n");
-
-  // ── 이메일 ──
-  const emailM = sig.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email = emailM ? emailM[0].toLowerCase() : extractEmail(fromAddr || "");
-
-  // ── 이름: From 헤더 우선, 서명에서 보완 ──
-  let name = extractName(fromAddr || "");
-  const korInFrom = (fromAddr||"").match(/([가-힣]{2,4})\s*</);
-  if (korInFrom) name = korInFrom[1];
-  // 서명에서 "홍 길 동  Gil..." 패턴
-  const sigName = sig.match(/^([가-힣]{1,2}\s[가-힣]{1,2}|[가-힣]{2,4})\s{2,}[A-Za-z]/m);
-  if (sigName) name = sigName[1].replace(/\s/g,"");
-
-  // ── 직함/부서 ──
-  const TITLE_RE = /사원|인턴|주임|연구원|대리|과장|차장|부장|팀장|수석|책임|선임|이사|상무|전무|부사장|사장|대표이사|대표|매니저|Manager|Director|Engineer|Senior|Analyst/;
-  const DEPT_RE  = /[가-힣A-Za-z]{2,15}(?:팀|부|실|센터|본부|그룹|파트)/;
-  const titleM = sig.match(TITLE_RE);
-  const deptM  = sig.match(DEPT_RE);
-  const title  = titleM ? titleM[0] : "";
-  const dept   = deptM  ? deptM[0]  : "";
-  const deptFull = [dept, title].filter(Boolean).join(" ").trim();
-
-  // ── 전화번호 ──
-  // M 모바일
-  let mobile = "";
-  const mM = sig.match(/(?:^|\|\s*)M\s+(\+?[\d\s.\-]{9,20})/m)
-           || sig.match(/(?:Mobile|H\.P|Cell|HP)\s*[:|]?\s*(\+?[\d\s.\-]{9,20})/i);
-  if (mM) mobile = mM[1].trim().replace(/\s+/g," ").slice(0,20);
-
-  // T 직통
-  let tel = "";
-  const tM = sig.match(/(?:^|\|\s*)T\s+(\+?[\d\s.\-]{8,20})/m)
-           || sig.match(/(?:Tel|Phone)\s*[:|]?\s*(\+?[\d\s.\-]{8,20})/i);
-  if (tM) tel = tM[1].trim().replace(/\s+/g," ").slice(0,20);
-
-  // 없으면 한국 전화번호 패턴으로
-  if (!mobile && !tel) {
-    const phones = [...sig.matchAll(/(\+?82[\s.]?0?\d[\s.]\d{3,4}[\s.]\d{4}|0\d{1,2}[\s.\-]\d{3,4}[\s.\-]\d{4})/g)].map(m=>m[1]);
-    if (phones[0]) mobile = phones[0];
-    if (phones[1]) tel    = phones[1];
-  }
-
-  // ── 회사명 ──
-  let company = "";
-  const coPatterns = [
-    /([가-힣A-Za-z\s()（）]{2,20}(?:주식회사|㈜|\(주\)))/,
-    /([가-힣A-Za-z\s]{2,25}(?:은행|증권|보험|캐피탈|카드|생명|화재|투자증권|자산운용))/,
-    /([가-힣A-Za-z][가-힣A-Za-z\s&.]{2,25}(?:Co\.,?\s*Ltd\.?|Inc\.?|Corp\.))/i,
+// 사이드바
+function renderSB(){
+  const cnts={};allMails.forEach(m=>{cnts[m.owner]=(cnts[m.owner]||0)+1;});
+  const items=[
+    `<div class="sb-it ${curOwner==="all"?"on":""}" onclick="selOwner('all')"><div class="sb-av av2">전</div><div style="flex:1"><div style="font-size:12px;font-weight:600">전체보기</div></div><span class="sb-cnt">${allMails.length}</span></div>`,
+    ...MEMBERS.map(m=>`<div class="sb-it ${curOwner===m.email?"on":""}" onclick="selOwner('${m.email}')"><div class="sb-av ${m.color}">${m.name[0]}</div><div style="flex:1"><div style="font-size:12px;font-weight:600">${m.name}</div><div style="font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.email}</div></div><span class="sb-cnt">${cnts[m.email]||0}</span></div>`)
   ];
-  for (const p of coPatterns) {
-    const m = sig.match(p);
-    if (m) { company = m[1].trim(); break; }
-  }
+  document.getElementById("sbBody").innerHTML=`<div class="sb-lbl">메일함</div>${items.join("")}`;
+}
+function selOwner(em){curOwner=em;renderSB();applyFilter();}
 
-  return { email, name, company, dept: deptFull, mobile, tel };
+// 문서 분류
+function getDoc(m){const txt=[m.subject||"",...(m.attachments||[]).map(a=>a.name||a)].join(" ").toLowerCase();for(const[t,ks]of Object.entries(DOC_KW)){if(ks.some(k=>txt.includes(k)))return t;}return null;}
+function renderDoc(type){
+  const target=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
+  const docs=target.filter(m=>getDoc(m)===type);
+  const clr={tax:"doc-tax",quote:"doc-quote",po:"doc-po"};
+  document.getElementById("tblInfo").textContent=`${DOC_LBL[type]} ${docs.length}건`;
+  document.getElementById("tblHead").innerHTML=`<tr><th>날짜</th><th>제목</th><th>발신자</th><th>메일함</th><th>첨부</th></tr>`;
+  if(!docs.length){document.getElementById("tblBody").innerHTML=`<tr><td colspan="5"><div class="lb">📭 ${DOC_LBL[type]} 메일이 없습니다</div></td></tr>`;return;}
+  document.getElementById("tblBody").innerHTML=docs.map(m=>{const idx=allMails.indexOf(m);return`<tr onclick="switchMTab('list',document.querySelector('.ml-tab'));openMail(${idx})"><td style="font-family:var(--m);font-size:11px">${esc((m.date||"").slice(0,10))}</td><td class="td-s"><span class="doc-b ${clr[type]}">${DOC_LBL[type]}</span> ${esc(m.subject||"(제목없음)")}</td><td>${esc(exNm(m.from)||"-")}</td><td>${esc(m.ownerName||"")}</td><td>${m.hasAttachment?"📎":""}</td></tr>`;}).join("");
+}
+function exportTbl(){
+  const mails=_activeMTab!=="list"?allMails.filter(m=>getDoc(m)===_activeMTab):filtered;
+  const rows=[["날짜","제목","발신자","메일함"]];mails.forEach(m=>rows.push([(m.date||"").slice(0,10),m.subject||"",m.from||"",m.ownerName||""]));
+  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("
+");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_${_activeMTab}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
 
-async function buildContacts() {
-  // 로딩 표시
-  document.getElementById("contactBody").innerHTML =
-    '<tr><td colspan="4"><div class="lb"><div class="spinner"></div>연락처 추출 중...</div></td></tr>';
-  document.getElementById("contactCount").textContent = "추출 중...";
+// 주소록
+function getDom(em){return(em||"").split("@")[1]||"";}
+function getCo(em){const d=getDom(em);return DOMAIN_MAP[d]||d.split(".")[0]||"";}
 
-  const contactMap = new Map();
-  const targetMails = currentOwner === "all" ? allMails :
-    allMails.filter(m => m.owner === currentOwner);
-
-  // _contactCache에서 먼저 복원
-  _contactCache.forEach((v, k) => {
-    contactMap.set(k, {
-      email: k, name: v.name || "", company: v.company || "",
-      dept: v.dept || "", mobile: v.mobile || "", tel: v.tel || "",
-      lastDate: "", mailCount: 0, enriched: true, mail: null
-    });
-  });
-
-  // 헤더 기반 목록 구성
-  for (const mail of targetMails) {
-    const fromEmail = extractEmail(mail.from);
-    if (!fromEmail || fromEmail.includes("enjet.co.kr")) continue;
-    const key = fromEmail.toLowerCase();
-    const cached = _contactCache.get(key);
-    if (!contactMap.has(key)) {
-      contactMap.set(key, {
-        email: fromEmail,
-        name: cached?.name || extractName(mail.from),
-        company: cached?.company || "",
-        dept: cached?.dept || "",
-        mobile: cached?.mobile || "",
-        tel: cached?.tel || "",
-        lastDate: mail.date || "",
-        lastDateRaw: mail.dateRaw || "",
-        mailCount: 1,
-        enriched: !!cached,
-        mail: cached ? null : mail
-      });
-    } else {
-      const ex = contactMap.get(key);
-      ex.mailCount++;
-      if (!ex.name && mail.from) ex.name = extractName(mail.from);
-      if (!ex.mail && !ex.enriched) ex.mail = mail;
-    }
-
-    // 참조자
-    for (const cc of (mail.cc || [])) {
-      if (!cc.email || cc.email.includes("enjet.co.kr")) continue;
-      const cKey = cc.email.toLowerCase();
-      if (!contactMap.has(cKey)) {
-        const ccCached = _contactCache.get(cKey);
-        contactMap.set(cKey, {
-          email: cc.email,
-          name: ccCached?.name || cc.name || cc.email.split("@")[0],
-          company: ccCached?.company || "", dept: ccCached?.dept || "",
-          mobile: ccCached?.mobile || "", tel: ccCached?.tel || "",
-          lastDate: mail.date || "", lastDateRaw: mail.dateRaw || "",
-          mailCount: 1, enriched: !!ccCached, mail: null
-        });
-      } else {
-        contactMap.get(cKey).mailCount++;
-      }
+async function buildCt(){
+  document.getElementById("ctBody").innerHTML='<tr><td colspan="4"><div class="lb"><div class="sp"></div>연락처 추출 중...</div></td></tr>';
+  const map=new Map();
+  _ctCache.forEach((v,k)=>map.set(k,{email:k,...v,mailCount:0,enriched:true,mail:null}));
+  const target=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
+  for(const m of target){
+    const em=exEm(m.from);if(!em||em.includes("enjet.co.kr"))continue;
+    const k=em.toLowerCase();const c=_ctCache.get(k);
+    if(!map.has(k))map.set(k,{email:em,name:c?.name||exNm(m.from)||"",company:c?.company||"",dept:c?.dept||"",mobile:c?.mobile||"",tel:c?.tel||"",mailCount:1,enriched:!!c,mail:c?null:m});
+    else{const x=map.get(k);x.mailCount++;if(!x.mail&&!x.enriched)x.mail=m;}
+    for(const cc of(m.cc||[])){
+      if(!cc.email||cc.email.includes("enjet.co.kr"))continue;
+      const ck=cc.email.toLowerCase();const cv=_ctCache.get(ck);
+      if(!map.has(ck))map.set(ck,{email:cc.email,name:cv?.name||cc.name||"",company:cv?.company||"",dept:cv?.dept||"",mobile:cv?.mobile||"",tel:cv?.tel||"",mailCount:1,enriched:!!cv,mail:null});
+      else map.get(ck).mailCount++;
     }
   }
-
-  allContacts = [...contactMap.values()];
-  filteredContacts = [...allContacts];
-  sortContactsList();
-  renderContacts(filteredContacts);
-  enrichContactsFromServer(contactMap);
+  allCt=[...map.values()];filtCt=[...allCt];sortCtList();renderCt(filtCt);
+  enrichCt(map);
 }
-
-async function enrichContactsFromServer(contactMap) {
-  // enriched된 건 스킵, mail 있는 것만
-  const toEnrich = [...contactMap.values()].filter(c => c.mail && !c.enriched);
-  if (!toEnrich.length) return;
-
-  const token = await getToken().catch(() => null);
-  if (!token) return;
-
-  document.getElementById("contactCount").textContent = `AI 분석 중... (0/${toEnrich.length})`;
-
-  let enriched = 0;
-  for (const contact of toEnrich) {
-    try {
-      const mail = contact.mail;
-      const parts = `${mail.folderPath}/${mail.fileName}`.split("/").map(p => encodeURIComponent(p)).join("/");
-      const emlRes = await fetchWithRetry(
-        `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${parts}:/content`,
-        { headers: { Authorization: "Bearer " + token } }
-      );
-      if (!emlRes.ok) { enriched++; continue; }
-      const emlBytes = await emlRes.arrayBuffer();
-
-      // OpenAI AI 분석 엔드포인트 사용
-      const parseRes = await fetch(`${RENDER_URL}/api/parse-eml-contact-ai`, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: emlBytes
-      });
-
-      // AI 실패 시 기존 파이썬 파서로 폴백
-      const endpoint = parseRes.ok ? parseRes :
-        await fetch(`${RENDER_URL}/api/parse-eml-contact`, {
-          method: "POST",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: emlBytes
-        });
-
-      if (!endpoint.ok) { enriched++; continue; }
-      const info = await endpoint.json();
-      if (info.error) { enriched++; continue; }
-
-      if (info.name)    contact.name    = info.name;
-      if (info.company) contact.company = info.company;
-      if (info.dept)    contact.dept    = info.dept;
-      if (info.mobile)  contact.mobile  = info.mobile;
-      if (info.tel)     contact.tel     = info.tel;
-      contact.enriched = true;
-      // 메모리 캐시 + DB에 저장
-      const cached = {
-        name: contact.name, company: contact.company,
-        dept: contact.dept, mobile: contact.mobile, tel: contact.tel
-      };
-      _contactCache.set(contact.email.toLowerCase(), cached);
-      dbSaveContactsRaw([{ email: contact.email, ...cached }]);
-      spSaveContacts(); // SP에도 저장
-
-    } catch {}
-
-    enriched++;
-    document.getElementById("contactCount").textContent =
-      `AI 분석 중... (${enriched}/${toEnrich.length})`;
-
-    if (enriched % 5 === 0) {
-      filteredContacts = [...contactMap.values()];
-      sortContactsList();
-      renderContacts(filteredContacts);
-    }
-    await new Promise(r => setTimeout(r, 400));
+async function enrichCt(map){
+  const toE=[...map.values()].filter(c=>c.mail&&!c.enriched);if(!toE.length)return;
+  document.getElementById("ctCnt").textContent=`AI 분석 중... 0/${toE.length}`;
+  let done=0;
+  for(const ct of toE){
+    try{
+      const m=ct.mail;
+      const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");if(!r?.ok){done++;continue;}
+      const bytes=await r.arrayBuffer();
+      const pr=await fetch(`${RENDER_URL}/api/parse-eml-contact-ai`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes});if(!pr.ok){done++;continue;}
+      const info=await pr.json();if(info.error){done++;continue;}
+      if(info.name)ct.name=info.name;if(info.company)ct.company=info.company;
+      if(info.dept)ct.dept=info.dept;if(info.mobile)ct.mobile=info.mobile;if(info.tel)ct.tel=info.tel;
+      ct.enriched=true;
+      const cv={name:ct.name,company:ct.company,dept:ct.dept,mobile:ct.mobile,tel:ct.tel};
+      _ctCache.set(ct.email.toLowerCase(),cv);
+      await dbPut("contacts",[{email:ct.email,...cv}]);
+      spSaveLater("ct",SP_CT,()=>{const o=[];_ctCache.forEach((v,k)=>o.push({email:k,...v}));return o;});
+    }catch{}
+    done++;document.getElementById("ctCnt").textContent=`AI 분석 중... ${done}/${toE.length}`;
+    if(done%5===0){filtCt=[...map.values()];sortCtList();renderCt(filtCt);}
+    await new Promise(r=>setTimeout(r,400));
   }
-
-  allContacts = [...contactMap.values()];
-  filteredContacts = [...allContacts];
-  sortContactsList();
-  renderContacts(filteredContacts);
-  document.getElementById("contactCount").textContent = `${allContacts.length}명`;
+  allCt=[...map.values()];filtCt=[...allCt];sortCtList();renderCt(filtCt);
+  document.getElementById("ctCnt").textContent=allCt.length+"명";
 }
-
-function filterContacts() {
-  const q = document.getElementById("contactSearch").value.toLowerCase();
-  filteredContacts = allContacts.filter(c =>
-    (c.name||"").toLowerCase().includes(q) ||
-    (c.email||"").toLowerCase().includes(q) ||
-    (c.company||"").toLowerCase().includes(q) ||
-    (c.dept||"").toLowerCase().includes(q)
-  );
-  renderContacts(filteredContacts);
-}
-
-function sortContactsList() {
-  filteredContacts.sort((a,b) => {
-    const va = (a[contactSortKey]||"").toString();
-    const vb = (b[contactSortKey]||"").toString();
-    return contactSortDir === "asc" ? va.localeCompare(vb,"ko") : vb.localeCompare(va,"ko");
-  });
-}
-
-function sortContacts(key) {
-  if (contactSortKey === key) contactSortDir = contactSortDir === "asc" ? "desc" : "asc";
-  else { contactSortKey = key; contactSortDir = "asc"; }
-  sortContactsList();
-  renderContacts(filteredContacts);
-}
-
-// ── 도메인 → 회사명 매핑 (AI 분석 전 기본값) ────────
-// 삼성 계열사는 모두 samsung.com을 쓰므로 AI가 본문에서 구분
-const DOMAIN_MAP = {
-  // 삼성 (AI가 본문에서 계열사 구분)
-  "samsung.com":"삼성(계열사 확인중)","samsung.co.kr":"삼성(계열사 확인중)",
-  "sec.co.kr":"삼성전자","samsungsdi.co.kr":"삼성SDI",
-  "samsungdisplay.com":"삼성디스플레이","semco.co.kr":"삼성전기",
-  // LG (AI가 본문에서 계열사 구분)
-  "lg.com":"LG(계열사 확인중)","lgcns.com":"LG CNS",
-  "lghausys.com":"LG하우시스","lgchem.com":"LG화학",
-  "lginnotek.com":"LG이노텍","lgdisplay.com":"LG디스플레이",
-  // 현대/기아
-  "hyundai.com":"현대자동차","kia.com":"기아",
-  "mobis.co.kr":"현대모비스","hyundai-steel.com":"현대제철",
-  "hyundai-rotem.com":"현대로템","hmc.co.kr":"현대자동차",
-  // SK
-  "sk.com":"SK","skhynix.com":"SK하이닉스",
-  "sktelecom.com":"SK텔레콤","sk.co.kr":"SK이노베이션",
-  "skecoplant.com":"SK에코플랜트",
-  // 롯데/신세계/CJ
-  "lotte.com":"롯데","shinsegae.com":"신세계","cj.net":"CJ",
-  // 금융
-  "shinhan.com":"신한금융","shinhancard.com":"신한카드",
-  "kb.co.kr":"KB금융","kbcard.com":"KB카드","kbstar.com":"KB증권",
-  "hanabank.com":"하나은행","kebhana.com":"하나은행",
-  "wooribank.com":"우리은행","ibk.co.kr":"IBK기업은행",
-  "kdb.co.kr":"KDB산업은행","nhbank.com":"NH농협은행",
-  "mirae-asset.com":"미래에셋","miraeasset.com":"미래에셋",
-  "daishin.com":"대신증권","kiwoom.com":"키움증권",
-  "samsung-securities.com":"삼성증권",
-  // 통신
-  "kt.com":"KT","lguplus.com":"LG유플러스",
-  // IT/포털
-  "naver.com":"네이버","kakao.com":"카카오","daum.net":"카카오",
-  "ncsoft.com":"엔씨소프트","nexon.com":"넥슨","netmarble.com":"넷마블",
-  // 공공기관
-  "kotra.or.kr":"KOTRA","kist.re.kr":"KIST",
-  "etri.re.kr":"ETRI","kopti.re.kr":"한국생산기술연구원",
-  "kipo.go.kr":"특허청","nia.or.kr":"한국지능정보사회진흥원",
-  // 대학
-  "kaist.ac.kr":"KAIST","snu.ac.kr":"서울대",
-  "yonsei.ac.kr":"연세대","korea.ac.kr":"고려대",
-  "postech.ac.kr":"포스텍","gachon.ac.kr":"가천대학교",
-  "hanyang.ac.kr":"한양대학교","skku.edu":"성균관대학교",
-};
-
-function getCompanyFromDomain(email) {
-  if (!email) return "";
-  const domain = email.split("@")[1] || "";
-  if (!domain) return "";
-  // 정확한 매핑
-  if (DOMAIN_MAP[domain]) return DOMAIN_MAP[domain];
-  // co.kr, or.kr 등 2단계 도메인
-  const parts = domain.split(".");
-  if (parts.length >= 3) {
-    const short = parts.slice(-3).join(".");
-    if (DOMAIN_MAP[short]) return DOMAIN_MAP[short];
-  }
-  // 도메인에서 회사명 추정
-  const name = parts[0];
-  if (name.length <= 2) return domain;
-  // 첫글자 대문자
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
-function getLogoUrl(email) {
-  return ""; // Clearbit 로고 비활성화 (네트워크 차단/속도 문제)
-}
-
-function renderContacts(contacts) {
-  document.getElementById("contactCount").textContent = contacts.length + "명";
-  const ftEl = document.getElementById("ctFootCount");
-  if (ftEl) ftEl.textContent = `총 ${contacts.length}명`;
-  const tbody = document.getElementById("contactBody");
-  if (!contacts.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:60px;color:var(--t2)">📭 연락처가 없습니다</td></tr>';
-    return;
-  }
-  const colors = ["av0","av1","av2","av3","av4"];
-  tbody.innerHTML = contacts.map((c, i) => {
-    const phone   = c.mobile || c.tel || "";
-    const company = c.company || getCompanyFromDomain(c.email);
-    const logoUrl = getLogoUrl(c.email);
-    const domain  = (c.email||"").split("@")[1] || "";
-    const dept    = c.dept || "";
-    const key     = encodeURIComponent(c.email.toLowerCase());
-
-    return `<tr id="ct-row-${key}">
-      <!-- 이름/부서 -->
-      <td>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="ct-av ${colors[i%5]}">${(c.name||"?")[0]}</div>
-          <div style="flex:1;">
-            <div id="ct-name-${key}" class="ct-editable" onclick="startEdit('${key}','name',this)"
-              style="font-weight:600;font-size:13px;cursor:pointer;"
-              title="클릭하여 편집">${esc(c.name || c.email.split("@")[0])}</div>
-            <div id="ct-dept-${key}" class="ct-editable" onclick="startEdit('${key}','dept',this)"
-              style="font-size:11px;color:var(--t2);margin-top:1px;cursor:pointer;"
-              title="클릭하여 편집">${esc(dept) || '<span style="opacity:0.3">부서 추가...</span>'}</div>
-          </div>
-        </div>
-      </td>
-      <!-- 회사 -->
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;">
-            <div id="ct-company-${key}" class="ct-editable" onclick="startEdit('${key}','company',this)"
-              style="font-size:13px;font-weight:500;cursor:pointer;"
-              title="클릭하여 편집">${esc(company)}</div>
-            ${domain ? `<div style="font-size:10px;color:var(--t3)">${esc(domain)}</div>` : ""}
-          </div>
-        </div>
-      </td>
-      <!-- 이메일 -->
-      <td><a href="mailto:${esc(c.email)}" class="ct-email-link">${esc(c.email)}</a></td>
-      <!-- 전화번호 -->
-      <td>
-        <div id="ct-mobile-${key}" class="ct-editable" onclick="startEdit('${key}','mobile',this)"
-          style="font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer;"
-          title="클릭하여 편집">
-          ${c.mobile ? `📞 ${esc(c.mobile)}` : '<span style="opacity:0.3;font-family:inherit">전화 추가...</span>'}
-        </div>
-        ${c.tel && c.mobile && c.tel !== c.mobile ?
-          `<div id="ct-tel-${key}" class="ct-editable" onclick="startEdit('${key}','tel',this)"
-            style="font-size:11px;color:var(--t2);cursor:pointer;margin-top:3px;"
-            title="클릭하여 편집">📟 ${esc(c.tel)}</div>` : ""}
-      </td>
-    </tr>`;
+function filterCt(){const q=(document.getElementById("ctSrch")?.value||"").toLowerCase();filtCt=allCt.filter(c=>!q||(c.name||"").toLowerCase().includes(q)||(c.company||"").toLowerCase().includes(q)||(c.email||"").toLowerCase().includes(q)||(c.mobile||"").includes(q)||(c.tel||"").includes(q));renderCt(filtCt);}
+function sortCt(k){if(ctSortK===k)ctSortD=ctSortD==="asc"?"desc":"asc";else{ctSortK=k;ctSortD="asc";}sortCtList();renderCt(filtCt);}
+function sortCtList(){filtCt.sort((a,b)=>{const av=a[ctSortK]||"",bv=b[ctSortK]||"";return ctSortD==="asc"?av.localeCompare(bv):bv.localeCompare(av);});}
+function renderCt(list){
+  document.getElementById("ctCnt").textContent=list.length+"명";document.getElementById("ctFoot").textContent=`총 ${list.length}명`;
+  const tb=document.getElementById("ctBody");
+  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="lb">📭 연락처 없음</div></td></tr>';return;}
+  tb.innerHTML=list.map((c,i)=>{
+    const co=c.company||getCo(c.email);const ph=c.mobile||c.tel||"";const k=encodeURIComponent(c.email.toLowerCase());
+    return`<tr><td><div style="display:flex;align-items:center;gap:7px"><div class="ct-av ${AV[i%4]}">${(c.name||"?")[0]}</div><div><div class="ct-ed" onclick="editCt('${k}','name',this)" style="font-size:12px;font-weight:700">${esc(c.name||c.email.split("@")[0])}</div><div class="ct-ed" onclick="editCt('${k}','dept',this)" style="font-size:10px;color:var(--t3)">${c.dept?esc(c.dept):'<span style="opacity:.4">부서추가...</span>'}</div></div></div></td><td><div class="ct-ed" onclick="editCt('${k}','company',this)" style="font-size:12px;font-weight:600">${esc(co)}</div><div style="font-size:10px;color:var(--t3)">${esc(getDom(c.email))}</div></td><td><a href="mailto:${esc(c.email)}" class="ct-em">${esc(c.email)}</a></td><td><div class="ct-ed" onclick="editCt('${k}','mobile',this)" style="font-family:var(--m);font-size:12px">${ph?`📞 ${esc(ph)}`:'<span style="opacity:.3">전화추가...</span>'}</div></td></tr>`;
   }).join("");
 }
 
-// ── 인라인 편집 ──────────────────────────────────────
-let _editingKey = null;
-
-function startEdit(emailKey, field, el) {
-  // 이미 편집 중이면 저장 후 새 편집
-  if (_editingKey) saveEdit();
-
-  const email = decodeURIComponent(emailKey);
-  const contact = allContacts.find(c => c.email.toLowerCase() === email.toLowerCase());
-  if (!contact) return;
-
-  _editingKey = { emailKey, field, contact, el };
-
-  const currentVal = field === "company"
-    ? (contact.company || getCompanyFromDomain(contact.email))
-    : (contact[field] || "");
-
-  el.innerHTML = `
-    <input id="ct-edit-input"
-      value="${esc(currentVal)}"
-      style="width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:5px;
-             padding:4px 8px;color:var(--text);font-size:inherit;font-family:inherit;outline:none;"
-      onkeydown="handleEditKey(event)"
-      onblur="saveEdit()"
-    >`;
-  const inp = document.getElementById("ct-edit-input");
-  inp.focus();
-  inp.select();
+let _edi=null;
+function editCt(key,field,el){
+  if(_edi)saveCt();const email=decodeURIComponent(key);const c=allCt.find(x=>x.email.toLowerCase()===email.toLowerCase());if(!c)return;
+  _edi={key,field,c,el};const cur=field==="company"?(c.company||getCo(c.email)):(c[field]||"");
+  el.innerHTML=`<input id="ctInp" value="${esc(cur)}" style="width:100%;background:var(--bg2);border:1px solid var(--p);border-radius:4px;padding:2px 6px;font-size:inherit;font-family:inherit;color:var(--t);outline:none" onkeydown="ctKey(event)" onblur="saveCt()">`;
+  const inp=document.getElementById("ctInp");inp.focus();inp.select();
 }
-
-function handleEditKey(e) {
-  if (e.key === "Enter") { e.preventDefault(); saveEdit(); }
-  if (e.key === "Escape") { cancelEdit(); }
+function ctKey(e){if(e.key==="Enter"){e.preventDefault();saveCt();}if(e.key==="Escape")cancelCt();}
+function cancelCt(){if(!_edi)return;const{key,field,c}=_edi;_edi=null;const inp=document.getElementById("ctInp");if(inp?.parentElement)renderCtFld(inp.parentElement,field,c);}
+async function saveCt(){
+  if(!_edi)return;const{key,field,c}=_edi;_edi=null;
+  const inp=document.getElementById("ctInp");if(!inp)return;const val=inp.value.trim();
+  c[field]=val;c.enriched=true;
+  const cv=_ctCache.get(c.email.toLowerCase())||{};cv[field]=val;_ctCache.set(c.email.toLowerCase(),{...cv,...c});
+  await dbPut("contacts",[{email:c.email,name:c.name,company:c.company,dept:c.dept,mobile:c.mobile,tel:c.tel}]);
+  spSaveLater("ct",SP_CT,()=>{const o=[];_ctCache.forEach((v,k)=>o.push({email:k,...v}));return o;});
+  if(inp.parentElement)renderCtFld(inp.parentElement,field,c);
 }
-
-function cancelEdit() {
-  if (!_editingKey) return;
-  const { emailKey, field, contact } = _editingKey;
-  _editingKey = null;
-  // 원래 값으로 복구
-  const el = document.getElementById(`ct-${field}-${emailKey}`);
-  if (el) renderContactField(el, field, contact, emailKey);
+function renderCtFld(el,field,c){
+  const co=c.company||getCo(c.email);const v=c[field]||"";
+  if(field==="name")el.innerHTML=esc(v||c.email.split("@")[0]);
+  else if(field==="dept")el.innerHTML=v?esc(v):'<span style="opacity:.4">부서추가...</span>';
+  else if(field==="company")el.innerHTML=esc(co);
+  else if(field==="mobile")el.innerHTML=v?`📞 ${esc(v)}`:'<span style="opacity:.3">전화추가...</span>';
 }
-
-function saveEdit() {
-  if (!_editingKey) return;
-  const { emailKey, field, contact } = _editingKey;
-  _editingKey = null;
-
-  const inp = document.getElementById("ct-edit-input");
-  if (!inp) return;
-  const newVal = inp.value.trim();
-
-  // 연락처 업데이트
-  contact[field] = newVal;
-  contact.enriched = true;
-
-  // 캐시 업데이트
-  const cacheEntry = _contactCache.get(contact.email.toLowerCase()) || {};
-  cacheEntry[field] = newVal;
-  _contactCache.set(contact.email.toLowerCase(), { ...cacheEntry, ...contact });
-
-  // DB + SP 저장
-  dbSaveContactsRaw([{ email: contact.email, name: contact.name,
-    company: contact.company, dept: contact.dept,
-    mobile: contact.mobile, tel: contact.tel }]);
-  spSaveContacts();
-
-  // 해당 셀만 업데이트
-  const el = document.getElementById(`ct-${field}-${emailKey}`);
-  if (el) renderContactField(el, field, contact, emailKey);
+function exportCt(){
+  const rows=[["이름","회사","도메인","부서/직함","이메일","전화번호"]];
+  filtCt.forEach(c=>rows.push([c.name||"",c.company||getCo(c.email)||"",getDom(c.email),c.dept||"",c.email||"",c.mobile||c.tel||""]));
+  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("
+");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_contacts_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
-
-function renderContactField(el, field, contact, emailKey) {
-  const val = contact[field] || "";
-  if (field === "name") {
-    el.innerHTML = esc(val || contact.email.split("@")[0]);
-  } else if (field === "dept") {
-    el.innerHTML = val ? esc(val) : '<span style="opacity:0.3">부서 추가...</span>';
-  } else if (field === "company") {
-    el.innerHTML = esc(val || getCompanyFromDomain(contact.email));
-  } else if (field === "mobile") {
-    el.innerHTML = val ? `📞 ${esc(val)}` : '<span style="opacity:0.3;font-family:inherit">전화 추가...</span>';
-  } else if (field === "tel") {
-    el.innerHTML = val ? `📟 ${esc(val)}` : "";
-  }
-}
-
-function exportContacts() {
-  const rows = [["이름","회사명","도메인","부서/직함","이메일","전화번호","휴대폰","직통전화"]];
-  filteredContacts.forEach(c => {
-    const company = c.company || getCompanyFromDomain(c.email);
-    const domain = (c.email||"").split("@")[1] || "";
-    rows.push([
-      c.name||"", company, domain, c.dept||"", c.email||"",
-      c.mobile||c.tel||"", c.mobile||"", c.tel||""
-    ]);
-  });
-  const csv = rows.map(r => r.map(c => `"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"}));
-  a.download = "enjet_contacts_" + new Date().toISOString().slice(0,10) + ".csv";
-  a.click();
-}
-
-// ── Sort table ───────────────────────────────────────
-function sortTbl(key) {
-  if (sortKey===key) sortDir = sortDir==="asc"?"desc":"asc"; else { sortKey=key; sortDir="asc"; }
-  document.querySelectorAll("th").forEach(t=>t.classList.remove("asc","desc"));
-  const map={date:0,owner:1,sender:2,senderEmail:3,subject:4};
-  const ths = document.querySelectorAll("#tabTable thead th");
-  if (ths[map[key]]) ths[map[key]].classList.add(sortDir==="asc"?"asc":"desc");
-  filtered.sort((a,b)=>{
-    let va="",vb="";
-    if(key==="date"){va=a.dateRaw||"";vb=b.dateRaw||"";}
-    else if(key==="owner"){va=a.ownerName||"";vb=b.ownerName||"";}
-    else if(key==="sender"){va=extractName(a.from);vb=extractName(b.from);}
-    else if(key==="senderEmail"){va=extractEmail(a.from);vb=extractEmail(b.from);}
-    else if(key==="subject"){va=a.subject||"";vb=b.subject||"";}
-    return sortDir==="asc"?va.localeCompare(vb,"ko"):vb.localeCompare(va,"ko");
-  });
-  renderTable(filtered);
-}
-
-// ── Export CSV ───────────────────────────────────────
-function exportCSV() {
-  const rows=[["날짜","메일함","발신자이름","발신자이메일","제목","참조자이름","참조자이메일","첨부파일"]];
-  filtered.forEach(m=>{
-    rows.push([m.date||"",m.ownerName||"",extractName(m.from),extractEmail(m.from),
-      m.subject||"",(m.cc||[]).map(c=>c.name||c.email).join(";"),
-      (m.cc||[]).map(c=>c.email).join(";"),(m.attachments||[]).join(";")]);
-  });
-  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));
-  a.download="enjet_team_mail_"+new Date().toISOString().slice(0,10)+".csv";
-  a.click();
-}
-
-// ── Utils ────────────────────────────────────────────
-function setStatus(txt, state) {
-  document.getElementById("statusTxt").textContent = txt;
-  const d = document.getElementById("statusDot");
-  d.className = "dot" + (state==="err"?" err":state==="spin"?" spin":"");
-}
-function setProgress(pct) {
-  document.getElementById("progressFill").style.width = (pct||0) + "%";
-}
-function extractName(from) {
-  const m=(from||"").match(/^"?([^"<]+)"?\s*</);
-  return m?m[1].trim():(from||"").split("@")[0];
-}
-function extractEmail(from) {
-  const m=(from||"").match(/<([^>]+)>/);
-  if(m) return m[1];
-  if((from||"").includes("@")) return (from||"").trim();
-  return from||"";
-}
-
-// ── 모바일 상세보기 ─────────────────────────────────
-function openMobileDetail() {
-  if (window.innerWidth <= 768) {
-    document.getElementById("dpPanel").classList.add("open");
-    document.querySelector(".dp-back").style.display = "flex";
-  }
-}
-function closeMobileDetail() {
-  document.getElementById("dpPanel").classList.remove("open");
-  document.querySelectorAll(".mi").forEach(el => el.classList.remove("active"));
-}
-
-function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 </script>
 </body>
 </html>
