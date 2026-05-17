@@ -170,6 +170,8 @@ td{padding:7px 11px;color:var(--text);vertical-align:middle;}
 .ct-email-link{color:var(--accent);text-decoration:none;font-size:13px;}
 .ct-email-link:hover{text-decoration:underline;}
 .ct-phone{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);}
+.ct-editable{border-radius:4px;padding:2px 4px;margin:-2px -4px;transition:background 0.15s;}
+.ct-editable:hover{background:var(--bg3);}
 .ct-foot{padding:10px 18px;border-top:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--t2);flex-shrink:0;}
 
 /* Loading */
@@ -2009,20 +2011,25 @@ function renderContacts(contacts) {
   }
   const colors = ["av0","av1","av2","av3","av4"];
   tbody.innerHTML = contacts.map((c, i) => {
-    const phone = c.mobile || c.tel || "";
+    const phone   = c.mobile || c.tel || "";
     const company = c.company || getCompanyFromDomain(c.email);
     const logoUrl = getLogoUrl(c.email);
     const domain  = (c.email||"").split("@")[1] || "";
     const dept    = c.dept || "";
+    const key     = encodeURIComponent(c.email.toLowerCase());
 
-    return `<tr>
-      <!-- 이름 -->
+    return `<tr id="ct-row-${key}">
+      <!-- 이름/부서 -->
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="ct-av ${colors[i%5]}">${(c.name||"?")[0]}</div>
-          <div>
-            <div style="font-weight:600;font-size:13px;">${esc(c.name || c.email.split("@")[0])}</div>
-            ${dept ? `<div style="font-size:11px;color:var(--t2);margin-top:1px">${esc(dept)}</div>` : ""}
+          <div style="flex:1;">
+            <div id="ct-name-${key}" class="ct-editable" onclick="startEdit('${key}','name',this)"
+              style="font-weight:600;font-size:13px;cursor:pointer;"
+              title="클릭하여 편집">${esc(c.name || c.email.split("@")[0])}</div>
+            <div id="ct-dept-${key}" class="ct-editable" onclick="startEdit('${key}','dept',this)"
+              style="font-size:11px;color:var(--t2);margin-top:1px;cursor:pointer;"
+              title="클릭하여 편집">${esc(dept) || '<span style="opacity:0.3">부서 추가...</span>'}</div>
           </div>
         </div>
       </td>
@@ -2032,8 +2039,10 @@ function renderContacts(contacts) {
           <img src="${logoUrl}" alt="" width="18" height="18"
                style="border-radius:3px;object-fit:contain;flex-shrink:0;"
                onerror="this.style.display='none'">
-          <div>
-            <div style="font-size:13px;font-weight:500;">${esc(company)}</div>
+          <div style="flex:1;">
+            <div id="ct-company-${key}" class="ct-editable" onclick="startEdit('${key}','company',this)"
+              style="font-size:13px;font-weight:500;cursor:pointer;"
+              title="클릭하여 편집">${esc(company)}</div>
             ${domain ? `<div style="font-size:10px;color:var(--t2)">${esc(domain)}</div>` : ""}
           </div>
         </div>
@@ -2041,12 +2050,107 @@ function renderContacts(contacts) {
       <!-- 이메일 -->
       <td><a href="mailto:${esc(c.email)}" class="ct-email-link">${esc(c.email)}</a></td>
       <!-- 전화번호 -->
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;">
-        ${phone ? `📞 ${esc(phone)}` : ""}
-        ${c.tel && c.mobile && c.tel !== c.mobile ? `<div style="margin-top:3px;font-size:11px;color:var(--t2)">📟 ${esc(c.tel)}</div>` : ""}
+      <td>
+        <div id="ct-mobile-${key}" class="ct-editable" onclick="startEdit('${key}','mobile',this)"
+          style="font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer;"
+          title="클릭하여 편집">
+          ${c.mobile ? `📞 ${esc(c.mobile)}` : '<span style="opacity:0.3;font-family:inherit">전화 추가...</span>'}
+        </div>
+        ${c.tel && c.mobile && c.tel !== c.mobile ?
+          `<div id="ct-tel-${key}" class="ct-editable" onclick="startEdit('${key}','tel',this)"
+            style="font-size:11px;color:var(--t2);cursor:pointer;margin-top:3px;"
+            title="클릭하여 편집">📟 ${esc(c.tel)}</div>` : ""}
       </td>
     </tr>`;
   }).join("");
+}
+
+// ── 인라인 편집 ──────────────────────────────────────
+let _editingKey = null;
+
+function startEdit(emailKey, field, el) {
+  // 이미 편집 중이면 저장 후 새 편집
+  if (_editingKey) saveEdit();
+
+  const email = decodeURIComponent(emailKey);
+  const contact = allContacts.find(c => c.email.toLowerCase() === email.toLowerCase());
+  if (!contact) return;
+
+  _editingKey = { emailKey, field, contact, el };
+
+  const currentVal = field === "company"
+    ? (contact.company || getCompanyFromDomain(contact.email))
+    : (contact[field] || "");
+
+  el.innerHTML = `
+    <input id="ct-edit-input"
+      value="${esc(currentVal)}"
+      style="width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:5px;
+             padding:4px 8px;color:var(--text);font-size:inherit;font-family:inherit;outline:none;"
+      onkeydown="handleEditKey(event)"
+      onblur="saveEdit()"
+    >`;
+  const inp = document.getElementById("ct-edit-input");
+  inp.focus();
+  inp.select();
+}
+
+function handleEditKey(e) {
+  if (e.key === "Enter") { e.preventDefault(); saveEdit(); }
+  if (e.key === "Escape") { cancelEdit(); }
+}
+
+function cancelEdit() {
+  if (!_editingKey) return;
+  const { emailKey, field, contact } = _editingKey;
+  _editingKey = null;
+  // 원래 값으로 복구
+  const el = document.getElementById(`ct-${field}-${emailKey}`);
+  if (el) renderContactField(el, field, contact, emailKey);
+}
+
+function saveEdit() {
+  if (!_editingKey) return;
+  const { emailKey, field, contact } = _editingKey;
+  _editingKey = null;
+
+  const inp = document.getElementById("ct-edit-input");
+  if (!inp) return;
+  const newVal = inp.value.trim();
+
+  // 연락처 업데이트
+  contact[field] = newVal;
+  contact.enriched = true;
+
+  // 캐시 업데이트
+  const cacheEntry = _contactCache.get(contact.email.toLowerCase()) || {};
+  cacheEntry[field] = newVal;
+  _contactCache.set(contact.email.toLowerCase(), { ...cacheEntry, ...contact });
+
+  // DB + SP 저장
+  dbSaveContactsRaw([{ email: contact.email, name: contact.name,
+    company: contact.company, dept: contact.dept,
+    mobile: contact.mobile, tel: contact.tel }]);
+  spSaveContacts();
+
+  // 해당 셀만 업데이트
+  const el = document.getElementById(`ct-${field}-${emailKey}`);
+  if (el) renderContactField(el, field, contact, emailKey);
+}
+
+function renderContactField(el, field, contact, emailKey) {
+  const val = contact[field] || "";
+  if (field === "name") {
+    el.innerHTML = esc(val || contact.email.split("@")[0]);
+  } else if (field === "dept") {
+    el.innerHTML = val ? esc(val) : '<span style="opacity:0.3">부서 추가...</span>';
+  } else if (field === "company") {
+    el.innerHTML = esc(val || getCompanyFromDomain(contact.email));
+  } else if (field === "mobile") {
+    el.innerHTML = val ? `📞 ${esc(val)}` : '<span style="opacity:0.3;font-family:inherit">전화 추가...</span>';
+  } else if (field === "tel") {
+    el.innerHTML = val ? `📟 ${esc(val)}` : "";
+  }
 }
 
 function exportContacts() {
