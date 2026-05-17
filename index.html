@@ -1214,12 +1214,11 @@ function formatDate(iso) {
 // ── 헤더 배치 로딩 (백그라운드) ──────────────────────
 async function loadHeadersBatch(token) {
   const noHeader = allMails.filter(m => !m.headerLoaded);
-  if (!noHeader.length) { setSyncState(false); syncNewFiles(); return; }
+  if (!noHeader.length) { setSyncState(false); return; }
 
   const total = noHeader.length;
   const BATCH = 10;
-  let done = 0;
-  let batchToSave = [];
+  let done = 0, batchToSave = [], lastUIUpdate = 0;
 
   for (let b = 0; b < noHeader.length; b += BATCH) {
     const batch = noHeader.slice(b, b + BATCH);
@@ -1234,39 +1233,35 @@ async function loadHeadersBatch(token) {
         const buf = await r.arrayBuffer();
         const text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
         const h = parseEmlHeaderOnly(text);
-        mail.subject       = h.subject || "";
-        mail.from          = h.from    || "";
-        mail.to            = h.to      || [];
-        mail.cc            = h.cc      || [];
-        mail.date          = h.date    || mail.date;
-        mail.dateRaw       = h.dateRaw || mail.dateRaw;
-        mail.hasAttachment = h.hasAttachment;
-        mail.headerLoaded  = true;
+        mail.subject = h.subject || ""; mail.from = h.from || "";
+        mail.to = h.to || []; mail.cc = h.cc || [];
+        mail.date = h.date || mail.date; mail.dateRaw = h.dateRaw || mail.dateRaw;
+        mail.hasAttachment = h.hasAttachment; mail.headerLoaded = true;
         batchToSave.push(mail);
       } catch { mail.headerLoaded = true; }
       done++;
     }));
 
-    // 50개마다 DB 저장 + 화면 업데이트
-    if (batchToSave.length >= 50 || b + BATCH >= noHeader.length) {
+    // DB 저장: 100개마다
+    if (batchToSave.length >= 100 || b + BATCH >= noHeader.length) {
       await dbPutMails(batchToSave);
       batchToSave = [];
     }
 
-    setSyncState(true, `⏳ ${done}/${total}`);
-    setStatus(`제목 로딩 중 · ${done}/${total}`, "spin");
-    filterMails();
-
+    // UI 업데이트: 5초에 한번만 (렉 방지)
+    const now = Date.now();
+    if (now - lastUIUpdate > 5000 || b + BATCH >= noHeader.length) {
+      lastUIUpdate = now;
+      setSyncState(true, `⏳ ${done}/${total}`);
+      setStatus(`${done}/${total}`, "spin");
+      if (currentTab === "list") filterMails();
+    }
     await new Promise(r => setTimeout(r, 300));
   }
-
-  // 남은 것 저장
-  if (batchToSave.length) await dbPutMails(batchToSave);
 
   filterMails();
   setStatus(`완료 · ${allMails.length}통`, "ok");
   setSyncState(false);
-  // 헤더 캐시 SP에 저장 (15초 후)
   spSaveHeaders();
 }
 
@@ -1362,7 +1357,12 @@ function parseEmlHeaderOnly(text) {
 }
 
 // ── Counts ──────────────────────────────────────────
+let _countsTimer = null;
 function updateCounts() {
+  if (_countsTimer) clearTimeout(_countsTimer);
+  _countsTimer = setTimeout(_doUpdateCounts, 100);
+}
+function _doUpdateCounts() {
   document.getElementById("cnt-all").textContent = allMails.length;
   MEMBERS.forEach(m => {
     const el = document.getElementById("cnt-" + m.email);
@@ -1395,7 +1395,12 @@ function selectOwner(owner) {
 }
 
 // ── Filter ───────────────────────────────────────────
+let _filterTimer = null;
 function filterMails() {
+  if (_filterTimer) clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(_doFilterMails, 50);
+}
+function _doFilterMails() {
   const q = document.getElementById("searchInput").value.toLowerCase();
   filtered = allMails.filter(m => {
     const ownerOk = currentOwner === "all" || m.owner === currentOwner;
