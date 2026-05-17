@@ -244,20 +244,55 @@ def ai_extract_contact(domain, body_text, from_addr):
 
 다음 형식의 JSON만 반환하세요 (설명 없이):
 {{
-  "name": "한글이름 (성+이름, 공백없이)",
-  "company": "회사명",
-  "dept": "부서명과 직함",
+  "name": "한글이름",
+  "company": "정확한 회사명",
+  "dept": "부서명 직함",
   "mobile": "휴대폰번호",
   "tel": "직통전화번호"
 }}
 
-추출 규칙:
-1. name: 발신자 이름. 서명에 "홍길동입니다", "홍 길 동  Gildong Hong 과장" 등 패턴에서 추출
-2. company: 도메인으로 실제 회사/기관명 추정 (samsung.com→삼성전자, gachon.ac.kr→가천대학교, kopti.re.kr→한국생산기술연구원)
-3. dept: "기구공정기술2G 서보범입니다" → dept: "기구공정기술2G", "영업팀 과장" → dept: "영업팀 과장"
-4. 본문 첫 줄 "XXX팀 OOO입니다" 패턴에서도 이름과 부서 추출
-5. M/Mobile/T/Tel 패턴 전화번호 추출
-6. 정보 없으면 빈 문자열, 추측하지 말 것
+=== 추출 규칙 ===
+
+[이름]
+- 서명의 "홍 길 동  Gildong Hong 과장" → "홍길동" (공백제거)
+- "홍길동입니다", "홍길동 드림" 패턴에서 추출
+- 영문 이름만 있으면 영문 그대로
+
+[회사명] ← 가장 중요!
+- 반드시 본문/서명에서 실제 회사명을 찾을 것. 도메인만으로 추측 금지.
+- 삼성 계열사 구분 (samsung.com 도메인이라도 본문에서 정확히 구분):
+  * 삼성전자(주) / Samsung Electronics → "삼성전자"
+  * 삼성전기(주) / Samsung Electro-Mechanics / SEMCO → "삼성전기"
+  * 삼성디스플레이(주) / Samsung Display / SDC → "삼성디스플레이"
+  * 삼성SDI(주) / Samsung SDI → "삼성SDI"
+  * 삼성물산(주) / Samsung C&T → "삼성물산"
+  * 삼성SDS(주) / Samsung SDS → "삼성SDS"
+  * 삼성생명(주) / Samsung Life → "삼성생명"
+  * 삼성화재(주) / Samsung Fire → "삼성화재"
+  * 삼성증권(주) / Samsung Securities → "삼성증권"
+  * 삼성바이오로직스 / Samsung Biologics → "삼성바이오로직스"
+- LG 계열사도 동일하게 본문에서 구분:
+  * LG전자, LG화학, LG디스플레이, LG이노텍, LG CNS 등
+- 일반 규칙: 본문에서 "XX주식회사", "XX(주)", "XX Co.,Ltd" 패턴 찾기
+- 본문에 회사명이 없으면 도메인으로 추정:
+  * gachon.ac.kr → 가천대학교
+  * kopti.re.kr → 한국생산기술연구원
+  * etri.re.kr → ETRI(한국전자통신연구원)
+  * kist.re.kr → KIST(한국과학기술연구원)
+  * 그 외 알 수 없으면 도메인 첫번째 파트를 회사명으로
+
+[부서/직함]
+- 서명 라인에서 추출: "설계기술팀 책임연구원", "영업1팀 과장" 등
+- 직함만: 사원/주임/대리/과장/차장/부장/팀장/수석/책임/선임/이사/상무/전무/대표
+- 본문 첫줄 "기구공정기술2G 서보범입니다" → dept: "기구공정기술2G"
+- 부서+직함 조합: "설계팀 과장" (부서명과 직함 사이 공백 하나)
+- 불필요한 것 제거: 주소, 이메일주소, 전화번호, 회사명, 영문주소
+
+[전화번호]
+- M/Mobile → mobile 필드
+- T/Tel/D/Direct → tel 필드
+- +82.10.xxxx.xxxx 형식도 인식
+- 정보 없으면 빈 문자열 (절대 추측 금지)
 """
 
     try:
@@ -276,7 +311,7 @@ def ai_extract_contact(domain, body_text, from_addr):
                 "Authorization": f"Bearer {OPENAI_KEY}"
             }
         )
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=15) as r:
             result = json.loads(r.read())
             text = result["choices"][0]["message"]["content"].strip()
             if "```" in text:
@@ -311,8 +346,8 @@ def parse_eml_contact_ai():
         if not body and not domain:
             return jsonify({"error": "본문 없음"}), 400
 
-        # 본문 전체 전송 (최대 800자) - 서명뿐 아니라 첫줄 소개도 포함
-        body_text = body[:800].strip()
+        # 본문 전체 전송 (최대 1200자) - 서명뿐 아니라 첫줄 소개도 포함
+        body_text = body[:1200].strip()
 
         # OpenAI 분석
         result = ai_extract_contact(domain, body_text, from_addr)

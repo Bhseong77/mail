@@ -1927,20 +1927,25 @@ function sortContacts(key) {
   renderContacts(filteredContacts);
 }
 
-// ── 도메인 → 회사명 매핑 ────────────────────────────
+// ── 도메인 → 회사명 매핑 (AI 분석 전 기본값) ────────
+// 삼성 계열사는 모두 samsung.com을 쓰므로 AI가 본문에서 구분
 const DOMAIN_MAP = {
-  // 삼성
-  "samsung.com":"삼성전자","samsung.co.kr":"삼성전자","sec.co.kr":"삼성전자",
-  "ssi.samsung.com":"삼성반도체",
-  // LG
-  "lg.com":"LG전자","lgcns.com":"LG CNS","lghausys.com":"LG하우시스",
-  "lgchem.com":"LG화학","lginnotek.com":"LG이노텍",
+  // 삼성 (AI가 본문에서 계열사 구분)
+  "samsung.com":"삼성(계열사 확인중)","samsung.co.kr":"삼성(계열사 확인중)",
+  "sec.co.kr":"삼성전자","samsungsdi.co.kr":"삼성SDI",
+  "samsungdisplay.com":"삼성디스플레이","semco.co.kr":"삼성전기",
+  // LG (AI가 본문에서 계열사 구분)
+  "lg.com":"LG(계열사 확인중)","lgcns.com":"LG CNS",
+  "lghausys.com":"LG하우시스","lgchem.com":"LG화학",
+  "lginnotek.com":"LG이노텍","lgdisplay.com":"LG디스플레이",
   // 현대/기아
-  "hyundai.com":"현대자동차","kia.com":"기아","hyundai-motor.com":"현대자동차",
+  "hyundai.com":"현대자동차","kia.com":"기아",
   "mobis.co.kr":"현대모비스","hyundai-steel.com":"현대제철",
+  "hyundai-rotem.com":"현대로템","hmc.co.kr":"현대자동차",
   // SK
-  "sk.com":"SK","skhynix.com":"SK하이닉스","sktelekom.co.kr":"SK텔레콤",
-  "sk.co.kr":"SK이노베이션",
+  "sk.com":"SK","skhynix.com":"SK하이닉스",
+  "sktelecom.com":"SK텔레콤","sk.co.kr":"SK이노베이션",
+  "skecoplant.com":"SK에코플랜트",
   // 롯데/신세계/CJ
   "lotte.com":"롯데","shinsegae.com":"신세계","cj.net":"CJ",
   // 금융
@@ -1953,16 +1958,19 @@ const DOMAIN_MAP = {
   "daishin.com":"대신증권","kiwoom.com":"키움증권",
   "samsung-securities.com":"삼성증권",
   // 통신
-  "sktelecom.com":"SK텔레콤","kt.com":"KT","lguplus.com":"LG유플러스",
+  "kt.com":"KT","lguplus.com":"LG유플러스",
   // IT/포털
   "naver.com":"네이버","kakao.com":"카카오","daum.net":"카카오",
   "ncsoft.com":"엔씨소프트","nexon.com":"넥슨","netmarble.com":"넷마블",
   // 공공기관
-  "kotra.or.kr":"KOTRA","kist.re.kr":"KIST","etri.re.kr":"ETRI",
-  "kipo.go.kr":"특허청","mke.go.kr":"산업통상자원부",
+  "kotra.or.kr":"KOTRA","kist.re.kr":"KIST",
+  "etri.re.kr":"ETRI","kopti.re.kr":"한국생산기술연구원",
+  "kipo.go.kr":"특허청","nia.or.kr":"한국지능정보사회진흥원",
   // 대학
-  "kaist.ac.kr":"KAIST","snu.ac.kr":"서울대","yonsei.ac.kr":"연세대",
-  "korea.ac.kr":"고려대","postech.ac.kr":"포스텍",
+  "kaist.ac.kr":"KAIST","snu.ac.kr":"서울대",
+  "yonsei.ac.kr":"연세대","korea.ac.kr":"고려대",
+  "postech.ac.kr":"포스텍","gachon.ac.kr":"가천대학교",
+  "hanyang.ac.kr":"한양대학교","skku.edu":"성균관대학교",
 };
 
 function getCompanyFromDomain(email) {
