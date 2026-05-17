@@ -299,7 +299,6 @@ td{padding:9px 14px;color:var(--t2);vertical-align:middle;}
     <div class="main-nav">
       <button class="main-nav-btn active" onclick="switchMainTab('mail',this)">📧 메일함</button>
       <button class="main-nav-btn" onclick="switchMainTab('contacts',this)">👤 주소록</button>
-      <button class="main-nav-btn" onclick="switchMainTab('calendar',this)">📅 캘린더</button>
     </div>
     <div class="status-pill">
       <div class="dot" id="statusDot"></div>
@@ -308,7 +307,7 @@ td{padding:9px 14px;color:var(--t2);vertical-align:middle;}
     <div class="user-badge">👤 <span id="userNameBadge"></span></div>
     <button class="btn" id="refreshBtn" onclick="doRefresh()">🔄 새로고침</button>
     <button class="btn" id="syncBtn" onclick="loadAll(true)">🔃 전체동기화</button>
-    <button class="btn" onclick="diagDB()" style="font-size:11px;">🔍 DB확인</button>
+    <button class="btn" onclick="clearAllCache()" style="font-size:11px;color:var(--red);">🗑️ 캐시초기화</button>
     <button class="btn danger" onclick="doLogout()">로그아웃</button>
   </div>
 </div>
@@ -436,37 +435,6 @@ td{padding:9px 14px;color:var(--t2);vertical-align:middle;}
       </div>
     </div>
   </div>
-
-<!-- 캘린더 페이지 -->
-<div class="contacts-page" id="calendarPage" style="z-index:19;">
-  <div class="ct-head">
-    <button onclick="switchMainTab('mail', document.querySelector('.main-nav-btn'))"
-      style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px;white-space:nowrap;">
-      ← 메일함
-    </button>
-    <div>
-      <div class="ct-title">📅 팀 캘린더</div>
-      <div style="font-size:12px;color:var(--t2);margin-top:2px">다우오피스 일정 연동</div>
-    </div>
-    <div style="display:flex;gap:8px;margin-left:auto;align-items:center;flex-wrap:wrap;">
-      <button class="exp-btn" onclick="calNav(-1)">◀</button>
-      <span id="calTitle" style="font-size:14px;font-weight:600;min-width:120px;text-align:center;"></span>
-      <button class="exp-btn" onclick="calNav(1)">▶</button>
-      <button class="exp-btn" onclick="calNav(0)">오늘</button>
-      <button class="exp-btn" id="calViewBtn" onclick="toggleCalView()">목록</button>
-      <button class="exp-btn" onclick="loadCalendar()">🔄</button>
-    </div>
-  </div>
-  <div id="calBody" style="flex:1;overflow:auto;padding:0;"></div>
-  <div class="ct-foot">
-    <span id="calStatus"></span>
-    <span style="display:flex;gap:12px;">
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#5b8fff;display:inline-block;"></span> 강경원</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#a78bfa;display:inline-block;"></span> 성백훈</span>
-    </span>
-  </div>
-</div>
-
 
 <!-- 주소록 페이지 (별도 전체화면) -->
 <div class="contacts-page" id="contactsPage">
@@ -1064,6 +1032,20 @@ function doRefresh() {
   syncNewFiles();
 }
 
+async function clearAllCache() {
+  if (!confirm("IndexedDB 캐시를 전체 초기화합니다.\n다음 접속 시 전체동기화가 필요합니다.\n계속하시겠습니까?")) return;
+  try {
+    await dbClearAll();
+    allMails = []; filtered = [];
+    allContacts = []; filteredContacts = [];
+    _contactCache.clear();
+    alert("캐시 초기화 완료! 페이지를 새로고침합니다.");
+    location.reload();
+  } catch(e) {
+    alert("초기화 실패: " + e.message);
+  }
+}
+
 async function diagDB() {
   try {
     const all = await dbGetAll();
@@ -1540,201 +1522,6 @@ async function showDetail(idx) {
 }
 
 // ── Tab switch ───────────────────────────────────────
-// ── 캘린더 ──────────────────────────────────────────
-let calEvents = [], calYear = new Date().getFullYear(),
-    calMonth = new Date().getMonth(), calView = "month"; // month | list
-
-function switchMainTab(tab, el) {
-  document.querySelectorAll(".main-nav-btn").forEach(b => b.classList.remove("active"));
-  el.classList.add("active");
-  const mailApp  = document.getElementById("mainApp");
-  const ctPage   = document.getElementById("contactsPage");
-  const calPage  = document.getElementById("calendarPage");
-  mailApp.style.display = "none";
-  ctPage.classList.remove("show");
-  if (calPage) calPage.classList.remove("show");
-
-  if (tab === "mail") {
-    mailApp.style.display = "grid";
-    document.getElementById("searchInput").value = "";
-    filterMails();
-  } else if (tab === "contacts") {
-    ctPage.classList.add("show");
-    const headerH = document.getElementById("mainHeader").offsetHeight;
-    ctPage.style.top = headerH + "px";
-    if (allContacts.length === 0) {
-      buildContacts();
-    } else {
-      // 이미 있으면 그냥 표시만 (AI 재분석 안함)
-      renderContacts(filteredContacts);
-    }
-  } else if (tab === "calendar") {
-    if (calPage) {
-      const headerH = document.getElementById("mainHeader").offsetHeight;
-      calPage.style.top = headerH + "px";
-      calPage.classList.add("show");
-    }
-    if (calEvents.length === 0) loadCalendar();
-    else renderCalendar();
-  }
-}
-
-async function loadCalendar() {
-  document.getElementById("calStatus").textContent = "로딩 중...";
-  document.getElementById("calBody").innerHTML = '<div class="lb"><div class="spinner"></div>다우오피스 일정 가져오는 중...</div>';
-  try {
-    const r = await fetch(`${RENDER_URL}/api/calendar`);
-    const data = await r.json();
-    if (data.error) throw new Error(data.error);
-    calEvents = data.events || [];
-    document.getElementById("calStatus").textContent = `${calEvents.length}개 일정`;
-    if (data.errors?.length) console.warn("캘린더 오류:", data.errors);
-    renderCalendar();
-  } catch(e) {
-    document.getElementById("calBody").innerHTML =
-      `<div class="lb" style="color:var(--red)">⚠️ ${esc(e.message)}<br><br>
-      <small>Render 환경변수 CALDAV_PASS1, CALDAV_PASS2 확인 필요</small></div>`;
-    document.getElementById("calStatus").textContent = "오류";
-  }
-}
-
-function calNav(dir) {
-  if (dir === 0) { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); }
-  else if (calView === "month") {
-    calMonth += dir;
-    if (calMonth > 11) { calMonth = 0; calYear++; }
-    if (calMonth < 0)  { calMonth = 11; calYear--; }
-  }
-  renderCalendar();
-}
-
-function toggleCalView() {
-  calView = calView === "month" ? "list" : "month";
-  document.getElementById("calViewBtn").textContent = calView === "month" ? "목록" : "월간";
-  renderCalendar();
-}
-
-function renderCalendar() {
-  if (calView === "month") renderCalMonth();
-  else renderCalList();
-}
-
-function renderCalMonth() {
-  const months = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  document.getElementById("calTitle").textContent = `${calYear}년 ${months[calMonth]}`;
-  const body = document.getElementById("calBody");
-
-  const firstDay = new Date(calYear, calMonth, 1).getDay();
-  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
-  const today = new Date();
-
-  // 이번달 이벤트 필터
-  const monthEvents = calEvents.filter(e => {
-    const d = new Date(e.start);
-    return d.getFullYear() === calYear && d.getMonth() === calMonth;
-  });
-
-  // 날짜별 이벤트 맵
-  const dayMap = {};
-  monthEvents.forEach(e => {
-    const day = new Date(e.start).getDate();
-    if (!dayMap[day]) dayMap[day] = [];
-    dayMap[day].push(e);
-  });
-
-  let html = `
-  <div style="padding:12px;">
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
-      ${["일","월","화","수","목","금","토"].map((d,i) =>
-        `<div style="text-align:center;font-size:11px;font-weight:600;color:${i===0?'var(--red)':i===6?'#5b8fff':'var(--t2)'};padding:6px;">${d}</div>`
-      ).join("")}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">`;
-
-  for (let i = 0; i < firstDay; i++) {
-    html += `<div style="min-height:70px;background:var(--bg2);border-radius:4px;opacity:0.3;"></div>`;
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
-    const dow = (firstDay + d - 1) % 7;
-    const evs = dayMap[d] || [];
-    html += `<div style="min-height:70px;background:var(--bg2);border-radius:4px;padding:4px;border:${isToday?'1px solid var(--accent)':'1px solid transparent'};">
-      <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'var(--accent)':dow===0?'var(--red)':dow===6?'#5b8fff':'var(--text)'};margin-bottom:3px;">${d}</div>
-      ${evs.slice(0,2).map(e =>
-        `<div style="font-size:10px;background:${e.color}22;color:${e.color};border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-          title="${esc(e.title)} - ${esc(e.ownerName)}">${esc(e.title)}</div>`
-      ).join("")}
-      ${evs.length > 2 ? `<div style="font-size:9px;color:var(--t2);">+${evs.length-2}개</div>` : ""}
-    </div>`;
-  }
-  html += `</div></div>`;
-  body.innerHTML = html;
-}
-
-function renderCalList() {
-  const months = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  document.getElementById("calTitle").textContent = `${calYear}년 ${months[calMonth]}`;
-
-  const monthEvents = calEvents.filter(e => {
-    const d = new Date(e.start);
-    return d.getFullYear() === calYear && d.getMonth() === calMonth;
-  }).sort((a,b) => a.start.localeCompare(b.start));
-
-  if (!monthEvents.length) {
-    document.getElementById("calBody").innerHTML = '<div class="lb">📭 이번달 일정이 없습니다</div>';
-    return;
-  }
-
-  const html = monthEvents.map(e => {
-    const start = new Date(e.start);
-    const dateStr = `${start.getMonth()+1}/${start.getDate()}`;
-    const dayStr = ["일","월","화","수","목","금","토"][start.getDay()];
-    const timeStr = e.allDay ? "종일" : `${String(start.getHours()).padStart(2,"0")}:${String(start.getMinutes()).padStart(2,"0")}`;
-    return `<div style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);align-items:flex-start;">
-      <div style="text-align:center;min-width:36px;flex-shrink:0;">
-        <div style="font-size:16px;font-weight:700;color:var(--text)">${start.getDate()}</div>
-        <div style="font-size:10px;color:var(--t2)">${dayStr}</div>
-      </div>
-      <div style="width:3px;border-radius:2px;background:${e.color};flex-shrink:0;align-self:stretch;min-height:36px;"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">${esc(e.title)}</div>
-        <div style="font-size:11px;color:var(--t2);display:flex;gap:8px;flex-wrap:wrap;">
-          <span>${timeStr}</span>
-          ${e.location ? `<span>📍 ${esc(e.location)}</span>` : ""}
-          <span style="color:${e.color}">${esc(e.ownerName)}</span>
-        </div>
-        ${e.desc ? `<div style="font-size:11px;color:var(--t2);margin-top:4px;">${esc(e.desc.slice(0,80))}</div>` : ""}
-      </div>
-    </div>`;
-  }).join("");
-
-  document.getElementById("calBody").innerHTML = html;
-}
-
-function switchTab(tab, el) {
-  currentTab = tab;
-  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
-  el.classList.add("active");
-  const listEl  = document.getElementById("tabList");
-  const tblEl   = document.getElementById("tabTable");
-  const taxEl   = document.getElementById("tabTax");
-  const quoteEl = document.getElementById("tabQuote");
-  const poEl    = document.getElementById("tabPo");
-  [listEl, tblEl, taxEl, quoteEl, poEl].forEach(e => { if(e) e.style.display = "none"; });
-
-  if (tab === "list") {
-    listEl.style.display = ""; renderList(filtered);
-  } else if (tab === "table") {
-    tblEl.style.display = "flex"; tblEl.style.flexDirection = "column"; renderTable(filtered);
-  } else if (tab === "tax") {
-    taxEl.style.display = "flex"; taxEl.style.flexDirection = "column"; renderDocTab("tax");
-  } else if (tab === "quote") {
-    quoteEl.style.display = "flex"; quoteEl.style.flexDirection = "column"; renderDocTab("quote");
-  } else if (tab === "po") {
-    poEl.style.display = "flex"; poEl.style.flexDirection = "column"; renderDocTab("po");
-  }
-}
-
 // ── 문서 분류 키워드 ─────────────────────────────────
 const DOC_PATTERNS = {
   tax: {
