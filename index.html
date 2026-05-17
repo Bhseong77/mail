@@ -1555,14 +1555,13 @@ function switchMainTab(tab, el) {
     filterMails();
   } else if (tab === "contacts") {
     ctPage.classList.add("show");
-    // 헤더 높이만큼 아래로
     const headerH = document.getElementById("mainHeader").offsetHeight;
     ctPage.style.top = headerH + "px";
-    if (allContacts.length === 0) buildContacts();
-    else {
+    if (allContacts.length === 0) {
+      buildContacts();
+    } else {
+      // 이미 있으면 그냥 표시만 (AI 재분석 안함)
       renderContacts(filteredContacts);
-      const contactMap = new Map(allContacts.map(c => [c.email.toLowerCase(), c]));
-      enrichContactsFromServer(contactMap);
     }
   } else if (tab === "calendar") {
     if (calPage) {
@@ -2151,9 +2150,7 @@ function getCompanyFromDomain(email) {
 }
 
 function getLogoUrl(email) {
-  const domain = (email||"").split("@")[1] || "";
-  if (!domain) return "";
-  return `https://logo.clearbit.com/${domain}`;
+  return ""; // Clearbit 로고 비활성화 (네트워크 차단/속도 문제)
 }
 
 function renderContacts(contacts) {
@@ -2192,14 +2189,11 @@ function renderContacts(contacts) {
       <!-- 회사 -->
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
-          <img src="${logoUrl}" alt="" width="18" height="18"
-               style="border-radius:3px;object-fit:contain;flex-shrink:0;"
-               onerror="this.style.display='none'">
           <div style="flex:1;">
             <div id="ct-company-${key}" class="ct-editable" onclick="startEdit('${key}','company',this)"
               style="font-size:13px;font-weight:500;cursor:pointer;"
               title="클릭하여 편집">${esc(company)}</div>
-            ${domain ? `<div style="font-size:10px;color:var(--t2)">${esc(domain)}</div>` : ""}
+            ${domain ? `<div style="font-size:10px;color:var(--t3)">${esc(domain)}</div>` : ""}
           </div>
         </div>
       </td>
