@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ENJET 팀 메일</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -378,8 +381,7 @@ async function clearCache(){if(!confirm("캐시를 초기화합니다."))return;
 
 // EML 파싱
 function parseHdr(text){
-  const lines=text.split(/?
-/);const h={};let i=0;
+  const lines=text.split(/\r?\n/);const h={};let i=0;
   while(i<lines.length&&lines[i]!==""){const line=lines[i];if(/^[ 	]/.test(line)){const k=Object.keys(h).pop();if(k)h[k]+=" "+line.trim();}else{const c=line.indexOf(":");if(c>0)h[line.slice(0,c).toLowerCase().trim()]=line.slice(c+1).trim();}i++;}
   const subject=dw(h.subject||"");const from=dw(h.from||"");const dateRaw=h.date||"";let date=dateRaw;
   try{const d=new Date(dateRaw);if(!isNaN(d))date=d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{}
