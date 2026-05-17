@@ -502,8 +502,7 @@ function renderDoc(type){
 function exportTbl(){
   const mails=_activeMTab!=="list"?allMails.filter(m=>getDoc(m)===_activeMTab):filtered;
   const rows=[["날짜","제목","발신자","메일함"]];mails.forEach(m=>rows.push([(m.date||"").slice(0,10),m.subject||"",m.from||"",m.ownerName||""]));
-  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("
-");
+  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_${_activeMTab}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
 
@@ -598,8 +597,7 @@ function renderCtFld(el,field,c){
 function exportCt(){
   const rows=[["이름","회사","도메인","부서/직함","이메일","전화번호"]];
   filtCt.forEach(c=>rows.push([c.name||"",c.company||getCo(c.email)||"",getDom(c.email),c.dept||"",c.email||"",c.mobile||c.tel||""]));
-  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("
-");
+  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_contacts_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
 </script>
