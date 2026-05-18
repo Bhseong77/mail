@@ -612,10 +612,14 @@ async function loadAll(){
     invalidateDerivedCaches();
     curOwner="all";applyFilter();renderSB();
     const noH=allMails.filter(m=>!m.headerLoaded).length;
-    if(noH>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
+    if(noH>0){
+      // ★ 비상모드: 자동 헤더 로딩 비활성. 헤더 없는 메일은 클릭할 때만 1개씩 가져옴.
+      // 8000건을 자동으로 받으면 MS Graph 가 429/403 throttle 걸어버림.
+      setSt(`${allMails.length}통 (${noH}건 제목 미로딩 - 클릭시 로드)`,"ok");
+      console.log(`[loadAll] 자동 헤더 로딩 비활성. 제목 미로딩 ${noH}건은 클릭시 lazy load.`);
+    }
     else {
       setSt(`${allMails.length}통`,"ok");
-      // 비상모드: 자동 doRefresh 비활성. 동기화 버튼을 눌러야 함.
     }
     return;
   }
@@ -720,16 +724,21 @@ async function loadHdrs(total){
     return;
   }
   let done=0,toSave=[],lastUI=0;
-  let recent403=0, recentTotal=0;   // 최근 N건 중 403 비율 추적
-  const BATCH=4;            // 8 → 4 동시 요청 줄임
-  const DELAY=500;          // 200 → 500ms (CPU 양보)
+  let recentFail=0, recentTotal=0;   // 최근 N건 중 실패(403/429) 비율 추적
+  let BATCH=3;              // 4 → 3 동시 요청 더 줄임
+  let DELAY=600;            // 500 → 600ms
+  let backoffMs = 0;        // 429 받으면 추가 대기시간
   for(let b=0;b<noH.length;b+=BATCH){
     const batch=noH.slice(b,b+BATCH);
+    let got429 = false;
     await Promise.all(batch.map(async m=>{
       try{
         const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{headers:{Range:"bytes=0-8191"}});
         recentTotal++;
-        if(r?.status===403) recent403++;
+        if(r?.status===403 || r?.status===429){
+          recentFail++;
+          if(r?.status===429) got429=true;
+        }
         if(!r?.ok){m.headerLoaded=true;return;}
         const buf=await r.arrayBuffer();
         const h=parseHdr(new TextDecoder("utf-8",{fatal:false}).decode(buf));
@@ -739,12 +748,23 @@ async function loadHdrs(total){
     }));
     if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
 
-    // 403이 너무 많이 나오면 백오프
-    if(recentTotal>=20 && recent403/recentTotal > 0.5){
-      console.warn(`[loadHdrs] 403 비율 높음 (${recent403}/${recentTotal}) - 5초 대기`);
-      setSt("⏸ 권한 오류 - 잠시 대기", "spin");
-      await new Promise(r=>setTimeout(r,5000));
-      recent403=0; recentTotal=0;
+    // 429 받으면 지수적 백오프
+    if(got429){
+      backoffMs = Math.min((backoffMs||1000)*2, 30000);  // 1초→2→4→8→16→30
+      console.warn(`[loadHdrs] 429 받음 - ${backoffMs/1000}초 대기`);
+      setSt(`⏸ 너무 많은 요청 - ${backoffMs/1000}초 대기`, "spin");
+      await new Promise(r=>setTimeout(r,backoffMs));
+    } else if(backoffMs > 0){
+      // 회복되면 백오프 절반씩 줄임
+      backoffMs = Math.floor(backoffMs/2);
+    }
+
+    // 실패 비율이 높으면 일시정지
+    if(recentTotal>=20 && recentFail/recentTotal > 0.5){
+      console.warn(`[loadHdrs] 실패율 높음 (${recentFail}/${recentTotal}) - 10초 대기`);
+      setSt("⏸ SharePoint 응답 불량 - 10초 대기", "spin");
+      await new Promise(r=>setTimeout(r,10000));
+      recentFail=0; recentTotal=0;
     }
 
     const now=Date.now();
@@ -1711,7 +1731,25 @@ async function openMail(idx){
       console.log(`[본문] ${Date.now()-t0}ms`);
       m.body=p.body||"";m.attachments=p.attachments||[];m.hasAttachment=(p.attachments?.length>0);
       m.bodyLoaded=true;m.loadFailed=false;
+      // 헤더가 비어있던 메일이면 본문 응답에서 헤더도 같이 채움 (lazy header)
+      if(!m.headerLoaded){
+        if(p.subject) m.subject = p.subject;
+        if(p.from) m.from = p.from;
+        if(p.to) m.to = p.to;
+        if(p.cc) m.cc = p.cc;
+        if(p.date) m.date = p.date;
+        if(p.dateRaw) m.dateRaw = p.dateRaw;
+        m.headerLoaded = true;
+        // 목록 다시 그려서 제목/발신자 반영
+        invalidateDerivedCaches();
+        applyFilter();
+      }
       await dbPut("mails",[m]);
+      // 상세 패널 헤더 갱신
+      document.getElementById("dpSubj").textContent=m.subject||"(제목없음)";
+      document.getElementById("dpFrom").textContent=m.from||"-";
+      document.getElementById("dpTo").textContent=(m.to||[]).map(t=>t.name?`${t.name} <${t.email}>`:t.email).join(", ")||"-";
+      document.getElementById("dpDate").textContent=m.date||"-";
     }catch(e){
       const msg = e.name==="AbortError" ? "시간 초과 (30초)" : e.message;
       m.loadFailed=true;
