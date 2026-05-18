@@ -277,8 +277,9 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
   </div>
   <div class="hd-r">
     <div class="st"><div class="dot" id="stDot"></div><span id="stTxt" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
-    <button class="btn" id="refreshBtn" onclick="doRefresh()" title="새로고침">🔄</button>
-    <button class="btn" id="syncBtn" onclick="doFullSync()">🔃 동기화</button>
+    <button class="btn" id="refreshBtn" onclick="doRefresh()" title="IMAP 새 메일만 확인">🔄</button>
+    <button class="btn" id="incSyncBtn" onclick="doIncrementalSync()" title="SP 새 폴더/파일 추가 (캐시 유지)">➕ 추가분</button>
+    <button class="btn" id="syncBtn" onclick="doFullSync()" title="전체 재동기화 (캐시 초기화)">🔃 동기화</button>
     <button class="btn retired-btn" id="retiredSyncBtn" onclick="syncRetired()" title="퇴사 인원 메일함을 한 번 확인">🚫 퇴사인원</button>
     <button class="btn red" onclick="clearCache()" title="캐시초기화">🗑️</button>
     <button class="btn red" onclick="doLogout()">로그아웃</button>
@@ -943,6 +944,106 @@ async function doRefresh(opts){
     }
   } finally { setSyncUI(false); }
 }
+// ── 증분 SP 동기화 ─────────────────────────────────
+// 기존 캐시 유지 + 새 폴더/파일만 찾아서 추가
+async function doIncrementalSync(){
+  if(isSyncing){ alert("이미 동기화 중입니다."); return; }
+  if(MEMBERS.length===0) await loadMembers();
+  setSyncUI(true, "⏳ SP 새 파일 확인");
+  setSt("기존 메일 키 색인 중...", "spin");
+
+  // 1. 현재 allMails의 cacheKey 전부 모음 (Set으로 O(1) 비교)
+  const existingKeys = new Set();
+  for(const m of allMails){
+    if(m.cacheKey) existingKeys.add(m.cacheKey);
+  }
+  console.log(`[증분] 기존 메일 ${existingKeys.size}개 색인 완료`);
+
+  const newOnes = [];
+  let scannedFolders = 0, newFolders = 0;
+
+  try{
+    const tok = await getToken();
+    for(const m of MEMBERS){
+      try{
+        const memberPath = `${MAIL_FOLDER}/${m.email}`;
+        const childrenUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${memberPath.split("/").map(encodeURIComponent).join("/")}:/children?$top=200&$select=name,folder`;
+        const cr = await fetch(childrenUrl,{headers:{Authorization:"Bearer "+tok}});
+        if(!cr?.ok) continue;
+        const cd = await cr.json();
+        const subFolders = (cd.value||[]).filter(x => x.folder && /^(messages|sent)\d*$/i.test(x.name||""));
+
+        for(const sub of subFolders){
+          scannedFolders++;
+          const fld = /^sent/i.test(sub.name) ? "sent" : "inbox";
+          const fp = `${memberPath}/${sub.name}`;
+
+          // 이 폴더에 이미 등록된 파일 수 확인
+          let alreadyHere = 0;
+          for(const k of existingKeys){
+            if(k.startsWith(`${m.email}/${sub.name}/`)) alreadyHere++;
+          }
+
+          try {
+            setSt(`${m.name}/${sub.name} 스캔...`, "spin");
+            const listUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
+            const r = await fetch(listUrl,{headers:{Authorization:"Bearer "+tok}});
+            if(!r?.ok) continue;
+            const d = await r.json();
+            const emls = (d.value||[]).filter(f=>f.name?.endsWith(".eml"));
+            let addedHere = 0;
+            for(const f of emls){
+              const cacheKey = `${m.email}/${sub.name}/${f.name}`;
+              if(existingKeys.has(cacheKey)) continue;   // 이미 있음
+              newOnes.push({
+                cacheKey,
+                owner: m.email, ownerName: m.name,
+                fileName: f.name, folderPath: fp,
+                date: fmtD(f.createdDateTime), dateRaw: f.createdDateTime||"",
+                subject:"", from:"", to:[], cc:[],
+                headerLoaded:false, bodyLoaded:false, body:"",
+                hasAttachment:false, attachments:[],
+                source:"sp", folder:fld
+              });
+              addedHere++;
+            }
+            if(alreadyHere===0 && emls.length>0){
+              newFolders++;
+              console.log(`[증분] 🆕 새 폴더: ${m.email}/${sub.name} (${addedHere}개)`);
+            } else if(addedHere>0){
+              console.log(`[증분] + ${m.email}/${sub.name}: ${addedHere}개 추가 (기존 ${alreadyHere}개)`);
+            }
+          } catch(e){ console.warn(`[증분] ${m.name}/${sub.name}:`, e.message); }
+        }
+      }catch(e){ console.warn(`[증분] ${m.email}:`, e.message); }
+    }
+
+    // 2. 새 메일을 기존 allMails에 합치고 정렬
+    if(newOnes.length>0){
+      allMails = [...allMails, ...newOnes];
+      allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
+      invalidateDerivedCaches();
+      await dbPut("mails", newOnes);
+      applyFilter(); renderSB();
+      setSt(`✅ +${newOnes.length}통 (새 폴더 ${newFolders}개)`, "ok");
+      // 새 메일 헤더 로딩
+      const noHCount = newOnes.filter(m=>!m.headerLoaded).length;
+      if(noHCount>0){
+        setSyncUI(true, `⏳ 헤더 0/${noHCount}`);
+        loadHdrs(noHCount);
+      } else {
+        setSyncUI(false);
+      }
+    } else {
+      setSt(`최신 상태 (${scannedFolders}개 폴더 확인)`, "ok");
+      setSyncUI(false);
+    }
+  } catch(e){
+    setSt("증분 동기화 오류: "+e.message, "err");
+    setSyncUI(false);
+  }
+}
+
 async function doFullSync(){
   if (!confirm("전체 재동기화합니다?\n(모든 캐시 초기화 후 다시 불러옵니다)")) return;
   isSyncing = false;
