@@ -437,9 +437,6 @@ async function spLoad(path){try{const r=await fetchSP(spUrl(path)+"/content");if
 
 // 로딩
 async function loadAll(){
-  // Render 서버 미리 깨우기 (sleep 방지)
-  fetch(`${RENDER_URL}/api/health`).catch(()=>{});
-
   // 1. IndexedDB 캐시 확인 (가장 빠름)
   const cached=await dbGet("mails");
   if(cached.length>0){
@@ -479,7 +476,7 @@ async function loadAll(){
           try {
             // 30초 타임아웃
             const ctrl = new AbortController();
-            const timer = setTimeout(()=>ctrl.abort(), 30000);
+            const timer = setTimeout(()=>ctrl.abort(), 60000);
             const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
               method:"POST",
               headers:{"Content-Type":"application/json"},

@@ -523,7 +523,7 @@ def imap_connect(user, password, server=None, port=993):
     # 먼저 일반 login 시도
     try:
         mail = imaplib.IMAP4_SSL(srv, port)
-        mail.socket().settimeout(20)  # 20초 타임아웃
+        mail.socket().settimeout(30)  # 30초 타임아웃
         mail.login(user, password)
         return mail
     except Exception as e1:
@@ -532,7 +532,7 @@ def imap_connect(user, password, server=None, port=993):
     # AUTHENTICATE PLAIN 방식 (한글/특수문자)
     try:
         mail = imaplib.IMAP4_SSL(srv, port)
-        mail.socket().settimeout(20)
+        mail.socket().settimeout(30)
         auth_str = "\x00{}\x00{}".format(user, password)
         auth_b64 = base64.b64encode(auth_str.encode("utf-8")).decode("ascii")
         typ, dat = mail._simple_command("AUTHENTICATE", "PLAIN", auth_b64)
