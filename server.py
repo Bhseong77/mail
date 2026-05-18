@@ -501,10 +501,26 @@ def parse_eml_contact():
 
 # ── 팀원별 IMAP 메일 조회 ────────────────────────────
 def imap_connect(user, password, server=None, port=993):
-    """IMAP 연결"""
+    """IMAP 연결 - 한글/특수문자 비밀번호 지원"""
     srv = server or IMAP_SERVER
     mail = imaplib.IMAP4_SSL(srv, port)
-    mail.login(user, password)
+    # imaplib은 ASCII만 지원 → UTF-8로 인코딩해서 로그인
+    try:
+        mail.login(user, password)
+    except imaplib.IMAP4.error:
+        # ASCII 실패 시 UTF-8 인코딩 시도
+        if isinstance(password, str):
+            mail2 = imaplib.IMAP4_SSL(srv, port)
+            user_bytes = user.encode('utf-8') if isinstance(user, str) else user
+            pass_bytes = password.encode('utf-8') if isinstance(password, str) else password
+            # AUTH LOGIN 방식으로 직접 시도
+            import base64
+            mail2._imap.send(b'A1 LOGIN ' + 
+                base64.b64encode(user_bytes) + b' ' + 
+                base64.b64encode(pass_bytes) + b'\r\n')
+            mail2._imap.readline()
+            return mail2
+        raise
     return mail
 
 def imap_get_mails(user, password, email_addr, server=None, limit=200):

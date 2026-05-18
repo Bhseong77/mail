@@ -399,8 +399,15 @@ function showApp(){document.getElementById("loginScreen").style.display="none";d
 async function fetchSP(url,opts={}){
   const tok=await getToken();
   for(let i=0;i<=4;i++){
-    const r=await fetch(url,{...opts,headers:{Authorization:"Bearer "+tok,...(opts.headers||{})}});
-    if(r.status===429||r.status===503){const w=parseInt(r.headers.get("Retry-After")||"0")*1000||Math.min(1000*2**i,16000);await new Promise(r=>setTimeout(r,w));continue;}
+    const r=await fetch(url,{
+      ...opts,
+      headers:{Authorization:"Bearer "+tok,...(opts.headers||{})},
+      redirect:"follow"
+    });
+    if(r.status===429||r.status===503){
+      const w=parseInt(r.headers.get("Retry-After")||"0")*1000||Math.min(1000*2**i,16000);
+      await new Promise(r=>setTimeout(r,w));continue;
+    }
     return r;
   }
 }
@@ -436,35 +443,43 @@ async function loadAll(){
     for(const m of MEMBERS){
       try{
         const fp=`${MAIL_FOLDER}/${m.email}/messages`;
-        // SP 백업 확인
-        const r=await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`);
-        if(r?.ok){
-          const d=await r.json();
-          const emls=(d.value||[]).filter(f=>f.name?.endsWith(".eml"));
-          emls.forEach(f=>{
-            newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp"});
-          });
-        }
-        // IMAP 실시간 메일도 항상 가져오기 (계정 있는 경우)
-        if(m.user&&m.pass){
-          setSt(`${m.name} IMAP 연결중...`,"spin");
-          const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
-            method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:300})
-          });
-          if(ir.ok){
-            const id=await ir.json();
-            const spKeys=new Set(newMails.filter(x=>x.owner===m.email).map(x=>x.subject+x.dateRaw));
-            (id.mails||[]).forEach(mail=>{
-              const key=(mail.subject||"")+(mail.dateRaw||"");
-              if(!spKeys.has(key)){
-                mail.ownerName=m.name;mail.color=m.color||"av0";
-                newMails.push(mail);
-              }
+        // SP 백업 확인 (없어도 조용히 넘어감)
+        let spEmailCount = 0;
+        try {
+          const fp=`${MAIL_FOLDER}/${m.email}/messages`;
+          const r=await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`);
+          if(r?.ok){
+            const d=await r.json();
+            const emls=(d.value||[]).filter(f=>f.name?.endsWith(".eml"));
+            emls.forEach(f=>{
+              newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp"});
             });
-            // 백그라운드에서 SP 백업 실행
-            backupImapToSP(m);
+            spEmailCount = emls.length;
           }
+        } catch(e){ console.log(`${m.name} SP백업없음`); }
+
+        // IMAP 실시간 (계정 있으면 항상)
+        if(m.user&&m.pass){
+          setSt(`${m.name} IMAP...`,"spin");
+          try {
+            const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
+              method:"POST",headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:300})
+            });
+            if(ir.ok){
+              const id=await ir.json();
+              if(id.error) throw new Error(id.error);
+              const spKeys=new Set(newMails.filter(x=>x.owner===m.email).map(x=>x.dateRaw));
+              (id.mails||[]).forEach(mail=>{
+                if(!spKeys.has(mail.dateRaw)){
+                  mail.ownerName=m.name;mail.color=m.color||"av0";
+                  newMails.push(mail);
+                }
+              });
+              // 백그라운드 SP 백업
+              backupImapToSP(m);
+            }
+          } catch(e){ console.warn(`${m.name} IMAP오류:`,e.message); }
         }
       }catch(e){console.warn(m.email,e.message);}
     }
