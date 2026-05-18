@@ -877,22 +877,34 @@ def get_caldav_events(member, start, end):
   </c:filter>
 </c:calendar-query>'''
 
-    # URL 패턴 여러개 시도
+    # 다우오피스 CalDAV URL 패턴들
+    caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
     urls = [
-        f"{CALDAV_SERVER}/principals/users/{member['email']}/calendars/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
-        f"{CALDAV_SERVER}/principals/users/{member['email']}/calendars/",
-        f"{CALDAV_SERVER}/caldav/users/{member['email']}/",
+        f"{caldav_srv}/principals/users/{member['email']}/calendars/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
+        f"{caldav_srv}/principals/users/{member['email']}/calendars/",
+        f"{caldav_srv}/caldav/users/{member['email']}/calendars/",
+        f"{caldav_srv}/caldav/{member['user']}/",
+        f"{caldav_srv}/cal/{member['user']}/",
     ]
+
     for url in urls:
+        print(f"[CalDAV] 시도: {url}")
         result = caldav_fetch(member["user"], member["password"], url,
                               body=report_body, method="REPORT", depth="1")
+        print(f"[CalDAV] 응답길이: {len(result) if result else 0}, VEVENT: {'VEVENT' in result if result else False}")
         if result and "VEVENT" in result:
             cal_blocks = re.findall(r'<.*?calendar-data[^>]*>(.*?)</.*?calendar-data>', result, re.DOTALL)
             all_events = []
             for blk in cal_blocks:
                 blk = blk.replace("&lt;","<").replace("&gt;",">").replace("&amp;","&").replace("&#13;","")
                 all_events.extend(parse_ical_events(blk, member["name"], member["email"]))
+            print(f"[CalDAV] 파싱된 이벤트: {len(all_events)}개")
             return all_events
+        elif result:
+            # VEVENT 없어도 응답이 오면 첫 200자 출력
+            print(f"[CalDAV] 응답 미리보기: {result[:200]}")
+
+    print(f"[CalDAV] {member['name']} 모든 URL 실패")
     return []
 
 @app.route("/api/calendar", methods=["GET", "POST"])
