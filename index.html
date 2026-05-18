@@ -408,6 +408,19 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
       </div>
     </div>
 
+    <!-- SP 권한 진단 -->
+    <div class="cfg-sec">
+      <div class="cfg-sec-title">🔍 SharePoint 접근 진단</div>
+      <div class="cfg-row">
+        <div>
+          <div class="cfg-label">SP가 403만 던질 때 사용</div>
+          <div class="cfg-desc">현재 MSAL 토큰의 권한, DRIVE_ID 유효성을 단계별로 확인합니다</div>
+        </div>
+        <button class="cfg-btn" onclick="diagnoseSP()">진단 실행</button>
+      </div>
+      <pre id="spDiagOut" style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:6px;font-size:12px;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:400px;overflow:auto;display:none"></pre>
+    </div>
+
     <!-- 캘린더 설정 -->
     <div class="cfg-sec">
       <div class="cfg-sec-title">📅 캘린더 설정</div>
@@ -713,6 +726,129 @@ async function loadHdrs(total){
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
 }
+// ── SharePoint 접근 진단 ────────────────────────
+async function diagnoseSP(){
+  const out=document.getElementById("spDiagOut");
+  out.style.display="block";
+  out.textContent="진단 시작...\n";
+  const log=(msg)=>{out.textContent+=msg+"\n"; out.scrollTop=out.scrollHeight;};
+
+  // 1) 토큰 발급 + scope 확인
+  log("\n=== 1) MSAL 토큰 발급 ===");
+  let tok="";
+  try{
+    tok=await getToken();
+    log("✓ 토큰 발급 성공 (길이: "+tok.length+")");
+    // JWT 디코딩 (payload만)
+    try{
+      const payload=JSON.parse(atob(tok.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+      log("  토큰 정보:");
+      log("    사용자: " + (payload.upn||payload.preferred_username||payload.unique_name||"?"));
+      log("    appid: " + (payload.appid||"?"));
+      log("    aud(대상): " + (payload.aud||"?"));
+      log("    scp(권한): " + (payload.scp||"(없음)"));
+      log("    roles: " + JSON.stringify(payload.roles||[]));
+      log("    tid: " + (payload.tid||"?"));
+      const wantScopes=["Sites.Read.All","Sites.ReadWrite.All","Files.Read.All","Files.ReadWrite.All"];
+      const hasScopes=(payload.scp||"").split(" ");
+      const missing=wantScopes.filter(s=>!hasScopes.includes(s));
+      if(missing.length===wantScopes.length){
+        log("  ⚠️ SharePoint 관련 권한이 토큰에 하나도 없음!");
+      } else {
+        log("  ✓ 보유 SP 권한: " + hasScopes.filter(s=>wantScopes.includes(s)).join(", "));
+      }
+    }catch(e){ log("  토큰 디코딩 실패: "+e.message); }
+  }catch(e){
+    log("✗ 토큰 발급 실패: "+e.message); return;
+  }
+
+  // 2) /me 호출 (토큰 유효성)
+  log("\n=== 2) Graph /me (토큰 기본 유효성) ===");
+  try{
+    const r=await fetch("https://graph.microsoft.com/v1.0/me",{headers:{Authorization:"Bearer "+tok}});
+    log("  상태: " + r.status + " " + r.statusText);
+    if(r.ok){
+      const me=await r.json();
+      log("  ✓ 사용자: " + (me.displayName||"?") + " <" + (me.userPrincipalName||"?") + ">");
+    } else {
+      const t=await r.text();
+      log("  응답: " + t.slice(0,200));
+    }
+  }catch(e){ log("  ✗ 오류: "+e.message); }
+
+  // 3) DRIVE_ID로 직접 드라이브 접근
+  log("\n=== 3) 현재 DRIVE_ID 직접 접근 ===");
+  log("  DRIVE_ID = " + DRIVE_ID);
+  try{
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}`,{headers:{Authorization:"Bearer "+tok}});
+    log("  상태: " + r.status + " " + r.statusText);
+    if(r.ok){
+      const d=await r.json();
+      log("  ✓ 드라이브 이름: " + (d.name||"?"));
+      log("    소유 사이트: " + (d.owner?.user?.displayName || d.owner?.group?.displayName || "?"));
+      log("    웹URL: " + (d.webUrl||"?"));
+    } else {
+      const t=await r.text();
+      log("  ✗ 응답: " + t.slice(0,500));
+    }
+  }catch(e){ log("  ✗ 오류: "+e.message); }
+
+  // 4) 06.BackOffice 사이트 검색
+  log("\n=== 4) '06.BackOffice' 사이트 검색 ===");
+  try{
+    const r=await fetch("https://graph.microsoft.com/v1.0/sites?search=06.BackOffice",{headers:{Authorization:"Bearer "+tok}});
+    log("  상태: " + r.status + " " + r.statusText);
+    if(r.ok){
+      const d=await r.json();
+      const sites=d.value||[];
+      log("  찾은 사이트 수: " + sites.length);
+      for(const s of sites.slice(0,3)){
+        log("    • " + s.displayName + "  →  id=" + s.id);
+        log("      webUrl: " + s.webUrl);
+      }
+      if(sites.length>0){
+        // 5) 첫 사이트의 drives 가져오기
+        const site=sites[0];
+        log("\n=== 5) 사이트의 실제 drives 목록 ===");
+        const dr=await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drives`,{headers:{Authorization:"Bearer "+tok}});
+        log("  상태: " + dr.status);
+        if(dr.ok){
+          const dd=await dr.json();
+          for(const drive of (dd.value||[])){
+            const match = drive.id === DRIVE_ID ? "  ✅ 현재 사용 중인 DRIVE_ID와 일치!" : "";
+            log(`    • ${drive.name}  →  id=${drive.id}${match}`);
+          }
+        } else {
+          log("  ✗ 응답: " + (await dr.text()).slice(0,300));
+        }
+
+        // 6) Shared Documents 접근 시도
+        log("\n=== 6) 사이트의 기본 드라이브 (Shared Documents)에서 mail_backup 폴더 찾기 ===");
+        try{
+          const dr2=await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/children`,{headers:{Authorization:"Bearer "+tok}});
+          log("  루트 상태: " + dr2.status);
+          if(dr2.ok){
+            const dd2=await dr2.json();
+            log("  루트 항목들:");
+            for(const item of (dd2.value||[]).slice(0,10)){
+              log("    - " + item.name + (item.folder?" 📁":""));
+            }
+          } else {
+            log("  ✗ " + (await dr2.text()).slice(0,200));
+          }
+        }catch(e){ log("  오류: "+e.message); }
+      }
+    } else {
+      const t=await r.text();
+      log("  ✗ 응답: " + t.slice(0,300));
+    }
+  }catch(e){ log("  ✗ 오류: "+e.message); }
+
+  log("\n=== 진단 완료 ===");
+  log("📌 4)/5) 단계에서 '06.BackOffice' 사이트의 실제 DRIVE_ID를 확인하고");
+  log("    현재 코드의 DRIVE_ID와 일치하지 않으면 그게 원인입니다.");
+}
+
 async function syncRetired(){
   if(isSyncing){ alert("이미 동기화 중입니다."); return; }
   if(MEMBERS.length===0) await loadMembers();
@@ -1348,7 +1484,8 @@ function mkItems(mails){
 
 // 메일 열기
 async function openMail(idx){
-  const m=allMails[idx];if(!m)return;
+  const m=allMails[idx];if(!m){console.warn("[openMail] idx 무효:",idx);return;}
+  console.log("[openMail] idx="+idx, "source="+(m.source||"?"), "owner="+m.owner, "folder="+(m.folder||"?"), "fileName="+(m.fileName||"-"), "uid="+(m.uid||"-"));
   document.querySelectorAll(".mi").forEach(e=>e.classList.remove("on"));
   const el=document.getElementById("mi-"+idx);if(el){el.classList.add("on");el.scrollIntoView({block:"nearest"});}
   if(window.innerWidth<=768)document.getElementById("dpPanel").classList.add("open");
@@ -1367,24 +1504,28 @@ async function openMail(idx){
     const t0=Date.now();
     try{
       let p;
-      // 30초 타임아웃
       const ctrl=new AbortController();
       const tmr=setTimeout(()=>ctrl.abort(),30000);
       if(m.source==="imap"){
         const member=MEMBERS.find(x=>x.email===m.owner);
         if(!member?.pass) throw new Error("계정 정보 없음 (설정에서 비밀번호 입력 필요)");
+        console.log("[openMail/IMAP] 호출:", `${RENDER_URL}/api/imap/body`, "folder="+(m.folder||"inbox"));
         const ir=await fetch(`${RENDER_URL}/api/imap/body`,{
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid,folder:m.folder||"inbox"}),
           signal:ctrl.signal
         });
-        if(!ir.ok) throw new Error("IMAP 본문 오류");
+        if(!ir.ok) throw new Error("IMAP 본문 오류 HTTP "+ir.status);
         p=await ir.json();
+        if(p.error) throw new Error("IMAP 응답 오류: "+p.error);
       } else {
         bodyEl.innerHTML='<div class="lb"><div class="sp"></div>SharePoint에서 파일 가져오는 중...</div>';
         const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{signal:ctrl.signal});
-        if(!r?.ok)throw new Error("파일읽기실패 "+r?.status);
+        if(!r?.ok){
+          const errBody = await r.text().catch(()=>"");
+          throw new Error(`SP 파일읽기 ${r?.status} - ${errBody.slice(0,150)}`);
+        }
         const bytes=await r.arrayBuffer();
         bodyEl.innerHTML='<div class="lb"><div class="sp"></div>본문 파싱 중...</div>';
         const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes,signal:ctrl.signal});
