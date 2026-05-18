@@ -60,6 +60,7 @@ body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:15px;hei
 .mi-subj{font-size:14px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;font-weight:500}
 .mi-tags{display:flex;gap:4px}
 .mi-tag{font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700}
+.mi-merge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;margin-right:2px}
 
 .ml-folder-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
 .ml-folder-tab{flex:1;padding:11px 10px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer;text-align:center;border-bottom:2px solid transparent;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .1s}
@@ -921,7 +922,17 @@ let _dbSort={col:"date",dir:-1};  // 최신순 기본
 function renderDBTabs(){
   const counts={};
   DOC_ORDER.forEach(k=>{counts[k]=0;});
-  allMails.forEach(m=>{const d=getDoc(m);if(d&&counts[d]!==undefined)counts[d]++;});
+  // 문서 종류별로 dedup 후 카운트
+  const byDoc={};
+  allMails.forEach(m=>{
+    const d=getDoc(m);
+    if(!d) return;
+    if(!byDoc[d]) byDoc[d]=[];
+    byDoc[d].push(m);
+  });
+  for(const k of DOC_ORDER){
+    counts[k] = dedupMails(byDoc[k]||[]).length;
+  }
   const el=document.getElementById("dbTabs");
   el.innerHTML=DOC_ORDER.map(k=>
     `<div class="db-tab ${_dbTab===k?"on":""}" onclick="selDBTab('${k}')">
@@ -941,14 +952,44 @@ function sortDB(col){
 
 function getDBRows(){
   const srch=(document.getElementById("dbSrch")?.value||"").trim().toLowerCase();
-  let rows=allMails.filter(m=>getDoc(m)===_dbTab);
+  // 1차: 문서 분류 필터
+  let pool=allMails.filter(m=>getDoc(m)===_dbTab);
+  // 2차: 중복 제거 (같은 제목+발신자+시각인 메일 통합)
+  let rows=dedupMails(pool);
+  // 3차: 담당자 정보 계산 - To 수신자에 owner가 포함된 메일의 owner만 "담당"
+  rows=rows.map(m=>{
+    const grp=m._allOwners||[m.owner];
+    const inCharge=[];        // To에 들어간 owner (실제 담당자)
+    const ccOnly=[];          // CC에만 있는 owner (참조)
+    for(const ownerEmail of grp){
+      // 같은 그룹의 메일에서 owner 메일을 찾아서 To 포함여부 확인
+      const mailForOwner=(pool.find(x=>x.owner===ownerEmail
+        && (x.dateRaw||"")===(m.dateRaw||"")
+        && (x.subject||"")===(m.subject||"")
+        && ((x.from||"").toLowerCase())===((m.from||"").toLowerCase())
+      ));
+      if(!mailForOwner){
+        // 못 찾으면 일단 inCharge로 (안전망)
+        inCharge.push(ownerEmail);
+        continue;
+      }
+      const toEmails=(mailForOwner.to||[]).map(t=>(t.email||"").toLowerCase());
+      if(toEmails.includes(ownerEmail.toLowerCase())) inCharge.push(ownerEmail);
+      else ccOnly.push(ownerEmail);
+    }
+    // To에 아무도 없으면(전부 CC) 그냥 _allOwners 전부 표시
+    const finalOwners = inCharge.length>0 ? inCharge : grp;
+    const finalNames = finalOwners.map(e=>MEMBERS.find(x=>x.email===e)?.name||"").filter(Boolean);
+    return {...m, _inChargeNames: finalNames, _ccOnlyCount: ccOnly.length};
+  });
+  // 4차: 검색
   if(srch){
     rows=rows.filter(m=>{
-      const t=[m.subject||"",m.from||"",(m.to||[]).map(x=>x.email||x.name||"").join(" "),m.ownerName||""].join(" ").toLowerCase();
+      const t=[m.subject||"",m.from||"",(m.to||[]).map(x=>x.email||x.name||"").join(" "),(m._inChargeNames||[]).join(" ")].join(" ").toLowerCase();
       return t.includes(srch);
     });
   }
-  // 정렬
+  // 5차: 정렬
   const dir=_dbSort.dir, col=_dbSort.col;
   rows.sort((a,b)=>{
     let va, vb;
@@ -956,7 +997,7 @@ function getDBRows(){
     else if(col==="subject"){ va=(a.subject||"").toLowerCase(); vb=(b.subject||"").toLowerCase(); }
     else if(col==="from"){ va=(exNm(a.from)||a.from||"").toLowerCase(); vb=(exNm(b.from)||b.from||"").toLowerCase(); }
     else if(col==="to"){ va=((a.to||[])[0]?.email||"").toLowerCase(); vb=((b.to||[])[0]?.email||"").toLowerCase(); }
-    else if(col==="owner"){ va=(a.ownerName||"").toLowerCase(); vb=(b.ownerName||"").toLowerCase(); }
+    else if(col==="charge"){ va=(a._inChargeNames||[]).join(",").toLowerCase(); vb=(b._inChargeNames||[]).join(",").toLowerCase(); }
     else va=vb=0;
     return va<vb?-1*dir:va>vb?1*dir:0;
   });
@@ -966,7 +1007,7 @@ function getDBRows(){
 function renderDB(){
   const rows=getDBRows();
   const status=document.getElementById("dbStatus");
-  if(status) status.textContent=`${DOC_LBL[_dbTab]} ${rows.length}건`;
+  if(status) status.textContent=`${DOC_LBL[_dbTab]} ${rows.length}건 (중복 통합)`;
   const body=document.getElementById("dbBody");
   if(rows.length===0){
     body.innerHTML=`<div class="db-empty">📭 ${DOC_LBL[_dbTab]} 메일이 없습니다<br><span style="font-size:12px">제목과 첨부파일명에서 ${DOC_KW[_dbTab].slice(0,3).join(", ")}... 키워드를 찾습니다</span></div>`;
@@ -979,24 +1020,31 @@ function renderDB(){
         <th style="width:130px" onclick="sortDB('date')">날짜${arrow("date")}</th>
         <th onclick="sortDB('subject')">제목${arrow("subject")}</th>
         <th style="width:170px" onclick="sortDB('from')">보낸사람${arrow("from")}</th>
-        <th style="width:170px" onclick="sortDB('to')">받는사람${arrow("to")}</th>
-        <th style="width:90px" onclick="sortDB('owner')">메일함${arrow("owner")}</th>
+        <th style="width:170px" onclick="sortDB('to')">받는사람(외부)${arrow("to")}</th>
+        <th style="width:130px" onclick="sortDB('charge')">담당${arrow("charge")}</th>
         <th style="width:40px">📎</th>
       </tr></thead>
       <tbody>
         ${rows.map(m=>{
-          const idx=allMails.indexOf(m);
+          const idx=m._allIdx?m._allIdx[0]:allMails.indexOf(m);
           const dt=fmtMailDate(m.dateRaw||m.date||"");
           const from=exNm(m.from)||m.from||"-";
           const fromEmail=(m.from||"").match(/<([^>]+)>/)?.[1]||"";
-          const to=(m.to||[])[0];
-          const toLabel=to?(to.name||to.email||"-"):"-";
+          // 외부 수신자만 표시
+          const ext=(m.to||[]).filter(t=>t.email && !t.email.toLowerCase().includes("enjet.co.kr"));
+          const to0=ext[0];
+          const toLabel=to0?(to0.name||to0.email||"-"):"-";
+          const toMore=ext.length>1?` 외 ${ext.length-1}`:"";
+          const charges=m._inChargeNames||[];
+          const chargeTags=charges.length>0
+            ? charges.map(n=>`<span class="mi-tag tbh" style="margin-right:2px">${esc(n)}</span>`).join("")
+            : `<span style="color:var(--t3);font-size:12px">-</span>`;
           return `<tr onclick="switchTab('mail',document.querySelector('.hd-tab'));setTimeout(()=>openMail(${idx}),50)">
             <td class="db-date">${esc(dt)}</td>
             <td class="db-subj" title="${esc(m.subject||"")}">${esc(m.subject||"(제목없음)")}</td>
             <td class="db-from" title="${esc(fromEmail||from)}">${esc(from)}</td>
-            <td class="db-to" title="${esc(to?.email||"")}">${esc(toLabel)}</td>
-            <td class="db-owner"><span class="mi-tag tbh">${esc(m.ownerName||"")}</span></td>
+            <td class="db-to" title="${esc(to0?.email||"")}">${esc(toLabel)}${esc(toMore)}</td>
+            <td>${chargeTags}</td>
             <td>${m.hasAttachment?"📎":""}</td>
           </tr>`;
         }).join("")}
@@ -1006,13 +1054,16 @@ function renderDB(){
 
 function exportDB(){
   const rows=getDBRows();
-  const head=["날짜","제목","보낸사람","받는사람","메일함","첨부"];
+  const head=["날짜","제목","보낸사람(이름)","보낸사람(이메일)","받는사람(외부)","받는사람 이메일","담당","첨부"];
   const body=rows.map(m=>{
     const dt=fmtMailDate(m.dateRaw||m.date||"");
     const from=exNm(m.from)||m.from||"";
-    const to=(m.to||[])[0];
-    const toLabel=to?(to.name||to.email||""):"";
-    return [dt, m.subject||"", from, toLabel, m.ownerName||"", m.hasAttachment?"O":""];
+    const fromEmail=(m.from||"").match(/<([^>]+)>/)?.[1]||"";
+    const ext=(m.to||[]).filter(t=>t.email && !t.email.toLowerCase().includes("enjet.co.kr"));
+    const toName=ext.map(t=>t.name||t.email).join(", ");
+    const toEmail=ext.map(t=>t.email).join(", ");
+    const charges=(m._inChargeNames||[]).join(", ");
+    return [dt, m.subject||"", from, fromEmail, toName, toEmail, charges, m.hasAttachment?"O":""];
   });
   const csv=[head,...body].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
@@ -1025,17 +1076,69 @@ function exportDB(){
 // 필터/렌더
 let _srchT;
 function onSearch(){clearTimeout(_srchT);_srchT=setTimeout(applyFilter,80);}
+// ── 중복 메일 통합 헬퍼 ─────────────────────────
+// 같은 메일이 여러 팀원에게 동시 전송된 경우 (To+CC 분산) → 한 행으로 합침
+// 키: dateRaw + subject + from (모두 같으면 같은 메일로 간주)
+// 합쳐진 경우: primary = To 수신자가 있는 메일 (없으면 가장 빠른 owner)
+//             recipients = 합쳐진 모든 owner의 이름 목록
+function dedupMails(list){
+  const groups=new Map();
+  const order=[];
+  for(const m of list){
+    const subj=(m.subject||"").trim();
+    const from=(m.from||"").trim().toLowerCase();
+    const dateRaw=(m.dateRaw||"").trim();
+    const folder=m.folder||"inbox";
+    if(!subj || !from || !dateRaw){
+      // 키 못 만들면 dedupe 안 함
+      const k="_uniq_"+order.length;
+      groups.set(k,[m]); order.push(k); continue;
+    }
+    const key=`${folder}|${dateRaw}|${from}|${subj}`;
+    if(!groups.has(key)){ groups.set(key,[m]); order.push(key); }
+    else groups.get(key).push(m);
+  }
+  const out=[];
+  for(const k of order){
+    const grp=groups.get(k);
+    if(grp.length===1){ out.push(grp[0]); continue; }
+    // 대표 선정: To 수신자에 자기 자신(owner)이 들어가 있는 메일 우선
+    // (To = "직접 받은 사람", CC = "참조")
+    let primary=null;
+    for(const m of grp){
+      const toEmails=(m.to||[]).map(t=>(t.email||"").toLowerCase());
+      if(toEmails.includes(m.owner.toLowerCase())){ primary=m; break; }
+    }
+    if(!primary) primary=grp[0];
+    // 합쳐서 새 객체 (원본 변경 X)
+    const recipients=grp.map(m=>m.ownerName||MEMBERS.find(x=>x.email===m.owner)?.name||"").filter(Boolean);
+    const uniqueRecipients=[...new Set(recipients)];
+    out.push({
+      ...primary,
+      _dedupCount: grp.length,
+      _recipients: uniqueRecipients,
+      _allOwners: grp.map(m=>m.owner),
+      _allIdx: grp.map(m=>allMails.indexOf(m))
+    });
+  }
+  return out;
+}
+
 function applyFilter(){
   const q=(document.getElementById("srch")?.value||"").toLowerCase();
-  filtered=allMails.filter(m=>{
-    if((m.folder||"inbox")!==curFolder) return false;          // ★ 받은/보낸 분리
+  let pool=allMails.filter(m=>{
+    if((m.folder||"inbox")!==curFolder) return false;
     if(curOwner!=="all"&&m.owner!==curOwner) return false;
     if(q&&!(m.subject||"").toLowerCase().includes(q)&&!(m.from||"").toLowerCase().includes(q)) return false;
     return true;
   });
+  // 전체보기일 때만 중복 제거 (개별 사용자 보기는 그대로)
+  filtered = (curOwner==="all") ? dedupMails(pool) : pool;
   document.getElementById("mlTitle").textContent=curOwner==="all"?"전체":(MEMBERS.find(m=>m.email===curOwner)?.name||"");
-  document.getElementById("mlCnt").textContent=filtered.length+"통";
-  // 받은/보낸 카운트 갱신
+  const totalRaw=pool.length, totalUnique=filtered.length;
+  document.getElementById("mlCnt").textContent= (curOwner==="all" && totalRaw!==totalUnique)
+    ? `${totalUnique}통 (중복 ${totalRaw-totalUnique}건 통합)`
+    : `${totalUnique}통`;
   updateFolderCounts();
   renderList();
   if(document.getElementById("dbPage")?.classList.contains("on")){renderDBTabs();renderDB();}
@@ -1092,7 +1195,6 @@ function mkItems(mails){
   return mails.map(m=>{
     const idx=allMails.indexOf(m);
     const isSent=m.folder==="sent";
-    // 보낸메일이면 "to → 받는사람" 표시, 받은메일이면 발신자 표시
     let nm;
     if(isSent){
       const to0=(m.to||[])[0];
@@ -1103,10 +1205,25 @@ function mkItems(mails){
       nm=exNm(m.from)||m.from||"(발신자없음)";
     }
     const dt=fmtMailDate(m.dateRaw||m.date||"");
-    const tc=m.owner==="kwkang@enjet.co.kr"?"tkw":"tbh";
-    const on=MEMBERS.find(x=>x.email===m.owner)?.name||"";
     const doc=getDoc(m);
-    return `<div class="mi" id="mi-${idx}" onclick="openMail(${idx})"><div class="mi-r1"><div class="mi-from">${esc(nm)}</div><div class="mi-date">${esc(dt)}</div></div><div class="mi-subj">${esc(m.subject||"(제목없음)")}</div><div class="mi-tags"><span class="mi-tag ${tc}">${esc(on)}</span>${m.hasAttachment?'<span class="mi-tag" style="color:var(--t3)">📎</span>':""} ${doc?`<span class="doc-b doc-${doc}">${DOC_LBL[doc]}</span>`:""}</div></div>`;
+    const hasAtt=m.hasAttachment?'<span class="mi-tag" style="color:var(--t3)">📎</span>':"";
+    const docTag=doc?`<span class="doc-b doc-${doc}">${DOC_LBL[doc]}</span>`:"";
+
+    // 받은사람 태그: 통합된 메일은 모두 / 단일은 하나
+    let ownerTags="";
+    if(m._recipients && m._recipients.length>0){
+      // 통합 메일
+      ownerTags = m._recipients.map(n=>`<span class="mi-tag tbh">${esc(n)}</span>`).join("");
+      if(m._dedupCount>1){
+        ownerTags = `<span class="mi-merge" title="${m._dedupCount}명이 동시 수신">🔗 ${m._dedupCount}</span>` + ownerTags;
+      }
+    } else {
+      const tc=m.owner==="kwkang@enjet.co.kr"?"tkw":"tbh";
+      const on=MEMBERS.find(x=>x.email===m.owner)?.name||"";
+      ownerTags = `<span class="mi-tag ${tc}">${esc(on)}</span>`;
+    }
+
+    return `<div class="mi" id="mi-${idx}" onclick="openMail(${idx})"><div class="mi-r1"><div class="mi-from">${esc(nm)}</div><div class="mi-date">${esc(dt)}</div></div><div class="mi-subj">${esc(m.subject||"(제목없음)")}</div><div class="mi-tags">${ownerTags}${hasAtt} ${docTag}</div></div>`;
   }).join("");
 }
 
@@ -1194,22 +1311,42 @@ function getCo(em){const d=getDom(em);return DOMAIN_MAP[d]||d.split(".")[0]||"";
 async function buildCt(){
   document.getElementById("ctBody").innerHTML='<tr><td colspan="6"><div class="lb"><div class="sp"></div>연락처 추출 중...</div></td></tr>';
   const map=new Map();
-  _ctCache.forEach((v,k)=>map.set(k,{email:k,...v,mailCount:0,enriched:true,mail:null,firstSeen:v.firstSeen||null}));
+  // 캐시 로드 시에도 enjet 도메인 제외
+  _ctCache.forEach((v,k)=>{
+    if(!k||k.includes("enjet.co.kr")) return;
+    map.set(k,{email:k,...v,mailCount:0,enriched:true,mail:null,firstSeen:v.firstSeen||null});
+  });
   const target=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
-  // 메일을 가장 오래된 것부터 순회해서 firstSeen 정확히 잡기
   const sorted=[...target].sort((a,b)=>new Date(a.dateRaw||0)-new Date(b.dateRaw||0));
   for(const m of sorted){
-    const em=exEm(m.from);if(!em||em.includes("enjet.co.kr"))continue;
-    const k=em.toLowerCase();const c=_ctCache.get(k);
     const mDate=m.dateRaw||m.date||"";
-    if(!map.has(k))map.set(k,{email:em,name:c?.name||exNm(m.from)||"",company:c?.company||"",dept:c?.dept||"",mobile:c?.mobile||"",tel:c?.tel||"",mailCount:1,enriched:!!c,mail:c?null:m,firstSeen:c?.firstSeen||mDate,lastSeen:mDate});
-    else{const x=map.get(k);x.mailCount++;if(!x.mail&&!x.enriched)x.mail=m; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate;}
+    // 발신자 (받은메일의 from 또는 보낸메일에서도 외부 from은 거의 없지만 일관성 위해)
+    const em=exEm(m.from);
+    if(em && !em.includes("enjet.co.kr")){
+      const k=em.toLowerCase();const c=_ctCache.get(k);
+      if(!map.has(k))map.set(k,{email:em,name:c?.name||exNm(m.from)||"",company:c?.company||"",dept:c?.dept||"",mobile:c?.mobile||"",tel:c?.tel||"",mailCount:1,enriched:!!c,mail:c?null:m,firstSeen:c?.firstSeen||mDate,lastSeen:mDate});
+      else{const x=map.get(k);x.mailCount++;if(!x.mail&&!x.enriched)x.mail=m; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate;}
+    }
+    // 보낸메일의 To 수신자도 외부면 주소록에 추가
+    if(m.folder==="sent"){
+      for(const to of (m.to||[])){
+        if(!to.email||to.email.includes("enjet.co.kr"))continue;
+        const tk=to.email.toLowerCase();const tv=_ctCache.get(tk);
+        if(!map.has(tk))map.set(tk,{email:to.email,name:tv?.name||to.name||"",company:tv?.company||"",dept:tv?.dept||"",mobile:tv?.mobile||"",tel:tv?.tel||"",mailCount:1,enriched:!!tv,mail:null,firstSeen:tv?.firstSeen||mDate,lastSeen:mDate});
+        else { const x=map.get(tk); x.mailCount++; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate; }
+      }
+    }
+    // CC 수신자
     for(const cc of(m.cc||[])){
       if(!cc.email||cc.email.includes("enjet.co.kr"))continue;
       const ck=cc.email.toLowerCase();const cv=_ctCache.get(ck);
       if(!map.has(ck))map.set(ck,{email:cc.email,name:cv?.name||cc.name||"",company:cv?.company||"",dept:cv?.dept||"",mobile:cv?.mobile||"",tel:cv?.tel||"",mailCount:1,enriched:!!cv,mail:null,firstSeen:cv?.firstSeen||mDate,lastSeen:mDate});
       else { const x=map.get(ck); x.mailCount++; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate; }
     }
+  }
+  // 최종 안전망: 어떤 경로로든 들어온 enjet 도메인 제거
+  for(const k of [...map.keys()]){
+    if(k.includes("enjet.co.kr")) map.delete(k);
   }
   allCt=[...map.values()];filtCt=[...allCt];sortCtList();renderCt(filtCt);
   enrichCt(map);
