@@ -617,17 +617,44 @@ async function loadAll(){
     const newMails=[];
     for(const m of MEMBERS){
       try{
-        const fp=`${MAIL_FOLDER}/${m.email}/messages`;
-
-        // 1. SP 백업 확인 (퇴사자 포함 전원의 백업 데이터는 정상 조회)
+        // 1. SP 백업 확인 - messages*, sent* 모든 하위 폴더 합산
         try {
-          const spUrl2=`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
-          const r=await fetch(spUrl2,{headers:{Authorization:"Bearer "+(await getToken())}});
-          if(r?.ok){
-            const d=await r.json();
-            (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
-              newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp",folder:"inbox"});
-            });
+          const memberPath = `${MAIL_FOLDER}/${m.email}`;
+          // 멤버 폴더의 직계 자식 폴더 리스트
+          const childrenUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${memberPath.split("/").map(encodeURIComponent).join("/")}:/children?$top=200&$select=name,folder`;
+          const tok2 = await getToken();
+          const cr = await fetch(childrenUrl,{headers:{Authorization:"Bearer "+tok2}});
+          if(cr?.ok){
+            const cd = await cr.json();
+            // 폴더만, messages* / sent* 만
+            const subFolders = (cd.value||[]).filter(x => x.folder && /^(messages|sent)\d*$/i.test(x.name||""));
+            for(const sub of subFolders){
+              const fld = /^sent/i.test(sub.name) ? "sent" : "inbox";
+              const fp = `${memberPath}/${sub.name}`;
+              try {
+                const listUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
+                const r = await fetch(listUrl,{headers:{Authorization:"Bearer "+tok2}});
+                if(r?.ok){
+                  const d = await r.json();
+                  (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
+                    newMails.push({
+                      // 폴더명을 cacheKey에 포함 → 같은 00000.eml이 여러 폴더에 있어도 충돌 없음
+                      cacheKey:`${m.email}/${sub.name}/${f.name}`,
+                      owner:m.email, ownerName:m.name,
+                      fileName:f.name, folderPath:fp,
+                      date:fmtD(f.createdDateTime), dateRaw:f.createdDateTime||"",
+                      subject:"", from:"", to:[], cc:[],
+                      headerLoaded:false, bodyLoaded:false, body:"",
+                      hasAttachment:false, attachments:[],
+                      source:"sp", folder:fld
+                    });
+                  });
+                  console.log(`[SP] ${m.name}/${sub.name} (${fld}) ${(d.value||[]).length}건`);
+                }
+              } catch(e){ console.warn(`[SP] ${m.name}/${sub.name} 오류:`, e.message); }
+            }
+          } else {
+            console.log(`[SP] ${m.name} 멤버 폴더 없음 (${cr?.status})`);
           }
         } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
 
