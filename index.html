@@ -628,48 +628,75 @@ async function loadAll(){
     const newMails=[];
     for(const m of MEMBERS){
       try{
-        // 1. SP 백업 확인 - messages*, sent* 모든 하위 폴더 합산
+        // 1. SP 백업: _index.json 한 파일만 받기 (8000건 list 대신)
         try {
+          setSt(`${m.name} 인덱스 로딩...`,"spin");
           const memberPath = `${MAIL_FOLDER}/${m.email}`;
-          // 멤버 폴더의 직계 자식 폴더 리스트
-          const childrenUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${memberPath.split("/").map(encodeURIComponent).join("/")}:/children?$top=200&$select=name,folder`;
+          const indexPath = `${memberPath}/_index.json`;
+          const indexUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${indexPath.split("/").map(encodeURIComponent).join("/")}:/content`;
           const tok2 = await getToken();
-          const cr = await fetch(childrenUrl,{headers:{Authorization:"Bearer "+tok2}});
-          if(cr?.ok){
-            const cd = await cr.json();
-            // 폴더만, messages* / sent* 만
-            const subFolders = (cd.value||[]).filter(x => x.folder && /^(messages|sent)\d*$/i.test(x.name||""));
-            for(const sub of subFolders){
-              const fld = /^sent/i.test(sub.name) ? "sent" : "inbox";
-              const fp = `${memberPath}/${sub.name}`;
-              try {
-                const listUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
-                const r = await fetch(listUrl,{headers:{Authorization:"Bearer "+tok2}});
-                if(r?.ok){
-                  const d = await r.json();
-                  (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
-                    newMails.push({
-                      // 폴더명을 cacheKey에 포함 → 같은 00000.eml이 여러 폴더에 있어도 충돌 없음
-                      cacheKey:`${m.email}/${sub.name}/${f.name}`,
-                      owner:m.email, ownerName:m.name,
-                      fileName:f.name, folderPath:fp,
-                      date:fmtD(f.createdDateTime), dateRaw:f.createdDateTime||"",
-                      subject:"", from:"", to:[], cc:[],
-                      headerLoaded:false, bodyLoaded:false, body:"",
-                      hasAttachment:false, attachments:[],
-                      source:"sp", folder:fld
-                    });
-                  });
-                  console.log(`[SP] ${m.name}/${sub.name} (${fld}) ${(d.value||[]).length}건`);
-                }
-              } catch(e){ console.warn(`[SP] ${m.name}/${sub.name} 오류:`, e.message); }
+          const r = await fetch(indexUrl,{headers:{Authorization:"Bearer "+tok2}});
+          if(r?.ok){
+            const items = await r.json();
+            console.log(`[SP] ${m.name} _index.json: ${items.length}건`);
+            for(const it of items){
+              const subFolder = it._folder || "messages";
+              newMails.push({
+                cacheKey: `${m.email}/${subFolder}/${it.fileName}`,
+                owner: m.email, ownerName: m.name,
+                fileName: it.fileName,
+                folderPath: `${memberPath}/${subFolder}`,
+                subject: it.subject || "",
+                from: it.from || "",
+                to: it.to || [],
+                cc: it.cc || [],
+                date: it.date || "",
+                dateRaw: it.dateRaw || it.createdDateTime || "",
+                headerLoaded: true,   // ★ 인덱스에 이미 헤더 다 있음
+                bodyLoaded: false, body: "",
+                hasAttachment: !!it.hasAttachment, attachments: [],
+                source: "sp",
+                folder: it.folder || (subFolder.startsWith("sent") ? "sent" : "inbox")
+              });
             }
+          } else if(r?.status === 404){
+            console.log(`[SP] ${m.name} 인덱스 없음 (build_index.py 실행 필요)`);
           } else {
-            console.log(`[SP] ${m.name} 멤버 폴더 없음 (${cr?.status})`);
+            console.warn(`[SP] ${m.name} 인덱스 HTTP ${r?.status}`);
           }
-        } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
 
-        // 2. IMAP 실시간 (아이디/비번 있으면 inbox + sent 둘 다)
+          // 1-2. 같은 멤버의 _contacts.json 도 로드 → _ctCache 채움
+          try {
+            const ctPath = `${memberPath}/_contacts.json`;
+            const ctUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${ctPath.split("/").map(encodeURIComponent).join("/")}:/content`;
+            const cr = await fetch(ctUrl,{headers:{Authorization:"Bearer "+tok2}});
+            if(cr?.ok){
+              const ctList = await cr.json();
+              let added=0;
+              for(const c of ctList){
+                if(!c.email || c.email.includes("enjet.co.kr")) continue;
+                const k = c.email.toLowerCase();
+                const prev = _ctCache.get(k);
+                if(prev){
+                  // 더 풍부한 정보로 병합 (다른 멤버 데이터와)
+                  if(!prev.dept && c.dept) prev.dept = c.dept;
+                  if(!prev.mobile && c.mobile) prev.mobile = c.mobile;
+                  if(!prev.tel && c.tel) prev.tel = c.tel;
+                  if(!prev.name && c.name) prev.name = c.name;
+                  if(!prev.company && c.company) prev.company = c.company;
+                  if(c.firstSeen && (!prev.firstSeen || c.firstSeen < prev.firstSeen)) prev.firstSeen = c.firstSeen;
+                } else {
+                  _ctCache.set(k, c);
+                  added++;
+                }
+              }
+              if(added>0) console.log(`[SP] ${m.name} _contacts.json: ${ctList.length}명 (신규 ${added}명)`);
+            } else if(cr?.status === 404){
+              console.log(`[SP] ${m.name} 연락처 인덱스 없음`);
+            }
+          } catch(e){ console.log(`${m.name} _contacts.json 로드 오류:`, e.message); }
+        } catch(e){ console.log(`${m.name} SP인덱스 오류:`,e.message); }
+
         // 2. IMAP 실시간 (퇴사자가 아니고 비번 있으면 inbox + sent 둘 다)
         if(m.user&&m.pass && !m.retired){
           for(const fld of ["inbox","sent"]){
@@ -686,6 +713,7 @@ async function loadAll(){
               clearTimeout(timer);
               const id=await ir.json();
               if(id.error){ console.warn(`${m.name} ${fld}: ${id.error}`); continue; }
+              // 같은 owner+folder 내에서 dateRaw 중복 제거 (SP 백업과 IMAP이 같은 메일 가질 수 있음)
               const spKeys=new Set(newMails.filter(x=>x.owner===m.email&&x.folder===fld).map(x=>x.dateRaw));
               (id.mails||[]).forEach(mail=>{
                 if(!spKeys.has(mail.dateRaw)){
@@ -708,10 +736,7 @@ async function loadAll(){
     allMails=newMails;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
     invalidateDerivedCaches();
     curOwner="all";applyFilter();renderSB();
-    // SP 백업 있는 메일만 헤더 로딩 필요
-    const needHdr=allMails.filter(m=>!m.headerLoaded).length;
-    if(needHdr>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${needHdr}`);loadHdrs(needHdr);}
-    else{setSt(`${allMails.length}통`,"ok");setSyncUI(false);}
+    setSt(`${allMails.length}통 로드 완료`,"ok");setSyncUI(false);
   }catch(e){setSt("오류: "+e.message,"err");document.getElementById("mList").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}<br><br><button onclick="doFullSync()" style="padding:8px 16px;background:var(--p);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🔃 다시 시도</button></div>`;}
   finally{setSyncUI(false);}
 }
@@ -975,7 +1000,7 @@ async function doRefresh(opts){
 async function doIncrementalSync(){
   if(isSyncing){ alert("이미 동기화 중입니다."); return; }
   if(MEMBERS.length===0) await loadMembers();
-  setSyncUI(true, "⏳ SP 새 파일 확인");
+  setSyncUI(true, "⏳ SP 인덱스 갱신 확인");
   setSt("기존 메일 키 색인 중...", "spin");
 
   // 1. 현재 allMails의 cacheKey 전부 모음 (Set으로 O(1) 비교)
@@ -986,61 +1011,51 @@ async function doIncrementalSync(){
   console.log(`[증분] 기존 메일 ${existingKeys.size}개 색인 완료`);
 
   const newOnes = [];
-  let scannedFolders = 0, newFolders = 0;
+  let scannedMembers = 0;
 
   try{
     const tok = await getToken();
     for(const m of MEMBERS){
       try{
+        scannedMembers++;
+        setSt(`${m.name} 인덱스 확인...`, "spin");
         const memberPath = `${MAIL_FOLDER}/${m.email}`;
-        const childrenUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${memberPath.split("/").map(encodeURIComponent).join("/")}:/children?$top=200&$select=name,folder`;
-        const cr = await fetch(childrenUrl,{headers:{Authorization:"Bearer "+tok}});
-        if(!cr?.ok) continue;
-        const cd = await cr.json();
-        const subFolders = (cd.value||[]).filter(x => x.folder && /^(messages|sent)\d*$/i.test(x.name||""));
-
-        for(const sub of subFolders){
-          scannedFolders++;
-          const fld = /^sent/i.test(sub.name) ? "sent" : "inbox";
-          const fp = `${memberPath}/${sub.name}`;
-
-          // 이 폴더에 이미 등록된 파일 수 확인
-          let alreadyHere = 0;
-          for(const k of existingKeys){
-            if(k.startsWith(`${m.email}/${sub.name}/`)) alreadyHere++;
+        const indexPath = `${memberPath}/_index.json`;
+        const indexUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${indexPath.split("/").map(encodeURIComponent).join("/")}:/content`;
+        const r = await fetch(indexUrl,{headers:{Authorization:"Bearer "+tok}});
+        if(!r?.ok){
+          if(r?.status === 404){
+            console.log(`[증분] ${m.name} 인덱스 없음 (build_index.py 실행 필요)`);
           }
-
-          try {
-            setSt(`${m.name}/${sub.name} 스캔...`, "spin");
-            const listUrl = `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
-            const r = await fetch(listUrl,{headers:{Authorization:"Bearer "+tok}});
-            if(!r?.ok) continue;
-            const d = await r.json();
-            const emls = (d.value||[]).filter(f=>f.name?.endsWith(".eml"));
-            let addedHere = 0;
-            for(const f of emls){
-              const cacheKey = `${m.email}/${sub.name}/${f.name}`;
-              if(existingKeys.has(cacheKey)) continue;   // 이미 있음
-              newOnes.push({
-                cacheKey,
-                owner: m.email, ownerName: m.name,
-                fileName: f.name, folderPath: fp,
-                date: fmtD(f.createdDateTime), dateRaw: f.createdDateTime||"",
-                subject:"", from:"", to:[], cc:[],
-                headerLoaded:false, bodyLoaded:false, body:"",
-                hasAttachment:false, attachments:[],
-                source:"sp", folder:fld
-              });
-              addedHere++;
-            }
-            if(alreadyHere===0 && emls.length>0){
-              newFolders++;
-              console.log(`[증분] 🆕 새 폴더: ${m.email}/${sub.name} (${addedHere}개)`);
-            } else if(addedHere>0){
-              console.log(`[증분] + ${m.email}/${sub.name}: ${addedHere}개 추가 (기존 ${alreadyHere}개)`);
-            }
-          } catch(e){ console.warn(`[증분] ${m.name}/${sub.name}:`, e.message); }
+          continue;
         }
+        const items = await r.json();
+
+        let addedThis = 0;
+        for(const it of items){
+          const subFolder = it._folder || "messages";
+          const cacheKey = `${m.email}/${subFolder}/${it.fileName}`;
+          if(existingKeys.has(cacheKey)) continue;
+          newOnes.push({
+            cacheKey,
+            owner: m.email, ownerName: m.name,
+            fileName: it.fileName,
+            folderPath: `${memberPath}/${subFolder}`,
+            subject: it.subject || "",
+            from: it.from || "",
+            to: it.to || [],
+            cc: it.cc || [],
+            date: it.date || "",
+            dateRaw: it.dateRaw || it.createdDateTime || "",
+            headerLoaded: true,
+            bodyLoaded: false, body: "",
+            hasAttachment: !!it.hasAttachment, attachments: [],
+            source: "sp",
+            folder: it.folder || (subFolder.startsWith("sent") ? "sent" : "inbox")
+          });
+          addedThis++;
+        }
+        if(addedThis>0) console.log(`[증분] + ${m.name}: ${addedThis}건 추가`);
       }catch(e){ console.warn(`[증분] ${m.email}:`, e.message); }
     }
 
@@ -1051,17 +1066,10 @@ async function doIncrementalSync(){
       invalidateDerivedCaches();
       await dbPut("mails", newOnes);
       applyFilter(); renderSB();
-      setSt(`✅ +${newOnes.length}통 (새 폴더 ${newFolders}개)`, "ok");
-      // 새 메일 헤더 로딩
-      const noHCount = newOnes.filter(m=>!m.headerLoaded).length;
-      if(noHCount>0){
-        setSyncUI(true, `⏳ 헤더 0/${noHCount}`);
-        loadHdrs(noHCount);
-      } else {
-        setSyncUI(false);
-      }
+      setSt(`✅ +${newOnes.length}통 (인덱스 ${scannedMembers}명 확인)`, "ok");
+      setSyncUI(false);
     } else {
-      setSt(`최신 상태 (${scannedFolders}개 폴더 확인)`, "ok");
+      setSt(`최신 상태 (인덱스 ${scannedMembers}명 확인)`, "ok");
       setSyncUI(false);
     }
   } catch(e){
