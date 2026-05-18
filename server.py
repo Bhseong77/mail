@@ -20,13 +20,20 @@ CORS(app, resources={r"/api/*": {
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range"
+    response.headers["Access-Control-Max-Age"] = "3600"
     return response
 
 @app.route("/api/<path:path>", methods=["OPTIONS"])
 def handle_options(path):
-    return "", 204
+    from flask import Response
+    resp = Response("", 204)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range"
+    resp.headers["Access-Control-Max-Age"] = "3600"
+    return resp
 
 IMAP_SERVER = os.environ.get("IMAP_SERVER", "gw.enjet.co.kr")
 IMAP_PORT = int(os.environ.get("IMAP_PORT", 993))
