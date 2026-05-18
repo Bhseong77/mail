@@ -805,6 +805,167 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
 
+
+# ── CalDAV 캘린더 ─────────────────────────────────────
+CALDAV_SERVER = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
+CALDAV_MEMBERS = [
+    {"email":"kwkang@enjet.co.kr",   "name":"강경원",  "user":os.environ.get("CALDAV_USER1","kwkang"),   "password":os.environ.get("CALDAV_PASS1","")},
+    {"email":"baekhoon@enjet.co.kr", "name":"성백훈",  "user":os.environ.get("CALDAV_USER2","baekhoon"), "password":os.environ.get("CALDAV_PASS2","")},
+]
+
+def caldav_req(user, password, url, xml_body=None, method="REPORT", depth="1"):
+    import base64
+    creds = base64.b64encode("{}:{}".format(user, password).encode("utf-8")).decode("ascii")
+    hdrs = {"Authorization": "Basic " + creds, "Depth": depth, "Content-Type": "application/xml; charset=utf-8"}
+    data = xml_body.encode("utf-8") if xml_body else None
+    req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.read().decode("utf-8", errors="ignore")
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", errors="ignore")[:100]
+        except:
+            body = ""
+        print("CalDAV {} {} | {} | {}".format(e.code, url, e.headers.get("WWW-Authenticate",""), body))
+        return None
+    except Exception as e:
+        print("CalDAV ERR {}: {}".format(url, e))
+        return None
+
+def _gp(key, block):
+    pat = "^" + key + "[;:][^\r\n]*((?:\r?\n[ \t][^\r\n]*)*)"
+    m = re.search(pat, block, re.MULTILINE)
+    if not m:
+        return ""
+    v = re.sub("^" + key + "[^:]*:", "", m.group(0))
+    return re.sub("\r?\n[ \t]", "", v).strip()
+
+def _pdt(s):
+    if not s:
+        return ""
+    s = re.sub("^[^:]*:", "", s).strip().rstrip("Z")
+    try:
+        if len(s) == 8:
+            return "{}-{}-{}".format(s[:4], s[4:6], s[6:8])
+        return "{}-{}-{}T{}:{}".format(s[:4], s[4:6], s[6:8], s[9:11], s[11:13])
+    except:
+        return s
+
+def parse_ical(text, name, email_addr):
+    events = []
+    if not text:
+        return events
+    for block in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", text, re.DOTALL):
+        try:
+            raw_start = _gp("DTSTART", block)
+            clean_start = re.sub("^[^:]*:", "", raw_start).strip()
+            title = _gp("SUMMARY", block).replace("\\n", "\n").replace("\\,", ",")
+            if not title:
+                continue
+            events.append({
+                "uid":      _gp("UID", block),
+                "title":    title,
+                "start":    _pdt(raw_start),
+                "end":      _pdt(_gp("DTEND", block)),
+                "location": _gp("LOCATION", block).replace("\\,", ","),
+                "desc":     _gp("DESCRIPTION", block)[:100],
+                "allDay":   len(clean_start) == 8 or "VALUE=DATE" in raw_start,
+                "owner":    email_addr,
+                "ownerName": name,
+            })
+        except Exception as ex:
+            print("iCal err: {}".format(ex))
+    return events
+
+def fetch_caldav_events(member, start, end):
+    user = member["user"]
+    pwd  = member["password"]
+    ea   = member["email"]
+    srv  = CALDAV_SERVER
+    xml  = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:">'
+        "<d:prop><d:getetag/><c:calendar-data/></d:prop>"
+        "<c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\">"
+        "<c:time-range start=\"{}T000000Z\" end=\"{}T235959Z\"/>".format(start, end) +
+        "</c:comp-filter></c:comp-filter></c:filter>"
+        "</c:calendar-query>"
+    )
+    base = "{}/principals/users/{}/calendars".format(srv, ea)
+    urls = [
+        base + "/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
+        base + "/",
+        base + "/%EB%82%B4%EC%9D%BC%EC%A0%95/",
+    ]
+    for url in urls:
+        print("[CAL] {} -> {}".format(member["name"], url))
+        resp = caldav_req(user, pwd, url, xml, "REPORT", "1")
+        if resp and "VEVENT" in resp:
+            evs = []
+            for blk in re.findall(r"<.*?calendar-data[^>]*>(.*?)</.*?calendar-data>", resp, re.DOTALL):
+                blk = blk.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+                evs.extend(parse_ical(blk, member["name"], ea))
+            print("[CAL] {} OK {}ev".format(member["name"], len(evs)))
+            return evs
+        elif resp:
+            print("[CAL] {} resp {}b no VEVENT".format(member["name"], len(resp)))
+    print("[CAL] {} FAIL".format(member["name"]))
+    return []
+
+@app.route("/api/calendar", methods=["GET", "POST"])
+def api_calendar():
+    try:
+        today = datetime.now()
+        start = (today - timedelta(days=30)).strftime("%Y%m%d")
+        end   = (today + timedelta(days=60)).strftime("%Y%m%d")
+        mlist = []
+        if request.method == "POST":
+            try:
+                body = request.get_json(force=True) or {}
+                start = body.get("start", start)
+                end   = body.get("end", end)
+                for m in body.get("members", []):
+                    if m.get("pass"):
+                        mlist.append({"email": m["email"], "name": m.get("name",""), "user": m.get("user",""), "password": m["pass"]})
+            except Exception as e:
+                print("[CAL] body err: {}".format(e))
+        if not mlist:
+            mlist = [m for m in CALDAV_MEMBERS if m.get("password")]
+        all_events = []
+        errors = []
+        for m in mlist:
+            try:
+                all_events.extend(fetch_caldav_events(m, start, end))
+            except Exception as e:
+                errors.append("{}: {}".format(m.get("name","?"), e))
+                print("[CAL ERR] {}: {}".format(m.get("name"), e))
+        all_events.sort(key=lambda e: e.get("start", ""))
+        return jsonify({"events": all_events, "count": len(all_events), "errors": errors})
+    except Exception as e:
+        import traceback
+        print("[CAL FATAL] " + traceback.format_exc())
+        return jsonify({"events": [], "count": 0, "errors": [str(e)]}), 200
+
+@app.route("/api/calendar/test")
+def api_calendar_test():
+    results = []
+    for m in CALDAV_MEMBERS:
+        if not m.get("password"):
+            results.append({"name": m["name"], "status": "PASS 미설정"})
+            continue
+        url = "{}/principals/users/{}/".format(CALDAV_SERVER, m["email"])
+        resp = caldav_req(m["user"], m["password"], url,
+            '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><current-user-principal/></prop></propfind>',
+            "PROPFIND", "0")
+        results.append({"name": m["name"], "status": "성공" if resp else "실패"})
+    return jsonify(results)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
+
 # ── CalDAV 캘린더 ────────────────────────────────────
 CALDAV_SERVER = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
 
