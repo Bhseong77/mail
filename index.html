@@ -163,6 +163,29 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .st-ok{background:#d1fae5;color:#065f46}
 .st-err{background:#fee2e2;color:#991b1b}
 .st-none{background:var(--bg3);color:var(--t3)}
+
+/* ── 다우오피스 스타일 월간 캘린더 ──────────────── */
+.dau-cal{background:#fff;font-family:-apple-system,"맑은 고딕","Malgun Gothic",sans-serif}
+.dau-cal-hdr{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #e5e5e5;background:#fafafa}
+.dau-cal-dow{text-align:left;font-size:13px;font-weight:500;color:#666;padding:10px 12px;letter-spacing:1px}
+.dau-cal-dow.dau-sun{color:#e74c3c}
+.dau-cal-dow.dau-sat{color:#3498db}
+.dau-cal-body{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(110px,auto)}
+.dau-cal-cell{border-right:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;padding:6px 4px;min-height:110px;overflow:hidden;background:#fff}
+.dau-cal-cell:nth-child(7n){border-right:none}
+.dau-cal-num{font-size:13px;font-weight:500;color:#333;padding:0 6px 4px;letter-spacing:0.3px}
+.dau-cal-num.dau-sun{color:#e74c3c}
+.dau-cal-num.dau-sat{color:#3498db}
+.dau-cal-num.dau-dim{color:#ccc}
+.dau-cal-num.dau-today{color:#fff;background:#666;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;padding:0;margin-bottom:4px}
+.dau-holiday-name{font-size:12px;margin-left:6px;color:#e74c3c;font-weight:400}
+.dau-cal-evt-bar{font-size:12px;color:#fff;padding:2px 7px;margin:1px 4px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;line-height:1.5}
+.dau-cal-evt-line{font-size:12px;color:#333;padding:1px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.6}
+.dau-dot{font-size:10px;margin-right:2px}
+.dau-evt-time{color:#333;font-weight:400}
+.dau-evt-title{color:#333}
+.dau-cal-more{font-size:11px;color:#999;padding:2px 7px;cursor:pointer}
+.dau-cal-more:hover{color:#666}
 </style>
 </head>
 <body>
@@ -1041,22 +1064,87 @@ function renderCalMonth(){
   const today=new Date();
   const evs=calEvents.filter(e=>{const d=new Date(e.start);return d.getFullYear()===calYear&&d.getMonth()===calMonth;});
   const dm={};evs.forEach(e=>{const d=new Date(e.start).getDate();if(!dm[d])dm[d]=[];dm[d].push(e);});
-  let h='<div style="padding:12px"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">'+
-    ["일","월","화","수","목","금","토"].map((d,i)=>`<div style="text-align:center;font-size:13px;font-weight:700;color:${i===0?"var(--r)":i===6?"var(--p)":"var(--t3)"};padding:6px">${d}</div>`).join("")+'</div>'+
-    '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
-  for(let i=0;i<first;i++)h+='<div style="min-height:80px;background:var(--bg2);border-radius:6px;opacity:.3"></div>';
-  for(let d=1;d<=days;d++){
-    const isT=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
-    const dow=(first+d-1)%7;
-    const de=dm[d]||[];
-    h+=`<div style="min-height:80px;background:var(--bg2);border-radius:6px;padding:5px;border:${isT?"2px solid var(--p)":"1px solid var(--border)"}">
-      <div style="font-size:14px;font-weight:${isT?800:500};color:${isT?"var(--p)":dow===0?"var(--r)":dow===6?"var(--p)":"var(--t)"};margin-bottom:3px">${d}</div>
-      ${de.slice(0,2).map(e=>`<div style="font-size:11px;background:${getCalColor(e.owner)}22;color:${getCalColor(e.owner)};border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.title)}</div>`).join("")}
-      ${de.length>2?`<div style="font-size:10px;color:var(--t3)">+${de.length-2}</div>`:""}
-    </div>`;
+
+  // 전후 달 채우기 (다우오피스처럼 회색으로)
+  const prevDays=new Date(calYear,calMonth,0).getDate();
+  const totalCells=Math.ceil((first+days)/7)*7;
+
+  // 요일 헤더 (다우오피스: 작고 옅은 회색, 일=빨강, 토=파랑)
+  let h='<div class="dau-cal">';
+  h+='<div class="dau-cal-hdr">';
+  ["일","월","화","수","목","금","토"].forEach((d,i)=>{
+    const cls=i===0?"dau-sun":(i===6?"dau-sat":"");
+    h+=`<div class="dau-cal-dow ${cls}">${d}</div>`;
+  });
+  h+='</div>';
+
+  // 본문 셀
+  h+='<div class="dau-cal-body">';
+  for(let cell=0;cell<totalCells;cell++){
+    let dayNum, isCurMonth, dateObj;
+    if(cell<first){
+      dayNum=prevDays-first+1+cell;
+      isCurMonth=false;
+      dateObj=new Date(calYear,calMonth-1,dayNum);
+    } else if(cell<first+days){
+      dayNum=cell-first+1;
+      isCurMonth=true;
+      dateObj=new Date(calYear,calMonth,dayNum);
+    } else {
+      dayNum=cell-first-days+1;
+      isCurMonth=false;
+      dateObj=new Date(calYear,calMonth+1,dayNum);
+    }
+    const dow=cell%7;
+    const isToday=isCurMonth && today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===dayNum;
+    const isHoliday=isHolidayKR(dateObj);
+    const de=(isCurMonth?(dm[dayNum]||[]):[]);
+
+    let numCls="dau-cal-num";
+    if(!isCurMonth) numCls+=" dau-dim";
+    else if(dow===0||isHoliday) numCls+=" dau-sun";
+    else if(dow===6) numCls+=" dau-sat";
+    if(isToday) numCls+=" dau-today";
+
+    h+=`<div class="dau-cal-cell">`;
+    h+=`<div class="${numCls}">${dayNum}${isHoliday&&isCurMonth?`<span class="dau-holiday-name">${isHoliday}</span>`:""}</div>`;
+
+    // 일정: 전사일정(공통)은 풀폭 바, 개인일정은 ●+텍스트
+    de.slice(0,4).forEach(e=>{
+      const color=getCalColor(e.owner);
+      const isCompany=e.title&&(e.title.match(/근로자|어린이날|석가|대체공휴|현충|광복|추석|개천|한글|성탄|설날|신정/));
+      const isAllDay=e.allDay||isCompany;
+      if(isAllDay && isCompany){
+        // 공휴일/전사일정 풀폭 핑크바
+        h+=`<div class="dau-cal-evt-bar" style="background:#f5b8d4">${esc(e.title)}</div>`;
+      } else if(e.allDay){
+        // 종일 일정 풀폭 바 (소유자 색)
+        h+=`<div class="dau-cal-evt-bar" style="background:${color}cc">${esc(e.title)}</div>`;
+      } else {
+        // 시간 일정: ● + 시간 + 제목
+        const s=new Date(e.start);
+        const tm=`${String(s.getHours()).padStart(2,"0")}:${String(s.getMinutes()).padStart(2,"0")}`;
+        h+=`<div class="dau-cal-evt-line"><span class="dau-dot" style="color:${color}">●</span> <span class="dau-evt-time">${tm}</span> <span class="dau-evt-title">${esc(e.title)}</span></div>`;
+      }
+    });
+    if(de.length>4) h+=`<div class="dau-cal-more">+${de.length-4}</div>`;
+
+    h+=`</div>`;
   }
   h+='</div></div>';
   document.getElementById("calBody").innerHTML=h;
+}
+
+// 한국 공휴일 간단 매핑 (해당 월 표시용)
+function isHolidayKR(d){
+  const m=d.getMonth()+1, day=d.getDate();
+  const key=`${m}-${day}`;
+  const fixed={
+    "1-1":"신정","3-1":"삼일절","5-5":"어린이날","6-6":"현충일",
+    "8-15":"광복절","10-3":"개천절","10-9":"한글날","12-25":"성탄절",
+    "5-1":"근로자의 날"
+  };
+  return fixed[key]||null;
 }
 
 function renderCalList(){
