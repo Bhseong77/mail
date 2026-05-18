@@ -808,6 +808,18 @@ CALDAV_MEMBERS = [
     {"email":"baekhoon@enjet.co.kr", "name":"성백훈",  "user":os.environ.get("CALDAV_USER2","baekhoon"), "password":os.environ.get("CALDAV_PASS2","")},
 ]
 
+# 다우오피스 CalDAV 인증은 풀 이메일(user@enjet.co.kr) 형식 요구.
+# ID만 들어온 경우 자동으로 @enjet.co.kr 붙여서 보정.
+def _normalize_caldav_user(user, email=""):
+    if not user:
+        return email or ""
+    if "@" in user:
+        return user
+    # ID만 들어왔으면 email의 도메인 붙이거나 기본 도메인 사용
+    if email and "@" in email:
+        return "{}@{}".format(user, email.split("@", 1)[1])
+    return "{}@enjet.co.kr".format(user)
+
 def caldav_req(user, password, url, xml_body=None, method="REPORT", depth="1"):
     import base64
     creds = base64.b64encode("{}:{}".format(user, password).encode("utf-8")).decode("ascii")
@@ -874,10 +886,13 @@ def parse_ical(text, name, email_addr):
     return events
 
 def fetch_caldav_events(member, start, end):
-    user = member["user"]
+    raw_user = member.get("user", "")
+    ea   = member.get("email", "")
+    user = _normalize_caldav_user(raw_user, ea)  # ★ 풀 이메일로 자동 보정
     pwd  = member["password"]
-    ea   = member["email"]
     srv  = CALDAV_SERVER
+    if raw_user != user:
+        print("[CAL] {} user 보정: '{}' -> '{}'".format(member.get("name","?"), raw_user, user))
     xml  = (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:">'
@@ -952,7 +967,8 @@ def api_calendar_test():
             results.append({"name": m["name"], "status": "PASS 미설정"})
             continue
         url = "{}/principals/users/{}/".format(CALDAV_SERVER, m["email"])
-        resp = caldav_req(m["user"], m["password"], url,
+        user_norm = _normalize_caldav_user(m.get("user",""), m.get("email",""))
+        resp = caldav_req(user_norm, m["password"], url,
             '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><current-user-principal/></prop></propfind>',
             "PROPFIND", "0")
         results.append({"name": m["name"], "status": "성공" if resp else "실패"})
