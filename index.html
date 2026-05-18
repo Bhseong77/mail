@@ -60,6 +60,13 @@ body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:15px;hei
 .mi-subj{font-size:14px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;font-weight:500}
 .mi-tags{display:flex;gap:4px}
 .mi-tag{font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700}
+
+.ml-folder-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
+.ml-folder-tab{flex:1;padding:11px 10px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer;text-align:center;border-bottom:2px solid transparent;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .1s}
+.ml-folder-tab:hover{color:var(--t2);background:var(--bg3)}
+.ml-folder-tab.on{color:var(--p);border-bottom-color:var(--p);background:var(--bg);font-weight:700}
+.ml-folder-cnt{font-size:11px;font-family:var(--m);font-weight:700;background:var(--bg3);color:var(--t3);padding:1px 6px;border-radius:8px}
+.ml-folder-tab.on .ml-folder-cnt{background:var(--pd);color:var(--p)}
 .tkw{background:var(--pd);color:var(--p)}.tbh{background:#ede9fe;color:#5b21b6}
 .tbl-panel{display:none;flex-direction:column;overflow:hidden}
 .tbl-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -119,6 +126,28 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 .doc-b{font-size:15px;padding:1px 5px;border-radius:4px;font-weight:700;display:inline-block}
 .doc-tax{background:#d1fae5;color:#065f46}.doc-quote{background:#fef3c7;color:#92400e}.doc-po{background:#dbeafe;color:#1d4ed8}
+.doc-inv{background:#ede9fe;color:#5b21b6}.doc-data{background:#fce7f3;color:#9d174d}
+
+.db-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;overflow-x:auto}
+.db-tabs::-webkit-scrollbar{display:none}
+.db-tab{padding:11px 18px;font-size:14px;font-weight:600;color:var(--t3);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;display:flex;align-items:center;gap:6px}
+.db-tab:hover{color:var(--t2);background:var(--bg3)}
+.db-tab.on{color:var(--p);border-bottom-color:var(--p);background:var(--bg)}
+.db-tab .db-tab-cnt{background:var(--bg3);color:var(--t3);font-size:12px;padding:1px 7px;border-radius:10px;font-weight:700}
+.db-tab.on .db-tab-cnt{background:var(--pd);color:var(--p)}
+.db-list{flex:1;overflow:auto;background:var(--bg)}
+.db-tbl{width:100%;border-collapse:collapse;background:#fff}
+.db-tbl th{position:sticky;top:0;background:var(--bg2);padding:10px 12px;text-align:left;font-size:13px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);z-index:1;cursor:pointer;user-select:none;white-space:nowrap}
+.db-tbl th:hover{background:var(--bg3);color:var(--t)}
+.db-tbl th .db-sort{font-size:10px;margin-left:3px;color:var(--p)}
+.db-tbl td{padding:10px 12px;font-size:13px;color:var(--t);border-bottom:1px solid var(--border);vertical-align:middle}
+.db-tbl tr{cursor:pointer}
+.db-tbl tr:hover td{background:var(--bg3)}
+.db-tbl .db-subj{font-weight:600;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db-tbl .db-from,.db-tbl .db-to{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
+.db-tbl .db-date{font-family:var(--m);font-size:12px;color:var(--t3);white-space:nowrap}
+.db-tbl .db-owner{font-size:12px}
+.db-empty{padding:40px 20px;text-align:center;color:var(--t3);font-size:14px}
 .dp-back{display:none}
 @media(max-width:768px){
   body{overflow:auto}
@@ -212,6 +241,7 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
     <button class="hd-tab on" onclick="switchTab('mail',this)">📧 메일함</button>
     <button class="hd-tab" onclick="switchTab('contacts',this)">👤 주소록</button>
     <button class="hd-tab" onclick="switchTab('calendar',this)">📅 캘린더</button>
+    <button class="hd-tab" onclick="switchTab('db',this)">🗂️ DB</button>
     <button class="hd-tab" onclick="switchTab('settings',this)">⚙️ 설정</button>
   </div>
   <div class="hd-r">
@@ -227,20 +257,22 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 <div class="app" id="mainApp" style="display:none">
   <div class="sb" id="sbBody"></div>
   <div class="ml">
-    <div class="ml-top"><span class="ml-title" id="mlTitle">전체</span><span class="ml-cnt" id="mlCnt"></span></div>
+    <div class="ml-top">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="ml-title" id="mlTitle">전체</span>
+        <span class="ml-cnt" id="mlCnt"></span>
+      </div>
+    </div>
+    <div class="ml-folder-tabs">
+      <div class="ml-folder-tab on" id="ftInbox" onclick="selFolder('inbox')">
+        <span>📥 받은메일함</span><span class="ml-folder-cnt" id="ftInboxCnt">0</span>
+      </div>
+      <div class="ml-folder-tab" id="ftSent" onclick="selFolder('sent')">
+        <span>📤 보낸메일함</span><span class="ml-folder-cnt" id="ftSentCnt">0</span>
+      </div>
+    </div>
     <input class="ml-si" id="srch" placeholder="🔍 제목, 발신자 검색..." oninput="onSearch()">
-    <div class="ml-tabs">
-      <div class="ml-tab on" onclick="switchMTab('list',this)">메일함</div>
-      <div class="ml-tab" onclick="switchMTab('table',this)">목록</div>
-      <div class="ml-tab" onclick="switchMTab('tax',this)">🧾 세금계산서</div>
-      <div class="ml-tab" onclick="switchMTab('quote',this)">📋 견적서</div>
-      <div class="ml-tab" onclick="switchMTab('po',this)">📦 발주서</div>
-    </div>
     <div class="ml-list" id="mList"></div>
-    <div class="tbl-panel" id="tblPanel">
-      <div class="tbl-bar"><span id="tblInfo" style="font-size:14px;font-weight:600;color:var(--t2)"></span><button class="btn" onclick="exportTbl()">⬇️ CSV</button></div>
-      <div class="tw"><table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table></div>
-    </div>
   </div>
   <div class="dp" id="dpPanel">
     <div class="dp-back" onclick="closeDp()">← 메일 목록으로</div>
@@ -302,6 +334,22 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
   <div id="calBody" style="flex:1;overflow:auto;background:var(--bg)"></div>
   <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg3);font-size:12px;color:var(--t3);">
     <span id="calStatus"></span>
+  </div>
+</div>
+
+<div class="cfg-page" id="dbPage">
+  <div class="cfg-hd">
+    <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
+    <div class="cfg-title">🗂️ DB</div>
+    <div style="display:flex;gap:6px;margin-left:auto;align-items:center;">
+      <input class="cfg-inp" id="dbSrch" placeholder="🔍 제목/발신자/내용 검색..." style="width:240px;padding:6px 10px;font-size:13px" oninput="renderDB()">
+      <button class="btn" onclick="exportDB()">⬇️ CSV</button>
+    </div>
+  </div>
+  <div class="db-tabs" id="dbTabs"></div>
+  <div class="db-list" id="dbBody"></div>
+  <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg3);font-size:12px;color:var(--t3);">
+    <span id="dbStatus"></span>
   </div>
 </div>
 
@@ -386,11 +434,16 @@ const MAIL_FOLDER="📦영업/10.mail_backup";
 const SP_HDR="📦영업/10.mail_backup/_headers_cache.json";
 const SP_CT="📦영업/10.mail_backup/_contacts_cache.json";
 const DOC_KW={
-  tax:  ["세금계산서","tax invoice","taxinvoice","청구서","invoice"],
-  quote:["견적서","quotation","quote","estimate","rfq","제안서"],
-  po:   ["발주서","발주","purchase order","p.o.","주문서","납품요청"],
+  tax:    ["세금계산서","계산서","tax invoice","taxinvoice","청구서","invoice"],
+  quote:  ["견적서","견적","quotation","quotation form","quote","estimate","rfq","report of quotation"],
+  po:     ["발주서","발주","구매발주","purchase order","p.o.","주문서","납품요청서","po form","po sheet"],
+  invoice:["납품확인서","납품확인","납품서","납품증","delivery confirm","delivery note","delivery slip","packing list","물품확인서","물품인수","인수증","입고확인"],
+  data:   ["회사소개서","company profile","corporate profile","company introduction","brochure","소개자료","sample data","샘플데이터","샘플 자료","제안서","proposal","tech proposal","제안 자료","발표자료","presentation","catalogue","catalog","카탈로그"],
 };
-const DOC_LBL={tax:"세금계산서",quote:"견적서",po:"발주서"};
+const DOC_LBL={tax:"세금계산서",quote:"견적서",po:"발주서",invoice:"납품확인서",data:"자료"};
+const DOC_ORDER=["tax","quote","po","invoice","data"];
+const DOC_COLOR={tax:"doc-tax",quote:"doc-quote",po:"doc-po",invoice:"doc-inv",data:"doc-data"};
+const DOC_ICON={tax:"🧾",quote:"📋",po:"📦",invoice:"✅",data:"📚"};
 const DOMAIN_MAP={"samsung.com":"삼성(계열)","skhynix.com":"SK하이닉스","lg.com":"LG","lgcns.com":"LG CNS","lgchem.com":"LG화학","lginnotek.com":"LG이노텍","lgdisplay.com":"LG디스플레이","hyundai.com":"현대자동차","kia.com":"기아","mobis.co.kr":"현대모비스","sk.com":"SK","sktelecom.com":"SK텔레콤","shinhan.com":"신한금융","kb.co.kr":"KB금융","hanabank.com":"하나은행","wooribank.com":"우리은행","ibk.co.kr":"IBK기업은행","kt.com":"KT","lguplus.com":"LG유플러스","naver.com":"네이버","kakao.com":"카카오","kotra.or.kr":"KOTRA","kist.re.kr":"KIST","etri.re.kr":"ETRI","kopti.re.kr":"한국생산기술연구원","kaist.ac.kr":"KAIST","snu.ac.kr":"서울대","yonsei.ac.kr":"연세대","korea.ac.kr":"고려대","gachon.ac.kr":"가천대학교","hanyang.ac.kr":"한양대학교"};
 const AV=["av0","av1","av2","av3"];
 
@@ -398,6 +451,7 @@ let msal_,acct;
 let allMails=[],filtered=[];
 let allCt=[],filtCt=[];
 let curOwner="all",curMTab="list";
+let curFolder="inbox";   // ★ 받은/보낸 탭
 let ctSortK="name",ctSortD="asc";
 let isSyncing=false;
 const _ctCache=new Map();
@@ -533,34 +587,35 @@ async function loadAll(){
           }
         } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
 
-        // 2. IMAP 실시간 (아이디/비번 있으면 항상)
+        // 2. IMAP 실시간 (아이디/비번 있으면 inbox + sent 둘 다)
         if(m.user&&m.pass){
-          setSt(`${m.name} IMAP...`,"spin");
-          try {
-            // 30초 타임아웃
-            const ctrl = new AbortController();
-            const timer = setTimeout(()=>ctrl.abort(), 60000);
-            const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
-              method:"POST",
-              headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100}),
-              signal:ctrl.signal
-            });
-            clearTimeout(timer);
-            const id=await ir.json();
-            if(id.error) throw new Error(id.error);
-            const spKeys=new Set(newMails.filter(x=>x.owner===m.email).map(x=>x.dateRaw));
-            (id.mails||[]).forEach(mail=>{
-              if(!spKeys.has(mail.dateRaw)){
-                mail.ownerName=m.name; mail.color=m.color||"av0";
-                newMails.push(mail);
-              }
-            });
-            backupImapToSP(m);
-          } catch(e){
-            console.warn(`${m.name} IMAP오류:`,e.message);
-            // 타임아웃이나 오류여도 다음 팀원으로 계속 진행
+          for(const fld of ["inbox","sent"]){
+            setSt(`${m.name} IMAP ${fld}...`,"spin");
+            try {
+              const ctrl = new AbortController();
+              const timer = setTimeout(()=>ctrl.abort(), 60000);
+              const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100,folder:fld}),
+                signal:ctrl.signal
+              });
+              clearTimeout(timer);
+              const id=await ir.json();
+              if(id.error){ console.warn(`${m.name} ${fld}: ${id.error}`); continue; }
+              const spKeys=new Set(newMails.filter(x=>x.owner===m.email&&x.folder===fld).map(x=>x.dateRaw));
+              (id.mails||[]).forEach(mail=>{
+                if(!spKeys.has(mail.dateRaw)){
+                  mail.ownerName=m.name; mail.color=m.color||"av0";
+                  mail.folder=fld;  // 보정
+                  newMails.push(mail);
+                }
+              });
+            } catch(e){
+              console.warn(`${m.name} IMAP ${fld} 오류:`,e.message);
+            }
           }
+          backupImapToSP(m);
         }
       }catch(e){console.warn(m.email,e.message);}
     }
@@ -602,7 +657,7 @@ async function loadHdrs(total){
     }));
     if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
     const now=Date.now();
-    if(now-lastUI>2000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${noH.length}`);if(curMTab==="list")applyFilter();}
+    if(now-lastUI>2000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${noH.length}`);applyFilter();}
     await new Promise(r=>setTimeout(r,DELAY));
   }
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
@@ -616,24 +671,27 @@ async function doRefresh(){
     const newMails=[];
     for(const m of MEMBERS){
       if(!m.user||!m.pass) continue;
-      try{
-        const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100})
-        });
-        const id=await ir.json();
-        if(id.error) continue;
-        // 기존에 없는 것만 추가
-        const existKeys=new Set(allMails.filter(x=>x.owner===m.email).map(x=>x.dateRaw));
-        let added=0;
-        (id.mails||[]).forEach(mail=>{
-          if(!existKeys.has(mail.dateRaw)){
-            mail.ownerName=m.name; mail.color=m.color||"av0";
-            newMails.push(mail); added++;
-          }
-        });
-        if(added>0) console.log(`${m.name} 새메일 ${added}통`);
-      }catch(e){ console.warn(m.name,e.message); }
+      for(const fld of ["inbox","sent"]){
+        try{
+          const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100,folder:fld})
+          });
+          const id=await ir.json();
+          if(id.error) continue;
+          // 기존 (같은 폴더 안에서만) 키 비교
+          const existKeys=new Set(allMails.filter(x=>x.owner===m.email&&(x.folder||"inbox")===fld).map(x=>x.dateRaw));
+          let added=0;
+          (id.mails||[]).forEach(mail=>{
+            if(!existKeys.has(mail.dateRaw)){
+              mail.ownerName=m.name; mail.color=m.color||"av0";
+              mail.folder=fld;
+              newMails.push(mail); added++;
+            }
+          });
+          if(added>0) console.log(`${m.name} ${fld} 새메일 ${added}통`);
+        }catch(e){ console.warn(`${m.name} ${fld}`,e.message); }
+      }
     }
     if(newMails.length>0){
       allMails=[...allMails,...newMails];
@@ -823,19 +881,121 @@ function switchTab(tab,el){
   const ct=document.getElementById("ctPage");
   const cfg=document.getElementById("cfgPage");
   const cal=document.getElementById("calPage");
+  const db=document.getElementById("dbPage");
   const hh=document.getElementById("mainHeader").offsetHeight;
-  [ct,cfg,cal].forEach(p=>{if(p)p.classList.remove("on");});
+  [ct,cfg,cal,db].forEach(p=>{if(p)p.classList.remove("on");});
   if(tab==="contacts"){ct.style.top=hh+"px";ct.classList.add("on");if(allCt.length===0)buildCt();else renderCt(filtCt);}
   else if(tab==="settings"){cfg.style.top=hh+"px";cfg.classList.add("on");renderMemberList();}
   else if(tab==="calendar"){cal.style.top=hh+"px";cal.classList.add("on");if(calEvents.length===0)loadCalendar();else renderCalendar();}
+  else if(tab==="db"){db.style.top=hh+"px";db.classList.add("on");renderDBTabs();renderDB();}
 }
-let _activeMTab="list";
-function switchMTab(tab,el){
-  document.querySelectorAll(".ml-tab").forEach(t=>t.classList.remove("on"));if(el)el.classList.add("on");
-  _activeMTab=tab;
-  const list=document.getElementById("mList");const tbl=document.getElementById("tblPanel");
-  if(tab==="list"){tbl.style.display="none";list.style.display="";applyFilter();}
-  else{list.style.display="none";tbl.style.display="flex";tbl.style.flexDirection="column";renderDoc(tab);}
+
+// ── DB 페이지 ───────────────────────────────────────
+let _dbTab="tax";       // 활성 탭
+let _dbSort={col:"date",dir:-1};  // 최신순 기본
+
+function renderDBTabs(){
+  const counts={};
+  DOC_ORDER.forEach(k=>{counts[k]=0;});
+  allMails.forEach(m=>{const d=getDoc(m);if(d&&counts[d]!==undefined)counts[d]++;});
+  const el=document.getElementById("dbTabs");
+  el.innerHTML=DOC_ORDER.map(k=>
+    `<div class="db-tab ${_dbTab===k?"on":""}" onclick="selDBTab('${k}')">
+      <span>${DOC_ICON[k]}</span><span>${DOC_LBL[k]}</span>
+      <span class="db-tab-cnt">${counts[k]}</span>
+    </div>`
+  ).join("");
+}
+
+function selDBTab(k){_dbTab=k;renderDBTabs();renderDB();}
+
+function sortDB(col){
+  if(_dbSort.col===col) _dbSort.dir*=-1;
+  else {_dbSort.col=col; _dbSort.dir=(col==="date"?-1:1);}
+  renderDB();
+}
+
+function getDBRows(){
+  const srch=(document.getElementById("dbSrch")?.value||"").trim().toLowerCase();
+  let rows=allMails.filter(m=>getDoc(m)===_dbTab);
+  if(srch){
+    rows=rows.filter(m=>{
+      const t=[m.subject||"",m.from||"",(m.to||[]).map(x=>x.email||x.name||"").join(" "),m.ownerName||""].join(" ").toLowerCase();
+      return t.includes(srch);
+    });
+  }
+  // 정렬
+  const dir=_dbSort.dir, col=_dbSort.col;
+  rows.sort((a,b)=>{
+    let va, vb;
+    if(col==="date"){ va=new Date(a.dateRaw||a.date||0).getTime(); vb=new Date(b.dateRaw||b.date||0).getTime(); }
+    else if(col==="subject"){ va=(a.subject||"").toLowerCase(); vb=(b.subject||"").toLowerCase(); }
+    else if(col==="from"){ va=(exNm(a.from)||a.from||"").toLowerCase(); vb=(exNm(b.from)||b.from||"").toLowerCase(); }
+    else if(col==="to"){ va=((a.to||[])[0]?.email||"").toLowerCase(); vb=((b.to||[])[0]?.email||"").toLowerCase(); }
+    else if(col==="owner"){ va=(a.ownerName||"").toLowerCase(); vb=(b.ownerName||"").toLowerCase(); }
+    else va=vb=0;
+    return va<vb?-1*dir:va>vb?1*dir:0;
+  });
+  return rows;
+}
+
+function renderDB(){
+  const rows=getDBRows();
+  const status=document.getElementById("dbStatus");
+  if(status) status.textContent=`${DOC_LBL[_dbTab]} ${rows.length}건`;
+  const body=document.getElementById("dbBody");
+  if(rows.length===0){
+    body.innerHTML=`<div class="db-empty">📭 ${DOC_LBL[_dbTab]} 메일이 없습니다<br><span style="font-size:12px">제목과 첨부파일명에서 ${DOC_KW[_dbTab].slice(0,3).join(", ")}... 키워드를 찾습니다</span></div>`;
+    return;
+  }
+  const arrow=(c)=>_dbSort.col===c?`<span class="db-sort">${_dbSort.dir<0?"▼":"▲"}</span>`:"";
+  body.innerHTML=`
+    <table class="db-tbl">
+      <thead><tr>
+        <th style="width:130px" onclick="sortDB('date')">날짜${arrow("date")}</th>
+        <th onclick="sortDB('subject')">제목${arrow("subject")}</th>
+        <th style="width:170px" onclick="sortDB('from')">보낸사람${arrow("from")}</th>
+        <th style="width:170px" onclick="sortDB('to')">받는사람${arrow("to")}</th>
+        <th style="width:90px" onclick="sortDB('owner')">메일함${arrow("owner")}</th>
+        <th style="width:40px">📎</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(m=>{
+          const idx=allMails.indexOf(m);
+          const dt=fmtMailDate(m.dateRaw||m.date||"");
+          const from=exNm(m.from)||m.from||"-";
+          const fromEmail=(m.from||"").match(/<([^>]+)>/)?.[1]||"";
+          const to=(m.to||[])[0];
+          const toLabel=to?(to.name||to.email||"-"):"-";
+          return `<tr onclick="switchTab('mail',document.querySelector('.hd-tab'));setTimeout(()=>openMail(${idx}),50)">
+            <td class="db-date">${esc(dt)}</td>
+            <td class="db-subj" title="${esc(m.subject||"")}">${esc(m.subject||"(제목없음)")}</td>
+            <td class="db-from" title="${esc(fromEmail||from)}">${esc(from)}</td>
+            <td class="db-to" title="${esc(to?.email||"")}">${esc(toLabel)}</td>
+            <td class="db-owner"><span class="mi-tag tbh">${esc(m.ownerName||"")}</span></td>
+            <td>${m.hasAttachment?"📎":""}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function exportDB(){
+  const rows=getDBRows();
+  const head=["날짜","제목","보낸사람","받는사람","메일함","첨부"];
+  const body=rows.map(m=>{
+    const dt=fmtMailDate(m.dateRaw||m.date||"");
+    const from=exNm(m.from)||m.from||"";
+    const to=(m.to||[])[0];
+    const toLabel=to?(to.name||to.email||""):"";
+    return [dt, m.subject||"", from, toLabel, m.ownerName||"", m.hasAttachment?"O":""];
+  });
+  const csv=[head,...body].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`${DOC_LBL[_dbTab]}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
 
 // 필터/렌더
@@ -844,13 +1004,36 @@ function onSearch(){clearTimeout(_srchT);_srchT=setTimeout(applyFilter,80);}
 function applyFilter(){
   const q=(document.getElementById("srch")?.value||"").toLowerCase();
   filtered=allMails.filter(m=>{
-    if(curOwner!=="all"&&m.owner!==curOwner)return false;
-    if(q&&!(m.subject||"").toLowerCase().includes(q)&&!(m.from||"").toLowerCase().includes(q))return false;
+    if((m.folder||"inbox")!==curFolder) return false;          // ★ 받은/보낸 분리
+    if(curOwner!=="all"&&m.owner!==curOwner) return false;
+    if(q&&!(m.subject||"").toLowerCase().includes(q)&&!(m.from||"").toLowerCase().includes(q)) return false;
     return true;
   });
   document.getElementById("mlTitle").textContent=curOwner==="all"?"전체":(MEMBERS.find(m=>m.email===curOwner)?.name||"");
   document.getElementById("mlCnt").textContent=filtered.length+"통";
-  if(_activeMTab==="list")renderList();
+  // 받은/보낸 카운트 갱신
+  updateFolderCounts();
+  renderList();
+  if(document.getElementById("dbPage")?.classList.contains("on")){renderDBTabs();renderDB();}
+}
+
+function updateFolderCounts(){
+  // 현재 선택된 owner 기준으로 카운트
+  const scope=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
+  const inboxN=scope.filter(m=>(m.folder||"inbox")==="inbox").length;
+  const sentN=scope.filter(m=>m.folder==="sent").length;
+  const ic=document.getElementById("ftInboxCnt"), sc=document.getElementById("ftSentCnt");
+  if(ic) ic.textContent=inboxN;
+  if(sc) sc.textContent=sentN;
+  const it=document.getElementById("ftInbox"), st=document.getElementById("ftSent");
+  if(it) it.classList.toggle("on", curFolder==="inbox");
+  if(st) st.classList.toggle("on", curFolder==="sent");
+}
+
+function selFolder(f){
+  if(curFolder===f) return;
+  curFolder=f;
+  applyFilter();
 }
 
 const PAGE=50;let _page=0;
@@ -884,7 +1067,17 @@ function fmtMailDate(raw){
 function mkItems(mails){
   return mails.map(m=>{
     const idx=allMails.indexOf(m);
-    const nm=exNm(m.from)||m.from||"(발신자없음)";
+    const isSent=m.folder==="sent";
+    // 보낸메일이면 "to → 받는사람" 표시, 받은메일이면 발신자 표시
+    let nm;
+    if(isSent){
+      const to0=(m.to||[])[0];
+      const toN=to0?(to0.name||to0.email||""):"";
+      const more=(m.to||[]).length>1?` 외 ${m.to.length-1}`:"";
+      nm=`→ ${toN||"(수신자없음)"}${more}`;
+    } else {
+      nm=exNm(m.from)||m.from||"(발신자없음)";
+    }
     const dt=fmtMailDate(m.dateRaw||m.date||"");
     const tc=m.owner==="kwkang@enjet.co.kr"?"tkw":"tbh";
     const on=MEMBERS.find(x=>x.email===m.owner)?.name||"";
@@ -923,7 +1116,7 @@ async function openMail(idx){
         const ir=await fetch(`${RENDER_URL}/api/imap/body`,{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid}),
+          body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid,folder:m.folder||"inbox"}),
           signal:ctrl.signal
         });
         if(!ir.ok) throw new Error("IMAP 본문 오류");
@@ -969,21 +1162,6 @@ function selOwner(em){curOwner=em;renderSB();applyFilter();}
 
 // 문서 분류
 function getDoc(m){const txt=[m.subject||"",...(m.attachments||[]).map(a=>a.name||a)].join(" ").toLowerCase();for(const[t,ks]of Object.entries(DOC_KW)){if(ks.some(k=>txt.includes(k)))return t;}return null;}
-function renderDoc(type){
-  const target=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
-  const docs=target.filter(m=>getDoc(m)===type);
-  const clr={tax:"doc-tax",quote:"doc-quote",po:"doc-po"};
-  document.getElementById("tblInfo").textContent=`${DOC_LBL[type]} ${docs.length}건`;
-  document.getElementById("tblHead").innerHTML=`<tr><th>날짜</th><th>제목</th><th>발신자</th><th>메일함</th><th>첨부</th></tr>`;
-  if(!docs.length){document.getElementById("tblBody").innerHTML=`<tr><td colspan="5"><div class="lb">📭 ${DOC_LBL[type]} 메일이 없습니다</div></td></tr>`;return;}
-  document.getElementById("tblBody").innerHTML=docs.map(m=>{const idx=allMails.indexOf(m);return`<tr onclick="switchMTab('list',document.querySelector('.ml-tab'));openMail(${idx})"><td style="font-family:var(--m);font-size:11px">${esc((m.date||"").slice(0,10))}</td><td class="td-s"><span class="doc-b ${clr[type]}">${DOC_LBL[type]}</span> ${esc(m.subject||"(제목없음)")}</td><td>${esc(exNm(m.from)||"-")}</td><td>${esc(m.ownerName||"")}</td><td>${m.hasAttachment?"📎":""}</td></tr>`;}).join("");
-}
-function exportTbl(){
-  const mails=_activeMTab!=="list"?allMails.filter(m=>getDoc(m)===_activeMTab):filtered;
-  const rows=[["날짜","제목","발신자","메일함"]];mails.forEach(m=>rows.push([(m.date||"").slice(0,10),m.subject||"",m.from||"",m.ownerName||""]));
-  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_${_activeMTab}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
-}
 
 // 주소록
 function getDom(em){return(em||"").split("@")[1]||"";}

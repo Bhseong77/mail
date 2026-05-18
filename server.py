@@ -556,17 +556,155 @@ def imap_connect(user, password, server=None, port=993):
     except Exception as e2:
         raise Exception("로그인 실패 (login:{}, plain:{})".format(err1, str(e2)))
 
-def imap_get_mails(user, password, email_addr, server=None, limit=200):
-    """팀원 메일 조회"""
+
+# ── IMAP 폴더 자동 탐지 헬퍼 ─────────────────────────
+# 다우오피스/IMAP 서버마다 폴더명이 다름.
+# - 보낸메일함: Sent, Sent Items, Sent Messages, "보낸메일함", "보낸 편지함" 등
+# - LIST 명령으로 폴더 목록을 받고, 표준 \\Sent 플래그 또는 이름으로 매칭
+def _decode_mailbox_name(raw):
+    """IMAP LIST 응답에서 폴더명 부분 추출 (modified UTF-7 디코딩 포함)"""
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="ignore")
+        # LIST 응답 형식: (\HasNoChildren \Sent) "/" "Sent"
+        # 마지막 따옴표 안의 값이 폴더명
+        if '"' in raw:
+            # 마지막 따옴표 쌍
+            parts = raw.rsplit('"', 2)
+            if len(parts) >= 3:
+                return parts[1]
+        # 따옴표 없으면 마지막 공백 뒤
+        return raw.split()[-1] if raw.split() else ""
+    except:
+        return ""
+
+def _imap_utf7_decode(name):
+    """IMAP modified UTF-7 → UTF-8 (보낸메일함 같은 한글 폴더명용)"""
+    if not name or "&" not in name:
+        return name
+    try:
+        # imap_utf7 모듈 없으면 직접 변환
+        import re as _re
+        def _decode_part(m):
+            b64 = m.group(1).replace(",", "/")
+            # 패딩
+            b64 += "=" * (-len(b64) % 4)
+            try:
+                return base64.b64decode(b64).decode("utf-16-be")
+            except:
+                return m.group(0)
+        return _re.sub(r"&([A-Za-z0-9+/,]*)-", lambda m: "&" if m.group(1)=="" else _decode_part(m), name)
+    except:
+        return name
+
+def _imap_utf7_encode(name):
+    """UTF-8 → IMAP modified UTF-7 (한글 폴더 select 할 때 필요)"""
+    try:
+        # ASCII 문자만 있으면 인코딩 불필요
+        name.encode("ascii")
+        return name
+    except UnicodeEncodeError:
+        pass
+    # 비ASCII 부분만 modified UTF-7로
+    import re as _re
+    result = []
+    buf = []
+    for ch in name:
+        if ord(ch) < 0x20 or ord(ch) > 0x7e or ch == "&":
+            buf.append(ch)
+        else:
+            if buf:
+                # 비ASCII 버퍼 flush
+                b64 = base64.b64encode("".join(buf).encode("utf-16-be")).decode("ascii")
+                b64 = b64.rstrip("=").replace("/", ",")
+                result.append("&" + b64 + "-")
+                buf = []
+            if ch == "&":
+                result.append("&-")
+            else:
+                result.append(ch)
+    if buf:
+        b64 = base64.b64encode("".join(buf).encode("utf-16-be")).decode("ascii")
+        b64 = b64.rstrip("=").replace("/", ",")
+        result.append("&" + b64 + "-")
+    return "".join(result)
+
+def _list_folders(mail):
+    """IMAP 서버의 폴더 목록 조회 → [(이름, 플래그)]"""
+    try:
+        typ, data = mail.list()
+        if typ != "OK":
+            return []
+        folders = []
+        for raw in data:
+            if not raw:
+                continue
+            try:
+                s = raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else str(raw)
+            except:
+                continue
+            # 형식: (\HasNoChildren \Sent) "/" "Sent"
+            import re as _re
+            m = _re.match(r'\((.*?)\)\s+("[^"]*"|\S+)\s+("[^"]+"|\S+)$', s)
+            if m:
+                flags = m.group(1)
+                name_raw = m.group(3).strip('"')
+                name = _imap_utf7_decode(name_raw)
+                folders.append((name, name_raw, flags))
+        return folders
+    except Exception as e:
+        print("[IMAP] list 오류: {}".format(e))
+        return []
+
+def _pick_folder(mail, target):
+    """target: 'inbox' 또는 'sent'. 매칭되는 폴더의 raw 이름 반환"""
+    if target == "inbox":
+        return "INBOX"
+    folders = _list_folders(mail)
+    # 보낸메일함 후보 (플래그 우선 → 영문명 → 한글명)
+    if target == "sent":
+        # 1. \Sent 플래그
+        for name, raw, flags in folders:
+            if "\\Sent" in flags or "\\sent" in flags.lower():
+                return raw
+        # 2. 영문 표준명
+        en_candidates = ["Sent", "Sent Items", "Sent Messages", "Sent Mail", "INBOX.Sent", "INBOX/Sent"]
+        for name, raw, flags in folders:
+            if name in en_candidates or raw in en_candidates:
+                return raw
+        # 3. 한글
+        kr_candidates = ["보낸메일함", "보낸 메일함", "보낸편지함", "보낸 편지함"]
+        for name, raw, flags in folders:
+            if name in kr_candidates:
+                return raw
+        # 4. 이름에 sent/보낸 포함
+        for name, raw, flags in folders:
+            low = name.lower()
+            if "sent" in low or "보낸" in name:
+                return raw
+    return None
+
+
+def imap_get_mails(user, password, email_addr, server=None, limit=200, folder="inbox"):
+    """팀원 메일 조회. folder: 'inbox' 또는 'sent'"""
     try:
         mail = imap_connect(user, password, server)
-        mail.select("INBOX")
+        picked = _pick_folder(mail, folder)
+        if not picked:
+            mail.logout()
+            return {"mails": [], "count": 0, "error": "{} 폴더를 찾을 수 없습니다".format(folder)}
+        # 한글 폴더명은 modified UTF-7로 인코딩한 raw가 이미 들어있음 (folders[][1])
+        # 폴더명을 따옴표로 감싸서 select
+        typ, _ = mail.select('"{}"'.format(picked) if " " in picked else picked)
+        if typ != "OK":
+            mail.logout()
+            return {"mails": [], "count": 0, "error": "select 실패: {}".format(picked)}
+
         _, data = mail.search(None, "ALL")
         ids = data[0].split()
         ids = ids[-limit:][::-1]  # 최신순
-        
+
         results = []
-        # 헤더만 먼저 가져오기 (빠름)
         for uid in ids:
             try:
                 _, msg_data = mail.fetch(uid, "(RFC822.HEADER)")
@@ -584,12 +722,12 @@ def imap_get_mails(user, password, email_addr, server=None, limit=200):
                 except:
                     date_fmt = date_str
                     date_raw = date_str
-                
+
                 results.append({
-                    "cacheKey":    f"{email_addr}/imap/{uid.decode()}",
+                    "cacheKey":    f"{email_addr}/imap/{folder}/{uid.decode()}",
                     "uid":         uid.decode(),
                     "owner":       email_addr,
-                    "ownerName":   "",  # 대시보드에서 채움
+                    "ownerName":   "",
                     "subject":     subject,
                     "from":        from_raw,
                     "to":          parse_addresses(to_raw),
@@ -601,21 +739,27 @@ def imap_get_mails(user, password, email_addr, server=None, limit=200):
                     "headerLoaded": True,
                     "bodyLoaded":  False,
                     "body":        "",
-                    "source":      "imap",  # SP 백업과 구분
+                    "source":      "imap",
+                    "folder":      folder,
                 })
             except Exception as e:
                 continue
-        
+
         mail.logout()
-        return {"mails": results, "count": len(results), "error": None}
+        return {"mails": results, "count": len(results), "folder": folder, "folder_raw": picked, "error": None}
     except Exception as e:
         return {"mails": [], "count": 0, "error": str(e)}
 
-def imap_get_body(user, password, uid, server=None):
-    """특정 메일 본문 가져오기"""
+
+def imap_get_body(user, password, uid, server=None, folder="inbox"):
+    """특정 메일 본문 가져오기. folder: 'inbox' 또는 'sent'"""
     try:
         mail = imap_connect(user, password, server)
-        mail.select("INBOX")
+        picked = _pick_folder(mail, folder)
+        if not picked:
+            mail.logout()
+            return {"error": "{} 폴더를 찾을 수 없습니다".format(folder)}
+        mail.select('"{}"'.format(picked) if " " in picked else picked)
         _, msg_data = mail.fetch(uid.encode(), "(RFC822)")
         msg = email.message_from_bytes(msg_data[0][1])
         mail.logout()
@@ -634,23 +778,24 @@ def imap_get_body(user, password, uid, server=None):
 @app.route("/api/imap/mails", methods=["POST"])
 def api_imap_mails():
     """팀원별 IMAP 메일 목록 조회
-    Body: { user, pass, email, server(optional), limit(optional) }
+    Body: { user, pass, email, server(optional), limit(optional), folder(optional: "inbox"|"sent") }
     """
     try:
         data = request.get_json()
         if not data:
             return jsonify({"error": "JSON 데이터 없음"}), 400
-        
+
         user     = data.get("user", "")
         password = data.get("pass", "")
         email_addr = data.get("email", "")
         server   = data.get("server", None)
         limit    = int(data.get("limit", 200))
-        
+        folder   = data.get("folder", "inbox")  # ★ inbox 또는 sent
+
         if not user or not password:
             return jsonify({"error": "user/pass 필요"}), 400
-        
-        result = imap_get_mails(user, password, email_addr, server, limit)
+
+        result = imap_get_mails(user, password, email_addr, server, limit, folder)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -659,7 +804,7 @@ def api_imap_mails():
 @app.route("/api/imap/body", methods=["POST"])
 def api_imap_body():
     """특정 메일 본문 조회
-    Body: { user, pass, uid, server(optional) }
+    Body: { user, pass, uid, server(optional), folder(optional: "inbox"|"sent") }
     """
     try:
         data = request.get_json()
@@ -667,12 +812,44 @@ def api_imap_body():
         password = data.get("pass", "")
         uid      = data.get("uid", "")
         server   = data.get("server", None)
-        
+        folder   = data.get("folder", "inbox")  # ★
+
         if not user or not password or not uid:
             return jsonify({"error": "user/pass/uid 필요"}), 400
-        
-        result = imap_get_body(user, password, uid, server)
+
+        result = imap_get_body(user, password, uid, server, folder)
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── 디버그: 다우오피스 폴더 목록 확인용 ─────────────
+@app.route("/api/imap/folders", methods=["POST"])
+def api_imap_folders():
+    """팀원의 IMAP 폴더 목록 (디버그/탐색용)
+    Body: { user, pass, server(optional) }
+    응답: [{"name":..., "raw":..., "flags":...}], inbox_detected, sent_detected
+    """
+    try:
+        data = request.get_json() or {}
+        user     = data.get("user", "")
+        password = data.get("pass", "")
+        server   = data.get("server", None)
+        if not user or not password:
+            return jsonify({"error": "user/pass 필요"}), 400
+
+        mail = imap_connect(user, password, server)
+        folders_raw = _list_folders(mail)
+        folders = [{"name": n, "raw": r, "flags": f} for n, r, f in folders_raw]
+        inbox = _pick_folder(mail, "inbox")
+        sent  = _pick_folder(mail, "sent")
+        mail.logout()
+        return jsonify({
+            "folders": folders,
+            "inbox_picked": inbox,
+            "sent_picked": sent,
+            "total": len(folders)
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1067,4 +1244,3 @@ def api_calendar_diagnose():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
