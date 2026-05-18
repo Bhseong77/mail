@@ -142,6 +142,10 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .ct-ed:hover{background:var(--bg3);outline:1px dashed var(--border2)}
 .ct-date{font-family:var(--m);font-size:12px;color:var(--t3);white-space:nowrap}
 .ct-new-badge{display:inline-block;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;margin-left:6px;border:1px solid #fcd34d}
+.ct-view-btn{padding:6px 10px;border:1px solid #c4b5fd;border-radius:6px;background:#f5f3ff;color:#5b21b6;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit}
+.ct-view-btn:hover{background:#ede9fe;border-color:#7c3aed}
+.ct-av:hover{transform:scale(1.08);box-shadow:0 0 0 2px var(--p)}
+.ct-av{transition:transform .15s, box-shadow .15s}
 .ct-foot{padding:10px 16px;border-top:1px solid var(--border);background:var(--bg3);font-size:13px;color:var(--t3);display:flex;justify-content:space-between}
 .lb{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;gap:10px;color:var(--t3);font-size:15px}
 .sp{width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite}
@@ -348,7 +352,8 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
         <th onclick="sortCt('dept')" style="width:200px">부서/직함</th>
         <th onclick="sortCt('email')">이메일</th>
         <th onclick="sortCt('mobile')" style="width:160px">전화번호</th>
-        <th onclick="sortCt('firstSeen')" style="width:130px">최초 연락</th>
+        <th onclick="sortCt('firstSeen')" style="width:120px">최초 연락</th>
+        <th style="width:90px">메일</th>
       </tr></thead>
       <tbody id="ctBody"></tbody>
     </table>
@@ -504,6 +509,7 @@ let allMails=[],filtered=[];
 let allCt=[],filtCt=[];
 let curOwner="all",curMTab="list";
 let curFolder="inbox";   // ★ 받은/보낸 탭
+let curContact=null;     // ★ 주소록에서 선택된 외부 연락처 (email/name 객체)
 let ctSortK="name",ctSortD="asc";
 let isSyncing=false;
 const _ctCache=new Map();
@@ -1521,17 +1527,34 @@ function dedupMails(list){
 
 function applyFilter(){
   const q=(document.getElementById("srch")?.value||"").toLowerCase();
+  const ce = curContact ? (curContact.email||"").toLowerCase() : null;
+
   let pool=allMails.filter(m=>{
     if((m.folder||"inbox")!==curFolder) return false;
     if(curOwner!=="all"&&m.owner!==curOwner) return false;
     if(q&&!(m.subject||"").toLowerCase().includes(q)&&!(m.from||"").toLowerCase().includes(q)) return false;
+
+    // 연락처 필터: 그 사람이 보냈거나 받은 메일만
+    if(ce){
+      const fromMatch = (m.from||"").toLowerCase().includes(ce);
+      const toMatch = (m.to||[]).some(t => (t.email||"").toLowerCase()===ce);
+      const ccMatch = (m.cc||[]).some(c => (c.email||"").toLowerCase()===ce);
+      if(!fromMatch && !toMatch && !ccMatch) return false;
+    }
     return true;
   });
-  // 전체보기일 때만 중복 제거 (개별 사용자 보기는 그대로)
-  filtered = (curOwner==="all") ? dedupMails(pool) : pool;
-  document.getElementById("mlTitle").textContent=curOwner==="all"?"전체":(MEMBERS.find(m=>m.email===curOwner)?.name||"");
+  filtered = (curOwner==="all" && !ce) ? dedupMails(pool) : pool;
+
+  // 타이틀: 연락처 필터가 있으면 우선 표시
+  const mlTitle = document.getElementById("mlTitle");
+  if(ce){
+    mlTitle.innerHTML = `👤 <span style="color:var(--p)">${esc(curContact.name||curContact.email)}</span>와(과) 주고받은 메일 <button onclick="clearContactFilter()" style="margin-left:8px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;padding:1px 8px;font-size:12px;cursor:pointer;font-weight:700">✕ 해제</button>`;
+  } else {
+    mlTitle.textContent = curOwner==="all" ? "전체" : (MEMBERS.find(m=>m.email===curOwner)?.name||"");
+  }
+
   const totalRaw=pool.length, totalUnique=filtered.length;
-  document.getElementById("mlCnt").textContent= (curOwner==="all" && totalRaw!==totalUnique)
+  document.getElementById("mlCnt").textContent= (curOwner==="all" && !ce && totalRaw!==totalUnique)
     ? `${totalUnique}통 (중복 ${totalRaw-totalUnique}건 통합)`
     : `${totalUnique}통`;
   updateFolderCounts();
@@ -1539,9 +1562,22 @@ function applyFilter(){
   if(document.getElementById("dbPage")?.classList.contains("on")){renderDBTabs();renderDB();}
 }
 
+function clearContactFilter(){
+  curContact = null;
+  applyFilter();
+}
+
 function updateFolderCounts(){
-  // 현재 선택된 owner 기준으로 카운트
-  const scope=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
+  const ce = curContact ? (curContact.email||"").toLowerCase() : null;
+  // scope: owner + contact 필터 적용
+  let scope = curOwner==="all" ? allMails : allMails.filter(m=>m.owner===curOwner);
+  if(ce){
+    scope = scope.filter(m=>{
+      return (m.from||"").toLowerCase().includes(ce)
+        || (m.to||[]).some(t=>(t.email||"").toLowerCase()===ce)
+        || (m.cc||[]).some(c=>(c.email||"").toLowerCase()===ce);
+    });
+  }
   const inboxN=scope.filter(m=>(m.folder||"inbox")==="inbox").length;
   const sentN=scope.filter(m=>m.folder==="sent").length;
   const ic=document.getElementById("ftInboxCnt"), sc=document.getElementById("ftSentCnt");
@@ -1714,7 +1750,12 @@ function renderSB(){
     : "";
   document.getElementById("sbBody").innerHTML=`<div class="sb-lbl">메일함</div>${allItem}${activeHtml}${retiredHtml}`;
 }
-function selOwner(em){curOwner=em;renderSB();applyFilter();}
+function selOwner(em){
+  curOwner=em;
+  curContact=null;   // 사이드바에서 멤버 바꾸면 연락처 필터 해제
+  renderSB();
+  applyFilter();
+}
 
 // 문서 분류
 function getDoc(m){const txt=[m.subject||"",...(m.attachments||[]).map(a=>a.name||a)].join(" ").toLowerCase();for(const[t,ks]of Object.entries(DOC_KW)){if(ks.some(k=>txt.includes(k)))return t;}return null;}
@@ -1847,7 +1888,7 @@ function renderCt(list){
   document.getElementById("ctCnt").textContent=list.length+"명";
   document.getElementById("ctFoot").textContent=`총 ${list.length}명`;
   const tb=document.getElementById("ctBody");
-  if(!list.length){tb.innerHTML='<tr><td colspan="6"><div class="lb">📭 연락처 없음</div></td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="7"><div class="lb">📭 연락처 없음</div></td></tr>';return;}
   tb.innerHTML=list.map((c,i)=>{
     const co=c.company||getCo(c.email);
     const ph=c.mobile||c.tel||"";
@@ -1861,10 +1902,11 @@ function renderCt(list){
     const phoneCell=ph
       ? `<div class="ct-ed ct-ph" onclick="editCt('${k}','mobile',this)">📞 ${esc(ph)}</div>`
       : `<div class="ct-ed ct-ph-empty" onclick="editCt('${k}','mobile',this)">전화 추가...</div>`;
+    const safeName = esc(c.name||c.email);
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="ct-av ${AV[i%4]}">${(c.name||"?")[0]}</div>
+          <div class="ct-av ${AV[i%4]}" onclick="viewContactMails('${k}')" title="이 사람과 주고받은 메일 보기" style="cursor:pointer">${(c.name||"?")[0]}</div>
           <div style="min-width:0;flex:1">
             <div class="ct-ed ct-name" onclick="editCt('${k}','name',this)">${nameMain}${newBadge}</div>
             <div class="ct-name-sub">${esc(c.email.split("@")[0])}</div>
@@ -1879,8 +1921,27 @@ function renderCt(list){
       <td><a href="mailto:${esc(c.email)}" class="ct-em">${esc(c.email)}</a></td>
       <td>${phoneCell}</td>
       <td class="ct-date" title="최초 메일 수신일">${esc(fmtContactDate(c.firstSeen))}</td>
+      <td><button class="ct-view-btn" onclick="viewContactMails('${k}')" title="이 사람과 주고받은 메일 모두 보기">📧 메일</button></td>
     </tr>`;
   }).join("");
+}
+
+// 주소록 → 메일함: 그 사람과 주고받은 메일만 필터링해서 메일 탭으로 이동
+function viewContactMails(key){
+  const email=decodeURIComponent(key);
+  const c=allCt.find(x=>x.email.toLowerCase()===email.toLowerCase());
+  if(!c) return;
+  curContact = {email: c.email, name: c.name || c.email.split("@")[0]};
+  curOwner = "all";        // 전체 멤버 기준
+  curFolder = "inbox";     // 받은메일함 먼저
+  // 메일 탭으로 전환
+  const mailTab = document.querySelector('.hd-tab.on') || document.querySelector('.hd-tab');
+  switchTab('mail', mailTab);
+  // 약간 지연 후 필터 적용 (탭 전환 끝난 다음)
+  setTimeout(()=>{
+    renderSB();
+    applyFilter();
+  }, 50);
 }
 
 let _edi=null;
