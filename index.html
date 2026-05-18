@@ -433,7 +433,11 @@ async function loadAll(){
     curOwner="all";applyFilter();renderSB();
     const noH=allMails.filter(m=>!m.headerLoaded).length;
     if(noH>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
-    else setSt(`${allMails.length}통`,"ok");
+    else {
+      setSt(`${allMails.length}통`,"ok");
+      // 캐시 있어도 IMAP 새 메일 백그라운드 확인
+      setTimeout(()=>doRefresh(), 2000);
+    }
     return;
   }
   setSt("연결중...","spin");setSyncUI(true,"⏳");
@@ -515,7 +519,43 @@ async function loadHdrs(total){
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
 }
-function doRefresh(){setSt("최신 상태","ok");}
+async function doRefresh(){
+  if(isSyncing) return;
+  setSyncUI(true,"⏳ 새메일확인");
+  try {
+    const newMails=[];
+    for(const m of MEMBERS){
+      if(!m.user||!m.pass) continue;
+      try{
+        const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100})
+        });
+        const id=await ir.json();
+        if(id.error) continue;
+        // 기존에 없는 것만 추가
+        const existKeys=new Set(allMails.filter(x=>x.owner===m.email).map(x=>x.dateRaw));
+        let added=0;
+        (id.mails||[]).forEach(mail=>{
+          if(!existKeys.has(mail.dateRaw)){
+            mail.ownerName=m.name; mail.color=m.color||"av0";
+            newMails.push(mail); added++;
+          }
+        });
+        if(added>0) console.log(`${m.name} 새메일 ${added}통`);
+      }catch(e){ console.warn(m.name,e.message); }
+    }
+    if(newMails.length>0){
+      allMails=[...allMails,...newMails];
+      allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
+      await dbPut("mails",newMails);
+      applyFilter(); renderSB();
+      setSt(`+${newMails.length}통 새메일`,"ok");
+    } else {
+      setSt("최신 상태","ok");
+    }
+  } finally { setSyncUI(false); }
+}
 async function doFullSync(){
   if (!confirm("전체 재동기화합니다?")) return;
   isSyncing = false; // 강제 초기화

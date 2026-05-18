@@ -517,14 +517,29 @@ def parse_eml_contact():
 # ── 팀원별 IMAP 메일 조회 ────────────────────────────
 def imap_connect(user, password, server=None, port=993):
     """IMAP 연결 - 한글/특수문자 비밀번호 지원"""
+    import base64
     srv = server or IMAP_SERVER
-    mail = imaplib.IMAP4_SSL(srv, port)
-    # 비밀번호를 UTF-8 bytes로 직접 전달
-    if isinstance(user, str):
-        user = user.encode('utf-8')
-    if isinstance(password, str):
-        password = password.encode('utf-8')
-    mail.login(user, password)
+
+    # AUTHENTICATE PLAIN 방식 (한글 비밀번호 지원)
+    class IMAP4_SSL_PLAIN(imaplib.IMAP4_SSL):
+        def login_plain(self, user, password):
+            # PLAIN: base64(\0user\0password)
+            auth_str = "\0{}\0{}".format(user, password)
+            auth_b64 = base64.b64encode(auth_str.encode("utf-8")).decode("ascii")
+            typ, dat = self._simple_command("AUTHENTICATE", "PLAIN", auth_b64)
+            if typ != "OK":
+                raise imaplib.IMAP4.error("PLAIN AUTH 실패: {}".format(dat))
+            self.capabilities = None  # force re-read
+            return typ, dat
+
+    mail = IMAP4_SSL_PLAIN(srv, port)
+    try:
+        mail.login_plain(user, password)
+    except Exception:
+        # fallback: 일반 login
+        mail2 = imaplib.IMAP4_SSL(srv, port)
+        mail2.login(user, password)
+        return mail2
     return mail
 
 def imap_get_mails(user, password, email_addr, server=None, limit=200):
