@@ -437,6 +437,9 @@ async function spLoad(path){try{const r=await fetchSP(spUrl(path)+"/content");if
 
 // 로딩
 async function loadAll(){
+  // Render 서버 미리 깨우기 (sleep 방지)
+  fetch(`${RENDER_URL}/api/health`).catch(()=>{});
+
   // 1. IndexedDB 캐시 확인 (가장 빠름)
   const cached=await dbGet("mails");
   if(cached.length>0){
@@ -474,13 +477,18 @@ async function loadAll(){
         if(m.user&&m.pass){
           setSt(`${m.name} IMAP...`,"spin");
           try {
+            // 30초 타임아웃
+            const ctrl = new AbortController();
+            const timer = setTimeout(()=>ctrl.abort(), 30000);
             const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
-              method:"POST",headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100})
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100}),
+              signal:ctrl.signal
             });
+            clearTimeout(timer);
             const id=await ir.json();
             if(id.error) throw new Error(id.error);
-            // SP 백업과 중복 제거 (dateRaw 기준)
             const spKeys=new Set(newMails.filter(x=>x.owner===m.email).map(x=>x.dateRaw));
             (id.mails||[]).forEach(mail=>{
               if(!spKeys.has(mail.dateRaw)){
@@ -488,8 +496,11 @@ async function loadAll(){
                 newMails.push(mail);
               }
             });
-            backupImapToSP(m); // 백그라운드 SP 백업
-          } catch(e){ console.warn(`${m.name} IMAP오류:`,e.message); }
+            backupImapToSP(m);
+          } catch(e){
+            console.warn(`${m.name} IMAP오류:`,e.message);
+            // 타임아웃이나 오류여도 다음 팀원으로 계속 진행
+          }
         }
       }catch(e){console.warn(m.email,e.message);}
     }
