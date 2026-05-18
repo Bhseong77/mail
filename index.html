@@ -379,7 +379,18 @@ async function dbClear(){const d=await openDB();await new Promise(res=>{const tx
 // UI
 function setSt(txt,type=""){document.getElementById("stTxt").textContent=txt;document.getElementById("stDot").className="dot"+(type?" "+type:"");}
 function setPb(p){const b=document.getElementById("pb");const f=document.getElementById("pf");if(p<=0||p>=100){setTimeout(()=>b.style.display="none",400);}else b.style.display="block";f.style.width=p+"%";}
-function setSyncUI(on,lbl="🔃 동기화"){isSyncing=on;const b=document.getElementById("syncBtn");const rb=document.getElementById("refreshBtn");if(!b)return;b.disabled=on;b.textContent=on?lbl:"🔃 동기화";b.style.opacity=on?".5":"";if(rb){rb.disabled=on;rb.style.opacity=on?".5":"";};}
+function setSyncUI(on,lbl="🔃 동기화"){
+  isSyncing=on;
+  const b=document.getElementById("syncBtn");
+  const rb=document.getElementById("refreshBtn");
+  if(!b)return;
+  // 헤더 로딩 중에도 버튼은 보이게 (비활성화만)
+  b.disabled=on;
+  b.textContent=on?lbl:"🔃 동기화";
+  b.style.opacity=on?".6":"";
+  b.style.display=""; // 항상 보이게
+  if(rb){rb.disabled=on;rb.style.opacity=on?".6":"";}
+}
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 // MSAL
@@ -521,6 +532,7 @@ async function loadHdrs(total){
 }
 async function doRefresh(){
   if(isSyncing) return;
+  if(MEMBERS.length===0) await loadMembers();
   setSyncUI(true,"⏳ 새메일확인");
   try {
     const newMails=[];
@@ -557,10 +569,17 @@ async function doRefresh(){
   } finally { setSyncUI(false); }
 }
 async function doFullSync(){
-  if (!confirm("전체 재동기화합니다?")) return;
-  isSyncing = false; // 강제 초기화
-  await dbClear(); allMails=[]; filtered=[];
-  curOwner="all"; applyFilter(); renderSB();
+  if (!confirm("전체 재동기화합니다?\n(모든 캐시 초기화 후 다시 불러옵니다)")) return;
+  isSyncing = false;
+  // UI 초기화
+  allMails=[]; filtered=[];
+  curOwner="all";
+  document.getElementById("mList").innerHTML='<div class="lb"><div class="sp"></div>초기화 중...</div>';
+  // 캐시 지우기
+  await dbClear();
+  // 팀원 목록 다시 로딩 후 메일 로딩
+  await loadMembers();
+  renderSB();
   loadAll();
 }
 async function clearCache(){if(!confirm("캐시를 초기화합니다."))return;await dbClear();_ctCache.clear();alert("완료!");location.reload();}
