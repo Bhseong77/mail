@@ -665,21 +665,22 @@ def api_imap_body():
 
 @app.route("/api/imap/test", methods=["POST"])
 def api_imap_test():
-    """IMAP 연결 테스트
-    Body: { user, pass, server(optional) }
-    """
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
         user     = data.get("user", "")
         password = data.get("pass", "")
         server   = data.get("server", IMAP_SERVER)
-        
+
+        # 디버그: 받은 값 확인
+        print(f"[IMAP TEST] user={user}, pass_len={len(password)}, pass_ascii={password.isascii()}")
+
         mail = imap_connect(user, password, server)
         _, data2 = mail.select("INBOX")
         count = int(data2[0])
         mail.logout()
         return jsonify({"status": "ok", "count": count, "server": server})
     except Exception as e:
+        print(f"[IMAP TEST ERROR] {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
 
 

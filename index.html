@@ -674,9 +674,17 @@ async function testMember(i){
       body:JSON.stringify({user:m.user,pass:m.pass})
     });
     const d=await r.json();
-    if(d.status==="ok"){stEl.className="member-status st-ok";stEl.textContent=`✓ ${d.count}통`;}
-    else{stEl.className="member-status st-err";stEl.textContent="✗ 실패";}
-  }catch(e){stEl.className="member-status st-err";stEl.textContent="✗ 오류";}
+    if(d.status==="ok"){
+      stEl.className="member-status st-ok";stEl.textContent=`✓ ${d.count}통`;
+    } else {
+      stEl.className="member-status st-err";
+      stEl.textContent="✗ 실패";
+      alert(`${m.name} 연결 실패:\n${d.message}`);
+    }
+  }catch(e){
+    stEl.className="member-status st-err";stEl.textContent="✗ 오류";
+    alert(`${m.name} 오류:\n${e.message}`);
+  }
 }
 function showAddMember(){_editingMember=null;document.getElementById("modalTitle").textContent="팀원 추가";["mName","mEmail","mUser","mPass"].forEach(id=>document.getElementById(id).value="");document.getElementById("memberModal").style.display="flex";}
 function editMember(i){_editingMember=i;const m=MEMBERS[i];document.getElementById("modalTitle").textContent="팀원 수정";document.getElementById("mName").value=m.name||"";document.getElementById("mEmail").value=m.email||"";document.getElementById("mUser").value=m.user||"";document.getElementById("mPass").value=m.pass||"";document.getElementById("memberModal").style.display="flex";}
