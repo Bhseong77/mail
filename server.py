@@ -809,7 +809,9 @@ CALDAV_MEMBERS = [
 
 def caldav_fetch(user, password, url, body=None, method="PROPFIND", depth="1"):
     import base64
-    creds = base64.b64encode(f"{user}:{password}".encode()).decode()
+    # UTF-8로 인코딩 후 Base64 (한글 비밀번호 지원)
+    creds_bytes = f"{user}:{password}".encode("utf-8")
+    creds = base64.b64encode(creds_bytes).decode("ascii")
     headers = {
         "Authorization": f"Basic {creds}",
         "Depth": depth,
@@ -820,6 +822,9 @@ def caldav_fetch(user, password, url, body=None, method="PROPFIND", depth="1"):
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.read().decode("utf-8", errors="ignore")
+    except urllib.error.HTTPError as e:
+        print(f"CalDAV HTTP {e.code} {url}")
+        return None
     except Exception as e:
         print(f"CalDAV 오류 {url}: {e}")
         return None
@@ -864,6 +869,35 @@ def parse_ical_events(ical_text, member_name, member_email):
             events.append(ev)
     return events
 
+def discover_caldav_calendars(user, password, email):
+    """CalDAV에서 실제 캘린더 목록 조회"""
+    caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
+
+    # 1. principal URL로 home-set 찾기
+    principal_urls = [
+        f"{caldav_srv}/principals/users/{email}/",
+        f"{caldav_srv}/principals/{user}/",
+    ]
+    propfind_body = '''<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <prop><c:calendar-home-set/><displayname/></prop>
+</propfind>'''
+
+    for purl in principal_urls:
+        resp = caldav_fetch(user, password, purl, body=propfind_body, method="PROPFIND", depth="0")
+        if not resp: continue
+        # calendar-home-set에서 경로 추출
+        m = re.search(r'<[^>]*calendar-home-set[^>]*>.*?<[^>]*href[^>]*>([^<]+)</[^>]*href', resp, re.DOTALL)
+        if m:
+            home = m.group(1).strip()
+            if not home.startswith("http"):
+                home = caldav_srv + home
+            print(f"[CalDAV] calendar-home-set: {home}")
+            return home
+
+    # 2. 직접 calendars 경로 시도
+    return f"{caldav_srv}/principals/users/{email}/calendars/"
+
 def get_caldav_events(member, start, end):
     report_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:">
@@ -877,22 +911,41 @@ def get_caldav_events(member, start, end):
   </c:filter>
 </c:calendar-query>'''
 
-    # 다우오피스 CalDAV URL 패턴들
     caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
-    urls = [
-        f"{caldav_srv}/principals/users/{member['email']}/calendars/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
-        f"{caldav_srv}/principals/users/{member['email']}/calendars/",
+
+    # 캘린더 이름 후보 (한국어/영어)
+    cal_names = [
+        "%EB%82%B4%20%EC%9D%BC%EC%A0%95",  # 내 일정
+        "%EB%82%B4%EC%9D%BC%EC%A0%95",      # 내일정
+        "calendar",
+        "default",
+        "",  # 루트
+    ]
+
+    urls = []
+    # 홈셋 기반
+    home = discover_caldav_calendars(member["user"], member["password"], member["email"])
+    for name in cal_names:
+        if name:
+            urls.append(f"{home.rstrip('/')}/{name}/")
+        else:
+            urls.append(home)
+
+    # 추가 패턴
+    urls += [
         f"{caldav_srv}/caldav/users/{member['email']}/calendars/",
         f"{caldav_srv}/caldav/{member['user']}/",
-        f"{caldav_srv}/cal/{member['user']}/",
     ]
 
     for url in urls:
         print(f"[CalDAV] 시도: {url}")
         result = caldav_fetch(member["user"], member["password"], url,
                               body=report_body, method="REPORT", depth="1")
-        print(f"[CalDAV] 응답길이: {len(result) if result else 0}, VEVENT: {'VEVENT' in result if result else False}")
-        if result and "VEVENT" in result:
+        resp_len = len(result) if result else 0
+        has_vevent = "VEVENT" in result if result else False
+        print(f"[CalDAV] 응답길이: {resp_len}, VEVENT: {has_vevent}")
+
+        if result and has_vevent:
             cal_blocks = re.findall(r'<.*?calendar-data[^>]*>(.*?)</.*?calendar-data>', result, re.DOTALL)
             all_events = []
             for blk in cal_blocks:
@@ -900,9 +953,8 @@ def get_caldav_events(member, start, end):
                 all_events.extend(parse_ical_events(blk, member["name"], member["email"]))
             print(f"[CalDAV] 파싱된 이벤트: {len(all_events)}개")
             return all_events
-        elif result:
-            # VEVENT 없어도 응답이 오면 첫 200자 출력
-            print(f"[CalDAV] 응답 미리보기: {result[:200]}")
+        elif result and resp_len > 100:
+            print(f"[CalDAV] 응답 미리보기: {result[:300]}")
 
     print(f"[CalDAV] {member['name']} 모든 URL 실패")
     return []
