@@ -14,49 +14,52 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:15px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 .hd{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
-.hd-icon{width:28px;height:28px;background:var(--p);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:900;flex-shrink:0;}
-.hd-title{font-size:15px;font-weight:800;}
-.hd-sub{font-size:15px;color:var(--t3);}
-.hd-nav{display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:2px;margin-left:4px;}
-.hd-tab{padding:4px 11px;border-radius:4px;border:none;background:transparent;font-size:15px;font-weight:600;font-family:var(--s);cursor:pointer;color:var(--t2);}
+.hd-icon{width:32px;height:32px;background:var(--p);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:900;flex-shrink:0;}
+.hd-title{font-size:16px;font-weight:800;}
+.hd-sub{font-size:12px;color:var(--t3);}
+.hd-tab{padding:7px 16px;border-radius:6px;border:none;background:transparent;font-size:15px;font-weight:600;font-family:var(--s);cursor:pointer;color:var(--t2);}
 .hd-tab.on{background:var(--p);color:#fff;}
-.hd-r{display:flex;align-items:center;gap:5px;margin-left:auto;}
-.st{display:flex;align-items:center;gap:3px;font-size:15px;color:var(--t3);}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--t3);}
+.hd-nav{display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:3px;margin-left:4px;}
+.hd-r{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.st{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t3);}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--t3);}
 .dot.ok{background:var(--g)}.dot.spin{background:var(--y);animation:pulse 1s infinite}.dot.err{background:var(--r)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.btn{padding:4px 9px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);font-size:15px;font-weight:600;font-family:var(--s);color:var(--t2);cursor:pointer;}
+.btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);font-size:14px;font-weight:600;font-family:var(--s);color:var(--t2);cursor:pointer;}
 .btn:hover{border-color:var(--p);color:var(--p)}.btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.red{color:var(--r)}.btn.red:hover{border-color:var(--r)}
 .pb{height:3px;background:var(--border);flex-shrink:0;}
 .pf{height:100%;background:var(--p);transition:width .3s;width:0%;}
-.app{display:grid;grid-template-columns:155px 290px 1fr;flex:1;min-height:0;}
-.sb{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;}
-.sb-lbl{font-size:15px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;padding:8px 8px 3px;}
-.sb-it{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:15px;color:var(--t2);margin:1px 6px;transition:background .1s;}
+.app{display:grid;grid-template-columns:220px 360px 1fr;flex:1;min-height:0;}
+.sb{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;}
+.sb-lbl{font-size:14px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;padding:10px 10px 5px;}
+.sb-it{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:7px;cursor:pointer;font-size:15px;color:var(--t2);margin:1px 6px;transition:background .1s;min-width:0;}
 .sb-it:hover{background:var(--bg3)}.sb-it.on{background:var(--pd);color:var(--p);font-weight:700}
-.sb-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;}
-.sb-cnt{font-size:15px;font-family:var(--m);font-weight:700;background:var(--pd);color:var(--p);padding:1px 5px;border-radius:4px;margin-left:auto;}
+.sb-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.sb-it-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.sb-it-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-it-email{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-cnt{font-size:13px;font-family:var(--m);font-weight:700;background:var(--pd);color:var(--p);padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0;}
 .av0{background:#dbeafe;color:#1d4ed8}.av1{background:#fce7f3;color:#be185d}.av2{background:#d1fae5;color:#065f46}
 .ml{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2);overflow:hidden;}
-.ml-top{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.ml-title{font-size:15px;font-weight:700}.ml-cnt{font-size:15px;color:var(--t3);font-family:var(--m)}
-.ml-si{width:calc(100% - 20px);margin:6px 10px;padding:6px 10px;border:1px solid var(--border2);border-radius:7px;background:var(--bg3);font-size:15px;font-family:var(--s);color:var(--t);outline:none;display:block;}
+.ml-top{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ml-title{font-size:17px;font-weight:800}.ml-cnt{font-size:14px;color:var(--t3);font-family:var(--m)}
+.ml-si{width:calc(100% - 24px);margin:8px 12px;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);font-size:14px;font-family:var(--s);color:var(--t);outline:none;display:block;}
 .ml-si:focus{border-color:var(--p);background:var(--bg2)}
 .ml-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;background:var(--bg3);}
 .ml-tabs::-webkit-scrollbar{display:none}
-.ml-tab{padding:6px 11px;font-size:15px;font-weight:600;color:var(--t3);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
+.ml-tab{padding:9px 14px;font-size:14px;font-weight:600;color:var(--t3);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
 .ml-tab.on{color:var(--p);border-bottom-color:var(--p)}
 .ml-list{flex:1;overflow-y:auto;}
-.ml-list::-webkit-scrollbar{width:3px}.ml-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.mi{padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;}
+.ml-list::-webkit-scrollbar{width:4px}.ml-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.mi{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
 .mi:hover{background:var(--bg3)}.mi.on{background:var(--pd);border-left:2px solid var(--p)}
-.mi-r1{display:flex;justify-content:space-between;margin-bottom:2px}
+.mi-r1{display:flex;justify-content:space-between;margin-bottom:4px;align-items:center}
 .mi-from{font-size:15px;font-weight:700;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.mi-date{font-size:15px;color:var(--t3);flex-shrink:0;margin-left:5px}
-.mi-subj{font-size:15px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
-.mi-tags{display:flex;gap:3px}
-.mi-tag{font-size:15px;padding:1px 5px;border-radius:4px;font-weight:700}
+.mi-date{font-size:12px;color:var(--t3);flex-shrink:0;margin-left:6px;font-family:var(--m);font-weight:500}
+.mi-subj{font-size:14px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;font-weight:500}
+.mi-tags{display:flex;gap:4px}
+.mi-tag{font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700}
 .tkw{background:var(--pd);color:var(--p)}.tbh{background:#ede9fe;color:#5b21b6}
 .tbl-panel{display:none;flex-direction:column;overflow:hidden}
 .tbl-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -444,7 +447,23 @@ window.onload=async()=>{
   const accs=msal_.getAllAccounts();
   if(accs.length>0){acct=accs[0];showApp();const saved=await dbGet("contacts");saved.forEach(c=>_ctCache.set(c.email.toLowerCase(),c));await loadMembers();loadAll();}
   renderSB();
+  startAutoRefresh();
 };
+
+// ── 자동 새메일 polling (3분마다) ──────────────────
+let _autoTimer=null;
+function startAutoRefresh(){
+  if(_autoTimer) clearInterval(_autoTimer);
+  // 3분 = 180000ms
+  _autoTimer=setInterval(()=>{
+    if(!acct) return;                                       // 로그아웃이면 스킵
+    if(isSyncing) return;                                   // 이미 동기화 중이면 스킵
+    if(document.visibilityState!=="visible") return;        // 탭 안 보이면 스킵
+    console.log("[자동동기화] doRefresh 호출");
+    doRefresh();
+  }, 180000);
+  console.log("[자동동기화] 3분 주기로 활성화");
+}
 async function getToken(){try{return(await msal_.acquireTokenSilent({scopes:SCOPES,account:acct})).accessToken;}catch{return(await msal_.acquireTokenPopup({scopes:SCOPES})).accessToken;}}
 async function doLogin(){try{const r=await msal_.loginPopup({scopes:SCOPES,prompt:"select_account"});acct=r.account;showApp();loadAll();}catch(e){alert("로그인 실패: "+e.message);}}
 function doLogout(){msal_.logoutPopup({account:acct});acct=null;document.getElementById("loginScreen").style.display="flex";document.getElementById("mainHeader").style.display="none";document.getElementById("mainApp").style.display="none";}
@@ -556,9 +575,19 @@ async function loadAll(){
   finally{setSyncUI(false);}
 }
 async function loadHdrs(total){
-  const noH=allMails.filter(m=>!m.headerLoaded);
+  // ★ IMAP 출처 메일은 이미 헤더가 다 있으므로 SP 호출 불필요
+  // 오직 SP 백업 출처 메일만 헤더를 SP에서 가져온다
+  const noH=allMails.filter(m=>!m.headerLoaded && m.source!=="imap");
+  // IMAP인데 headerLoaded false인 경우는 그냥 true로 마킹 (이미 IMAP에서 다 가져옴)
+  allMails.filter(m=>!m.headerLoaded && m.source==="imap").forEach(m=>{m.headerLoaded=true;});
+
+  if(noH.length===0){
+    setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
+    return;
+  }
   let done=0,toSave=[],lastUI=0;
-  const BATCH=3; // 동시 요청 3개로 줄임
+  const BATCH=8;            // 3 → 8 (동시 요청)
+  const DELAY=200;          // 1000 → 200ms
   for(let b=0;b<noH.length;b+=BATCH){
     const batch=noH.slice(b,b+BATCH);
     await Promise.all(batch.map(async m=>{
@@ -571,13 +600,10 @@ async function loadHdrs(total){
       }catch{m.headerLoaded=true;}
       done++;
     }));
-    // 100개마다 DB 저장
     if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
-    // 5초마다 UI 업데이트
     const now=Date.now();
-    if(now-lastUI>5000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${total}`);if(curMTab==="list")applyFilter();}
-    // 배치 간 1초 딜레이 (429 방지)
-    await new Promise(r=>setTimeout(r,1000));
+    if(now-lastUI>2000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${noH.length}`);if(curMTab==="list")applyFilter();}
+    await new Promise(r=>setTimeout(r,DELAY));
   }
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
@@ -834,11 +860,32 @@ function renderList(){
   _page=0;list.innerHTML=mkItems(filtered.slice(0,PAGE));
   list.onscroll=()=>{if(list.scrollTop+list.clientHeight>=list.scrollHeight-100){const nx=(_page+1)*PAGE;if(nx<filtered.length){_page++;list.insertAdjacentHTML("beforeend",mkItems(filtered.slice(nx,nx+PAGE)));}}};
 }
+function fmtMailDate(raw){
+  // raw 예: "2026. 05. 18. 14:28" 또는 ISO 8601
+  if(!raw) return "";
+  try{
+    let d;
+    // 한국식 포맷 파싱
+    const m = raw.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(\d{1,2}):(\d{2})/);
+    if(m){ d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]); }
+    else { d = new Date(raw); }
+    if(isNaN(d)) return raw.slice(0,16);
+    const now = new Date();
+    const sameDay = d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+    const sameYear = d.getFullYear()===now.getFullYear();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    if(sameDay) return `${hh}:${mm}`;
+    if(sameYear) return `${d.getMonth()+1}/${d.getDate()} ${hh}:${mm}`;
+    return `${String(d.getFullYear()).slice(2)}/${d.getMonth()+1}/${d.getDate()}`;
+  }catch{ return raw.slice(0,16); }
+}
+
 function mkItems(mails){
   return mails.map(m=>{
     const idx=allMails.indexOf(m);
     const nm=exNm(m.from)||m.from||"(발신자없음)";
-    const dt=(m.date||"").slice(0,10);
+    const dt=fmtMailDate(m.dateRaw||m.date||"");
     const tc=m.owner==="kwkang@enjet.co.kr"?"tkw":"tbh";
     const on=MEMBERS.find(x=>x.email===m.owner)?.name||"";
     const doc=getDoc(m);
@@ -861,33 +908,47 @@ async function openMail(idx){
   const ccEl=document.getElementById("dpCc");const ccK=document.getElementById("dpCcK");
   if(m.cc?.length){ccEl.textContent=(m.cc||[]).map(c=>c.name?`${c.name} <${c.email}>`:c.email).join(", ");ccEl.style.display="";ccK.style.display="";}else{ccEl.style.display="none";ccK.style.display="none";}
   if(!m.bodyLoaded&&!m.loadFailed){
-    document.getElementById("dpBody").textContent="⏳ 본문 로딩 중...";document.getElementById("dpAtt").style.display="none";
+    const bodyEl=document.getElementById("dpBody");
+    bodyEl.innerHTML='<div class="lb"><div class="sp"></div>본문 로딩 중...</div>';
+    document.getElementById("dpAtt").style.display="none";
+    const t0=Date.now();
     try{
       let p;
+      // 30초 타임아웃
+      const ctrl=new AbortController();
+      const tmr=setTimeout(()=>ctrl.abort(),30000);
       if(m.source==="imap"){
-        // IMAP 실시간 본문
         const member=MEMBERS.find(x=>x.email===m.owner);
         if(!member?.pass) throw new Error("계정 정보 없음 (설정에서 비밀번호 입력 필요)");
         const ir=await fetch(`${RENDER_URL}/api/imap/body`,{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid})
+          body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid}),
+          signal:ctrl.signal
         });
         if(!ir.ok) throw new Error("IMAP 본문 오류");
         p=await ir.json();
       } else {
-        // SP 백업 eml 파싱
-        const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");
+        bodyEl.innerHTML='<div class="lb"><div class="sp"></div>SharePoint에서 파일 가져오는 중...</div>';
+        const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{signal:ctrl.signal});
         if(!r?.ok)throw new Error("파일읽기실패 "+r?.status);
         const bytes=await r.arrayBuffer();
-        const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes});
+        bodyEl.innerHTML='<div class="lb"><div class="sp"></div>본문 파싱 중...</div>';
+        const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes,signal:ctrl.signal});
         if(!pr.ok)throw new Error("파싱오류");
         p=await pr.json();
       }
+      clearTimeout(tmr);
+      console.log(`[본문] ${Date.now()-t0}ms`);
       m.body=p.body||"";m.attachments=p.attachments||[];m.hasAttachment=(p.attachments?.length>0);
       m.bodyLoaded=true;m.loadFailed=false;
       await dbPut("mails",[m]);
-    }catch(e){m.loadFailed=true;document.getElementById("dpBody").innerHTML=`⚠️ 로딩실패: ${esc(e.message)}<br><button onclick="openMail(${idx})" style="margin-top:10px;padding:6px 14px;background:var(--p);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">🔄 다시시도</button>`;return;}
+    }catch(e){
+      const msg = e.name==="AbortError" ? "시간 초과 (30초)" : e.message;
+      m.loadFailed=true;
+      document.getElementById("dpBody").innerHTML=`⚠️ 로딩실패: ${esc(msg)}<br><button onclick="allMails[${idx}].loadFailed=false;openMail(${idx})" style="margin-top:10px;padding:6px 14px;background:var(--p);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">🔄 다시시도</button>`;
+      return;
+    }
   }
   document.getElementById("dpBody").textContent=m.body||(m.hasAttachment?"(첨부파일만 있는 메일입니다)":"(본문없음)");
   if(m.attachments?.length){document.getElementById("dpAtt").style.display="block";document.getElementById("dpAttList").innerHTML=m.attachments.map(a=>`<span class="att-chip">📄 ${esc(a.name||a)}</span>`).join("");}
@@ -899,8 +960,8 @@ function closeDp(){document.getElementById("dpPanel").classList.remove("open");d
 function renderSB(){
   const cnts={};allMails.forEach(m=>{cnts[m.owner]=(cnts[m.owner]||0)+1;});
   const items=[
-    `<div class="sb-it ${curOwner==="all"?"on":""}" onclick="selOwner('all')"><div class="sb-av av2">전</div><div style="flex:1"><div style="font-size:12px;font-weight:600">전체보기</div></div><span class="sb-cnt">${allMails.length}</span></div>`,
-    ...MEMBERS.map(m=>`<div class="sb-it ${curOwner===m.email?"on":""}" onclick="selOwner('${m.email}')"><div class="sb-av ${m.color}">${m.name[0]}</div><div style="flex:1"><div style="font-size:12px;font-weight:600">${m.name}</div><div style="font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.email}</div></div><span class="sb-cnt">${cnts[m.email]||0}</span></div>`)
+    `<div class="sb-it ${curOwner==="all"?"on":""}" onclick="selOwner('all')"><div class="sb-av av2">전</div><div class="sb-it-txt"><div class="sb-it-name">전체보기</div><div class="sb-it-email">모든 팀원 메일</div></div><span class="sb-cnt">${allMails.length}</span></div>`,
+    ...MEMBERS.map(m=>`<div class="sb-it ${curOwner===m.email?"on":""}" onclick="selOwner('${m.email}')"><div class="sb-av ${m.color}">${m.name[0]}</div><div class="sb-it-txt"><div class="sb-it-name">${esc(m.name)}</div><div class="sb-it-email">${esc(m.email)}</div></div><span class="sb-cnt">${cnts[m.email]||0}</span></div>`)
   ];
   document.getElementById("sbBody").innerHTML=`<div class="sb-lbl">메일함</div>${items.join("")}`;
 }
