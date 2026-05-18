@@ -923,6 +923,25 @@ def get_caldav_events(member, start, end):
 
     caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
 
+    # 직접 URL 패턴 (discover 없이 바로 시도 - 가장 빠름)
+    direct_urls = [
+        f"{caldav_srv}/principals/users/{member['email']}/calendars/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
+        f"{caldav_srv}/principals/users/{member['email']}/calendars/",
+    ]
+
+    for url in direct_urls:
+        print(f"[CalDAV] 직접시도: {url}")
+        result = caldav_fetch(member["user"], member["password"], url,
+                              body=report_body, method="REPORT", depth="1")
+        if result and "VEVENT" in result:
+            cal_blocks = re.findall(r'<.*?calendar-data[^>]*>(.*?)</.*?calendar-data>', result, re.DOTALL)
+            all_events = []
+            for blk in cal_blocks:
+                blk = blk.replace("&lt;","<").replace("&gt;",">").replace("&amp;","&").replace("&#13;","")
+                all_events.extend(parse_ical_events(blk, member["name"], member["email"]))
+            print(f"[CalDAV] {member['name']} 직접성공: {len(all_events)}개")
+            return all_events
+
     # 캘린더 이름 후보 (한국어/영어)
     cal_names = [
         "%EB%82%B4%20%EC%9D%BC%EC%A0%95",  # 내 일정
