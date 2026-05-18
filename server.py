@@ -959,6 +959,96 @@ def api_calendar_test():
     return jsonify(results)
 
 
+# ── 진단용: 사용자별 CalDAV 다양한 메서드/헤더 조합 테스트 ─────────
+@app.route("/api/calendar/diagnose", methods=["POST"])
+def api_calendar_diagnose():
+    """
+    POST body: {"user":"hdlee", "email":"hdlee@enjet.co.kr", "password":"..."}
+    여러 메서드/헤더 조합으로 어떤 요청은 통과하고 어떤 건 막히는지 확인
+    """
+    import base64
+    body = request.get_json(force=True) or {}
+    user = body.get("user", "")
+    email = body.get("email", "")
+    password = body.get("password", "")
+    if not (user and email and password):
+        return jsonify({"error": "user, email, password 필요"}), 400
+
+    srv = CALDAV_SERVER
+    cal_url = "{}/principals/users/{}/calendars/".format(srv, email)
+    inner_url = "{}/principals/users/{}/calendars/%EB%82%B4%20%EC%9D%BC%EC%A0%95/".format(srv, email)
+    creds = base64.b64encode("{}:{}".format(user, password).encode("utf-8")).decode("ascii")
+
+    UA_BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+    tests = [
+        # 1. 가장 단순 GET (브라우저 흉내) - calendars/
+        {"name": "GET calendars/ +UA", "method": "GET", "url": cal_url, "depth": None, "ua": UA_BROWSER, "body": None, "ctype": None},
+        # 2. GET 내 일정/
+        {"name": "GET 내 일정/ +UA", "method": "GET", "url": inner_url, "depth": None, "ua": UA_BROWSER, "body": None, "ctype": None},
+        # 3. PROPFIND calendars/ + UA
+        {"name": "PROPFIND calendars/ +UA", "method": "PROPFIND", "url": cal_url, "depth": "1", "ua": UA_BROWSER,
+         "body": '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>',
+         "ctype": "application/xml; charset=utf-8"},
+        # 4. PROPFIND calendars/ NO UA (현재 코드 패턴)
+        {"name": "PROPFIND calendars/ NO-UA", "method": "PROPFIND", "url": cal_url, "depth": "1", "ua": None,
+         "body": '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>',
+         "ctype": "application/xml; charset=utf-8"},
+        # 5. REPORT 내 일정/ + UA (실제 사용 메서드)
+        {"name": "REPORT 내 일정/ +UA", "method": "REPORT", "url": inner_url, "depth": "1", "ua": UA_BROWSER,
+         "body": '<?xml version="1.0" encoding="utf-8"?><c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:"><d:prop><d:getetag/><c:calendar-data/></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"/></c:comp-filter></c:filter></c:calendar-query>',
+         "ctype": "application/xml; charset=utf-8"},
+        # 6. REPORT 내 일정/ NO UA (현재 코드와 동일)
+        {"name": "REPORT 내 일정/ NO-UA", "method": "REPORT", "url": inner_url, "depth": "1", "ua": None,
+         "body": '<?xml version="1.0" encoding="utf-8"?><c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:"><d:prop><d:getetag/><c:calendar-data/></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"/></c:comp-filter></c:filter></c:calendar-query>',
+         "ctype": "application/xml; charset=utf-8"},
+    ]
+
+    results = []
+    for t in tests:
+        hdrs = {"Authorization": "Basic " + creds}
+        if t["depth"] is not None:
+            hdrs["Depth"] = t["depth"]
+        if t["ua"]:
+            hdrs["User-Agent"] = t["ua"]
+        if t["ctype"]:
+            hdrs["Content-Type"] = t["ctype"]
+        data = t["body"].encode("utf-8") if t["body"] else None
+        try:
+            req = urllib.request.Request(t["url"], data=data, headers=hdrs, method=t["method"])
+            with urllib.request.urlopen(req, timeout=20) as r:
+                txt = r.read().decode("utf-8", errors="ignore")
+                results.append({
+                    "test": t["name"],
+                    "status": r.status,
+                    "len": len(txt),
+                    "preview": txt[:200],
+                    "result": "✅"
+                })
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode("utf-8", errors="ignore")[:200]
+            except:
+                err_body = ""
+            results.append({
+                "test": t["name"],
+                "status": e.code,
+                "www_auth": e.headers.get("WWW-Authenticate", ""),
+                "preview": err_body,
+                "result": "❌"
+            })
+        except Exception as e:
+            results.append({"test": t["name"], "error": str(e), "result": "💥"})
+
+    return jsonify({
+        "user": user,
+        "email": email,
+        "calendars_url": cal_url,
+        "inner_url": inner_url,
+        "results": results
+    })
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
