@@ -465,7 +465,7 @@ async function loadAll(){
           try {
             const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
               method:"POST",headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:300})
+              body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:100})
             });
             const id=await ir.json();
             if(id.error) throw new Error(id.error);
