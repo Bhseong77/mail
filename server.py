@@ -23,6 +23,15 @@ def add_cors(response):
     response.headers["Access-Control-Max-Age"] = "3600"
     return response
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    resp = jsonify({"error": str(e)})
+    resp.status_code = 500
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range, Prefer"
+    return resp
+
 @app.route("/api/<path:path>", methods=["OPTIONS"])
 def cors_preflight(path):
     resp = Response("", 204)
