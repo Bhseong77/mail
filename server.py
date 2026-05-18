@@ -889,9 +889,11 @@ def fetch_caldav_events(member, start, end):
     )
     base = "{}/principals/users/{}/calendars".format(srv, ea)
     urls = [
-        base + "/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",
+        base + "/%EB%82%B4%20%EC%9D%BC%EC%A0%95/",          # 내 일정
+        base + "/%EB%82%B4%20%EC%9D%BC%EC%A0%95(%EA%B8%B0%EB%B3%B8)/",  # 내 일정(기본)
         base + "/",
-        base + "/%EB%82%B4%EC%9D%BC%EC%A0%95/",
+        base + "/%EB%82%B4%EC%9D%BC%EC%A0%95/",              # 내일정
+        base + "/%EA%B8%B0%EB%B3%B8/",                       # 기본
     ]
     for url in urls:
         print("[CAL] {} -> {}".format(member["name"], url))
