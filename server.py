@@ -520,27 +520,27 @@ def imap_connect(user, password, server=None, port=993):
     import base64
     srv = server or IMAP_SERVER
 
-    # AUTHENTICATE PLAIN 방식 (한글 비밀번호 지원)
-    class IMAP4_SSL_PLAIN(imaplib.IMAP4_SSL):
-        def login_plain(self, user, password):
-            # PLAIN: base64(\0user\0password)
-            auth_str = "\0{}\0{}".format(user, password)
-            auth_b64 = base64.b64encode(auth_str.encode("utf-8")).decode("ascii")
-            typ, dat = self._simple_command("AUTHENTICATE", "PLAIN", auth_b64)
-            if typ != "OK":
-                raise imaplib.IMAP4.error("PLAIN AUTH 실패: {}".format(dat))
-            self.capabilities = None  # force re-read
-            return typ, dat
-
-    mail = IMAP4_SSL_PLAIN(srv, port)
+    # 먼저 일반 login 시도 (ASCII 비밀번호)
     try:
-        mail.login_plain(user, password)
-    except Exception:
-        # fallback: 일반 login
-        mail2 = imaplib.IMAP4_SSL(srv, port)
-        mail2.login(user, password)
-        return mail2
-    return mail
+        mail = imaplib.IMAP4_SSL(srv, port)
+        mail.login(user, password)
+        return mail
+    except Exception as e1:
+        err1 = str(e1)
+
+    # AUTHENTICATE PLAIN 방식 (한글/특수문자)
+    try:
+        mail = imaplib.IMAP4_SSL(srv, port)
+        auth_str = "\x00{}\x00{}".format(user, password)
+        auth_b64 = base64.b64encode(auth_str.encode("utf-8")).decode("ascii")
+        typ, dat = mail._simple_command("AUTHENTICATE", "PLAIN", auth_b64)
+        # 상태를 AUTH로 강제 전환
+        mail.state = "AUTH"
+        if typ != "OK":
+            raise imaplib.IMAP4.error("PLAIN 실패: {}".format(dat))
+        return mail
+    except Exception as e2:
+        raise Exception("로그인 실패 (login:{}, plain:{})".format(err1, str(e2)))
 
 def imap_get_mails(user, password, email_addr, server=None, limit=200):
     """팀원 메일 조회"""
