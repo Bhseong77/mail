@@ -751,18 +751,101 @@ def imap_get_mails(user, password, email_addr, server=None, limit=200, folder="i
         return {"mails": [], "count": 0, "error": str(e)}
 
 
+def _imap_fetch_raw_body(mail, uid_bytes):
+    """
+    다우오피스 IMAP은 표준 imaplib.fetch()가 unexpected response 오류를 자주 낸다.
+    여러 명령어 변형을 차례로 시도해서 첫 성공하는 것을 사용.
+    반환: bytes (RFC822 원본) 또는 raise
+    """
+    last_err = None
+    # 시도 1: 표준 RFC822
+    try:
+        typ, data = mail.uid("FETCH", uid_bytes, "(RFC822)")
+        if typ == "OK" and data and data[0]:
+            for item in data:
+                if isinstance(item, tuple) and len(item) >= 2:
+                    return item[1]
+        last_err = "uid RFC822: typ={} data 비어있음".format(typ)
+    except Exception as e:
+        last_err = "uid RFC822: " + str(e)
+
+    # 시도 2: 메시지 번호로 RFC822 (uid 대신 sequence number)
+    try:
+        typ, data = mail.fetch(uid_bytes, "(RFC822)")
+        if typ == "OK" and data and data[0]:
+            for item in data:
+                if isinstance(item, tuple) and len(item) >= 2:
+                    return item[1]
+        last_err = (last_err or "") + " | seq RFC822: typ={}".format(typ)
+    except Exception as e:
+        last_err = (last_err or "") + " | seq RFC822: " + str(e)
+
+    # 시도 3: BODY.PEEK[] (마킹 안 함, 표준)
+    try:
+        typ, data = mail.uid("FETCH", uid_bytes, "(BODY.PEEK[])")
+        if typ == "OK" and data and data[0]:
+            for item in data:
+                if isinstance(item, tuple) and len(item) >= 2:
+                    return item[1]
+        last_err = (last_err or "") + " | uid BODY.PEEK: typ={}".format(typ)
+    except Exception as e:
+        last_err = (last_err or "") + " | uid BODY.PEEK: " + str(e)
+
+    # 시도 4: BODY[]
+    try:
+        typ, data = mail.uid("FETCH", uid_bytes, "(BODY[])")
+        if typ == "OK" and data and data[0]:
+            for item in data:
+                if isinstance(item, tuple) and len(item) >= 2:
+                    return item[1]
+        last_err = (last_err or "") + " | uid BODY[]: typ={}".format(typ)
+    except Exception as e:
+        last_err = (last_err or "") + " | uid BODY[]: " + str(e)
+
+    raise Exception("모든 FETCH 시도 실패: " + (last_err or "?"))
+
+
 def imap_get_body(user, password, uid, server=None, folder="inbox"):
-    """특정 메일 본문 가져오기. folder: 'inbox' 또는 'sent'"""
+    """특정 메일 본문 가져오기. folder: 'inbox' 또는 'sent'
+    다우오피스 보낸메일함처럼 응답 형식이 비표준인 경우 여러 fallback 시도."""
+    mail = None
     try:
         mail = imap_connect(user, password, server)
         picked = _pick_folder(mail, folder)
         if not picked:
-            mail.logout()
-            return {"error": "{} 폴더를 찾을 수 없습니다".format(folder)}
-        mail.select('"{}"'.format(picked) if " " in picked else picked)
-        _, msg_data = mail.fetch(uid.encode(), "(RFC822)")
-        msg = email.message_from_bytes(msg_data[0][1])
-        mail.logout()
+            try: mail.logout()
+            except: pass
+            return {"body":"", "attachments":[], "hasAttachment":False, "error": "{} 폴더를 찾을 수 없습니다".format(folder)}
+
+        # 폴더 select
+        sel_typ, _ = mail.select('"{}"'.format(picked) if (" " in picked or any(ord(c)>127 for c in picked)) else picked)
+        if sel_typ != "OK":
+            try: mail.logout()
+            except: pass
+            return {"body":"", "attachments":[], "hasAttachment":False, "error": "폴더 SELECT 실패: " + picked}
+
+        # 다우오피스 호환 견고한 fetch
+        try:
+            raw_bytes = _imap_fetch_raw_body(mail, uid.encode())
+        except Exception as fetch_err:
+            try: mail.logout()
+            except: pass
+            return {"body":"", "attachments":[], "hasAttachment":False,
+                    "error": "FETCH 실패 ({}/{}): {}".format(folder, uid, str(fetch_err)[:200])}
+
+        try: mail.logout()
+        except: pass
+
+        if not raw_bytes:
+            return {"body":"", "attachments":[], "hasAttachment":False, "error":"빈 응답"}
+
+        # 파싱
+        try:
+            msg = email.message_from_bytes(raw_bytes)
+        except Exception as parse_err:
+            return {"body":"", "attachments":[], "hasAttachment":False,
+                    "error": "EML 파싱 오류: " + str(parse_err)[:200]}
+
         body = extract_body(msg)
         attachments = extract_attachments(msg)
         return {
@@ -772,7 +855,10 @@ def imap_get_body(user, password, uid, server=None, folder="inbox"):
             "error": None
         }
     except Exception as e:
-        return {"body": "", "attachments": [], "hasAttachment": False, "error": str(e)}
+        try:
+            if mail: mail.logout()
+        except: pass
+        return {"body":"", "attachments":[], "hasAttachment":False, "error": str(e)[:300]}
 
 
 @app.route("/api/imap/mails", methods=["POST"])
