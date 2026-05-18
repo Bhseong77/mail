@@ -648,6 +648,109 @@ def api_imap_test():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
+
+# ── IMAP → SP 백업 ──────────────────────────────────
+@app.route("/api/imap/backup", methods=["POST"])
+def api_imap_backup():
+    """IMAP 메일을 SP에 eml로 백업
+    Body: {
+      user, pass, email, server(optional),
+      sp_token: MS Graph 액세스 토큰,
+      drive_id: SP 드라이브 ID,
+      folder: 저장 폴더 경로,
+      existing_keys: 이미 있는 파일명 목록 (중복 방지)
+    }
+    """
+    try:
+        data = request.get_json()
+        user       = data.get("user", "")
+        password   = data.get("pass", "")
+        email_addr = data.get("email", "")
+        server     = data.get("server", None)
+        sp_token   = data.get("sp_token", "")
+        drive_id   = data.get("drive_id", "")
+        folder     = data.get("folder", "")
+        existing   = set(data.get("existing_keys", []))
+        limit      = int(data.get("limit", 500))
+
+        if not all([user, password, sp_token, drive_id, folder]):
+            return jsonify({"error": "필수 파라미터 없음"}), 400
+
+        # IMAP 연결
+        srv = server or IMAP_SERVER
+        mail = imaplib.IMAP4_SSL(srv, 993)
+        mail.login(user, password)
+        mail.select("INBOX")
+        _, data2 = mail.search(None, "ALL")
+        ids = data2[0].split()
+        ids = ids[-limit:]  # 최신 N통
+
+        saved = 0
+        errors = []
+
+        for uid in ids:
+            filename = f"{uid.decode().zfill(8)}.eml"
+            if filename in existing:
+                continue  # 이미 백업됨
+
+            try:
+                # eml 전체 다운로드
+                _, msg_data = mail.fetch(uid, "(RFC822)")
+                eml_bytes = msg_data[0][1]
+
+                # SP에 업로드
+                sp_path = f"{folder}/{filename}"
+                parts = "/".join(urllib.parse.quote(p, safe="") for p in sp_path.split("/"))
+                url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{parts}:/content"
+
+                req = urllib.request.Request(
+                    url,
+                    data=eml_bytes,
+                    headers={
+                        "Authorization": f"Bearer {sp_token}",
+                        "Content-Type": "message/rfc822",
+                    },
+                    method="PUT"
+                )
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    if r.status in (200, 201):
+                        saved += 1
+            except Exception as e:
+                errors.append(f"{uid.decode()}: {str(e)}")
+                continue
+
+        mail.logout()
+        return jsonify({
+            "saved": saved,
+            "total": len(ids),
+            "errors": errors[:10],  # 최대 10개만
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/imap/backup/status", methods=["POST"])
+def api_imap_backup_status():
+    """백업 상태 확인 (IMAP 총 메일 수 vs SP 저장된 수)"""
+    try:
+        data = request.get_json()
+        user     = data.get("user", "")
+        password = data.get("pass", "")
+        server   = data.get("server", None)
+
+        srv = server or IMAP_SERVER
+        mail = imaplib.IMAP4_SSL(srv, 993)
+        mail.login(user, password)
+        mail.select("INBOX")
+        _, data2 = mail.search(None, "ALL")
+        total = len(data2[0].split())
+        mail.logout()
+
+        return jsonify({"imap_total": total, "status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 

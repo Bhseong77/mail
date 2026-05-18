@@ -338,10 +338,6 @@ const SCOPES=["User.Read","Files.ReadWrite.All","Sites.ReadWrite.All"];
 const MAIL_FOLDER="📦영업/10.mail_backup";
 const SP_HDR="📦영업/10.mail_backup/_headers_cache.json";
 const SP_CT="📦영업/10.mail_backup/_contacts_cache.json";
-const MEMBERS=[
-  {email:"kwkang@enjet.co.kr",  name:"강경원",color:"av0"},
-  {email:"baekhoon@enjet.co.kr",name:"성백훈",color:"av1"},
-];
 const DOC_KW={
   tax:  ["세금계산서","tax invoice","taxinvoice","청구서","invoice"],
   quote:["견적서","quotation","quote","estimate","rfq","제안서"],
@@ -358,7 +354,7 @@ let curOwner="all",curMTab="list";
 let ctSortK="name",ctSortD="asc";
 let isSyncing=false;
 const _ctCache=new Map();
-let MEMBERS=[]; // SP에서 동적 로딩
+let MEMBERS=[]; // SP _members.json에서 동적 로딩
 
 // DB
 const DB_NAME="enjet_mail_v2";
@@ -440,19 +436,45 @@ async function loadAll(){
     for(const m of MEMBERS){
       try{
         const fp=`${MAIL_FOLDER}/${m.email}/messages`;
+        // SP 백업 확인
         const r=await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`);
-        if(!r?.ok)continue;
-        const d=await r.json();
-        (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
-          newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[]});
-        });
+        if(r?.ok){
+          const d=await r.json();
+          const emls=(d.value||[]).filter(f=>f.name?.endsWith(".eml"));
+          emls.forEach(f=>{
+            newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp"});
+          });
+        }
+        // IMAP 실시간 메일도 항상 가져오기 (계정 있는 경우)
+        if(m.user&&m.pass){
+          setSt(`${m.name} IMAP 연결중...`,"spin");
+          const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({user:m.user,pass:m.pass,email:m.email,limit:300})
+          });
+          if(ir.ok){
+            const id=await ir.json();
+            const spKeys=new Set(newMails.filter(x=>x.owner===m.email).map(x=>x.subject+x.dateRaw));
+            (id.mails||[]).forEach(mail=>{
+              const key=(mail.subject||"")+(mail.dateRaw||"");
+              if(!spKeys.has(key)){
+                mail.ownerName=m.name;mail.color=m.color||"av0";
+                newMails.push(mail);
+              }
+            });
+            // 백그라운드에서 SP 백업 실행
+            backupImapToSP(m);
+          }
+        }
       }catch(e){console.warn(m.email,e.message);}
     }
     await dbPut("mails",newMails);
     allMails=newMails;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
     curOwner="all";applyFilter();renderSB();
-    setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${allMails.length}`);
-    loadHdrs(allMails.length);
+    // SP 백업 있는 메일만 헤더 로딩 필요
+    const needHdr=allMails.filter(m=>!m.headerLoaded).length;
+    if(needHdr>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${needHdr}`);loadHdrs(needHdr);}
+    else{setSt(`${allMails.length}통`,"ok");setSyncUI(false);}
   }catch(e){setSt("오류: "+e.message,"err");setSyncUI(false);document.getElementById("mList").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}</div>`;}
 }
 async function loadHdrs(total){
@@ -501,7 +523,46 @@ function exNm(s){const m=(s||"").match(/^"?([^"<]+)"?\s*</);return m?dw(m[1].tri
 function fmtD(iso){if(!iso)return"";try{const d=new Date(iso);return d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{return iso;}}
 
 // 탭 전환
-// ── 설정 ─────────────────────────────────────────────
+// ── IMAP → SP 백업 ──────────────────────────────────
+async function backupImapToSP(member) {
+  if (!member.user || !member.pass) return;
+  try {
+    const tok = await getToken();
+    const fp = `${MAIL_FOLDER}/${member.email}/messages`;
+    // 기존 SP 파일 목록
+    const r = await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name`);
+    const existing = r?.ok ? (await r.json()).value?.map(f=>f.name)||[] : [];
+    // 백업 요청
+    const br = await fetch(`${RENDER_URL}/api/imap/backup`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        user: member.user, pass: member.pass,
+        email: member.email,
+        sp_token: tok, drive_id: DRIVE_ID,
+        folder: fp, existing_keys: existing, limit: 500
+      })
+    });
+    if (br.ok) {
+      const bd = await br.json();
+      if (bd.saved > 0) console.log(`📥 ${member.name} 백업완료: ${bd.saved}통 신규저장`);
+    }
+  } catch(e) { console.warn("백업오류:", e.message); }
+}
+
+// 설정 탭에서 수동 백업
+async function manualBackup(i) {
+  const m = MEMBERS[i];
+  if (!m.pass) { alert("비밀번호를 먼저 입력하세요"); return; }
+  const stEl = document.getElementById("mst-"+i);
+  stEl.className="member-status st-none"; stEl.textContent="백업중...";
+  try {
+    await backupImapToSP(m);
+    stEl.className="member-status st-ok"; stEl.textContent="✓ 백업완료";
+  } catch(e) {
+    stEl.className="member-status st-err"; stEl.textContent="✗ 실패";
+  }
+}
 const SP_MEMBERS_FILE = "📦영업/10.mail_backup/_members.json";
 let _editingMember = null;
 
@@ -537,12 +598,29 @@ function renderMemberList(){
     <div class="member-card">
       <div class="member-av ${colors[i%4]}">${(m.name||"?")[0]}</div>
       <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-email">${esc(m.email)}</div></div>
-      <span class="member-status ${m.pass?"st-ok":"st-none"}">${m.pass?"✓ 연동됨":"비번없음"}</span>
-      <button class="btn" onclick="editMember(${i})" style="margin-left:8px">수정</button>
+      <span class="member-status ${m.pass?"st-ok":"st-none"}" id="mst-${i}">${m.pass?"✓ 연동됨":"비번없음"}</span>
+      <button class="btn" onclick="testMember(${i})" style="margin-left:6px" title="연결 테스트">🔌</button>
+      <button class="btn" onclick="manualBackup(${i})" style="margin-left:4px" title="SP 백업">💾</button>
+      <button class="btn" onclick="editMember(${i})" style="margin-left:4px">수정</button>
       <button class="cfg-btn del" onclick="delMember(${i})" style="margin-left:4px">삭제</button>
     </div>`).join("");
 }
 
+async function testMember(i){
+  const m=MEMBERS[i];
+  if(!m.pass){alert("비밀번호를 먼저 입력하세요");return;}
+  const stEl=document.getElementById("mst-"+i);
+  stEl.className="member-status st-none";stEl.textContent="테스트중...";
+  try{
+    const r=await fetch(`${RENDER_URL}/api/imap/test`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({user:m.user,pass:m.pass})
+    });
+    const d=await r.json();
+    if(d.status==="ok"){stEl.className="member-status st-ok";stEl.textContent=`✓ ${d.count}통`;}
+    else{stEl.className="member-status st-err";stEl.textContent="✗ 실패";}
+  }catch(e){stEl.className="member-status st-err";stEl.textContent="✗ 오류";}
+}
 function showAddMember(){_editingMember=null;document.getElementById("modalTitle").textContent="팀원 추가";["mName","mEmail","mUser","mPass"].forEach(id=>document.getElementById(id).value="");document.getElementById("memberModal").style.display="flex";}
 function editMember(i){_editingMember=i;const m=MEMBERS[i];document.getElementById("modalTitle").textContent="팀원 수정";document.getElementById("mName").value=m.name||"";document.getElementById("mEmail").value=m.email||"";document.getElementById("mUser").value=m.user||"";document.getElementById("mPass").value=m.pass||"";document.getElementById("memberModal").style.display="flex";}
 async function saveMember(){
@@ -630,12 +708,27 @@ async function openMail(idx){
   if(!m.bodyLoaded&&!m.loadFailed){
     document.getElementById("dpBody").textContent="⏳ 본문 로딩 중...";document.getElementById("dpAtt").style.display="none";
     try{
-      const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");
-      if(!r?.ok)throw new Error("파일읽기실패 "+r?.status);
-      const bytes=await r.arrayBuffer();
-      const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes});
-      if(!pr.ok)throw new Error("파싱오류");
-      const p=await pr.json();
+      let p;
+      if(m.source==="imap"){
+        // IMAP 실시간 본문
+        const member=MEMBERS.find(x=>x.email===m.owner);
+        if(!member?.pass) throw new Error("계정 정보 없음 (설정에서 비밀번호 입력 필요)");
+        const ir=await fetch(`${RENDER_URL}/api/imap/body`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({user:member.user,pass:member.pass,uid:m.uid})
+        });
+        if(!ir.ok) throw new Error("IMAP 본문 오류");
+        p=await ir.json();
+      } else {
+        // SP 백업 eml 파싱
+        const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");
+        if(!r?.ok)throw new Error("파일읽기실패 "+r?.status);
+        const bytes=await r.arrayBuffer();
+        const pr=await fetch(`${RENDER_URL}/api/parse-eml`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:bytes});
+        if(!pr.ok)throw new Error("파싱오류");
+        p=await pr.json();
+      }
       m.body=p.body||"";m.attachments=p.attachments||[];m.hasAttachment=(p.attachments?.length>0);
       m.bodyLoaded=true;m.loadFailed=false;
       await dbPut("mails",[m]);
