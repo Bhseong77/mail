@@ -1036,6 +1036,38 @@ def _pdt(s):
     except:
         return s
 
+def _parse_cal_addr(raw):
+    """
+    ORGANIZER/ATTENDEE 라인에서 이메일과 CN(이름) 추출.
+    예: "ATTENDEE;CN=홍길동;ROLE=REQ-PARTICIPANT:mailto:hong@example.com"
+    """
+    if not raw:
+        return {"email": "", "name": ""}
+    # CN 파라미터
+    cn_m = re.search(r"CN=([^;:]+)", raw, re.IGNORECASE)
+    cn = (cn_m.group(1).strip().strip('"') if cn_m else "")
+    # mailto: 부분
+    em_m = re.search(r"(?:mailto:|MAILTO:)([^;:\s\r\n]+)", raw)
+    email_v = (em_m.group(1).strip() if em_m else "")
+    if not email_v:
+        # 마지막 ':' 이후 값에서 이메일 모양 시도
+        tail = raw.rsplit(":", 1)[-1].strip()
+        if "@" in tail:
+            email_v = tail
+    return {"email": email_v, "name": cn}
+
+
+def _gp_all(key, block):
+    """같은 키가 여러 번 나오는 경우 (ATTENDEE) 모두 추출"""
+    out = []
+    pat = re.compile(r"^" + key + r"([;:][^\r\n]*(?:\r?\n[ \t][^\r\n]*)*)", re.MULTILINE)
+    for m in pat.finditer(block):
+        v = (key + m.group(1))
+        v = re.sub(r"\r?\n[ \t]", "", v).strip()
+        out.append(v)
+    return out
+
+
 def parse_ical(text, name, email_addr):
     events = []
     if not text:
@@ -1047,16 +1079,30 @@ def parse_ical(text, name, email_addr):
             title = _gp("SUMMARY", block).replace("\\n", "\n").replace("\\,", ",")
             if not title:
                 continue
+
+            # ORGANIZER
+            org_raw = _gp("ORGANIZER", block)
+            organizer = _parse_cal_addr("ORGANIZER" + (org_raw if org_raw.startswith((":",";")) else ":"+org_raw)) if org_raw else {"email":"","name":""}
+
+            # ATTENDEE (여러 명)
+            attendees = []
+            for line in _gp_all("ATTENDEE", block):
+                p = _parse_cal_addr(line)
+                if p["email"] or p["name"]:
+                    attendees.append(p)
+
             events.append({
                 "uid":      _gp("UID", block),
                 "title":    title,
                 "start":    _pdt(raw_start),
                 "end":      _pdt(_gp("DTEND", block)),
                 "location": _gp("LOCATION", block).replace("\\,", ","),
-                "desc":     _gp("DESCRIPTION", block)[:100],
+                "desc":     _gp("DESCRIPTION", block)[:200].replace("\\n","\n").replace("\\,",","),
                 "allDay":   len(clean_start) == 8 or "VALUE=DATE" in raw_start,
                 "owner":    email_addr,
                 "ownerName": name,
+                "organizer": organizer,
+                "attendees": attendees,
             })
         except Exception as ex:
             print("iCal err: {}".format(ex))
@@ -1129,6 +1175,40 @@ def api_calendar():
             except Exception as e:
                 errors.append("{}: {}".format(m.get("name","?"), e))
                 print("[CAL ERR] {}: {}".format(m.get("name"), e))
+
+        # ── 중복 제거 ──────────────────────────────
+        # 같은 일정이 여러 명의 캘린더에 공유되어 있을 때 dedupe.
+        # 우선순위: UID 매칭 → (제목+시작시간+종료시간) 매칭.
+        # 병합 시 ownerName 들을 합쳐서 "공유: A, B" 형태로 표시.
+        dedup = {}
+        order = []
+        for ev in all_events:
+            uid = (ev.get("uid") or "").strip()
+            if uid:
+                key = "uid:" + uid
+            else:
+                key = "ts:{}|{}|{}".format(
+                    (ev.get("title") or "").strip(),
+                    ev.get("start") or "",
+                    ev.get("end") or ""
+                )
+            if key in dedup:
+                # 기존 이벤트에 공유자 정보 추가
+                existing = dedup[key]
+                shared = existing.setdefault("sharedWith", [])
+                this_owner = ev.get("ownerName") or ev.get("owner") or ""
+                if this_owner and this_owner != existing.get("ownerName") and this_owner not in shared:
+                    shared.append(this_owner)
+                # attendees가 더 풍부한 쪽으로 갱신
+                if len(ev.get("attendees") or []) > len(existing.get("attendees") or []):
+                    existing["attendees"] = ev.get("attendees") or []
+                if ev.get("organizer", {}).get("email") and not existing.get("organizer", {}).get("email"):
+                    existing["organizer"] = ev["organizer"]
+            else:
+                dedup[key] = dict(ev)
+                order.append(key)
+
+        all_events = [dedup[k] for k in order]
         all_events.sort(key=lambda e: e.get("start", ""))
         return jsonify({"events": all_events, "count": len(all_events), "errors": errors})
     except Exception as e:

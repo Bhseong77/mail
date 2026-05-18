@@ -218,6 +218,11 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .dau-evt-title{color:#333}
 .dau-cal-more{font-size:11px;color:#999;padding:2px 7px;cursor:pointer}
 .dau-cal-more:hover{color:#666}
+
+.ev-tip{position:fixed;z-index:9999;background:#fff;border:1px solid #d0d0d0;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:12px 14px;font-size:13px;max-width:380px;min-width:240px;line-height:1.5;color:#222;display:none;pointer-events:none}
+.ev-tip-title{font-weight:700;font-size:14px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #eee;color:#111}
+.ev-tip-row{display:flex;gap:8px;margin-top:5px}
+.ev-tip-k{flex-shrink:0;width:18px;text-align:center}
 </style>
 </head>
 <body>
@@ -1353,17 +1358,16 @@ function renderCalMonth(){
       const color=getCalColor(e.owner);
       const isCompany=e.title&&(e.title.match(/근로자|어린이날|석가|대체공휴|현충|광복|추석|개천|한글|성탄|설날|신정/));
       const isAllDay=e.allDay||isCompany;
+      const evIdx=calEvents.indexOf(e);
+      const tipAttr=`onmouseenter="showEvTip(event,${evIdx})" onmouseleave="hideEvTip()" onclick="hideEvTip()"`;
       if(isAllDay && isCompany){
-        // 공휴일/전사일정 풀폭 핑크바
-        h+=`<div class="dau-cal-evt-bar" style="background:#f5b8d4">${esc(e.title)}</div>`;
+        h+=`<div class="dau-cal-evt-bar" style="background:#f5b8d4;cursor:default" ${tipAttr}>${esc(e.title)}</div>`;
       } else if(e.allDay){
-        // 종일 일정 풀폭 바 (소유자 색)
-        h+=`<div class="dau-cal-evt-bar" style="background:${color}cc">${esc(e.title)}</div>`;
+        h+=`<div class="dau-cal-evt-bar" style="background:${color}cc;cursor:default" ${tipAttr}>${esc(e.title)}</div>`;
       } else {
-        // 시간 일정: ● + 시간 + 제목
         const s=new Date(e.start);
         const tm=`${String(s.getHours()).padStart(2,"0")}:${String(s.getMinutes()).padStart(2,"0")}`;
-        h+=`<div class="dau-cal-evt-line"><span class="dau-dot" style="color:${color}">●</span> <span class="dau-evt-time">${tm}</span> <span class="dau-evt-title">${esc(e.title)}</span></div>`;
+        h+=`<div class="dau-cal-evt-line" style="cursor:default" ${tipAttr}><span class="dau-dot" style="color:${color}">●</span> <span class="dau-evt-time">${tm}</span> <span class="dau-evt-title">${esc(e.title)}</span></div>`;
       }
     });
     if(de.length>4) h+=`<div class="dau-cal-more">+${de.length-4}</div>`;
@@ -1372,6 +1376,58 @@ function renderCalMonth(){
   }
   h+='</div></div>';
   document.getElementById("calBody").innerHTML=h;
+}
+
+// ── 일정 호버 툴팁 ──────────────────────────────
+function _ensureEvTip(){
+  let t=document.getElementById("evTip");
+  if(!t){
+    t=document.createElement("div");
+    t.id="evTip";
+    t.className="ev-tip";
+    document.body.appendChild(t);
+  }
+  return t;
+}
+function showEvTip(evt,idx){
+  const e=calEvents[idx];if(!e)return;
+  const tip=_ensureEvTip();
+  const fmt=(s)=>{ try{ const d=new Date(s); if(isNaN(d))return s; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }catch{return s;} };
+  const time = e.allDay
+    ? `${(e.start||"").slice(0,10)} (종일)`
+    : `${fmt(e.start)} ~ ${fmt(e.end)}`;
+  const att = (e.attendees||[]).filter(a=>a.email||a.name);
+  const org = e.organizer||{};
+  const sharedWith = e.sharedWith||[];
+
+  let html = `<div class="ev-tip-title">${esc(e.title||"")}</div>`;
+  html += `<div class="ev-tip-row"><span class="ev-tip-k">📅</span><span>${esc(time)}</span></div>`;
+  if(e.location) html += `<div class="ev-tip-row"><span class="ev-tip-k">📍</span><span>${esc(e.location)}</span></div>`;
+  if(e.ownerName) html += `<div class="ev-tip-row"><span class="ev-tip-k">👤</span><span>${esc(e.ownerName)}${sharedWith.length?` <span style="color:#999">(공유: ${esc(sharedWith.join(", "))})</span>`:""}</span></div>`;
+  if(org.email || org.name) html += `<div class="ev-tip-row"><span class="ev-tip-k">✍️</span><span>${esc(org.name||org.email)}${org.name&&org.email?` <span style="color:#999">&lt;${esc(org.email)}&gt;</span>`:""}</span></div>`;
+  if(att.length){
+    html += `<div class="ev-tip-row" style="align-items:flex-start"><span class="ev-tip-k">👥</span><span><b>참석자 ${att.length}명</b><br>${att.slice(0,8).map(a=>esc(a.name||a.email)+(a.name&&a.email?` <span style="color:#999">&lt;${esc(a.email)}&gt;</span>`:"")).join("<br>")}${att.length>8?`<br><span style="color:#999">… 외 ${att.length-8}명</span>`:""}</span></div>`;
+  }
+  if(e.desc) html += `<div class="ev-tip-row" style="align-items:flex-start"><span class="ev-tip-k">📝</span><span style="white-space:pre-wrap;color:#555">${esc(e.desc)}</span></div>`;
+
+  tip.innerHTML = html;
+  tip.style.display = "block";
+
+  // 위치 계산 (마우스 근처, 화면 밖으로 안 나가게)
+  const pad = 12;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = evt.clientX + 14;
+  let y = evt.clientY + 14;
+  if(x + tw + pad > window.innerWidth)  x = evt.clientX - tw - 14;
+  if(y + th + pad > window.innerHeight) y = evt.clientY - th - 14;
+  if(x < pad) x = pad;
+  if(y < pad) y = pad;
+  tip.style.left = x + "px";
+  tip.style.top  = y + "px";
+}
+function hideEvTip(){
+  const t=document.getElementById("evTip");
+  if(t) t.style.display="none";
 }
 
 // 한국 공휴일 간단 매핑 (해당 월 표시용)
