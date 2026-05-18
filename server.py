@@ -1,7 +1,6 @@
-from flask import Flask, jsonify, send_file, request
+from flask import Flask, jsonify, send_file, request, Response
 import urllib.request
 import json
-from flask_cors import CORS
 import imaplib
 import email
 from email.header import decode_header
@@ -11,27 +10,22 @@ import io
 import re
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {
-    "origins": "*",
-    "methods": ["GET", "POST", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"]
-}})
 
+# CORS - 모든 요청에 헤더 추가
 @app.after_request
-def add_cors_headers(response):
+def add_cors(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range, Prefer"
     response.headers["Access-Control-Max-Age"] = "3600"
     return response
 
 @app.route("/api/<path:path>", methods=["OPTIONS"])
-def handle_options(path):
-    from flask import Response
+def cors_preflight(path):
     resp = Response("", 204)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Range, Prefer"
     resp.headers["Access-Control-Max-Age"] = "3600"
     return resp
 
