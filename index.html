@@ -135,6 +135,34 @@ td{padding:7px 11px;font-size:12px;color:var(--t2);vertical-align:middle}
   .hd{gap:5px}
   .hd-sub{display:none}
 }
+
+/* ── 설정 페이지 ── */
+.cfg-page{position:fixed;left:0;right:0;bottom:0;z-index:20;display:none;flex-direction:column;background:var(--bg)}
+.cfg-page.on{display:flex}
+.cfg-hd{padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cfg-title{font-size:15px;font-weight:800}
+.cfg-body{flex:1;overflow:auto;padding:20px}
+.cfg-sec{background:var(--bg2);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
+.cfg-sec-title{padding:12px 16px;font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.cfg-row:last-child{border-bottom:none}
+.cfg-label{font-size:13px;font-weight:600;color:var(--t)}
+.cfg-desc{font-size:11px;color:var(--t3);margin-top:2px}
+.cfg-inp{padding:6px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);font-size:12px;font-family:var(--s);color:var(--t);outline:none;min-width:180px}
+.cfg-inp:focus{border-color:var(--p);background:var(--bg2)}
+.cfg-btn{padding:6px 14px;border-radius:6px;border:none;background:var(--p);color:#fff;font-size:12px;font-weight:700;font-family:var(--s);cursor:pointer}
+.cfg-btn:hover{background:var(--p2,#1558b0)}
+.cfg-btn.del{background:var(--r)}
+.member-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.member-card:last-child{border-bottom:none}
+.member-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;background:var(--pd);color:var(--p)}
+.member-info{flex:1}
+.member-name{font-size:13px;font-weight:700}
+.member-email{font-size:11px;color:var(--t3)}
+.member-status{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600}
+.st-ok{background:#d1fae5;color:#065f46}
+.st-err{background:#fee2e2;color:#991b1b}
+.st-none{background:var(--bg3);color:var(--t3)}
 </style>
 </head>
 <body>
@@ -157,6 +185,7 @@ td{padding:7px 11px;font-size:12px;color:var(--t2);vertical-align:middle}
   <div class="hd-nav">
     <button class="hd-tab on" onclick="switchTab('mail',this)">📧 메일함</button>
     <button class="hd-tab" onclick="switchTab('contacts',this)">👤 주소록</button>
+    <button class="hd-tab" onclick="switchTab('settings',this)">⚙️ 설정</button>
   </div>
   <div class="hd-r">
     <div class="st"><div class="dot" id="stDot"></div><span id="stTxt" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
@@ -228,6 +257,77 @@ td{padding:7px 11px;font-size:12px;color:var(--t2);vertical-align:middle}
   </div>
   <div class="ct-foot"><span id="ctFoot"></span><span>AI 분석 · 중복제거</span></div>
 </div>
+<!-- 설정 페이지 -->
+<div class="cfg-page" id="cfgPage">
+  <div class="cfg-hd">
+    <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
+    <div class="cfg-title">⚙️ 설정</div>
+  </div>
+  <div class="cfg-body">
+
+    <!-- 팀원 관리 -->
+    <div class="cfg-sec">
+      <div class="cfg-sec-title">👥 팀원 관리 (메일/캘린더 연동)</div>
+      <div id="memberList"></div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">팀원 추가</div><div class="cfg-desc">다우오피스 계정으로 메일/캘린더 연동</div></div>
+        <button class="cfg-btn" onclick="showAddMember()">+ 추가</button>
+      </div>
+    </div>
+
+    <!-- 캘린더 설정 -->
+    <div class="cfg-sec">
+      <div class="cfg-sec-title">📅 캘린더 설정</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">CalDAV 서버</div><div class="cfg-desc">다우오피스 서버 주소</div></div>
+        <input class="cfg-inp" id="caldavServer" value="https://gw.enjet.co.kr" placeholder="https://gw.enjet.co.kr">
+      </div>
+      <div class="cfg-row">
+        <div></div>
+        <button class="cfg-btn" onclick="saveCaldavServer()">저장</button>
+      </div>
+    </div>
+
+    <!-- 위험 영역 -->
+    <div class="cfg-sec">
+      <div class="cfg-sec-title">⚠️ 데이터 관리</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">메일 캐시 초기화</div><div class="cfg-desc">IndexedDB 캐시 삭제 후 재동기화</div></div>
+        <button class="cfg-btn del" onclick="clearCache()">초기화</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 팀원 추가/수정 모달 -->
+<div id="memberModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:28px;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="font-size:16px;font-weight:800;margin-bottom:20px" id="modalTitle">팀원 추가</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:4px">이름</div>
+        <input class="cfg-inp" id="mName" placeholder="홍길동" style="width:100%">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:4px">이메일</div>
+        <input class="cfg-inp" id="mEmail" placeholder="hong@enjet.co.kr" style="width:100%">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:4px">다우오피스 아이디</div>
+        <input class="cfg-inp" id="mUser" placeholder="hong" style="width:100%">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:4px">다우오피스 비밀번호</div>
+        <input class="cfg-inp" type="password" id="mPass" placeholder="비밀번호" style="width:100%">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+      <button class="btn" onclick="closeMemberModal()">취소</button>
+      <button class="cfg-btn" onclick="saveMember()">저장</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
@@ -258,6 +358,7 @@ let curOwner="all",curMTab="list";
 let ctSortK="name",ctSortD="asc";
 let isSyncing=false;
 const _ctCache=new Map();
+let MEMBERS=[]; // SP에서 동적 로딩
 
 // DB
 const DB_NAME="enjet_mail_v2";
@@ -290,7 +391,7 @@ window.onload=async()=>{
   msal_=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:location.href.split("?")[0].split("#")[0]},cache:{cacheLocation:"localStorage"}});
   await msal_.initialize();
   const accs=msal_.getAllAccounts();
-  if(accs.length>0){acct=accs[0];showApp();const saved=await dbGet("contacts");saved.forEach(c=>_ctCache.set(c.email.toLowerCase(),c));loadAll();}
+  if(accs.length>0){acct=accs[0];showApp();const saved=await dbGet("contacts");saved.forEach(c=>_ctCache.set(c.email.toLowerCase(),c));await loadMembers();loadAll();}
   renderSB();
 };
 async function getToken(){try{return(await msal_.acquireTokenSilent({scopes:SCOPES,account:acct})).accessToken;}catch{return(await msal_.acquireTokenPopup({scopes:SCOPES})).accessToken;}}
@@ -322,31 +423,18 @@ async function spLoad(path){try{const r=await fetchSP(spUrl(path)+"/content");if
 
 // 로딩
 async function loadAll(){
-  // 1. IndexedDB 캐시 확인
+  // 1. IndexedDB 캐시 확인 (가장 빠름)
   const cached=await dbGet("mails");
   if(cached.length>0){
     allMails=cached;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
     curOwner="all";applyFilter();renderSB();
     const noH=allMails.filter(m=>!m.headerLoaded).length;
-    if(noH>0){setSt(`캐시 ${allMails.length}통 · 로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
+    if(noH>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
     else setSt(`${allMails.length}통`,"ok");
     return;
   }
-  // 2. SP 캐시 파일 로딩 시도 (_headers_cache.json)
-  setSt("SP 캐시 확인중...","spin");setSyncUI(true,"⏳");
-  try{
-    const spData=await spLoad(SP_HDR);
-    if(spData&&Array.isArray(spData)&&spData.length>0){
-      const restored=spData.map(m=>({...m,bodyLoaded:false,body:""}));
-      await dbPut("mails",restored);
-      allMails=restored;allMails.sort((a,b)=>new Date(b.dateRaw||0)-new Date(a.dateRaw||0));
-      curOwner="all";applyFilter();renderSB();
-      setSt(`SP캐시 ${allMails.length}통 로딩됨`,"ok");setSyncUI(false);
-      return;
-    }
-  }catch(e){console.warn("SP캐시 로딩 실패:",e.message);}
-  // 3. 처음: 파일 목록만 가져오기
-  setSt("연결중...","spin");setSyncUI(true,"⏳ 연결중");
+  // 2. 처음: 파일 목록만 가져오기 (SP 캐시 로딩은 헤더 완료 후 저장만)
+  setSt("연결중...","spin");setSyncUI(true,"⏳");
   try{
     const newMails=[];
     for(const m of MEMBERS){
@@ -413,11 +501,74 @@ function exNm(s){const m=(s||"").match(/^"?([^"<]+)"?\s*</);return m?dw(m[1].tri
 function fmtD(iso){if(!iso)return"";try{const d=new Date(iso);return d.toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{return iso;}}
 
 // 탭 전환
+// ── 설정 ─────────────────────────────────────────────
+const SP_MEMBERS_FILE = "📦영업/10.mail_backup/_members.json";
+let _editingMember = null;
+
+function encPw(p){try{const k="ENJET2025";let r="";for(let i=0;i<p.length;i++)r+=String.fromCharCode(p.charCodeAt(i)^k.charCodeAt(i%k.length));return btoa(r);}catch{return "";}}
+function decPw(e){try{const k="ENJET2025";const d=atob(e);let r="";for(let i=0;i<d.length;i++)r+=String.fromCharCode(d.charCodeAt(i)^k.charCodeAt(i%k.length));return r;}catch{return "";}}
+
+async function loadMembers(){
+  try{
+    const tok=await getToken();
+    const r=await fetch(spUrl(SP_MEMBERS_FILE)+"/content",{headers:{Authorization:"Bearer "+tok}});
+    if(r.ok){const d=await r.json();MEMBERS=d.map(m=>({...m,pass:m.pass?decPw(m.pass):""}));}
+  }catch{}
+  if(!MEMBERS.length){
+    MEMBERS=[
+      {email:"kwkang@enjet.co.kr",  name:"강경원",user:"kwkang",  pass:"",color:"av0"},
+      {email:"baekhoon@enjet.co.kr",name:"성백훈",user:"baekhoon",pass:"",color:"av1"},
+    ];
+  }
+  renderSB();
+}
+
+async function saveMembers(){
+  try{
+    const tok=await getToken();
+    const toSave=MEMBERS.map(m=>({...m,pass:m.pass?encPw(m.pass):""}));
+    await fetch(spUrl(SP_MEMBERS_FILE)+"/content",{method:"PUT",headers:{Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify(toSave)});
+  }catch(e){console.warn("팀원저장실패",e.message);}
+}
+
+function renderMemberList(){
+  const colors=["av0","av1","av2","av3"];
+  document.getElementById("memberList").innerHTML=MEMBERS.map((m,i)=>`
+    <div class="member-card">
+      <div class="member-av ${colors[i%4]}">${(m.name||"?")[0]}</div>
+      <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-email">${esc(m.email)}</div></div>
+      <span class="member-status ${m.pass?"st-ok":"st-none"}">${m.pass?"✓ 연동됨":"비번없음"}</span>
+      <button class="btn" onclick="editMember(${i})" style="margin-left:8px">수정</button>
+      <button class="cfg-btn del" onclick="delMember(${i})" style="margin-left:4px">삭제</button>
+    </div>`).join("");
+}
+
+function showAddMember(){_editingMember=null;document.getElementById("modalTitle").textContent="팀원 추가";["mName","mEmail","mUser","mPass"].forEach(id=>document.getElementById(id).value="");document.getElementById("memberModal").style.display="flex";}
+function editMember(i){_editingMember=i;const m=MEMBERS[i];document.getElementById("modalTitle").textContent="팀원 수정";document.getElementById("mName").value=m.name||"";document.getElementById("mEmail").value=m.email||"";document.getElementById("mUser").value=m.user||"";document.getElementById("mPass").value=m.pass||"";document.getElementById("memberModal").style.display="flex";}
+async function saveMember(){
+  const name=document.getElementById("mName").value.trim();
+  const email=document.getElementById("mEmail").value.trim().toLowerCase();
+  const user=document.getElementById("mUser").value.trim();
+  const pass=document.getElementById("mPass").value;
+  if(!name||!email){alert("이름과 이메일을 입력하세요");return;}
+  const colors=["av0","av1","av2","av3"];
+  const member={name,email,user,pass,color:colors[MEMBERS.length%4]};
+  if(_editingMember!==null){member.color=MEMBERS[_editingMember].color;MEMBERS[_editingMember]=member;}
+  else MEMBERS.push(member);
+  await saveMembers();closeMemberModal();renderMemberList();renderSB();
+  alert("저장됐어요!");
+}
+async function delMember(i){if(!confirm(`${MEMBERS[i].name}을(를) 삭제합니다?`))return;MEMBERS.splice(i,1);await saveMembers();renderMemberList();renderSB();}
+function closeMemberModal(){document.getElementById("memberModal").style.display="none";_editingMember=null;}
+
 function switchTab(tab,el){
   document.querySelectorAll(".hd-tab").forEach(b=>b.classList.remove("on"));if(el)el.classList.add("on");
   const ct=document.getElementById("ctPage");
-  if(tab==="contacts"){const hh=document.getElementById("mainHeader").offsetHeight;ct.style.top=hh+"px";ct.classList.add("on");if(allCt.length===0)buildCt();else renderCt(filtCt);}
-  else ct.classList.remove("on");
+  const cfg=document.getElementById("cfgPage");
+  const hh=document.getElementById("mainHeader").offsetHeight;
+  ct.classList.remove("on");if(cfg)cfg.classList.remove("on");
+  if(tab==="contacts"){ct.style.top=hh+"px";ct.classList.add("on");if(allCt.length===0)buildCt();else renderCt(filtCt);}
+  else if(tab==="settings"){cfg.style.top=hh+"px";cfg.classList.add("on");renderMemberList();}
 }
 let _activeMTab="list";
 function switchMTab(tab,el){
