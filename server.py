@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, send_file, request, Response
 import urllib.request
+import urllib.parse
+import urllib.error
 import json
 import imaplib
 import email
@@ -8,6 +10,7 @@ from email import policy
 import os
 import io
 import re
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -794,9 +797,6 @@ if __name__ == "__main__":
 
 
 # ── CalDAV 캘린더 ────────────────────────────────────
-import urllib.parse
-from datetime import datetime, timedelta
-
 CALDAV_SERVER = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
 
 CALDAV_MEMBERS = [
