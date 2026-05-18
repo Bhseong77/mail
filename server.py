@@ -819,7 +819,6 @@ CALDAV_MEMBERS = [
 
 def caldav_fetch(user, password, url, body=None, method="PROPFIND", depth="1"):
     import base64
-    # UTF-8로 인코딩 후 Base64 (한글 비밀번호 지원)
     creds_bytes = f"{user}:{password}".encode("utf-8")
     creds = base64.b64encode(creds_bytes).decode("ascii")
     headers = {
@@ -833,7 +832,10 @@ def caldav_fetch(user, password, url, body=None, method="PROPFIND", depth="1"):
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.read().decode("utf-8", errors="ignore")
     except urllib.error.HTTPError as e:
-        print(f"CalDAV HTTP {e.code} {url}")
+        body_text = ""
+        try: body_text = e.read().decode("utf-8", errors="ignore")[:200]
+        except: pass
+        print(f"CalDAV HTTP {e.code} {url} | WWW-Auth: {e.headers.get('WWW-Authenticate','')} | Body: {body_text}")
         return None
     except Exception as e:
         print(f"CalDAV 오류 {url}: {e}")
