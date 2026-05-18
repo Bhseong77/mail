@@ -185,6 +185,7 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
   <div class="hd-nav">
     <button class="hd-tab on" onclick="switchTab('mail',this)">📧 메일함</button>
     <button class="hd-tab" onclick="switchTab('contacts',this)">👤 주소록</button>
+    <button class="hd-tab" onclick="switchTab('calendar',this)">📅 캘린더</button>
     <button class="hd-tab" onclick="switchTab('settings',this)">⚙️ 설정</button>
   </div>
   <div class="hd-r">
@@ -258,6 +259,26 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
   <div class="ct-foot"><span id="ctFoot"></span><span>AI 분석 · 중복제거</span></div>
 </div>
 <!-- 설정 페이지 -->
+<!-- 캘린더 페이지 -->
+<div class="cfg-page" id="calPage">
+  <div class="cfg-hd">
+    <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
+    <div class="cfg-title">📅 팀 캘린더</div>
+    <div style="display:flex;gap:6px;margin-left:auto;align-items:center;">
+      <button class="btn" onclick="calNav(-1)">◀</button>
+      <span id="calTitle" style="font-size:15px;font-weight:700;min-width:110px;text-align:center"></span>
+      <button class="btn" onclick="calNav(1)">▶</button>
+      <button class="btn" onclick="calNav(0)">오늘</button>
+      <button class="btn" id="calViewBtn" onclick="toggleCalView()">목록</button>
+      <button class="btn" onclick="loadCalendar()">🔄</button>
+    </div>
+  </div>
+  <div id="calBody" style="flex:1;overflow:auto;background:var(--bg)"></div>
+  <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg3);font-size:12px;color:var(--t3);">
+    <span id="calStatus"></span>
+  </div>
+</div>
+
 <div class="cfg-page" id="cfgPage">
   <div class="cfg-hd">
     <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
@@ -682,7 +703,7 @@ function renderMemberList(){
     <div class="member-card">
       <div class="member-av ${colors[i%4]}">${(m.name||"?")[0]}</div>
       <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-email">${esc(m.email)}</div></div>
-      <span class="member-status ${m.pass?"st-ok":"st-none"}" id="mst-${i}">${m.pass?"✓ 연동됨":"비번없음"}</span>
+      <span class="member-status ${m.pass?"st-ok":"st-none"}" id="mst-${i}">${m.pass?"✓ IMAP 연동":"비번없음"}</span>
       <button class="btn" onclick="testMember(${i})" style="margin-left:6px" title="연결 테스트">🔌</button>
       <button class="btn" onclick="manualBackup(${i})" style="margin-left:4px" title="SP 백업">💾</button>
       <button class="btn" onclick="editMember(${i})" style="margin-left:4px">수정</button>
@@ -696,16 +717,25 @@ async function testMember(i){
   const stEl=document.getElementById("mst-"+i);
   stEl.className="member-status st-none";stEl.textContent="테스트중...";
   try{
+    const ctrl=new AbortController();
+    setTimeout(()=>ctrl.abort(),30000);
     const r=await fetch(`${RENDER_URL}/api/imap/test`,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({user:m.user,pass:m.pass})
+      body:JSON.stringify({user:m.user,pass:m.pass}),signal:ctrl.signal
     });
     const d=await r.json();
     if(d.status==="ok"){
-      stEl.className="member-status st-ok";stEl.textContent=`✓ ${d.count}통`;
+      // SP 백업 수 확인
+      let spCount=0;
+      try{
+        const fp=`${MAIL_FOLDER}/${m.email}/messages`;
+        const sr=await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=1&$select=name&$count=true`,{"Prefer":"return=minimal"});
+        if(sr?.ok){const sd=await sr.json();spCount=sd["@odata.count"]||0;}
+      }catch{}
+      stEl.className="member-status st-ok";
+      stEl.textContent=`IMAP ${d.count}통${spCount>0?` · SP ${spCount}통`:""}`;
     } else {
-      stEl.className="member-status st-err";
-      stEl.textContent="✗ 실패";
+      stEl.className="member-status st-err";stEl.textContent="✗ IMAP실패";
       alert(`${m.name} 연결 실패:\n${d.message}`);
     }
   }catch(e){
@@ -735,10 +765,12 @@ function switchTab(tab,el){
   document.querySelectorAll(".hd-tab").forEach(b=>b.classList.remove("on"));if(el)el.classList.add("on");
   const ct=document.getElementById("ctPage");
   const cfg=document.getElementById("cfgPage");
+  const cal=document.getElementById("calPage");
   const hh=document.getElementById("mainHeader").offsetHeight;
-  ct.classList.remove("on");if(cfg)cfg.classList.remove("on");
+  [ct,cfg,cal].forEach(p=>{if(p)p.classList.remove("on");});
   if(tab==="contacts"){ct.style.top=hh+"px";ct.classList.add("on");if(allCt.length===0)buildCt();else renderCt(filtCt);}
   else if(tab==="settings"){cfg.style.top=hh+"px";cfg.classList.add("on");renderMemberList();}
+  else if(tab==="calendar"){cal.style.top=hh+"px";cal.classList.add("on");if(calEvents.length===0)loadCalendar();else renderCalendar();}
 }
 let _activeMTab="list";
 function switchMTab(tab,el){
@@ -955,6 +987,100 @@ function exportCt(){
   const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_contacts_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
+
+// ── 캘린더 ──────────────────────────────────────────
+let calEvents=[], calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calView="month";
+const CAL_COLORS=["#1a6fd4","#7c3aed","#059669","#d97706","#dc2626","#0891b2","#be185d"];
+
+async function loadCalendar(){
+  document.getElementById("calStatus").textContent="로딩중...";
+  document.getElementById("calBody").innerHTML='<div class="lb"><div class="sp"></div>다우오피스 일정 가져오는 중...</div>';
+  try{
+    // 팀원 정보를 같이 전송 (서버가 CalDAV 연결 시 사용)
+    const members = MEMBERS.filter(m=>m.user&&m.pass).map(m=>({
+      email:m.email, name:m.name, user:m.user, pass:m.pass
+    }));
+    const r=await fetch(`${RENDER_URL}/api/calendar`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({members})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    calEvents=d.events||[];
+    document.getElementById("calStatus").textContent=`${calEvents.length}개 일정`;
+    if(d.errors?.length) console.warn("캘린더 오류:", d.errors);
+    renderCalendar();
+  }catch(e){
+    document.getElementById("calBody").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}<br><small style="display:block;margin-top:8px">설정 탭에서 팀원 비밀번호 확인 필요</small></div>`;
+    document.getElementById("calStatus").textContent="오류";
+  }
+}
+function calNav(dir){
+  if(dir===0){calYear=new Date().getFullYear();calMonth=new Date().getMonth();}
+  else{calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}}
+  renderCalendar();
+}
+function toggleCalView(){calView=calView==="month"?"list":"month";document.getElementById("calViewBtn").textContent=calView==="month"?"목록":"월간";renderCalendar();}
+function renderCalendar(){calView==="month"?renderCalMonth():renderCalList();}
+function getCalColor(email){const i=MEMBERS.findIndex(m=>m.email===email);return CAL_COLORS[i>=0?i%CAL_COLORS.length:0];}
+
+function renderCalMonth(){
+  const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  document.getElementById("calTitle").textContent=`${calYear}년 ${months[calMonth]}`;
+  const first=new Date(calYear,calMonth,1).getDay();
+  const days=new Date(calYear,calMonth+1,0).getDate();
+  const today=new Date();
+  const evs=calEvents.filter(e=>{const d=new Date(e.start);return d.getFullYear()===calYear&&d.getMonth()===calMonth;});
+  const dm={};evs.forEach(e=>{const d=new Date(e.start).getDate();if(!dm[d])dm[d]=[];dm[d].push(e);});
+  let h='<div style="padding:12px"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">'+
+    ["일","월","화","수","목","금","토"].map((d,i)=>`<div style="text-align:center;font-size:13px;font-weight:700;color:${i===0?"var(--r)":i===6?"var(--p)":"var(--t3)"};padding:6px">${d}</div>`).join("")+'</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+  for(let i=0;i<first;i++)h+='<div style="min-height:80px;background:var(--bg2);border-radius:6px;opacity:.3"></div>';
+  for(let d=1;d<=days;d++){
+    const isT=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
+    const dow=(first+d-1)%7;
+    const de=dm[d]||[];
+    h+=`<div style="min-height:80px;background:var(--bg2);border-radius:6px;padding:5px;border:${isT?"2px solid var(--p)":"1px solid var(--border)"}">
+      <div style="font-size:14px;font-weight:${isT?800:500};color:${isT?"var(--p)":dow===0?"var(--r)":dow===6?"var(--p)":"var(--t)"};margin-bottom:3px">${d}</div>
+      ${de.slice(0,2).map(e=>`<div style="font-size:11px;background:${getCalColor(e.owner)}22;color:${getCalColor(e.owner)};border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.title)}</div>`).join("")}
+      ${de.length>2?`<div style="font-size:10px;color:var(--t3)">+${de.length-2}</div>`:""}
+    </div>`;
+  }
+  h+='</div></div>';
+  document.getElementById("calBody").innerHTML=h;
+}
+
+function renderCalList(){
+  const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  document.getElementById("calTitle").textContent=`${calYear}년 ${months[calMonth]}`;
+  const me=calEvents.filter(e=>{const d=new Date(e.start);return d.getFullYear()===calYear&&d.getMonth()===calMonth;}).sort((a,b)=>a.start.localeCompare(b.start));
+  if(!me.length){document.getElementById("calBody").innerHTML='<div class="lb">📭 이번달 일정이 없습니다</div>';return;}
+  const dw=["일","월","화","수","목","금","토"];
+  document.getElementById("calBody").innerHTML=me.map(e=>{
+    const s=new Date(e.start);
+    const color=getCalColor(e.owner);
+    const on=MEMBERS.find(m=>m.email===e.owner)?.name||e.ownerName||"";
+    const t=e.allDay?"종일":`${String(s.getHours()).padStart(2,"0")}:${String(s.getMinutes()).padStart(2,"0")}`;
+    return `<div style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);align-items:flex-start">
+      <div style="text-align:center;min-width:40px;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800">${s.getDate()}</div>
+        <div style="font-size:11px;color:var(--t3)">${dw[s.getDay()]}</div>
+      </div>
+      <div style="width:3px;border-radius:2px;background:${color};flex-shrink:0;align-self:stretch;min-height:36px"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">${esc(e.title)}</div>
+        <div style="font-size:12px;color:var(--t2);display:flex;gap:10px;flex-wrap:wrap">
+          <span>⏰ ${t}</span>
+          ${e.location?`<span>📍 ${esc(e.location)}</span>`:""}
+          <span style="color:${color};font-weight:600">${esc(on)}</span>
+        </div>
+        ${e.desc?`<div style="font-size:11px;color:var(--t3);margin-top:4px">${esc(e.desc.slice(0,100))}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
 </script>
 </body>
 </html>

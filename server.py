@@ -895,15 +895,38 @@ def get_caldav_events(member, start, end):
             return all_events
     return []
 
-@app.route("/api/calendar")
+@app.route("/api/calendar", methods=["GET", "POST"])
 def api_calendar():
     today = datetime.now()
     start = request.args.get("start", (today - timedelta(days=30)).strftime("%Y%m%d"))
     end   = request.args.get("end",   (today + timedelta(days=60)).strftime("%Y%m%d"))
+
+    # POST로 팀원 정보 받기 (대시보드에서 전송)
+    members_from_client = []
+    if request.method == "POST":
+        body = request.get_json(force=True) or {}
+        members_from_client = body.get("members", [])
+        start = body.get("start", start)
+        end   = body.get("end", end)
+
+    # 팀원 목록 결정
+    if members_from_client:
+        cal_members = [
+            {
+                "email":    m.get("email",""),
+                "name":     m.get("name",""),
+                "user":     m.get("user",""),
+                "password": m.get("pass",""),
+            }
+            for m in members_from_client if m.get("pass")
+        ]
+    else:
+        cal_members = [m for m in CALDAV_MEMBERS if m.get("password")]
+
     all_events, errors = [], []
-    for member in CALDAV_MEMBERS:
-        if not member["password"]:
-            errors.append(f"{member['name']}: CALDAV_PASS 미설정"); continue
+    for member in cal_members:
+        if not member.get("password"):
+            continue
         try:
             events = get_caldav_events(member, start, end)
             all_events.extend(events)
