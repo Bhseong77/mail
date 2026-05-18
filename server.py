@@ -872,31 +872,29 @@ def parse_ical_events(ical_text, member_name, member_email):
 
 def discover_caldav_calendars(user, password, email):
     """CalDAV에서 실제 캘린더 목록 조회"""
-    caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
-
-    # 1. principal URL로 home-set 찾기
-    principal_urls = [
-        f"{caldav_srv}/principals/users/{email}/",
-        f"{caldav_srv}/principals/{user}/",
-    ]
-    propfind_body = '''<?xml version="1.0" encoding="utf-8"?>
+    try:
+        caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
+        principal_urls = [
+            f"{caldav_srv}/principals/users/{email}/",
+            f"{caldav_srv}/principals/{user}/",
+        ]
+        propfind_body = '''<?xml version="1.0" encoding="utf-8"?>
 <propfind xmlns="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
   <prop><c:calendar-home-set/><displayname/></prop>
 </propfind>'''
-
-    for purl in principal_urls:
-        resp = caldav_fetch(user, password, purl, body=propfind_body, method="PROPFIND", depth="0")
-        if not resp: continue
-        # calendar-home-set에서 경로 추출
-        m = re.search(r'<[^>]*calendar-home-set[^>]*>.*?<[^>]*href[^>]*>([^<]+)</[^>]*href', resp, re.DOTALL)
-        if m:
-            home = m.group(1).strip()
-            if not home.startswith("http"):
-                home = caldav_srv + home
-            print(f"[CalDAV] calendar-home-set: {home}")
-            return home
-
-    # 2. 직접 calendars 경로 시도
+        for purl in principal_urls:
+            resp = caldav_fetch(user, password, purl, body=propfind_body, method="PROPFIND", depth="0")
+            if not resp: continue
+            m = re.search(r'<[^>]*calendar-home-set[^>]*>.*?<[^>]*href[^>]*>([^<]+)</[^>]*href', resp, re.DOTALL)
+            if m:
+                home = m.group(1).strip()
+                if not home.startswith("http"):
+                    home = caldav_srv + home
+                print(f"[CalDAV] calendar-home-set: {home}")
+                return home
+    except Exception as e:
+        print(f"[CalDAV discover error] {e}")
+    caldav_srv = os.environ.get("CALDAV_SERVER", "https://gw.enjet.co.kr")
     return f"{caldav_srv}/principals/users/{email}/calendars/"
 
 def get_caldav_events(member, start, end):
@@ -962,43 +960,46 @@ def get_caldav_events(member, start, end):
 
 @app.route("/api/calendar", methods=["GET", "POST"])
 def api_calendar():
-    today = datetime.now()
-    start = request.args.get("start", (today - timedelta(days=30)).strftime("%Y%m%d"))
-    end   = request.args.get("end",   (today + timedelta(days=60)).strftime("%Y%m%d"))
+    try:
+        today = datetime.now()
+        start = request.args.get("start", (today - timedelta(days=30)).strftime("%Y%m%d"))
+        end   = request.args.get("end",   (today + timedelta(days=60)).strftime("%Y%m%d"))
 
-    # POST로 팀원 정보 받기 (대시보드에서 전송)
-    members_from_client = []
-    if request.method == "POST":
-        body = request.get_json(force=True) or {}
-        members_from_client = body.get("members", [])
-        start = body.get("start", start)
-        end   = body.get("end", end)
+        members_from_client = []
+        if request.method == "POST":
+            try:
+                body = request.get_json(force=True) or {}
+                members_from_client = body.get("members", [])
+                start = body.get("start", start)
+                end   = body.get("end", end)
+            except: pass
 
-    # 팀원 목록 결정
-    if members_from_client:
-        cal_members = [
-            {
-                "email":    m.get("email",""),
-                "name":     m.get("name",""),
-                "user":     m.get("user",""),
-                "password": m.get("pass",""),
-            }
-            for m in members_from_client if m.get("pass")
-        ]
-    else:
-        cal_members = [m for m in CALDAV_MEMBERS if m.get("password")]
+        if members_from_client:
+            cal_members = [
+                {"email": m.get("email",""), "name": m.get("name",""),
+                 "user": m.get("user",""), "password": m.get("pass","")}
+                for m in members_from_client if m.get("pass")
+            ]
+        else:
+            cal_members = [m for m in CALDAV_MEMBERS if m.get("password")]
 
-    all_events, errors = [], []
-    for member in cal_members:
-        if not member.get("password"):
-            continue
-        try:
-            events = get_caldav_events(member, start, end)
-            all_events.extend(events)
-        except Exception as e:
-            errors.append(f"{member['name']}: {e}")
-    all_events.sort(key=lambda e: e.get("start",""))
-    return jsonify({"events": all_events, "count": len(all_events), "errors": errors})
+        all_events, errors = [], []
+        for member in cal_members:
+            if not member.get("password"):
+                continue
+            try:
+                events = get_caldav_events(member, start, end)
+                all_events.extend(events)
+            except Exception as e:
+                errors.append(f"{member.get('name','?')}: {str(e)}")
+                print(f"[Calendar ERROR] {member.get('name')}: {e}")
+
+        all_events.sort(key=lambda e: e.get("start",""))
+        return jsonify({"events": all_events, "count": len(all_events), "errors": errors})
+
+    except Exception as e:
+        print(f"[Calendar FATAL] {e}")
+        return jsonify({"events": [], "count": 0, "errors": [str(e)]}), 200
 
 @app.route("/api/calendar/test")
 def api_calendar_test():
