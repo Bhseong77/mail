@@ -704,7 +704,10 @@ function renderMemberList(){
       <div class="member-av ${colors[i%4]}">${(m.name||"?")[0]}</div>
       <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-email">${esc(m.email)}</div></div>
       <span class="member-status ${m.pass?"st-ok":"st-none"}" id="mst-${i}">${m.pass?"✓ IMAP 연동":"비번없음"}</span>
-      <button class="btn" onclick="testMember(${i})" style="margin-left:6px" title="연결 테스트">🔌</button>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);margin-left:8px;cursor:pointer" title="캘린더 동기화">
+        <input type="checkbox" id="cal-chk-${i}" ${m.calSync!==false?"checked":""} onchange="toggleCalSync(${i},this.checked)"> 📅
+      </label>
+      <button class="btn" onclick="testMember(${i})" style="margin-left:4px" title="연결 테스트">🔌</button>
       <button class="btn" onclick="manualBackup(${i})" style="margin-left:4px" title="SP 백업">💾</button>
       <button class="btn" onclick="editMember(${i})" style="margin-left:4px">수정</button>
       <button class="cfg-btn del" onclick="delMember(${i})" style="margin-left:4px">삭제</button>
@@ -745,6 +748,11 @@ async function testMember(i){
 }
 function showAddMember(){_editingMember=null;document.getElementById("modalTitle").textContent="팀원 추가";["mName","mEmail","mUser","mPass"].forEach(id=>document.getElementById(id).value="");document.getElementById("memberModal").style.display="flex";}
 function editMember(i){_editingMember=i;const m=MEMBERS[i];document.getElementById("modalTitle").textContent="팀원 수정";document.getElementById("mName").value=m.name||"";document.getElementById("mEmail").value=m.email||"";document.getElementById("mUser").value=m.user||"";document.getElementById("mPass").value=m.pass||"";document.getElementById("memberModal").style.display="flex";}
+async function toggleCalSync(i, checked){
+  MEMBERS[i].calSync = checked;
+  await saveMembers();
+}
+
 async function saveMember(){
   const name=document.getElementById("mName").value.trim();
   const email=document.getElementById("mEmail").value.trim().toLowerCase();
@@ -997,7 +1005,7 @@ async function loadCalendar(){
   document.getElementById("calBody").innerHTML='<div class="lb"><div class="sp"></div>다우오피스 일정 가져오는 중...</div>';
   try{
     // 팀원 정보를 같이 전송 (서버가 CalDAV 연결 시 사용)
-    const members = MEMBERS.filter(m=>m.user&&m.pass).map(m=>({
+    const members = MEMBERS.filter(m=>m.user&&m.pass&&m.calSync!==false).map(m=>({
       email:m.email, name:m.name, user:m.user, pass:m.pass
     }));
     const r=await fetch(`${RENDER_URL}/api/calendar`,{
