@@ -1277,7 +1277,8 @@ function renderDB(){
         ${(function(){
           if(!_allMailsIdxMap){_allMailsIdxMap=new Map();for(let i=0;i<allMails.length;i++)_allMailsIdxMap.set(allMails[i],i);}
           return rows.map(m=>{
-          const idx=_allMailsIdxMap.get(m) ?? -1;
+          let idx = (m._origIdx !== undefined) ? m._origIdx : _allMailsIdxMap.get(m);
+          if(idx===undefined||idx<0) idx = -1;
           const dt=fmtMailDate(m.dateRaw||m.date||"");
           const from=exNm(m.from)||m.from||"-";
           const fromEmail=(m.from||"").match(/<([^>]+)>/)?.[1]||"";
@@ -1356,21 +1357,29 @@ function allMailIndexOf(m){
 
 function dedupMails(list){
   if(!list || list.length===0) return [];
-  // 가벼운 버전: 키로 묶기만, 인덱스/룩업 없음
+  // 인덱스 룩업용 Map 준비 (allMails 기준)
+  if(!_allMailsIdxMap){_allMailsIdxMap=new Map();for(let i=0;i<allMails.length;i++)_allMailsIdxMap.set(allMails[i],i);}
   const seen=new Map();
   const out=[];
   for(let i=0;i<list.length;i++){
     const m=list[i];
     const key=`${m.folder||"inbox"}|${m.dateRaw||""}|${(m.from||"").toLowerCase()}|${m.subject||""}`;
     if(!m.dateRaw || !m.from || !m.subject){
+      // 키 못 만들면 단독: 원본 자체 push (참조 보존)
       out.push(m); continue;
     }
     const prev=seen.get(key);
     if(prev===undefined){
       seen.set(key,out.length);
-      // 받는사람 칩용 데이터 미리 채움 (얕은 복사)
       const name=m.ownerName||"";
-      out.push(Object.assign({},m,{_recipients:name?[name]:[],_dedupCount:1,_allOwners:[m.owner]}));
+      const origIdx=_allMailsIdxMap.get(m);
+      // ★ 원본 메일의 인덱스를 새 객체에 _origIdx로 저장 (openMail 호출용)
+      out.push(Object.assign({},m,{
+        _recipients:name?[name]:[],
+        _dedupCount:1,
+        _allOwners:[m.owner],
+        _origIdx: (origIdx!==undefined ? origIdx : -1)
+      }));
     } else {
       const ex=out[prev];
       ex._dedupCount++;
@@ -1453,7 +1462,9 @@ function mkItems(mails){
   // 인덱스 룩업용 Map (한 번만 빌드)
   if(!_allMailsIdxMap){_allMailsIdxMap=new Map();for(let i=0;i<allMails.length;i++)_allMailsIdxMap.set(allMails[i],i);}
   return mails.map(m=>{
-    const idx=_allMailsIdxMap.get(m);
+    // dedup된 메일은 _origIdx 사용, 일반 메일은 Map 룩업
+    let idx = (m._origIdx !== undefined) ? m._origIdx : _allMailsIdxMap.get(m);
+    if(idx===undefined||idx<0) idx = -1;
     const isSent=m.folder==="sent";
     let nm;
     if(isSent){
