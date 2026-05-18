@@ -102,29 +102,42 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .ct-page{position:fixed;left:0;right:0;bottom:0;z-index:20;display:none;flex-direction:column;background:var(--bg)}
 .ct-page.on{display:flex}
 .ct-hd{padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.ct-title{font-size:16px;font-weight:800}
-.ct-si{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--t);font-size:15px;font-family:var(--s);outline:none;min-width:180px}
-.ct-si:focus{border-color:var(--p)}
+.ct-title{font-size:18px;font-weight:800}
+.ct-si{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:8px 12px;color:var(--t);font-size:14px;font-family:var(--s);outline:none;min-width:220px}
+.ct-si:focus{border-color:var(--p);background:var(--bg2)}
 .ct-si::placeholder{color:var(--t3)}
-.ct-cnt{font-size:15px;color:var(--t3);margin-left:auto}
-.ct-body{flex:1;overflow:auto;background:var(--bg2)}
-.ct-tbl{width:100%;border-collapse:collapse}
-.ct-tbl thead tr{background:var(--bg3);position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border2)}
-.ct-tbl th{padding:8px 13px;text-align:left;font-size:15px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;cursor:pointer;white-space:nowrap}
-.ct-tbl th:hover{color:var(--p)}
+.ct-cnt{font-size:15px;color:var(--t2);margin-left:auto;font-weight:600}
+.ct-newchk{display:flex;align-items:center;font-size:14px;color:var(--t2);font-weight:600;cursor:pointer;padding:7px 12px;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);user-select:none;white-space:nowrap}
+.ct-newchk:hover{border-color:var(--p);color:var(--p)}
+.ct-newchk:has(input:checked){background:var(--pd);border-color:var(--p);color:var(--p)}
+.ct-body{flex:1;overflow:auto;background:#fff}
+.ct-tbl{width:100%;border-collapse:collapse;background:#fff}
+.ct-tbl thead tr{background:var(--bg2);position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border)}
+.ct-tbl th{padding:12px 14px;text-align:left;font-size:13px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;cursor:pointer;white-space:nowrap;user-select:none}
+.ct-tbl th:hover{color:var(--p);background:var(--bg3)}
 .ct-tbl tbody tr{border-bottom:1px solid var(--border)}
 .ct-tbl tbody tr:hover td{background:var(--bg3)}
-.ct-tbl td{padding:8px 13px;vertical-align:middle}
-.ct-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
-.ct-em{color:var(--p);text-decoration:none;font-size:15px}
+.ct-tbl td{padding:13px 14px;vertical-align:middle;font-size:14px;color:var(--t)}
+.ct-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+.ct-name{font-size:15px;font-weight:700;color:var(--t);margin-bottom:2px}
+.ct-name-sub{font-size:12px;color:var(--t3)}
+.ct-co{font-size:14px;font-weight:600;color:var(--t)}
+.ct-co-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.ct-dept{font-size:13px;color:var(--t2);font-weight:500}
+.ct-dept-empty{font-size:12px;color:var(--t3);opacity:.5;font-style:italic}
+.ct-em{color:var(--p);text-decoration:none;font-size:14px;font-weight:500}
 .ct-em:hover{text-decoration:underline}
-.ct-ed{border-radius:3px;padding:2px 4px;margin:-2px -4px;cursor:pointer}
-.ct-ed:hover{background:var(--bg3)}
-.ct-foot{padding:7px 13px;border-top:1px solid var(--border);background:var(--bg3);font-size:15px;color:var(--t3);display:flex;justify-content:space-between}
+.ct-ph{font-family:var(--m);font-size:13px;color:var(--t2)}
+.ct-ph-empty{font-size:12px;color:var(--t3);opacity:.5;font-style:italic}
+.ct-ed{border-radius:4px;padding:3px 5px;margin:-3px -5px;cursor:pointer}
+.ct-ed:hover{background:var(--bg3);outline:1px dashed var(--border2)}
+.ct-date{font-family:var(--m);font-size:12px;color:var(--t3);white-space:nowrap}
+.ct-new-badge{display:inline-block;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;margin-left:6px;border:1px solid #fcd34d}
+.ct-foot{padding:10px 16px;border-top:1px solid var(--border);background:var(--bg3);font-size:13px;color:var(--t3);display:flex;justify-content:space-between}
 .lb{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;gap:10px;color:var(--t3);font-size:15px}
 .sp{width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.doc-b{font-size:15px;padding:1px 5px;border-radius:4px;font-weight:700;display:inline-block}
+.doc-b{font-size:13px;padding:2px 7px;border-radius:4px;font-weight:700;display:inline-block}
 .doc-tax{background:#d1fae5;color:#065f46}.doc-quote{background:#fef3c7;color:#92400e}.doc-po{background:#dbeafe;color:#1d4ed8}
 .doc-inv{background:#ede9fe;color:#5b21b6}.doc-data{background:#fce7f3;color:#9d174d}
 
@@ -302,8 +315,12 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 <div class="ct-page" id="ctPage">
   <div class="ct-hd">
     <button class="btn" onclick="switchTab('mail',document.querySelector('.hd-tab'))">← 메일함</button>
-    <div><div class="ct-title">👤 주소록</div><div style="font-size:12px;color:var(--t3)">메일 발신자 자동 추출</div></div>
-    <input class="ct-si" id="ctSrch" placeholder="🔍 이름, 회사, 이메일..." oninput="filterCt()">
+    <div><div class="ct-title">👤 주소록</div><div style="font-size:13px;color:var(--t3)">메일 발신자 자동 추출 · 부서 자동 인식</div></div>
+    <input class="ct-si" id="ctSrch" placeholder="🔍 이름, 회사, 부서, 이메일..." oninput="filterCt()">
+    <label class="ct-newchk" title="최근 7일 내 처음 메일 받은 사람만 보기">
+      <input type="checkbox" id="ctNewOnly" onchange="filterCt()" style="margin-right:5px;cursor:pointer">
+      🆕 신규 7일
+    </label>
     <span class="ct-cnt" id="ctCnt"></span>
     <button class="btn" onclick="buildCt()">🔄</button>
     <button class="btn" onclick="exportCt()">⬇️ CSV</button>
@@ -311,10 +328,12 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
   <div class="ct-body">
     <table class="ct-tbl">
       <thead><tr>
-        <th onclick="sortCt('name')">이름</th>
-        <th onclick="sortCt('company')">회사</th>
+        <th onclick="sortCt('name')" style="width:200px">이름</th>
+        <th onclick="sortCt('company')" style="width:200px">회사</th>
+        <th onclick="sortCt('dept')" style="width:200px">부서/직함</th>
         <th onclick="sortCt('email')">이메일</th>
-        <th onclick="sortCt('mobile')">전화번호</th>
+        <th onclick="sortCt('mobile')" style="width:160px">전화번호</th>
+        <th onclick="sortCt('firstSeen')" style="width:130px">최초 연락</th>
       </tr></thead>
       <tbody id="ctBody"></tbody>
     </table>
@@ -1173,20 +1192,23 @@ function getDom(em){return(em||"").split("@")[1]||"";}
 function getCo(em){const d=getDom(em);return DOMAIN_MAP[d]||d.split(".")[0]||"";}
 
 async function buildCt(){
-  document.getElementById("ctBody").innerHTML='<tr><td colspan="4"><div class="lb"><div class="sp"></div>연락처 추출 중...</div></td></tr>';
+  document.getElementById("ctBody").innerHTML='<tr><td colspan="6"><div class="lb"><div class="sp"></div>연락처 추출 중...</div></td></tr>';
   const map=new Map();
-  _ctCache.forEach((v,k)=>map.set(k,{email:k,...v,mailCount:0,enriched:true,mail:null}));
+  _ctCache.forEach((v,k)=>map.set(k,{email:k,...v,mailCount:0,enriched:true,mail:null,firstSeen:v.firstSeen||null}));
   const target=curOwner==="all"?allMails:allMails.filter(m=>m.owner===curOwner);
-  for(const m of target){
+  // 메일을 가장 오래된 것부터 순회해서 firstSeen 정확히 잡기
+  const sorted=[...target].sort((a,b)=>new Date(a.dateRaw||0)-new Date(b.dateRaw||0));
+  for(const m of sorted){
     const em=exEm(m.from);if(!em||em.includes("enjet.co.kr"))continue;
     const k=em.toLowerCase();const c=_ctCache.get(k);
-    if(!map.has(k))map.set(k,{email:em,name:c?.name||exNm(m.from)||"",company:c?.company||"",dept:c?.dept||"",mobile:c?.mobile||"",tel:c?.tel||"",mailCount:1,enriched:!!c,mail:c?null:m});
-    else{const x=map.get(k);x.mailCount++;if(!x.mail&&!x.enriched)x.mail=m;}
+    const mDate=m.dateRaw||m.date||"";
+    if(!map.has(k))map.set(k,{email:em,name:c?.name||exNm(m.from)||"",company:c?.company||"",dept:c?.dept||"",mobile:c?.mobile||"",tel:c?.tel||"",mailCount:1,enriched:!!c,mail:c?null:m,firstSeen:c?.firstSeen||mDate,lastSeen:mDate});
+    else{const x=map.get(k);x.mailCount++;if(!x.mail&&!x.enriched)x.mail=m; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate;}
     for(const cc of(m.cc||[])){
       if(!cc.email||cc.email.includes("enjet.co.kr"))continue;
       const ck=cc.email.toLowerCase();const cv=_ctCache.get(ck);
-      if(!map.has(ck))map.set(ck,{email:cc.email,name:cv?.name||cc.name||"",company:cv?.company||"",dept:cv?.dept||"",mobile:cv?.mobile||"",tel:cv?.tel||"",mailCount:1,enriched:!!cv,mail:null});
-      else map.get(ck).mailCount++;
+      if(!map.has(ck))map.set(ck,{email:cc.email,name:cv?.name||cc.name||"",company:cv?.company||"",dept:cv?.dept||"",mobile:cv?.mobile||"",tel:cv?.tel||"",mailCount:1,enriched:!!cv,mail:null,firstSeen:cv?.firstSeen||mDate,lastSeen:mDate});
+      else { const x=map.get(ck); x.mailCount++; if(!x.firstSeen)x.firstSeen=mDate; x.lastSeen=mDate; }
     }
   }
   allCt=[...map.values()];filtCt=[...allCt];sortCtList();renderCt(filtCt);
@@ -1206,7 +1228,7 @@ async function enrichCt(map){
       if(info.name)ct.name=info.name;if(info.company)ct.company=info.company;
       if(info.dept)ct.dept=info.dept;if(info.mobile)ct.mobile=info.mobile;if(info.tel)ct.tel=info.tel;
       ct.enriched=true;
-      const cv={name:ct.name,company:ct.company,dept:ct.dept,mobile:ct.mobile,tel:ct.tel};
+      const cv={name:ct.name,company:ct.company,dept:ct.dept,mobile:ct.mobile,tel:ct.tel,firstSeen:ct.firstSeen};
       _ctCache.set(ct.email.toLowerCase(),cv);
       await dbPut("contacts",[{email:ct.email,...cv}]);
       spSaveLater("ct",SP_CT,()=>{const o=[];_ctCache.forEach((v,k)=>o.push({email:k,...v}));return o;});
@@ -1218,16 +1240,94 @@ async function enrichCt(map){
   allCt=[...map.values()];filtCt=[...allCt];sortCtList();renderCt(filtCt);
   document.getElementById("ctCnt").textContent=allCt.length+"명";
 }
-function filterCt(){const q=(document.getElementById("ctSrch")?.value||"").toLowerCase();filtCt=allCt.filter(c=>!q||(c.name||"").toLowerCase().includes(q)||(c.company||"").toLowerCase().includes(q)||(c.email||"").toLowerCase().includes(q)||(c.mobile||"").includes(q)||(c.tel||"").includes(q));renderCt(filtCt);}
-function sortCt(k){if(ctSortK===k)ctSortD=ctSortD==="asc"?"desc":"asc";else{ctSortK=k;ctSortD="asc";}sortCtList();renderCt(filtCt);}
-function sortCtList(){filtCt.sort((a,b)=>{const av=a[ctSortK]||"",bv=b[ctSortK]||"";return ctSortD==="asc"?av.localeCompare(bv):bv.localeCompare(av);});}
+function filterCt(){
+  const q=(document.getElementById("ctSrch")?.value||"").toLowerCase();
+  const newOnly=document.getElementById("ctNewOnly")?.checked;
+  filtCt=allCt.filter(c=>{
+    if(newOnly && !isContactNew(c)) return false;
+    if(!q) return true;
+    return (c.name||"").toLowerCase().includes(q)
+        || (c.company||"").toLowerCase().includes(q)
+        || (c.dept||"").toLowerCase().includes(q)
+        || (c.email||"").toLowerCase().includes(q)
+        || (c.mobile||"").includes(q)
+        || (c.tel||"").includes(q);
+  });
+  sortCtList();
+  renderCt(filtCt);
+}
+
+function sortCt(k){if(ctSortK===k)ctSortD=ctSortD==="asc"?"desc":"asc";else{ctSortK=k;ctSortD=k==="firstSeen"?"desc":"asc";}sortCtList();renderCt(filtCt);}
+
+function sortCtList(){
+  filtCt.sort((a,b)=>{
+    let av=a[ctSortK]||"", bv=b[ctSortK]||"";
+    if(ctSortK==="firstSeen"){
+      av=new Date(av||0).getTime()||0;
+      bv=new Date(bv||0).getTime()||0;
+      return ctSortD==="asc"?av-bv:bv-av;
+    }
+    return ctSortD==="asc"?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));
+  });
+}
+function isContactNew(c){
+  if(!c.firstSeen) return false;
+  try{
+    const d=new Date(c.firstSeen);
+    if(isNaN(d)) return false;
+    const diff=(Date.now()-d.getTime())/86400000;
+    return diff>=0 && diff<=7;
+  }catch{return false;}
+}
+
+function fmtContactDate(s){
+  if(!s) return "-";
+  try{
+    const d=new Date(s);
+    if(isNaN(d)) return "-";
+    const now=new Date();
+    const sy=d.getFullYear()===now.getFullYear();
+    return sy ? `${d.getMonth()+1}/${d.getDate()}` : `${String(d.getFullYear()).slice(2)}/${d.getMonth()+1}/${d.getDate()}`;
+  }catch{return "-";}
+}
+
 function renderCt(list){
-  document.getElementById("ctCnt").textContent=list.length+"명";document.getElementById("ctFoot").textContent=`총 ${list.length}명`;
+  document.getElementById("ctCnt").textContent=list.length+"명";
+  document.getElementById("ctFoot").textContent=`총 ${list.length}명`;
   const tb=document.getElementById("ctBody");
-  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="lb">📭 연락처 없음</div></td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="6"><div class="lb">📭 연락처 없음</div></td></tr>';return;}
   tb.innerHTML=list.map((c,i)=>{
-    const co=c.company||getCo(c.email);const ph=c.mobile||c.tel||"";const k=encodeURIComponent(c.email.toLowerCase());
-    return`<tr><td><div style="display:flex;align-items:center;gap:7px"><div class="ct-av ${AV[i%4]}">${(c.name||"?")[0]}</div><div><div class="ct-ed" onclick="editCt('${k}','name',this)" style="font-size:12px;font-weight:700">${esc(c.name||c.email.split("@")[0])}</div><div class="ct-ed" onclick="editCt('${k}','dept',this)" style="font-size:10px;color:var(--t3)">${c.dept?esc(c.dept):'<span style="opacity:.4">부서추가...</span>'}</div></div></div></td><td><div class="ct-ed" onclick="editCt('${k}','company',this)" style="font-size:12px;font-weight:600">${esc(co)}</div><div style="font-size:10px;color:var(--t3)">${esc(getDom(c.email))}</div></td><td><a href="mailto:${esc(c.email)}" class="ct-em">${esc(c.email)}</a></td><td><div class="ct-ed" onclick="editCt('${k}','mobile',this)" style="font-family:var(--m);font-size:12px">${ph?`📞 ${esc(ph)}`:'<span style="opacity:.3">전화추가...</span>'}</div></td></tr>`;
+    const co=c.company||getCo(c.email);
+    const ph=c.mobile||c.tel||"";
+    const k=encodeURIComponent(c.email.toLowerCase());
+    const isNew=isContactNew(c);
+    const nameMain=esc(c.name||c.email.split("@")[0]);
+    const newBadge=isNew?`<span class="ct-new-badge">NEW</span>`:"";
+    const deptCell=c.dept
+      ? `<div class="ct-ed ct-dept" onclick="editCt('${k}','dept',this)">${esc(c.dept)}</div>`
+      : `<div class="ct-ed ct-dept-empty" onclick="editCt('${k}','dept',this)">부서 추가...</div>`;
+    const phoneCell=ph
+      ? `<div class="ct-ed ct-ph" onclick="editCt('${k}','mobile',this)">📞 ${esc(ph)}</div>`
+      : `<div class="ct-ed ct-ph-empty" onclick="editCt('${k}','mobile',this)">전화 추가...</div>`;
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="ct-av ${AV[i%4]}">${(c.name||"?")[0]}</div>
+          <div style="min-width:0;flex:1">
+            <div class="ct-ed ct-name" onclick="editCt('${k}','name',this)">${nameMain}${newBadge}</div>
+            <div class="ct-name-sub">${esc(c.email.split("@")[0])}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="ct-ed ct-co" onclick="editCt('${k}','company',this)">${esc(co)}</div>
+        <div class="ct-co-sub">${esc(getDom(c.email))}</div>
+      </td>
+      <td>${deptCell}</td>
+      <td><a href="mailto:${esc(c.email)}" class="ct-em">${esc(c.email)}</a></td>
+      <td>${phoneCell}</td>
+      <td class="ct-date" title="최초 메일 수신일">${esc(fmtContactDate(c.firstSeen))}</td>
+    </tr>`;
   }).join("");
 }
 
@@ -1257,10 +1357,15 @@ function renderCtFld(el,field,c){
   else if(field==="mobile")el.innerHTML=v?`📞 ${esc(v)}`:'<span style="opacity:.3">전화추가...</span>';
 }
 function exportCt(){
-  const rows=[["이름","회사","도메인","부서/직함","이메일","전화번호"]];
-  filtCt.forEach(c=>rows.push([c.name||"",c.company||getCo(c.email)||"",getDom(c.email),c.dept||"",c.email||"",c.mobile||c.tel||""]));
-  const csv=rows.map(r=>r.map(c=>`"${(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_contacts_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  const rows=[["이름","회사","도메인","부서/직함","이메일","전화번호","최초 연락","메일 횟수","신규(7일)"]];
+  filtCt.forEach(c=>rows.push([
+    c.name||"", c.company||getCo(c.email)||"", getDom(c.email), c.dept||"",
+    c.email||"", c.mobile||c.tel||"",
+    fmtContactDate(c.firstSeen), String(c.mailCount||0),
+    isContactNew(c)?"O":""
+  ]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download=`enjet_contacts_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
 
 // ── 캘린더 ──────────────────────────────────────────
