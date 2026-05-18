@@ -436,7 +436,6 @@ async function loadAll(){
     else setSt(`${allMails.length}통`,"ok");
     return;
   }
-  // 2. 처음: 파일 목록만 가져오기 (SP 캐시 로딩은 헤더 완료 후 저장만)
   setSt("연결중...","spin");setSyncUI(true,"⏳");
   try{
     const newMails=[];
@@ -486,7 +485,8 @@ async function loadAll(){
     const needHdr=allMails.filter(m=>!m.headerLoaded).length;
     if(needHdr>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${needHdr}`);loadHdrs(needHdr);}
     else{setSt(`${allMails.length}통`,"ok");setSyncUI(false);}
-  }catch(e){setSt("오류: "+e.message,"err");setSyncUI(false);document.getElementById("mList").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}</div>`;}
+  }catch(e){setSt("오류: "+e.message,"err");document.getElementById("mList").innerHTML=`<div class="lb" style="color:var(--r)">⚠️ ${esc(e.message)}<br><br><button onclick="doFullSync()" style="padding:8px 16px;background:var(--p);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🔃 다시 시도</button></div>`;}
+  finally{setSyncUI(false);}
 }
 async function loadHdrs(total){
   const noH=allMails.filter(m=>!m.headerLoaded);
@@ -516,7 +516,13 @@ async function loadHdrs(total){
   spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
 }
 function doRefresh(){setSt("최신 상태","ok");}
-async function doFullSync(){if(isSyncing)return;if(!confirm("전체 재동기화합니다?"))return;await dbClear();allMails=[];filtered=[];curOwner="all";applyFilter();renderSB();loadAll();}
+async function doFullSync(){
+  if (!confirm("전체 재동기화합니다?")) return;
+  isSyncing = false; // 강제 초기화
+  await dbClear(); allMails=[]; filtered=[];
+  curOwner="all"; applyFilter(); renderSB();
+  loadAll();
+}
 async function clearCache(){if(!confirm("캐시를 초기화합니다."))return;await dbClear();_ctCache.clear();alert("완료!");location.reload();}
 
 // EML 파싱
