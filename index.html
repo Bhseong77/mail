@@ -28,6 +28,8 @@ body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:15px;hei
 .btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);font-size:14px;font-weight:600;font-family:var(--s);color:var(--t2);cursor:pointer;}
 .btn:hover{border-color:var(--p);color:var(--p)}.btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.red{color:var(--r)}.btn.red:hover{border-color:var(--r)}
+.btn.retired-btn{color:#6b21a8;background:#faf5ff;border-color:#e9d5ff}
+.btn.retired-btn:hover{background:#f3e8ff;border-color:#a855f7;color:#6b21a8}
 .pb{height:3px;background:var(--border);flex-shrink:0;}
 .pf{height:100%;background:var(--p);transition:width .3s;width:0%;}
 .app{display:grid;grid-template-columns:220px 360px 1fr;flex:1;min-height:0;}
@@ -40,6 +42,12 @@ body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:15px;hei
 .sb-it-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-it-email{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-cnt{font-size:13px;font-family:var(--m);font-weight:700;background:var(--pd);color:var(--p);padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0;}
+.sb-it.sb-retired{opacity:.7}
+.sb-it.sb-retired:not(.on){background:transparent}
+.sb-it.sb-retired .sb-it-name{color:var(--t3)}
+.sb-it.sb-retired .sb-cnt{background:#f3e8ff;color:#6b21a8}
+.sb-retired-tag{display:inline-block;font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b;padding:0 5px;border-radius:8px;margin-left:5px;vertical-align:middle;line-height:1.5}
+.sb-lbl-retired{color:#9f1239;font-size:12px}
 .av0{background:#dbeafe;color:#1d4ed8}.av1{background:#fce7f3;color:#be185d}.av2{background:#d1fae5;color:#065f46}
 .ml{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2);overflow:hidden;}
 .ml-top{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -201,6 +209,9 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .cfg-btn.del{background:var(--r)}
 .member-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
 .member-card:last-child{border-bottom:none}
+.member-card.retired{background:#fafaf9;opacity:.75}
+.member-card.retired .member-name{color:var(--t2)}
+.retired-badge{display:inline-block;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:10px;margin-left:8px;border:1px solid #fca5a5}
 .member-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;background:var(--pd);color:var(--p)}
 .member-info{flex:1}
 .member-name{font-size:15px;font-weight:700}
@@ -209,6 +220,7 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .st-ok{background:#d1fae5;color:#065f46}
 .st-err{background:#fee2e2;color:#991b1b}
 .st-none{background:var(--bg3);color:var(--t3)}
+.st-retired{background:#f3e8ff;color:#6b21a8}
 
 /* ── 다우오피스 스타일 월간 캘린더 ──────────────── */
 .dau-cal{background:#fff;font-family:-apple-system,"맑은 고딕","Malgun Gothic",sans-serif}
@@ -267,6 +279,7 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
     <div class="st"><div class="dot" id="stDot"></div><span id="stTxt" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
     <button class="btn" id="refreshBtn" onclick="doRefresh()" title="새로고침">🔄</button>
     <button class="btn" id="syncBtn" onclick="doFullSync()">🔃 동기화</button>
+    <button class="btn retired-btn" id="retiredSyncBtn" onclick="syncRetired()" title="퇴사 인원 메일함을 한 번 확인">🚫 퇴사인원</button>
     <button class="btn red" onclick="clearCache()" title="캐시초기화">🗑️</button>
     <button class="btn red" onclick="doLogout()">로그아웃</button>
   </div>
@@ -532,16 +545,8 @@ window.onload=async()=>{
 // ── 자동 새메일 polling (3분마다) ──────────────────
 let _autoTimer=null;
 function startAutoRefresh(){
-  if(_autoTimer) clearInterval(_autoTimer);
-  // 3분 = 180000ms
-  _autoTimer=setInterval(()=>{
-    if(!acct) return;                                       // 로그아웃이면 스킵
-    if(isSyncing) return;                                   // 이미 동기화 중이면 스킵
-    if(document.visibilityState!=="visible") return;        // 탭 안 보이면 스킵
-    console.log("[자동동기화] doRefresh 호출");
-    doRefresh();
-  }, 180000);
-  console.log("[자동동기화] 3분 주기로 활성화");
+  // 비상모드: 자동 동기화 비활성. 사용자가 수동 동기화 버튼 누를 때만 동작.
+  console.log("[자동동기화] 비활성 (수동 동기화만 사용)");
 }
 async function getToken(){try{return(await msal_.acquireTokenSilent({scopes:SCOPES,account:acct})).accessToken;}catch{return(await msal_.acquireTokenPopup({scopes:SCOPES})).accessToken;}}
 async function doLogin(){try{const r=await msal_.loginPopup({scopes:SCOPES,prompt:"select_account"});acct=r.account;showApp();loadAll();}catch(e){alert("로그인 실패: "+e.message);}}
@@ -551,14 +556,15 @@ function showApp(){document.getElementById("loginScreen").style.display="none";d
 // Graph
 async function fetchSP(url,opts={}){
   const tok=await getToken();
-  for(let i=0;i<=4;i++){
+  for(let i=0;i<=2;i++){   // 최대 3회 (이전 5회 → 3회)
     const r=await fetch(url,{
       ...opts,
       headers:{Authorization:"Bearer "+tok,...(opts.headers||{})},
       redirect:"follow"
     });
+    // 429/503만 재시도, 403/404는 즉시 반환
     if(r.status===429||r.status===503){
-      const w=parseInt(r.headers.get("Retry-After")||"0")*1000||Math.min(1000*2**i,16000);
+      const w=parseInt(r.headers.get("Retry-After")||"0")*1000||Math.min(1000*2**i,8000);
       await new Promise(r=>setTimeout(r,w));continue;
     }
     return r;
@@ -589,8 +595,7 @@ async function loadAll(){
     if(noH>0){setSt(`${allMails.length}통 · 제목로딩중`,"spin");setSyncUI(true,`⏳ 0/${noH}`);loadHdrs(noH);}
     else {
       setSt(`${allMails.length}통`,"ok");
-      // 캐시 있어도 IMAP 새 메일 백그라운드 확인
-      setTimeout(()=>doRefresh(), 2000);
+      // 비상모드: 자동 doRefresh 비활성. 동기화 버튼을 눌러야 함.
     }
     return;
   }
@@ -601,20 +606,24 @@ async function loadAll(){
       try{
         const fp=`${MAIL_FOLDER}/${m.email}/messages`;
 
-        // 1. SP 백업 확인 (없으면 조용히 스킵)
-        try {
-          const spUrl2=`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
-          const r=await fetch(spUrl2,{headers:{Authorization:"Bearer "+(await getToken())}});
-          if(r?.ok){
-            const d=await r.json();
-            (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
-              newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp"});
-            });
-          }
-        } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
+        // 1. SP 백업 확인 (차단된 사용자는 스킵)
+        if (!isSpBlocked(m.email)) {
+          try {
+            const spUrl2=`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
+            const r=await fetch(spUrl2,{headers:{Authorization:"Bearer "+(await getToken())}});
+            if(r?.status===403) { markSpBlocked(m.email); }
+            else if(r?.ok){
+              const d=await r.json();
+              (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
+                newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp",folder:"inbox"});
+              });
+            }
+          } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
+        }
 
         // 2. IMAP 실시간 (아이디/비번 있으면 inbox + sent 둘 다)
-        if(m.user&&m.pass){
+        // 2. IMAP 실시간 (퇴사자가 아니고 비번 있으면 inbox + sent 둘 다)
+        if(m.user&&m.pass && !m.retired){
           for(const fld of ["inbox","sent"]){
             setSt(`${m.name} IMAP ${fld}...`,"spin");
             try {
@@ -633,7 +642,7 @@ async function loadAll(){
               (id.mails||[]).forEach(mail=>{
                 if(!spKeys.has(mail.dateRaw)){
                   mail.ownerName=m.name; mail.color=m.color||"av0";
-                  mail.folder=fld;  // 보정
+                  mail.folder=fld;
                   newMails.push(mail);
                 }
               });
@@ -642,6 +651,8 @@ async function loadAll(){
             }
           }
           backupImapToSP(m);
+        } else if(m.retired) {
+          console.log(`[퇴사] ${m.name} IMAP 자동 동기화 스킵`);
         }
       }catch(e){console.warn(m.email,e.message);}
     }
@@ -658,9 +669,8 @@ async function loadAll(){
 }
 async function loadHdrs(total){
   // ★ IMAP 출처 메일은 이미 헤더가 다 있으므로 SP 호출 불필요
-  // 오직 SP 백업 출처 메일만 헤더를 SP에서 가져온다
-  const noH=allMails.filter(m=>!m.headerLoaded && m.source!=="imap");
-  // IMAP인데 headerLoaded false인 경우는 그냥 true로 마킹 (이미 IMAP에서 다 가져옴)
+  // 차단된 멤버 메일도 스킵
+  const noH=allMails.filter(m=>!m.headerLoaded && m.source!=="imap" && !isSpBlocked(m.owner));
   allMails.filter(m=>!m.headerLoaded && m.source==="imap").forEach(m=>{m.headerLoaded=true;});
 
   if(noH.length===0){
@@ -668,13 +678,17 @@ async function loadHdrs(total){
     return;
   }
   let done=0,toSave=[],lastUI=0;
-  const BATCH=8;            // 3 → 8 (동시 요청)
-  const DELAY=200;          // 1000 → 200ms
+  const BATCH=8;
+  const DELAY=200;
   for(let b=0;b<noH.length;b+=BATCH){
-    const batch=noH.slice(b,b+BATCH);
+    // 진행 중에 SP가 차단됐을 수 있으니 매 배치마다 다시 필터
+    const batch=noH.slice(b,b+BATCH).filter(m=>!isSpBlocked(m.owner));
+    if(batch.length===0){ done+=BATCH; continue; }
+
     await Promise.all(batch.map(async m=>{
       try{
         const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{headers:{Range:"bytes=0-8191"}});
+        if(r?.status===403){ markSpBlocked(m.owner); m.headerLoaded=true; return; }
         if(!r?.ok){m.headerLoaded=true;return;}
         const buf=await r.arrayBuffer();
         const h=parseHdr(new TextDecoder("utf-8",{fatal:false}).decode(buf));
@@ -684,20 +698,53 @@ async function loadHdrs(total){
     }));
     if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
     const now=Date.now();
-    if(now-lastUI>2000||b+BATCH>=noH.length){lastUI=now;setSyncUI(true,`⏳ ${done}/${noH.length}`);applyFilter();}
+    // UI 갱신 빈도를 5초로 줄여서 applyFilter 호출 적게
+    if(now-lastUI>5000||b+BATCH>=noH.length){
+      lastUI=now;
+      setSyncUI(true,`⏳ ${done}/${noH.length}`);
+      // 캐시 무효화 후 필터 적용
+      invalidateDerivedCaches();
+      applyFilter();
+    }
     await new Promise(r=>setTimeout(r,DELAY));
   }
+  invalidateDerivedCaches();
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
-  spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
+  // SP 저장도 차단 상태면 스킵
+  if(!_SP_FORCE_DISABLED) spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
 }
-async function doRefresh(){
+async function syncRetired(){
+  if(isSyncing){ alert("이미 동기화 중입니다."); return; }
+  if(MEMBERS.length===0) await loadMembers();
+  const retiredList=MEMBERS.filter(m=>m.retired && m.user && m.pass);
+  if(retiredList.length===0){ alert("퇴사 처리된 인원이 없습니다.\n(설정 → 팀원 → 퇴사 체크)"); return; }
+  const names=retiredList.map(m=>m.name).join(", ");
+  if(!confirm(`퇴사 인원 ${retiredList.length}명의 메일을 한 번 확인합니다.\n\n대상: ${names}\n\n진행하시겠습니까?`)) return;
+  await doRefresh({includeRetired:true});
+}
+
+async function doRefresh(opts){
+  // opts.includeRetired === true 이면 퇴사자도 포함 (퇴사인원 확인 버튼용)
+  const includeRetired = !!(opts && opts.includeRetired);
   if(isSyncing) return;
   if(MEMBERS.length===0) await loadMembers();
-  setSyncUI(true,"⏳ 새메일확인");
+  setSyncUI(true, includeRetired ? "⏳ 퇴사인원확인" : "⏳ 새메일확인");
   try {
     const newMails=[];
-    for(const m of MEMBERS){
-      if(!m.user||!m.pass) continue;
+    const targets = MEMBERS.filter(m => {
+      if(!m.user||!m.pass) return false;
+      if(includeRetired){
+        return m.retired===true;  // 이 모드에서는 퇴사자만 (재직자는 다른 경로로)
+      } else {
+        return !m.retired;  // 일반 모드: 재직자만
+      }
+    });
+    if(targets.length===0){
+      setSyncUI(false);
+      setSt(includeRetired ? "퇴사 인원 없음" : "최신 상태", "ok");
+      return;
+    }
+    for(const m of targets){
       for(const fld of ["inbox","sent"]){
         try{
           const ir=await fetch(`${RENDER_URL}/api/imap/mails`,{
@@ -726,9 +773,10 @@ async function doRefresh(){
       invalidateDerivedCaches();
       await dbPut("mails",newMails);
       applyFilter(); renderSB();
-      setSt(`+${newMails.length}통 새메일`,"ok");
+      const prefix = includeRetired ? "🚫 퇴사 인원 +" : "+";
+      setSt(`${prefix}${newMails.length}통 새메일`,"ok");
     } else {
-      setSt("최신 상태","ok");
+      setSt(includeRetired ? "퇴사 인원 새메일 없음" : "최신 상태","ok");
     }
   } finally { setSyncUI(false); }
 }
@@ -764,15 +812,23 @@ function fmtD(iso){if(!iso)return"";try{const d=new Date(iso);return d.toLocaleS
 
 // 탭 전환
 // ── IMAP → SP 백업 ──────────────────────────────────
+// ── SP 403 보호 ─────────────────────────────────
+// SP가 403을 한 번이라도 던지면 그 사용자는 같은 세션에서 더는 시도하지 않음
+const _spBlocked = new Set();   // email → blocked
+const _SP_FORCE_DISABLED = false;  // true 로 두면 모든 SP 호출 차단 (비상시)
+function isSpBlocked(em){ return _SP_FORCE_DISABLED || _spBlocked.has((em||"").toLowerCase()); }
+function markSpBlocked(em){ _spBlocked.add((em||"").toLowerCase()); console.warn("[SP차단]",em); }
+
 async function backupImapToSP(member) {
+  // 이번 세션에 한 번이라도 403 받았으면 더이상 시도 안 함
   if (!member.user || !member.pass) return;
+  if (isSpBlocked(member.email)) return;
   try {
     const tok = await getToken();
     const fp = `${MAIL_FOLDER}/${member.email}/messages`;
-    // 기존 SP 파일 목록
     const r = await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name`);
+    if (r?.status === 403) { markSpBlocked(member.email); return; }
     const existing = r?.ok ? (await r.json()).value?.map(f=>f.name)||[] : [];
-    // 백업 요청
     const br = await fetch(`${RENDER_URL}/api/imap/backup`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
@@ -809,15 +865,31 @@ let _editingMember = null;
 function encPw(p){try{const k="ENJET2025";let r="";for(let i=0;i<p.length;i++)r+=String.fromCharCode(p.charCodeAt(i)^k.charCodeAt(i%k.length));return btoa(r);}catch{return "";}}
 function decPw(e){try{const k="ENJET2025";const d=atob(e);let r="";for(let i=0;i<d.length;i++)r+=String.fromCharCode(d.charCodeAt(i)^k.charCodeAt(i%k.length));return r;}catch{return "";}}
 
+// 알려진 퇴사 인원 이메일 (SP에서 retired 필드 없는 기존 데이터 자동 마이그레이션용)
+const KNOWN_RETIRED_EMAILS = new Set([
+  "kwkang@enjet.co.kr",   // 강경원
+  "ykkim@enjet.co.kr",    // 김영권
+  "tjpark@enjet.co.kr",   // 박태준
+  "jckim@enjet.co.kr",    // 김진철
+]);
+
 async function loadMembers(){
   try{
     const tok=await getToken();
     const r=await fetch(spUrl(SP_MEMBERS_FILE)+"/content",{headers:{Authorization:"Bearer "+tok}});
-    if(r.ok){const d=await r.json();MEMBERS=d.map(m=>({...m,pass:m.pass?decPw(m.pass):""}));}
+    if(r.ok){
+      const d=await r.json();
+      MEMBERS=d.map(m=>({
+        ...m,
+        pass: m.pass ? decPw(m.pass) : "",
+        // retired 필드가 명시되어 있으면 그대로, 없으면 알려진 퇴사자만 자동 표시
+        retired: (m.retired !== undefined) ? !!m.retired : KNOWN_RETIRED_EMAILS.has(m.email)
+      }));
+    }
   }catch{}
   if(!MEMBERS.length){
     MEMBERS=[
-      {email:"kwkang@enjet.co.kr",  name:"강경원",user:"kwkang",  pass:"",color:"av0"},
+      {email:"kwkang@enjet.co.kr",  name:"강경원",user:"kwkang",  pass:"",color:"av0", retired:true},
       {email:"baekhoon@enjet.co.kr",name:"성백훈",user:"baekhoon",pass:"",color:"av1"},
     ];
   }
@@ -835,10 +907,18 @@ async function saveMembers(){
 function renderMemberList(){
   const colors=["av0","av1","av2","av3"];
   document.getElementById("memberList").innerHTML=MEMBERS.map((m,i)=>`
-    <div class="member-card">
+    <div class="member-card${m.retired?" retired":""}">
       <div class="member-av ${colors[i%4]}">${(m.name||"?")[0]}</div>
-      <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-email">${esc(m.email)}</div></div>
-      <span class="member-status ${m.pass?"st-ok":"st-none"}" id="mst-${i}">${m.pass?"✓ IMAP 연동":"비번없음"}</span>
+      <div class="member-info">
+        <div class="member-name">${esc(m.name)}${m.retired?'<span class="retired-badge">퇴사</span>':""}</div>
+        <div class="member-email">${esc(m.email)}</div>
+      </div>
+      <span class="member-status ${m.retired?"st-retired":(m.pass?"st-ok":"st-none")}" id="mst-${i}">
+        ${m.retired?"🚫 IMAP 정지":(m.pass?"✓ IMAP 연동":"비번없음")}
+      </span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);margin-left:8px;cursor:pointer" title="퇴사 처리 (IMAP 자동 동기화 중지)">
+        <input type="checkbox" id="ret-chk-${i}" ${m.retired?"checked":""} onchange="toggleRetired(${i},this.checked)"> 퇴사
+      </label>
       <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);margin-left:8px;cursor:pointer" title="캘린더 동기화">
         <input type="checkbox" id="cal-chk-${i}" ${m.calSync!==false?"checked":""} onchange="toggleCalSync(${i},this.checked)"> 📅
       </label>
@@ -847,6 +927,13 @@ function renderMemberList(){
       <button class="btn" onclick="editMember(${i})" style="margin-left:4px">수정</button>
       <button class="cfg-btn del" onclick="delMember(${i})" style="margin-left:4px">삭제</button>
     </div>`).join("");
+}
+
+async function toggleRetired(i, checked){
+  MEMBERS[i].retired = checked;
+  await saveMembers();
+  renderMemberList();
+  renderSB();  // 사이드바에도 표시 갱신
 }
 
 async function testMember(i){
@@ -1334,11 +1421,27 @@ function closeDp(){document.getElementById("dpPanel").classList.remove("open");d
 // 사이드바
 function renderSB(){
   const cnts={};allMails.forEach(m=>{cnts[m.owner]=(cnts[m.owner]||0)+1;});
-  const items=[
-    `<div class="sb-it ${curOwner==="all"?"on":""}" onclick="selOwner('all')"><div class="sb-av av2">전</div><div class="sb-it-txt"><div class="sb-it-name">전체보기</div><div class="sb-it-email">모든 팀원 메일</div></div><span class="sb-cnt">${allMails.length}</span></div>`,
-    ...MEMBERS.map(m=>`<div class="sb-it ${curOwner===m.email?"on":""}" onclick="selOwner('${m.email}')"><div class="sb-av ${m.color}">${m.name[0]}</div><div class="sb-it-txt"><div class="sb-it-name">${esc(m.name)}</div><div class="sb-it-email">${esc(m.email)}</div></div><span class="sb-cnt">${cnts[m.email]||0}</span></div>`)
-  ];
-  document.getElementById("sbBody").innerHTML=`<div class="sb-lbl">메일함</div>${items.join("")}`;
+  // 재직자 먼저, 퇴사자 나중에
+  const active = MEMBERS.filter(m=>!m.retired);
+  const retired = MEMBERS.filter(m=>m.retired);
+  const sbMember = (m) => {
+    const retiredCls = m.retired ? " sb-retired" : "";
+    const retiredTag = m.retired ? '<span class="sb-retired-tag">퇴사</span>' : '';
+    return `<div class="sb-it ${curOwner===m.email?"on":""}${retiredCls}" onclick="selOwner('${m.email}')">
+      <div class="sb-av ${m.color}">${m.name[0]}</div>
+      <div class="sb-it-txt">
+        <div class="sb-it-name">${esc(m.name)}${retiredTag}</div>
+        <div class="sb-it-email">${esc(m.email)}</div>
+      </div>
+      <span class="sb-cnt">${cnts[m.email]||0}</span>
+    </div>`;
+  };
+  const allItem = `<div class="sb-it ${curOwner==="all"?"on":""}" onclick="selOwner('all')"><div class="sb-av av2">전</div><div class="sb-it-txt"><div class="sb-it-name">전체보기</div><div class="sb-it-email">모든 팀원 메일</div></div><span class="sb-cnt">${allMails.length}</span></div>`;
+  const activeHtml = active.map(sbMember).join("");
+  const retiredHtml = retired.length>0
+    ? `<div class="sb-lbl sb-lbl-retired" style="margin-top:14px">🚫 퇴사 인원 <span style="font-size:11px;font-weight:500;color:var(--t3)">(IMAP 자동 X)</span></div>${retired.map(sbMember).join("")}`
+    : "";
+  document.getElementById("sbBody").innerHTML=`<div class="sb-lbl">메일함</div>${allItem}${activeHtml}${retiredHtml}`;
 }
 function selOwner(em){curOwner=em;renderSB();applyFilter();}
 
