@@ -606,20 +606,17 @@ async function loadAll(){
       try{
         const fp=`${MAIL_FOLDER}/${m.email}/messages`;
 
-        // 1. SP 백업 확인 (차단된 사용자는 스킵)
-        if (!isSpBlocked(m.email)) {
-          try {
-            const spUrl2=`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
-            const r=await fetch(spUrl2,{headers:{Authorization:"Bearer "+(await getToken())}});
-            if(r?.status===403) { markSpBlocked(m.email); }
-            else if(r?.ok){
-              const d=await r.json();
-              (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
-                newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp",folder:"inbox"});
-              });
-            }
-          } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
-        }
+        // 1. SP 백업 확인 (퇴사자 포함 전원의 백업 데이터는 정상 조회)
+        try {
+          const spUrl2=`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name,createdDateTime`;
+          const r=await fetch(spUrl2,{headers:{Authorization:"Bearer "+(await getToken())}});
+          if(r?.ok){
+            const d=await r.json();
+            (d.value||[]).filter(f=>f.name?.endsWith(".eml")).forEach(f=>{
+              newMails.push({cacheKey:`${m.email}/${f.name}`,owner:m.email,ownerName:m.name,fileName:f.name,folderPath:fp,date:fmtD(f.createdDateTime),dateRaw:f.createdDateTime||"",subject:"",from:"",to:[],cc:[],headerLoaded:false,bodyLoaded:false,body:"",hasAttachment:false,attachments:[],source:"sp",folder:"inbox"});
+            });
+          }
+        } catch(e){ console.log(`${m.name} SP백업없음:`,e.message); }
 
         // 2. IMAP 실시간 (아이디/비번 있으면 inbox + sent 둘 다)
         // 2. IMAP 실시간 (퇴사자가 아니고 비번 있으면 inbox + sent 둘 다)
@@ -668,9 +665,7 @@ async function loadAll(){
   finally{setSyncUI(false);}
 }
 async function loadHdrs(total){
-  // ★ IMAP 출처 메일은 이미 헤더가 다 있으므로 SP 호출 불필요
-  // 차단된 멤버 메일도 스킵
-  const noH=allMails.filter(m=>!m.headerLoaded && m.source!=="imap" && !isSpBlocked(m.owner));
+  const noH=allMails.filter(m=>!m.headerLoaded && m.source!=="imap");
   allMails.filter(m=>!m.headerLoaded && m.source==="imap").forEach(m=>{m.headerLoaded=true;});
 
   if(noH.length===0){
@@ -678,17 +673,16 @@ async function loadHdrs(total){
     return;
   }
   let done=0,toSave=[],lastUI=0;
-  const BATCH=8;
-  const DELAY=200;
+  let recent403=0, recentTotal=0;   // 최근 N건 중 403 비율 추적
+  const BATCH=4;            // 8 → 4 동시 요청 줄임
+  const DELAY=500;          // 200 → 500ms (CPU 양보)
   for(let b=0;b<noH.length;b+=BATCH){
-    // 진행 중에 SP가 차단됐을 수 있으니 매 배치마다 다시 필터
-    const batch=noH.slice(b,b+BATCH).filter(m=>!isSpBlocked(m.owner));
-    if(batch.length===0){ done+=BATCH; continue; }
-
+    const batch=noH.slice(b,b+BATCH);
     await Promise.all(batch.map(async m=>{
       try{
         const r=await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content",{headers:{Range:"bytes=0-8191"}});
-        if(r?.status===403){ markSpBlocked(m.owner); m.headerLoaded=true; return; }
+        recentTotal++;
+        if(r?.status===403) recent403++;
         if(!r?.ok){m.headerLoaded=true;return;}
         const buf=await r.arrayBuffer();
         const h=parseHdr(new TextDecoder("utf-8",{fatal:false}).decode(buf));
@@ -697,12 +691,19 @@ async function loadHdrs(total){
       done++;
     }));
     if(toSave.length>=100||b+BATCH>=noH.length){await dbPut("mails",toSave);toSave=[];}
+
+    // 403이 너무 많이 나오면 백오프
+    if(recentTotal>=20 && recent403/recentTotal > 0.5){
+      console.warn(`[loadHdrs] 403 비율 높음 (${recent403}/${recentTotal}) - 5초 대기`);
+      setSt("⏸ 권한 오류 - 잠시 대기", "spin");
+      await new Promise(r=>setTimeout(r,5000));
+      recent403=0; recentTotal=0;
+    }
+
     const now=Date.now();
-    // UI 갱신 빈도를 5초로 줄여서 applyFilter 호출 적게
     if(now-lastUI>5000||b+BATCH>=noH.length){
       lastUI=now;
       setSyncUI(true,`⏳ ${done}/${noH.length}`);
-      // 캐시 무효화 후 필터 적용
       invalidateDerivedCaches();
       applyFilter();
     }
@@ -710,8 +711,7 @@ async function loadHdrs(total){
   }
   invalidateDerivedCaches();
   applyFilter();renderSB();setSt(`완료 · ${allMails.length}통`,"ok");setSyncUI(false);
-  // SP 저장도 차단 상태면 스킵
-  if(!_SP_FORCE_DISABLED) spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
+  spSaveLater("hdr",SP_HDR,()=>allMails.map(m=>({...m,body:"",bodyLoaded:false})));
 }
 async function syncRetired(){
   if(isSyncing){ alert("이미 동기화 중입니다."); return; }
@@ -812,22 +812,13 @@ function fmtD(iso){if(!iso)return"";try{const d=new Date(iso);return d.toLocaleS
 
 // 탭 전환
 // ── IMAP → SP 백업 ──────────────────────────────────
-// ── SP 403 보호 ─────────────────────────────────
-// SP가 403을 한 번이라도 던지면 그 사용자는 같은 세션에서 더는 시도하지 않음
-const _spBlocked = new Set();   // email → blocked
-const _SP_FORCE_DISABLED = false;  // true 로 두면 모든 SP 호출 차단 (비상시)
-function isSpBlocked(em){ return _SP_FORCE_DISABLED || _spBlocked.has((em||"").toLowerCase()); }
-function markSpBlocked(em){ _spBlocked.add((em||"").toLowerCase()); console.warn("[SP차단]",em); }
-
 async function backupImapToSP(member) {
-  // 이번 세션에 한 번이라도 403 받았으면 더이상 시도 안 함
+  // 퇴사자는 IMAP 자체를 안 돌리므로 백업 호출 자체가 안 옴 (loadAll/doRefresh 단에서 스킵)
   if (!member.user || !member.pass) return;
-  if (isSpBlocked(member.email)) return;
   try {
     const tok = await getToken();
     const fp = `${MAIL_FOLDER}/${member.email}/messages`;
     const r = await fetchSP(`https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/root:/${fp.split("/").map(encodeURIComponent).join("/")}:/children?$top=5000&$select=name`);
-    if (r?.status === 403) { markSpBlocked(member.email); return; }
     const existing = r?.ok ? (await r.json()).value?.map(f=>f.name)||[] : [];
     const br = await fetch(`${RENDER_URL}/api/imap/backup`, {
       method: "POST",
