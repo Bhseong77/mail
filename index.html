@@ -101,6 +101,8 @@ td{padding:7px 11px;font-size:15px;color:var(--t2);vertical-align:middle}
 .dp-att{padding:9px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .dp-att-ttl{font-size:15px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:5px}
 .att-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;font-size:15px;color:var(--t2);margin:2px}
+.att-chip.att-dl{cursor:pointer;transition:all .15s}
+.att-chip.att-dl:hover{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
 .login-ov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
 .login-box{background:#fff;border-radius:16px;padding:36px;width:350px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
 .l-logo{font-size:22px;font-weight:900;color:var(--p);letter-spacing:3px;font-family:var(--m);margin-bottom:4px}
@@ -1766,9 +1768,81 @@ async function openMail(idx){
     }
   }
   document.getElementById("dpBody").textContent=m.body||(m.hasAttachment?"(첨부파일만 있는 메일입니다)":"(본문없음)");
-  if(m.attachments?.length){document.getElementById("dpAtt").style.display="block";document.getElementById("dpAttList").innerHTML=m.attachments.map(a=>`<span class="att-chip">📄 ${esc(a.name||a)}</span>`).join("");}
+  if(m.attachments?.length){
+    document.getElementById("dpAtt").style.display="block";
+    document.getElementById("dpAttList").innerHTML=m.attachments.map((a,i)=>{
+      const aName = esc(a.name||a);
+      const aIdx = (typeof a === "object" && a.idx !== undefined) ? a.idx : i;
+      return `<span class="att-chip att-dl" onclick="downloadAttachment(${idx}, ${aIdx})" title="클릭하여 다운로드">📄 ${aName} <span style="opacity:0.6">⬇</span></span>`;
+    }).join("");
+  }
   else document.getElementById("dpAtt").style.display="none";
 }
+
+// 첨부파일 다운로드
+async function downloadAttachment(mailIdx, attIdx){
+  const m = allMails[mailIdx];
+  if(!m) return;
+  const att = m.attachments?.[attIdx] || m.attachments?.find(a=>a.idx===attIdx);
+  const aName = att?.name || `attachment_${attIdx}`;
+
+  // 다운로드 진행 표시
+  const allChips = document.querySelectorAll(".att-chip");
+  const chip = allChips[attIdx];
+  const orig = chip?.innerHTML;
+  if(chip) chip.innerHTML = `📄 ${esc(aName)} <span style="opacity:0.6">⏳ 다운로드 중...</span>`;
+
+  try{
+    let blob;
+    if(m.source==="imap"){
+      // IMAP 출처: server.py에 직접 요청
+      const member=MEMBERS.find(x=>x.email===m.owner);
+      if(!member?.pass) throw new Error("계정 정보 없음");
+      const r = await fetch(`${RENDER_URL}/api/imap/attachment`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user:member.user, pass:member.pass, uid:m.uid, folder:m.folder||"inbox", idx:attIdx})
+      });
+      if(!r.ok){
+        const errText = await r.text();
+        throw new Error(`IMAP 첨부 실패: ${r.status} ${errText.slice(0,100)}`);
+      }
+      blob = await r.blob();
+    } else {
+      // SP 백업: 먼저 eml 받고 → server.py로 보내서 첨부 추출
+      const spR = await fetchSP(spUrl(`${m.folderPath}/${m.fileName}`)+"/content");
+      if(!spR?.ok) throw new Error(`SP eml 가져오기 실패: ${spR?.status}`);
+      const emlBytes = await spR.arrayBuffer();
+      const r = await fetch(`${RENDER_URL}/api/eml/attachment?idx=${attIdx}`,{
+        method:"POST",
+        headers:{"Content-Type":"application/octet-stream"},
+        body: emlBytes
+      });
+      if(!r.ok){
+        const errText = await r.text();
+        throw new Error(`첨부 추출 실패: ${r.status} ${errText.slice(0,100)}`);
+      }
+      blob = await r.blob();
+    }
+
+    // 다운로드 트리거 (브라우저)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = aName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 100);
+
+    if(chip) chip.innerHTML = orig;
+  }catch(e){
+    console.error("[다운로드 실패]", e);
+    alert("다운로드 실패: " + e.message);
+    if(chip) chip.innerHTML = orig;
+  }
+}
+
 function closeDp(){document.getElementById("dpPanel").classList.remove("open");document.querySelectorAll(".mi").forEach(e=>e.classList.remove("on"));}
 
 // 사이드바

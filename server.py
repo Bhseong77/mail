@@ -123,19 +123,39 @@ def extract_body(msg):
     return ""
 
 def extract_attachments(msg):
-    """첨부파일 목록 추출"""
+    """첨부파일 목록 추출 (인덱스 포함 - 다운로드 시 식별용)"""
     attachments = []
+    idx = 0
     for part in msg.walk():
         cd = str(part.get("Content-Disposition", ""))
         ct = part.get_content_type()
         if "attachment" in cd.lower():
-            fname = decode_str(part.get_filename() or "")
-            attachments.append({"name": fname, "content_type": ct})
+            fname = decode_str(part.get_filename() or f"attachment_{idx}")
+            attachments.append({"name": fname, "content_type": ct, "idx": idx})
+            idx += 1
         elif ct.startswith("image/") and "inline" in cd.lower():
             fname = decode_str(part.get_filename() or "")
             if fname:
-                attachments.append({"name": fname, "content_type": ct, "inline": True})
+                attachments.append({"name": fname, "content_type": ct, "inline": True, "idx": idx})
+                idx += 1
     return attachments
+
+
+def get_attachment_bytes(msg, target_idx):
+    """msg에서 target_idx 번째 첨부의 (filename, content_type, bytes) 반환"""
+    idx = 0
+    for part in msg.walk():
+        cd = str(part.get("Content-Disposition", ""))
+        ct = part.get_content_type()
+        is_attach = "attachment" in cd.lower()
+        is_inline_img = ct.startswith("image/") and "inline" in cd.lower()
+        if is_attach or is_inline_img:
+            if idx == target_idx:
+                fname = decode_str(part.get_filename() or f"attachment_{idx}")
+                payload = part.get_payload(decode=True) or b""
+                return fname, ct, payload
+            idx += 1
+    return None, None, None
 
 # ── 기존 IMAP 엔드포인트 ────────────────────────────
 def get_emails(limit=50):
@@ -204,6 +224,81 @@ def download_attachment(mail_id, att_index):
         return jsonify({"error": "첨부파일을 찾을 수 없습니다"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+from flask import send_file
+import io
+
+# ── 첨부파일 다운로드 ───────────────────────────────
+@app.route("/api/eml/attachment", methods=["POST"])
+def eml_attachment_endpoint():
+    """
+    SharePoint eml의 특정 첨부파일 다운로드
+    Body: eml 바이트 (raw)
+    Query: ?idx=0 (첨부 인덱스)
+    """
+    try:
+        eml_bytes = request.get_data()
+        if not eml_bytes:
+            return jsonify({"error": "eml 데이터가 없습니다"}), 400
+        idx = int(request.args.get("idx", "0"))
+
+        msg = email.message_from_bytes(eml_bytes)
+        fname, ct, data = get_attachment_bytes(msg, idx)
+        if data is None:
+            return jsonify({"error": f"첨부 #{idx} 없음"}), 404
+
+        # 다운로드용 응답
+        return send_file(
+            io.BytesIO(data),
+            mimetype=ct or "application/octet-stream",
+            as_attachment=True,
+            download_name=fname or f"attachment_{idx}"
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/imap/attachment", methods=["POST"])
+def imap_attachment_endpoint():
+    """
+    IMAP 메일의 특정 첨부파일 다운로드
+    Body JSON: { user, pass, uid, folder, idx }
+    """
+    try:
+        data = request.get_json()
+        user = data.get("user", "")
+        password = data.get("pass", "")
+        uid = data.get("uid", "")
+        folder = data.get("folder", "inbox")
+        idx = int(data.get("idx", 0))
+        server = data.get("server", None)
+
+        if not all([user, password, uid]):
+            return jsonify({"error": "필수 파라미터 없음"}), 400
+
+        # IMAP에서 본문 가져오기 (안전한 5단계 fallback 사용)
+        try:
+            raw_bytes = _imap_fetch_raw_body_safe(user, password, server, folder, uid)
+        except Exception as fetch_err:
+            return jsonify({"error": f"IMAP fetch 실패: {str(fetch_err)[:200]}"}), 500
+
+        if not raw_bytes:
+            return jsonify({"error": "빈 응답"}), 500
+
+        msg = email.message_from_bytes(raw_bytes)
+        fname, ct, attach_data = get_attachment_bytes(msg, idx)
+        if attach_data is None:
+            return jsonify({"error": f"첨부 #{idx} 없음"}), 404
+
+        return send_file(
+            io.BytesIO(attach_data),
+            mimetype=ct or "application/octet-stream",
+            as_attachment=True,
+            download_name=fname or f"attachment_{idx}"
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # ── 신규: eml 파싱 엔드포인트 ───────────────────────
 @app.route("/api/parse-eml", methods=["POST"])
