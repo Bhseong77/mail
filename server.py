@@ -938,18 +938,24 @@ def api_imap_test():
 
 
 
-# ── IMAP → SP 백업 ──────────────────────────────────
+# ── IMAP → SP 백업 (비활성화) ──────────────────────
+# 인덱스 방식 도입 후 더 이상 필요 없음.
+# 새 백업은 PC에서 build_index.py 실행하는 방식으로 처리.
+# 이 엔드포인트가 살아있으면 worker가 imap fetch 중 죽어서 서버 전체 영향.
 @app.route("/api/imap/backup", methods=["POST"])
 def api_imap_backup():
-    """IMAP 메일을 SP에 eml로 백업
-    Body: {
-      user, pass, email, server(optional),
-      sp_token: MS Graph 액세스 토큰,
-      drive_id: SP 드라이브 ID,
-      folder: 저장 폴더 경로,
-      existing_keys: 이미 있는 파일명 목록 (중복 방지)
-    }
-    """
+    """비활성화됨. 백업은 build_index.py로 처리."""
+    return jsonify({
+        "saved": 0,
+        "total": 0,
+        "errors": [],
+        "disabled": True,
+        "message": "이 엔드포인트는 비활성화되었습니다. 백업은 build_index.py를 사용하세요."
+    })
+
+
+# 옛날 backup 함수 (참고용, 사용 안 함)
+def _legacy_imap_backup_DISABLED():
     try:
         data = request.get_json()
         user       = data.get("user", "")
