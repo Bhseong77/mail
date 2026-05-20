@@ -882,13 +882,16 @@ def _imap_fetch_raw_body_safe(user, password, server, folder, uid_str):
     """
     각 시도마다 새 IMAP 연결 만들어 첫 성공하는 명령 사용.
     다우오피스가 응답 파싱 실패시 연결 상태가 망가지므로 시도마다 재연결 필요.
+
+    ⚠️ SEQ FETCH는 사용하지 않음! (UID는 메일 고유 번호이지만, sequence number는
+    메일함 인덱스라 다른 메일을 가리킬 수 있음. 다우오피스에서 seq fallback이
+    잘못된 메일 본문을 반환하는 사례 확인됨)
     """
     attempts = [
         ("uid_rfc822", "UID FETCH RFC822"),
         ("uid_peek",   "UID FETCH BODY.PEEK[]"),
         ("uid_body",   "UID FETCH BODY[]"),
-        ("seq_rfc822", "SEQ FETCH RFC822"),
-        ("seq_peek",   "SEQ FETCH BODY.PEEK[]"),
+        # SEQ 기반은 제거 - 다른 메일을 fetch할 위험
     ]
     errors = []
     for kind, label in attempts:
@@ -903,7 +906,7 @@ def _imap_fetch_raw_body_safe(user, password, server, folder, uid_str):
             errors.append("{}: {}".format(label, msg))
             print("[FETCH] ✗ {} 실패: {}".format(label, msg))
             continue
-    raise Exception("모든 FETCH 실패\n" + "\n".join(errors))
+    raise Exception("모든 UID FETCH 실패\n" + "\n".join(errors))
 
 
 def imap_get_body(user, password, uid, server=None, folder="inbox"):
