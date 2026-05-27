@@ -1491,8 +1491,7 @@ def api_calendar_diagnose():
 
 
 # ════════════════════════════════════════════════════════════════════
-# 🏭 영림원 ERP 연동 - Playwright 직접 버튼 클릭 방식 v3
-# iframe[4] 안의 <a><span>결재상신</span></a> 직접 클릭
+# 🏭 영림원 ERP 연동 v4 - 팝업 핸들러 수정
 # ════════════════════════════════════════════════════════════════════
 
 ERP_URL      = "https://pms.systemevererp.com/"
@@ -1507,16 +1506,6 @@ def _run_erp_submit_click(tbl_key, ap_no):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             ctx = browser.new_context(viewport={"width": 1600, "height": 900})
-
-            # 다우오피스 팝업 자동 닫기
-            def on_page(popup):
-                try:
-                    popup.close()
-                    print("✅ 팝업 닫음")
-                except:
-                    pass
-            ctx.on("page", on_page)
-
             page = ctx.new_page()
 
             # 로그인
@@ -1533,71 +1522,70 @@ def _run_erp_submit_click(tbl_key, ap_no):
             page.wait_for_timeout(6000)
             print("✅ 메뉴 진입")
 
-            # iframe 탐색 - /Page/Open/ 포함된 것
+            # iframe 탐색
             target_frame = None
             for frame in page.frames:
                 if "/Page/Open/" in frame.url:
                     target_frame = frame
-                    print(f"✅ iframe 발견: {frame.url[:60]}")
+                    print(f"✅ iframe: {frame.url[:60]}")
                     break
 
             if not target_frame:
-                # 모든 iframe 출력 후 실패
-                print(f"전체 frames: {[f.url for f in page.frames]}")
+                print(f"frames: {[f.url[:40] for f in page.frames]}")
                 browser.close()
                 return False, "구매요청입력 iframe 못 찾음"
 
-            # 결재상신 버튼 클릭
-            # F12 확인: <a href="javascript:;"><span>결재상신</span></a>
-            selectors = [
-                "a:has(span:text-is('결재상신'))",
-                "a:has-text('결재상신')",
-                "span:text-is('결재상신')",
-                "[ng-bind*='결재상신']",
-            ]
-
+            # 결재상신 버튼 클릭 (JS 직접 실행 - 가장 확실)
             clicked = False
-            for sel in selectors:
-                try:
-                    btn = target_frame.locator(sel).first
-                    btn.wait_for(state="visible", timeout=3000)
-                    btn.click()
+            try:
+                result = target_frame.evaluate("""
+                    () => {
+                        const spans = document.querySelectorAll('span');
+                        for (const span of spans) {
+                            if (span.textContent.trim() === '결재상신') {
+                                const a = span.closest('a') || span.parentElement;
+                                if (a) { a.click(); return 'a_clicked'; }
+                                span.click();
+                                return 'span_clicked';
+                            }
+                        }
+                        return 'not_found';
+                    }
+                """)
+                print(f"JS 클릭 결과: {result}")
+                if result != 'not_found':
                     clicked = True
-                    print(f"✅ 결재상신 클릭 성공: {sel}")
                     page.wait_for_timeout(3000)
-                    break
-                except Exception as e:
-                    print(f"⚠️ {sel} 실패: {e}")
-                    continue
+            except Exception as e:
+                print(f"JS 클릭 실패: {e}")
+
+            # JS 실패 시 Playwright locator 시도
+            if not clicked:
+                for sel in [
+                    "a:has(span:text-is('결재상신'))",
+                    "a:has-text('결재상신')",
+                    "span:text-is('결재상신')",
+                ]:
+                    try:
+                        btn = target_frame.locator(sel).first
+                        btn.wait_for(state="visible", timeout=3000)
+                        btn.click()
+                        clicked = True
+                        print(f"✅ locator 클릭: {sel}")
+                        page.wait_for_timeout(3000)
+                        break
+                    except:
+                        continue
 
             if not clicked:
-                # 마지막 수단: JS로 직접 클릭
-                try:
-                    target_frame.evaluate("""
-                        () => {
-                            const spans = document.querySelectorAll('span');
-                            for (const span of spans) {
-                                if (span.textContent.trim() === '결재상신') {
-                                    const a = span.closest('a');
-                                    if (a) { a.click(); return true; }
-                                    span.click(); return true;
-                                }
-                            }
-                            return false;
-                        }
-                    """)
-                    clicked = True
-                    print("✅ JS 직접 클릭 성공")
-                    page.wait_for_timeout(3000)
-                except Exception as e:
-                    browser.close()
-                    return False, f"결재상신 버튼 클릭 실패: {e}"
+                browser.close()
+                return False, "결재상신 버튼 못 찾음"
 
-            # 확인 다이얼로그 처리
+            # 다우오피스 팝업은 무시 (새 탭으로 열려도 상관없음)
             page.wait_for_timeout(2000)
             browser.close()
-            print("✅ 영림원 결재상신 완료")
-            return True, {"tblKey": tbl_key, "apNo": ap_no, "method": "playwright_click"}
+            print("✅ 완료")
+            return True, {"tblKey": tbl_key, "apNo": ap_no}
 
     except Exception as ex:
         import traceback
@@ -1625,7 +1613,7 @@ def erp_submit():
 
 @app.route("/api/erp/confirm", methods=["POST"])
 def erp_confirm():
-    return jsonify({"success": False, "error": "확정 API - F12 캡처 후 구현 예정"}), 501
+    return jsonify({"success": False, "error": "확정 API 구현 예정"}), 501
 
 
 @app.route("/api/erp/health")
@@ -1633,8 +1621,7 @@ def erp_health():
     return jsonify({
         "erp_user_set": bool(ERP_USER_ID),
         "erp_pass_set": bool(ERP_PASSWORD),
-        "mode": "playwright_click_v3",
-        "endpoints": ["/api/erp/submit", "/api/erp/confirm", "/api/erp/health"]
+        "mode": "playwright_click_v4"
     })
 
 if __name__ == "__main__":
