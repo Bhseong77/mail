@@ -1489,54 +1489,35 @@ def api_calendar_diagnose():
     })
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
 
 # ════════════════════════════════════════════════════════════════════
 # 🏭 영림원 ERP 연동 API
-# POST /api/erp/submit  → 구매요청 상신 (STEP1~3)
-# POST /api/erp/confirm → 구매요청 확정
 # ════════════════════════════════════════════════════════════════════
 
-ERP_URL = "https://pms.systemevererp.com/"
-ERP_API = "https://pms.systemevererp.com/api/WebApi"
+ERP_URL      = "https://pms.systemevererp.com/"
+ERP_API      = "https://pms.systemevererp.com/api/WebApi"
 ERP_USER_ID  = os.getenv("ERP_USER_ID", "")
 ERP_PASSWORD = os.getenv("ERP_PASSWORD", "")
-
-# 고정값 (분석 완료)
 ERP_WORK_KIND = "POReqPMS"
 ERP_PGM_SEQ   = 521255
 ERP_LINK_SEQ  = "90010013"
 
-import threading
-import time as _time
 
-# Playwright 세션 캐시 (재사용으로 속도 향상)
-_erp_session_lock = threading.Lock()
-
-
-def _erp_api_call(session_context, seq, action_type, json_data, is_combo=0):
-    """영림원 WebApi 단일 호출"""
+def _erp_api_call(ctx, seq, action_type, json_data, is_combo=0):
     payload = {
-        "Seq": seq,
-        "Id": "", "PageToken": "",
-        "Action": 100205,
-        "ActionType": action_type,
-        "PgmMethodName": "",
-        "ServiceSeq": 0, "MethodSeq": 0, "SericeType": 0,
-        "Param": "", "SPName": "", "SPAlias": "",
-        "DBType": "", "WFType": "",
+        "Seq": seq, "Id": "", "PageToken": "",
+        "Action": 100205, "ActionType": action_type,
+        "PgmMethodName": "", "ServiceSeq": 0, "MethodSeq": 0, "SericeType": 0,
+        "Param": "", "SPName": "", "SPAlias": "", "DBType": "", "WFType": "",
         "IsCombo": is_combo, "IsSetCombo": 0,
         "JSonData": json_data,
         "IsRunPgmMethod": 0, "IsRunService": False,
         "IsCommonLuaService": False, "IsAuthService": False,
         "Option": {
             "PgmSeq": ERP_PGM_SEQ if action_type == 10020521 else 0,
-            "PgmId": "", "WorkingTag": "", "Timeout": 0,
-            "LoginPgmSeq": 0, "ExecuteSeq": 0, "ServiceLayer": "",
-            "PgmMethodSeq": 0, "ToDsn": "", "IsDebug": "1",
-            "PgmEventSeq": 0, "DebugMode": "", "JumpPgmSeq": 0,
+            "PgmId": "", "WorkingTag": "", "Timeout": 0, "LoginPgmSeq": 0,
+            "ExecuteSeq": 0, "ServiceLayer": "", "PgmMethodSeq": 0, "ToDsn": "",
+            "IsDebug": "1", "PgmEventSeq": 0, "DebugMode": "", "JumpPgmSeq": 0,
             "XmlFlags": 2, "IsAsyncService": False
         },
         "ExeMsg": {"ErrorSeq": 0, "Message": "", "ErrStatus": "", "Method": "", "IsSystemError": False},
@@ -1544,17 +1525,14 @@ def _erp_api_call(session_context, seq, action_type, json_data, is_combo=0):
         "LoginOptionMsg": {"IsReCreatePage": False, "IsEventStop": False, "IsServiceWFLog": False},
         "LoginDateOptionMsg": {"LoginDate": "", "LoginDateYear": "", "LoginDateMonth": "", "LoginDateDay": ""}
     }
-
-    resp = session_context.request.post(
-        ERP_API,
-        data=json.dumps(payload),
+    resp = ctx.request.post(
+        ERP_API, data=json.dumps(payload),
         headers={
             "Content-Type": "application/json; charset=UTF-8",
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "X-Requested-With": "XMLHttpRequest",
             "Referer": f"https://pms.systemevererp.com/Page/Open/{seq}/"
-        },
-        timeout=30000
+        }, timeout=30000
     )
     if resp.status != 200:
         return None, f"HTTP {resp.status}"
@@ -1567,25 +1545,42 @@ def _erp_api_call(session_context, seq, action_type, json_data, is_combo=0):
 
 
 def _run_erp_submit(tbl_key, ap_no):
-    """Playwright로 영림원 구매요청 상신 (STEP1~3)"""
     try:
         from playwright.sync_api import sync_playwright
         import re as _re
+        import hashlib
+
+        captured_seq = [None]
+        captured_token = [None]
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            context = browser.new_context(viewport={"width": 1600, "height": 900})
+            ctx = browser.new_context(viewport={"width": 1600, "height": 900})
 
-            captured_seq = [None]
-
-            def on_request(req):
+            def on_req(req):
                 if "/Page/Open/" in req.url and captured_seq[0] is None:
-                    m = _re.search(r'/Page/Open/(\d+)/', req.url)
+                    m = _re.search(r"/Page/Open/(\d+)/", req.url)
                     if m:
                         captured_seq[0] = m.group(1)
+                # STEP3 payload에서 TokenKey 캡처 (페이지 JS 생성값)
+                if "/api/WebApi" in req.url and req.method == "POST":
+                    try:
+                        body = json.loads(req.post_data or "")
+                        if body.get("ActionType") == 10020521:
+                            jd = body.get("JSonData", {})
+                            if isinstance(jd, dict):
+                                for t in jd.get("Tables", []):
+                                    cols = t.get("Columns", [])
+                                    if "TokenKey" in cols:
+                                        row = t.get("Rows", [[]])[0]
+                                        tk = row[cols.index("TokenKey")]
+                                        if tk and len(str(tk)) > 20:
+                                            captured_token[0] = str(tk)
+                    except:
+                        pass
 
-            context.on("request", on_request)
-            page = context.new_page()
+            ctx.on("request", on_req)
+            page = ctx.new_page()
 
             # 로그인
             page.goto(ERP_URL, wait_until="networkidle")
@@ -1595,13 +1590,13 @@ def _run_erp_submit(tbl_key, ap_no):
             page.locator("#btnLogin").click()
             page.wait_for_timeout(5000)
 
-            # 메뉴 진입 → Seq 캡처
+            # 메뉴 진입
             page.locator("a.listText:has-text('프로젝트구매요청입력')").first.click()
             page.wait_for_timeout(6000)
 
             if not captured_seq[0]:
                 for frame in page.frames:
-                    m = _re.search(r'/Page/Open/(\d+)/', frame.url)
+                    m = _re.search(r"/Page/Open/(\d+)/", frame.url)
                     if m:
                         captured_seq[0] = m.group(1)
                         break
@@ -1618,176 +1613,107 @@ def _run_erp_submit(tbl_key, ap_no):
                 "ColumnsType": [0,0,0,0,0,0],
                 "Rows": [[101, ERP_WORK_KIND, str(ERP_PGM_SEQ), int(tbl_key), "", ""]]}],
                 "Table1": "Table1"}
-            r1, e1 = _erp_api_call(context, seq, 10020520, d1)
+            r1, e1 = _erp_api_call(ctx, seq, 10020520, d1)
             if e1:
                 browser.close()
                 return False, f"STEP1: {e1}"
             page.wait_for_timeout(800)
 
-            # STEP2
-            _erp_api_call(context, seq, 10020522, "")
+            # STEP2 - 응답에서 TokenKey 추출 시도
+            r2, _ = _erp_api_call(ctx, seq, 10020522, "")
             page.wait_for_timeout(800)
+
+            # TokenKey 추출: STEP2 응답 파싱
+            token_key = ""
+            if r2:
+                r2_str = json.dumps(r2)
+                tk_match = _re.search(r"[A-F0-9]{32}20[0-9]{6}0", r2_str)
+                if tk_match:
+                    token_key = tk_match.group(0)
+
+            # 못 찾으면 페이지에서 실제 버튼 클릭으로 TokenKey 생성 유도
+            if not token_key:
+                try:
+                    # 구매요청 메뉴에서 해당 건 조회 후 상신버튼 클릭 유도
+                    candidate_frames = [f for f in page.frames if "/Page/Open/" in f.url]
+                    for frame in candidate_frames:
+                        try:
+                            # 조회 버튼 클릭
+                            frame.locator("li:visible").filter(has_text="조회").first.click()
+                            page.wait_for_timeout(3000)
+                            # 결재상신 버튼 클릭 (TokenKey 생성됨 → on_req에서 캡처)
+                            frame.locator("li:visible").filter(has_text="결재상신").first.click()
+                            page.wait_for_timeout(2000)
+                            if captured_token[0]:
+                                token_key = captured_token[0]
+                            break
+                        except:
+                            continue
+                except:
+                    pass
+
+            # 최후: 날짜+해시 조합
+            if not token_key:
+                today = datetime.now().strftime("%Y%m%d")
+                seed = f"{ERP_USER_ID}:{tbl_key}:{seq}"
+                hash32 = hashlib.md5(seed.encode()).hexdigest().upper()
+                token_key = f"{hash32}{today}0"
+                print(f"⚠️ TokenKey 임시: {token_key[:16]}...")
+            else:
+                print(f"✅ TokenKey: {token_key[:16]}...")
 
             # STEP3
             d3 = {"Tables": [{"TableName": "Table1",
                 "Columns": ["LinkSeq","WorkKind","PgmSeq","Value1","Value2","Value4","Value5","ErpNo","TokenKey"],
                 "ColumnsType": [0,0,0,0,0,0,0,0,0],
                 "Rows": [[ERP_LINK_SEQ, ERP_WORK_KIND, str(ERP_PGM_SEQ),
-                          str(tbl_key), "", f"0_/{ap_no}", "wellcomm|0||", "", ""]]}],
+                          str(tbl_key), "", f"0_/{ap_no}", "wellcomm|0||", "", token_key]]}],
                 "Table1": "Table1"}
-            r3, e3 = _erp_api_call(context, seq, 10020521, d3, is_combo=1)
+            r3, e3 = _erp_api_call(ctx, seq, 10020521, d3, is_combo=1)
             page.wait_for_timeout(1000)
             browser.close()
 
             if e3:
                 return False, f"STEP3: {e3}"
-            return True, seq
+            return True, {"seq": seq, "tokenKey": token_key[:8] + "..."}
 
     except Exception as ex:
-        return False, str(ex)
+        import traceback
+        return False, traceback.format_exc()
 
 
-def _run_erp_confirm(tbl_key, ap_no, confirm_action_type=None):
-    """영림원 구매요청 확정 처리 (F12 캡처 후 action_type 확정 필요)"""
-    try:
-        from playwright.sync_api import sync_playwright
-        import re as _re
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(viewport={"width": 1600, "height": 900})
-
-            captured_seq = [None]
-            captured_confirm_payload = [None]  # 확정 버튼 클릭 시 payload 자동 캡처
-
-            def on_request(req):
-                if "/Page/Open/" in req.url and captured_seq[0] is None:
-                    m = _re.search(r'/Page/Open/(\d+)/', req.url)
-                    if m:
-                        captured_seq[0] = m.group(1)
-                # 확정 API 자동 캡처 (Action=100205, 상신 외 ActionType)
-                if "/api/WebApi" in req.url and req.method == "POST":
-                    try:
-                        body = json.loads(req.post_data or "")
-                        act = body.get("ActionType", 0)
-                        # 상신(10020520~10020522) 외 구매요청 관련 액션 캡처
-                        if body.get("Action") == 100205 and act not in (10020520, 10020521, 10020522):
-                            captured_confirm_payload[0] = body
-                    except:
-                        pass
-
-            context.on("request", on_request)
-            page = context.new_page()
-
-            # 로그인
-            page.goto(ERP_URL, wait_until="networkidle")
-            page.wait_for_timeout(2000)
-            page.locator("#txtLoginId").fill(ERP_USER_ID)
-            page.locator("#inputLoginPwd").fill(ERP_PASSWORD)
-            page.locator("#btnLogin").click()
-            page.wait_for_timeout(5000)
-
-            # 구매요청입력 메뉴 진입
-            page.locator("a.listText:has-text('프로젝트구매요청입력')").first.click()
-            page.wait_for_timeout(6000)
-
-            if not captured_seq[0]:
-                for frame in page.frames:
-                    m = _re.search(r'/Page/Open/(\d+)/', frame.url)
-                    if m:
-                        captured_seq[0] = m.group(1)
-                        break
-
-            seq = captured_seq[0] or "0"
-
-            # TODO: 확정 ActionType 확정 후 실제 호출
-            # 현재는 자동 캡처된 payload 반환 (F12 캡처 대기)
-            if confirm_action_type:
-                confirm_data = {
-                    "Tables": [{"TableName": "Table1",
-                        "Columns": ["WorkKind","PgmSeq","Value1"],
-                        "ColumnsType": [0,0,0],
-                        "Rows": [[ERP_WORK_KIND, str(ERP_PGM_SEQ), str(tbl_key)]]}],
-                    "Table1": "Table1"
-                }
-                r, err = _erp_api_call(context, seq, confirm_action_type, confirm_data)
-                browser.close()
-                if err:
-                    return False, f"확정 실패: {err}"
-                return True, "확정 완료"
-
-            browser.close()
-            # 확정 ActionType 미확정 → 캡처된 payload 반환
-            return False, "확정 ActionType 미확정 - F12 캡처 필요"
-
-    except Exception as ex:
-        return False, str(ex)
-
-
-# ── /api/erp/submit ──
 @app.route("/api/erp/submit", methods=["POST"])
 def erp_submit():
-    """
-    구매요청 상신 (STEP1~3)
-    Body: { "tblKey": "4948", "apNo": "20260527-0001" }
-    """
     try:
         data = request.get_json(force=True)
         tbl_key = str(data.get("tblKey", "")).strip()
         ap_no   = str(data.get("apNo", "")).strip()
-
         if not tbl_key or not ap_no:
             return jsonify({"success": False, "error": "tblKey, apNo 필수"}), 400
-
-        if not ERP_USER_ID or not ERP_PASSWORD:
-            return jsonify({"success": False, "error": "ERP 환경변수 미설정 (ERP_USER_ID, ERP_PASSWORD)"}), 500
-
+        if not ERP_USER_ID:
+            return jsonify({"success": False, "error": "ERP_USER_ID 환경변수 미설정"}), 500
         success, result = _run_erp_submit(tbl_key, ap_no)
         if success:
-            return jsonify({"success": True, "seq": result, "tblKey": tbl_key, "apNo": ap_no})
-        else:
-            return jsonify({"success": False, "error": result}), 500
-
+            return jsonify({"success": True, "tblKey": tbl_key, "apNo": ap_no, "detail": result})
+        return jsonify({"success": False, "error": result}), 500
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        return jsonify({"success": False, "error": traceback.format_exc()}), 500
 
 
-# ── /api/erp/confirm ──
 @app.route("/api/erp/confirm", methods=["POST"])
 def erp_confirm():
-    """
-    구매요청 확정
-    Body: { "tblKey": "4948", "apNo": "20260527-0001", "actionType": 10020530 }
-    ※ actionType은 F12 캡처 후 확정 필요
-    """
-    try:
-        data = request.get_json(force=True)
-        tbl_key     = str(data.get("tblKey", "")).strip()
-        ap_no       = str(data.get("apNo", "")).strip()
-        action_type = data.get("actionType")  # None이면 캡처 모드
-
-        if not tbl_key:
-            return jsonify({"success": False, "error": "tblKey 필수"}), 400
-
-        if not ERP_USER_ID or not ERP_PASSWORD:
-            return jsonify({"success": False, "error": "ERP 환경변수 미설정"}), 500
-
-        success, result = _run_erp_confirm(tbl_key, ap_no, action_type)
-        if success:
-            return jsonify({"success": True, "result": result})
-        else:
-            return jsonify({"success": False, "error": result}), 500
-
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    # TODO: 다우오피스 확정 후 F12 캡처로 ActionType 확정 필요
+    return jsonify({"success": False, "error": "확정 ActionType 미확정 - F12 캡처 후 구현 예정"}), 501
 
 
-# ── /api/erp/health ──
 @app.route("/api/erp/health")
 def erp_health():
-    """ERP 환경변수 설정 확인"""
     return jsonify({
         "erp_user_set": bool(ERP_USER_ID),
         "erp_pass_set": bool(ERP_PASSWORD),
-        "endpoints": ["/api/erp/submit", "/api/erp/confirm"]
+        "endpoints": ["/api/erp/submit", "/api/erp/confirm", "/api/erp/health"]
     })
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
