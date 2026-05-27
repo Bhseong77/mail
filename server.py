@@ -1491,7 +1491,8 @@ def api_calendar_diagnose():
 
 
 # ════════════════════════════════════════════════════════════════════
-# 🏭 영림원 ERP 연동 - Playwright 직접 버튼 클릭 방식
+# 🏭 영림원 ERP 연동 - Playwright 직접 버튼 클릭 방식 v3
+# iframe[4] 안의 <a><span>결재상신</span></a> 직접 클릭
 # ════════════════════════════════════════════════════════════════════
 
 ERP_URL      = "https://pms.systemevererp.com/"
@@ -1500,20 +1501,22 @@ ERP_PASSWORD = os.getenv("ERP_PASSWORD", "")
 
 
 def _run_erp_submit_click(tbl_key, ap_no):
-    """
-    Playwright로 영림원 직접 조작:
-    1. 구매요청입력 메뉴 진입
-    2. 해당 TblKey 건 조회
-    3. 결재상신 버튼 직접 클릭
-    → TokenKey 문제 없음 (페이지 JS가 알아서 처리)
-    """
     try:
         from playwright.sync_api import sync_playwright
-        import re as _re
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             ctx = browser.new_context(viewport={"width": 1600, "height": 900})
+
+            # 다우오피스 팝업 자동 닫기
+            def on_page(popup):
+                try:
+                    popup.close()
+                    print("✅ 팝업 닫음")
+                except:
+                    pass
+            ctx.on("page", on_page)
+
             page = ctx.new_page()
 
             # 로그인
@@ -1523,107 +1526,78 @@ def _run_erp_submit_click(tbl_key, ap_no):
             page.locator("#inputLoginPwd").fill(ERP_PASSWORD)
             page.locator("#btnLogin").click()
             page.wait_for_timeout(5000)
-            print("✅ ERP 로그인 완료")
+            print("✅ 로그인 완료")
 
             # 구매요청입력 메뉴 진입
             page.locator("a.listText:has-text('프로젝트구매요청입력')").first.click()
             page.wait_for_timeout(6000)
             print("✅ 메뉴 진입")
 
-            # iframe 찾기
-            target_frames = [f for f in page.frames if "/Page/Open/" in f.url]
-            if not target_frames:
+            # iframe 탐색 - /Page/Open/ 포함된 것
+            target_frame = None
+            for frame in page.frames:
+                if "/Page/Open/" in frame.url:
+                    target_frame = frame
+                    print(f"✅ iframe 발견: {frame.url[:60]}")
+                    break
+
+            if not target_frame:
+                # 모든 iframe 출력 후 실패
+                print(f"전체 frames: {[f.url for f in page.frames]}")
                 browser.close()
                 return False, "구매요청입력 iframe 못 찾음"
 
-            frame = target_frames[0]
-
-            # 요청번호로 조회 (날짜 필터 설정 후 조회)
-            # 요청번호 = ap_no (예: 20260527-0001)
-            req_date = ap_no[:8] if len(ap_no) >= 8 else ""
-            try:
-                # 날짜 조건 입력 (검색 조건이 있으면)
-                date_inputs = frame.locator("input[type=text]").all()
-                print(f"입력필드 {len(date_inputs)}개 발견")
-            except:
-                pass
-
-            # 조회 버튼 클릭
-            try:
-                query_btn = frame.locator("#tlbPage_tbl li:visible").filter(has_text="조회").first
-                query_btn.click()
-                page.wait_for_timeout(4000)
-                print("✅ 조회 완료")
-            except Exception as e:
-                try:
-                    frame.locator("ul.ulToolbar a:visible").filter(has_text="조회").first.click()
-                    page.wait_for_timeout(4000)
-                    print("✅ 조회 완료 (ulToolbar)")
-                except:
-                    print(f"⚠️ 조회 버튼 실패: {e}")
-
-            # 그리드에서 해당 TblKey 행 선택
-            # 영림원 그리드 행 클릭 (요청번호 기준)
-            req_no_display = ap_no  # 20260527-0001 형식
-            try:
-                # 그리드에서 요청번호 셀 찾아서 클릭
-                row_cell = frame.locator(f"td:has-text('{req_no_display}')").first
-                row_cell.wait_for(state="visible", timeout=5000)
-                row_cell.click()
-                page.wait_for_timeout(1000)
-                print(f"✅ 행 선택: {req_no_display}")
-            except Exception as e:
-                print(f"⚠️ 행 선택 실패 (첫 번째 행 사용): {e}")
-                try:
-                    # 첫 번째 데이터 행 클릭
-                    frame.locator("table.grid tr:nth-child(2) td").first.click()
-                    page.wait_for_timeout(1000)
-                except:
-                    pass
-
             # 결재상신 버튼 클릭
-            submit_clicked = False
-            submit_selectors = [
-                "#tlbPage_tbl li:visible >> text=결재상신",
-                "ul.ulToolbar a:visible >> text=결재상신",
-                "li:visible >> text=결재상신",
-                "[title='결재상신']",
-                "button:has-text('결재상신')",
+            # F12 확인: <a href="javascript:;"><span>결재상신</span></a>
+            selectors = [
+                "a:has(span:text-is('결재상신'))",
+                "a:has-text('결재상신')",
+                "span:text-is('결재상신')",
+                "[ng-bind*='결재상신']",
             ]
-            for sel in submit_selectors:
+
+            clicked = False
+            for sel in selectors:
                 try:
-                    btn = frame.locator(sel).first
-                    btn.wait_for(state="visible", timeout=2000)
+                    btn = target_frame.locator(sel).first
+                    btn.wait_for(state="visible", timeout=3000)
                     btn.click()
-                    submit_clicked = True
-                    print(f"✅ 결재상신 버튼 클릭: {sel}")
+                    clicked = True
+                    print(f"✅ 결재상신 클릭 성공: {sel}")
                     page.wait_for_timeout(3000)
                     break
-                except:
+                except Exception as e:
+                    print(f"⚠️ {sel} 실패: {e}")
                     continue
 
-            if not submit_clicked:
-                browser.close()
-                return False, "결재상신 버튼을 찾을 수 없음 - 영림원 UI 확인 필요"
-
-            # 다우오피스 팝업 처리 (팝업 떠도 닫기)
-            try:
-                popup_page = ctx.wait_for_event("page", timeout=3000)
-                popup_page.close()
-                print("✅ 다우오피스 팝업 닫음")
-            except:
-                pass
+            if not clicked:
+                # 마지막 수단: JS로 직접 클릭
+                try:
+                    target_frame.evaluate("""
+                        () => {
+                            const spans = document.querySelectorAll('span');
+                            for (const span of spans) {
+                                if (span.textContent.trim() === '결재상신') {
+                                    const a = span.closest('a');
+                                    if (a) { a.click(); return true; }
+                                    span.click(); return true;
+                                }
+                            }
+                            return false;
+                        }
+                    """)
+                    clicked = True
+                    print("✅ JS 직접 클릭 성공")
+                    page.wait_for_timeout(3000)
+                except Exception as e:
+                    browser.close()
+                    return False, f"결재상신 버튼 클릭 실패: {e}"
 
             # 확인 다이얼로그 처리
-            try:
-                page.on("dialog", lambda d: d.accept())
-            except:
-                pass
-
             page.wait_for_timeout(2000)
             browser.close()
             print("✅ 영림원 결재상신 완료")
-            return True, {"tblKey": tbl_key, "apNo": ap_no}
+            return True, {"tblKey": tbl_key, "apNo": ap_no, "method": "playwright_click"}
 
     except Exception as ex:
         import traceback
@@ -1640,7 +1614,6 @@ def erp_submit():
             return jsonify({"success": False, "error": "tblKey, apNo 필수"}), 400
         if not ERP_USER_ID:
             return jsonify({"success": False, "error": "ERP_USER_ID 미설정"}), 500
-
         success, result = _run_erp_submit_click(tbl_key, ap_no)
         if success:
             return jsonify({"success": True, "tblKey": tbl_key, "apNo": ap_no, "detail": result})
@@ -1660,7 +1633,7 @@ def erp_health():
     return jsonify({
         "erp_user_set": bool(ERP_USER_ID),
         "erp_pass_set": bool(ERP_PASSWORD),
-        "mode": "playwright_click",
+        "mode": "playwright_click_v3",
         "endpoints": ["/api/erp/submit", "/api/erp/confirm", "/api/erp/health"]
     })
 
