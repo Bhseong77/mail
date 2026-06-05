@@ -306,6 +306,26 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .an-mini.del:hover{background:#fee2e2;border-color:var(--r)}
 .tree-file{padding:4px 10px 4px 26px;font-size:11.5px;color:var(--t2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:6px}
 .tree-file:hover{background:var(--pd);color:var(--p)}
+/* 파일탐색기 트리 */
+.ftree{padding:6px 4px;font-size:12.5px;user-select:none}
+.ft-node{}
+.ft-row{display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:7px;cursor:pointer;white-space:nowrap;overflow:hidden}
+.ft-row:hover{background:var(--bg3)}
+.ft-row.sel{background:var(--pd);color:var(--p);font-weight:700}
+.ft-row.file{color:var(--t2);font-size:11.5px}
+.ft-row.file:hover{background:var(--pd)}
+.ft-caret{width:14px;text-align:center;color:var(--t3);font-size:10px;flex-shrink:0;transition:transform .12s}
+.ft-caret.open{transform:rotate(90deg)}
+.ft-ico{flex-shrink:0}
+.ft-name{overflow:hidden;text-overflow:ellipsis}
+.ft-children{margin-left:14px;border-left:1px solid var(--border);padding-left:2px}
+.ft-tools{padding:6px;display:flex;gap:6px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.ctxmenu{position:fixed;z-index:99999;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:5px;min-width:150px;display:none}
+.ctxmenu.on{display:block}
+.ctxmenu .ci{padding:8px 12px;font-size:12.5px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--t1)}
+.ctxmenu .ci:hover{background:var(--pd)}
+.ctxmenu .ci.del:hover{background:#fee2e2;color:var(--r)}
+.ctxmenu .sep{height:1px;background:var(--border);margin:4px 0}
 </style>
 </head>
 <body>
@@ -508,6 +528,15 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- 파일탐색기 우클릭 메뉴 -->
+<div class="ctxmenu" id="ftCtx">
+  <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
+  <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
+  <div class="ci" onclick="ftAct('rename')">✏ 이름 변경</div>
+  <div class="sep"></div>
+  <div class="ci del" onclick="ftAct('delete')">🗑 삭제</div>
+</div>
+<input type="file" id="ftUpload" style="display:none" multiple onchange="ftUploadFiles(this.files)">
 <script>
 const SERVER_KEY='enjet_server_url';
 const DEFAULT_SERVER='https://jonathan-ivory-draw-take.trycloudflare.com';
@@ -841,12 +870,131 @@ let docState={};
 let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,validUntil,memo,fileName,url,date}}
 let AN_FILTER={}; // page -> {customer, q}
 
+// ════════ 파일탐색기 트리 (5개 탭 공용) ════════
+let FT_OPEN={}, FT_SEL={}, FT_CHILDREN={};
+let _ftCtxTarget=null;
+function ftKey(p,path){ return p+'|'+path; }
+async function ftLoadChildren(p,path){
+  const root=DOC_MAP[p];
+  const full=path?`${root}/${path}`:root;
+  const items=await spList(full);
+  FT_CHILDREN[ftKey(p,path)]=items;
+  return items;
+}
+async function renderFileTree(p){
+  const cont=$('tree-'+p);
+  if(FT_SEL[p]===undefined) FT_SEL[p]='';
+  await ftLoadChildren(p,'');
+  cont.innerHTML=`<div class="ft-tools">
+      <button class="btn sm" onclick="ftNewFolder('${p}','')">📁 새 폴더</button>
+      <button class="btn sm" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
+    </div>
+    <div class="ftree" id="ftree-${p}"></div>`;
+  await ftRenderNodes(p);
+}
+async function ftRenderNodes(p){
+  const box=$('ftree-'+p);
+  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
+  html+=await ftNodeHtml(p,'',0);
+  box.innerHTML=html;
+}
+async function ftNodeHtml(p,path,depth){
+  const items=FT_CHILDREN[ftKey(p,path)]||await ftLoadChildren(p,path);
+  const folders=items.filter(x=>x.folder && x.name!=='_analysis.json');
+  const files=items.filter(x=>x.file && x.name!=='_analysis.json');
+  let html='<div class="ft-children">';
+  for(const f of folders){
+    const childPath=path?`${path}/${f.name}`:f.name;
+    const open=FT_OPEN[ftKey(p,childPath)];
+    const sel=FT_SEL[p]===childPath?'sel':'';
+    html+=`<div class="ft-node"><div class="ft-row ${sel}" onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath)}',true,'${f.id}','${esc(f.name)}')"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+    if(open) html+=await ftNodeHtml(p,childPath,depth+1);
+    html+=`</div>`;
+  }
+  for(const f of files){
+    html+=`<div class="ft-row file" onclick="window.open('${esc(f.webUrl||'#')}','_blank')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">📄</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span></div>`;
+  }
+  html+='</div>';
+  return html;
+}
+async function ftToggle(p,path){
+  const k=ftKey(p,path);
+  FT_OPEN[k]=!FT_OPEN[k];
+  FT_SEL[p]=path;
+  if(FT_OPEN[k]) await ftLoadChildren(p,path);
+  await ftRenderNodes(p);
+  if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
+}
+function ftSelect(p,path){ FT_SEL[p]=path; ftRenderNodes(p); if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
+function ftMenu(e,p,path,isFolder,itemId,name){
+  e.preventDefault(); e.stopPropagation();
+  _ftCtxTarget={page:p,path,isFolder,itemId,name};
+  const m=$('ftCtx');
+  m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
+  m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+  m.classList.add('on');
+}
+document.addEventListener('click',()=>{ $('ftCtx')?.classList.remove('on'); });
+async function ftAct(action){
+  const t=_ftCtxTarget; if(!t) return;
+  $('ftCtx').classList.remove('on');
+  const p=t.page;
+  if(action==='newfolder'){ await ftNewFolder(p, t.path); }
+  else if(action==='upload'){ ftUploadTo(p,t.path); }
+  else if(action==='rename'){
+    if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
+    const nn=prompt('새 이름:', t.name);
+    if(!nn||nn===t.name) return;
+    try{ await spRenameItem(t.itemId,nn); toast('이름 변경됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    catch(ex){ toast('실패: '+ex.message,'bad'); }
+  }else if(action==='delete'){
+    if(!t.itemId){ toast('루트는 삭제 불가','bad'); return; }
+    if(!confirm(`"${t.name}" 삭제할까요? (SharePoint 영구삭제)`)) return;
+    try{ await spDeleteItem(t.itemId); toast('삭제됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    catch(ex){ toast('실패: '+ex.message,'bad'); }
+  }
+}
+async function ftNewFolder(p,parentPath){
+  const name=prompt(parentPath?`'${parentPath}' 안에 만들 새 폴더 이름:`:'새 폴더(업체) 이름:','');
+  if(!name) return;
+  const clean=name.trim().replace(/[\\/:*?"<>|]/g,'_');
+  const full=parentPath?`${DOC_MAP[p]}/${parentPath}/${clean}`:`${DOC_MAP[p]}/${clean}`;
+  try{
+    await spEnsureFolder(full);
+    toast('폴더 생성됨','ok');
+    FT_CHILDREN={};
+    if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
+    await renderFileTree(p);
+  }catch(ex){ toast('폴더 생성 실패: '+ex.message,'bad'); }
+}
+let _ftUploadCtx=null;
+function ftUploadTo(p,dir){ _ftUploadCtx={page:p,dir:dir||''}; $('ftUpload').value=''; $('ftUpload').click(); }
+async function ftUploadFiles(files){
+  if(!files||!files.length||!_ftUploadCtx) return;
+  const {page,dir}=_ftUploadCtx;
+  const root=DOC_MAP[page];
+  if(!dir){ if(!confirm('루트에 바로 업로드합니다. (먼저 업체 폴더를 선택하는 걸 권장) 계속할까요?')) return; }
+  toast(`${files.length}개 업로드 중…`);
+  let ok=0;
+  for(const f of files){
+    try{
+      const path=dir?`${root}/${dir}/${f.name}`:`${root}/${f.name}`;
+      const buf=await f.arrayBuffer();
+      await spUploadFile(path,new Blob([buf]),f.type||'application/octet-stream');
+      ok++;
+    }catch(ex){ console.warn('업로드 실패',f.name,ex.message); }
+  }
+  toast(`${ok}개 업로드 완료${DOC_ANALYZE.includes(page)?' · [✨ 미분석 분석]으로 분석':''}`,'ok');
+  FT_CHILDREN={};
+  if(dir) FT_OPEN[ftKey(page,dir)]=true;
+  renderFileTree(page);
+}
+
+
 async function renderDocPage(p){
   if(!DOC_ANALYZE.includes(p)) return renderDocTree(p); // 기술자료는 기존 트리
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]} · 분석 목록</h2><div class="spacer"></div>
-      <input type="file" id="up-${p}" style="display:none" multiple onchange="anUpload('${p}',this.files)">
-      <button class="btn" onclick="$('up-${p}').click()">⬆ 업로드</button>
       <button class="btn" onclick="anAnalyze('${p}')">✨ 미분석 분석</button>
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
@@ -863,19 +1011,9 @@ async function renderDocPage(p){
   // 분석 캐시 로드
   AN_DATA[p]=(await spGetJson(`${root}/_analysis.json`))||{};
   AN_FILTER[p]={customer:'',q:''};
-  // 고객사 트리 (각 폴더 밑에 분석된 파일명 표시)
-  const customers=(await spList(root)).filter(x=>x.folder);
-  const tree=$('tree-'+p);
-  let html=`<div class="tree-item active" onclick="anPickCustomer('${p}','',this)"><span>📋 전체</span></div>`;
-  for(const f of customers){
-    html+=`<div class="tree-item" onclick="anPickCustomer('${p}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`;
-    // 이 고객사의 분석된 파일명들
-    const myFiles=Object.values(AN_DATA[p]||{}).filter(d=>(d.customer||'')===f.name||(d.folder||'').startsWith(f.name));
-    for(const d of myFiles){
-      html+=`<div class="tree-file" title="${esc(d.fileName||'')}" onclick="window.open('${esc(d.url||'#')}','_blank')">📄 ${esc((d.fileName||'').replace(/\.[^.]+$/,''))}</div>`;
-    }
-  }
-  tree.innerHTML=html;
+  FT_SEL[p]='';
+  // 파일탐색기 트리 (폴더 생성/업로드/이름변경/삭제 — 우클릭)
+  await renderFileTree(p);
   anRender(p);
 }
 function anPickCustomer(p,customer,el){
@@ -909,9 +1047,9 @@ function anRender(p){
       }
       h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
       if(ix===0){
-        h+=`<td rowspan="${rowspan}" class="c">${esc(r.delivery||'')}</td>`+
-           `<td rowspan="${rowspan}" class="c">${esc(r.validUntil||'')}</td>`+
-           `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anMemo('${p}','${r.fid}',this.value)"></td>`+
+        h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
+           `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.validUntil||'')}" onchange="anField('${p}','${r.fid}','validUntil',this.value)"></td>`+
+           `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
            `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
            `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
       }
@@ -922,8 +1060,12 @@ function anRender(p){
   wrap.innerHTML=h;
 }
 function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
-async function anMemo(p,fid,val){
-  if(AN_DATA[p]&&AN_DATA[p][fid]){ AN_DATA[p][fid].memo=val; try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast('비고 저장','ok'); }catch(e){ toast('저장 실패','bad'); } }
+async function anMemo(p,fid,val){ return anField(p,fid,'memo',val); }
+async function anField(p,fid,key,val){
+  if(AN_DATA[p]&&AN_DATA[p][fid]){
+    AN_DATA[p][fid][key]=val;
+    try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast('저장됨','ok'); }catch(e){ toast('저장 실패','bad'); }
+  }
 }
 // 수동 업로드 (현재 선택된 고객사 폴더로, 없으면 _미분류)
 async function anUpload(p,files){
@@ -1041,7 +1183,10 @@ async function anAnalyze(p){
       try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
       // 2) Copilot 분석
       const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
-{"company":"발행 회사명","delivery":"납기","validUntil":"유효기한(견적유효기간)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+{"company":"발행 회사명","delivery":"납기/납품기일","validUntil":"견적 유효기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 2개월", "2026-07-30"). 문서에 "납기","납품","delivery","D/T","리드타임" 등으로 표기됨.
+- validUntil(유효기간): 이 견적서가 유효한 기한 (예: "발행일로부터 30일", "견적 유효기간 1개월"). 문서에 "유효기간","견적유효","valid until" 등으로 표기됨.
+- 두 항목을 혼동하지 말 것. 납기는 '물건 받는 시점', 유효기간은 '견적이 살아있는 기한'이다.
 - 여러 품목이면 items 배열에 모두. 없는 값은 빈 문자열.
 - 회사명은 발행처(공급자) 기준.
 [파일명] ${f.name}
@@ -1071,20 +1216,13 @@ async function renderDocTree(p){
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]}</h2><div class="spacer"></div>
       <input class="doc-search" id="treeq-${p}" placeholder="🔍 파일 검색" oninput="treeSearch('${p}')">
-      <input type="file" id="upt-${p}" style="display:none" multiple onchange="treeUpload('${p}',this.files)">
-      <button class="btn" onclick="$('upt-${p}').click()">⬆ 업로드</button>
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
-      <div class="doc-tree" id="tree-${p}"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
-      <div class="doc-files" id="files-${p}"><div class="rd-empty"><div class="big">📁</div>고객사·분류를 선택하세요</div></div>
+      <div class="doc-tree" id="tree-${p}" style="flex:1;max-width:none"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+      <div class="doc-files" id="files-${p}" style="display:none"></div>
     </div>`;
-  const customers=await spList(root);
-  const folders=customers.filter(x=>x.folder);
-  const tree=$('tree-'+p);
-  if(!folders.length){ tree.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3)">아직 문서가 없습니다.</div>`; return; }
-  let html='';
-  for(const f of folders){ html+=`<div class="tree-item" onclick="openDocCustomer('${p}','${esc(root)}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`; }
-  tree.innerHTML=html;
+  FT_SEL[p]='';
+  await renderFileTree(p);
 }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
