@@ -304,6 +304,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .an-mini{font-size:11px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer;margin-left:3px}
 .an-mini:hover{background:var(--pd)}
 .an-mini.del:hover{background:#fee2e2;border-color:var(--r)}
+.tree-file{padding:4px 10px 4px 26px;font-size:11.5px;color:var(--t2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:6px}
+.tree-file:hover{background:var(--pd);color:var(--p)}
 </style>
 </head>
 <body>
@@ -861,11 +863,18 @@ async function renderDocPage(p){
   // 분석 캐시 로드
   AN_DATA[p]=(await spGetJson(`${root}/_analysis.json`))||{};
   AN_FILTER[p]={customer:'',q:''};
-  // 고객사 트리
+  // 고객사 트리 (각 폴더 밑에 분석된 파일명 표시)
   const customers=(await spList(root)).filter(x=>x.folder);
   const tree=$('tree-'+p);
   let html=`<div class="tree-item active" onclick="anPickCustomer('${p}','',this)"><span>📋 전체</span></div>`;
-  for(const f of customers){ html+=`<div class="tree-item" onclick="anPickCustomer('${p}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`; }
+  for(const f of customers){
+    html+=`<div class="tree-item" onclick="anPickCustomer('${p}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`;
+    // 이 고객사의 분석된 파일명들
+    const myFiles=Object.values(AN_DATA[p]||{}).filter(d=>(d.customer||'')===f.name||(d.folder||'').startsWith(f.name));
+    for(const d of myFiles){
+      html+=`<div class="tree-file" title="${esc(d.fileName||'')}" onclick="window.open('${esc(d.url||'#')}','_blank')">📄 ${esc((d.fileName||'').replace(/\.[^.]+$/,''))}</div>`;
+    }
+  }
   tree.innerHTML=html;
   anRender(p);
 }
@@ -1053,7 +1062,8 @@ ${text.slice(0,6000)}`;
   }
   try{ await spPutJson(`${root}/_analysis.json`, AN_DATA[p]); }catch(e){}
   anRender(p);
-  toast(`${pending.length}개 분석 완료`,'ok');
+  renderDocPage(p); // 트리에 새 파일명 반영
+  toast(`${pending.length}개 분석 완료 · SharePoint 캐시 저장됨`,'ok');
 }
 
 // 기존 트리 방식 (기술자료 탭)
