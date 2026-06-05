@@ -597,9 +597,49 @@ const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
 const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
 let _msalApp=null,_account=null;
 function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:location.href.split("?")[0].split("#")[0]},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
-async function doLogin(){const btn=$('gateBtn'),err=$('gateErr');btn.disabled=true;err.textContent='';try{const app=msalApp();await app.initialize();let acct=app.getAllAccounts()[0];if(!acct){const r=await app.loginPopup({scopes:["User.Read"],prompt:"select_account"});acct=r.account;}const upn=(acct.username||"").toLowerCase();if(!upn.endsWith("@enjet.co.kr")){err.textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";try{await app.logoutPopup({account:acct});}catch(e){}btn.disabled=false;return;}_account=acct;$('gate').classList.add('hide');startApp();}catch(e){err.textContent="로그인 실패: "+(e.message||e);btn.disabled=false;}}
-async function tryAutoLogin(){try{const app=msalApp();await app.initialize();const acct=app.getAllAccounts()[0];if(acct&&(acct.username||"").toLowerCase().endsWith("@enjet.co.kr")){_account=acct;$('gate').classList.add('hide');startApp();return true;}}catch(e){}return false;}
-function logout(){try{msalApp().logoutPopup({account:_account});}catch(e){location.reload();}}
+// 모바일/웹뷰 감지 — 팝업 대신 리다이렉트 로그인 사용
+function isMobileEnv(){
+  const ua=navigator.userAgent||'';
+  return /Android|iPhone|iPad|iPod|Mobile|Teams|wv/i.test(ua) || window.innerWidth<700;
+}
+async function _checkAcct(acct){
+  const upn=(acct.username||"").toLowerCase();
+  if(!upn.endsWith("@enjet.co.kr")){
+    $('gateErr').textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";
+    try{ await msalApp().logoutRedirect({account:acct}); }catch(e){}
+    const b=$('gateBtn'); if(b) b.disabled=false;
+    return false;
+  }
+  _account=acct; $('gate').classList.add('hide'); startApp(); return true;
+}
+async function doLogin(){
+  const btn=$('gateBtn'),err=$('gateErr'); btn.disabled=true; err.textContent='';
+  try{
+    const app=msalApp(); await app.initialize();
+    let acct=app.getAllAccounts()[0];
+    if(acct){ await _checkAcct(acct); return; }
+    if(isMobileEnv()){
+      // 모바일/웹뷰: 팝업이 막히므로 리다이렉트 로그인
+      await app.loginRedirect({scopes:["User.Read"],prompt:"select_account"});
+      // 페이지가 MS 로그인으로 이동 → 돌아오면 handleRedirect에서 처리
+    }else{
+      const r=await app.loginPopup({scopes:["User.Read"],prompt:"select_account"});
+      await _checkAcct(r.account);
+    }
+  }catch(e){ err.textContent="로그인 실패: "+(e.message||e); btn.disabled=false; }
+}
+async function tryAutoLogin(){
+  try{
+    const app=msalApp(); await app.initialize();
+    // 리다이렉트 로그인 후 돌아온 경우 결과 처리
+    const rr=await app.handleRedirectPromise();
+    if(rr&&rr.account){ await _checkAcct(rr.account); return true; }
+    const acct=app.getAllAccounts()[0];
+    if(acct&&(acct.username||"").toLowerCase().endsWith("@enjet.co.kr")){ _account=acct; $('gate').classList.add('hide'); startApp(); return true; }
+  }catch(e){}
+  return false;
+}
+function logout(){try{ if(isMobileEnv()) msalApp().logoutRedirect({account:_account}); else msalApp().logoutPopup({account:_account}); }catch(e){location.reload();}}
 function myName(){ try{ return (_account && (_account.name || (_account.username||'').split('@')[0])) || '익명'; }catch(e){ return '익명'; } }
 
 // ── Graph(SharePoint) 토큰 + 헬퍼 ──
@@ -610,7 +650,10 @@ async function graphToken(){
   const acct=app.getAllAccounts()[0]; if(!acct) throw new Error("로그인 필요");
   const scopes=["Sites.ReadWrite.All","Files.ReadWrite.All"];
   try{ const r=await app.acquireTokenSilent({scopes,account:acct}); return r.accessToken; }
-  catch(e){ const r=await app.acquireTokenPopup({scopes}); return r.accessToken; }
+  catch(e){
+    if(isMobileEnv()){ await app.acquireTokenRedirect({scopes,account:acct}); throw new Error("권한 재요청 중…"); }
+    const r=await app.acquireTokenPopup({scopes}); return r.accessToken;
+  }
 }
 async function spDrive(){
   if(_spDriveId) return _spDriveId;
