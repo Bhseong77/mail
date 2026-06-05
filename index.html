@@ -268,6 +268,26 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sch-legend .sw{width:14px;height:10px;border-radius:3px}
 .sch-note{background:var(--p2);color:#fff;font-size:12px;font-weight:600;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .sch-note b{font-weight:800}
+/* 문서 분석 목록 */
+.doc-analysis{flex:1;display:flex;flex-direction:column;min-height:0}
+.doc-an-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.doc-an-bar input,.doc-an-bar select{font-family:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.doc-an-bar input.search{width:160px}
+.an-tbl-wrap{flex:1;overflow:auto}
+.an-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.an-tbl th{position:sticky;top:0;background:var(--p2);color:#fff;font-weight:700;font-size:11px;padding:8px 7px;text-align:left;white-space:nowrap;z-index:2}
+.an-tbl th.c{text-align:center}.an-tbl th.r{text-align:right}
+.an-tbl td{padding:6px 7px;border-bottom:1px solid var(--border);vertical-align:top}
+.an-tbl td.c{text-align:center}.an-tbl td.r{text-align:right}
+.an-tbl tr:hover{background:var(--bg3)}
+.an-tbl .file-link{color:var(--p);cursor:pointer;font-weight:600;text-decoration:underline}
+.an-tbl .item{max-width:200px}
+.an-tbl input.memo{width:100%;font-family:inherit;font-size:12px;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:transparent}
+.an-tbl input.memo:hover{border-color:var(--border);background:#fff}
+.an-tbl input.memo:focus{outline:none;border-color:var(--p);background:#fff}
+.an-co{display:inline-block;font-size:11px;font-weight:700;color:#065f46;background:var(--gd);border-radius:8px;padding:1px 7px}
+.an-empty{padding:40px;text-align:center;color:var(--t3)}
+.an-pending{font-size:11px;color:var(--y);font-weight:700}
 </style>
 </head>
 <body>
@@ -467,6 +487,7 @@ function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth
 async function doLogin(){const btn=$('gateBtn'),err=$('gateErr');btn.disabled=true;err.textContent='';try{const app=msalApp();await app.initialize();let acct=app.getAllAccounts()[0];if(!acct){const r=await app.loginPopup({scopes:["User.Read"],prompt:"select_account"});acct=r.account;}const upn=(acct.username||"").toLowerCase();if(!upn.endsWith("@enjet.co.kr")){err.textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";try{await app.logoutPopup({account:acct});}catch(e){}btn.disabled=false;return;}_account=acct;$('gate').classList.add('hide');startApp();}catch(e){err.textContent="로그인 실패: "+(e.message||e);btn.disabled=false;}}
 async function tryAutoLogin(){try{const app=msalApp();await app.initialize();const acct=app.getAllAccounts()[0];if(acct&&(acct.username||"").toLowerCase().endsWith("@enjet.co.kr")){_account=acct;$('gate').classList.add('hide');startApp();return true;}}catch(e){}return false;}
 function logout(){try{msalApp().logoutPopup({account:_account});}catch(e){location.reload();}}
+function myName(){ try{ return (_account && (_account.name || (_account.username||'').split('@')[0])) || '익명'; }catch(e){ return '익명'; } }
 
 // ── Graph(SharePoint) 토큰 + 헬퍼 ──
 const SP_SITE_PATH="enjetco.sharepoint.com:/sites/TIC-Mail";
@@ -736,8 +757,139 @@ ${content}`;
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
 const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
 const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
-let docState={}; // per page: {customer, category}
+const DOC_ANALYZE=['doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
+let docState={};
+let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,validUntil,memo,fileName,url,date}}
+let AN_FILTER={}; // page -> {customer, q}
+
 async function renderDocPage(p){
+  if(!DOC_ANALYZE.includes(p)) return renderDocTree(p); // 기술자료는 기존 트리
+  const root=DOC_MAP[p]; const panel=$('panel-'+p);
+  panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]} · 분석 목록</h2><div class="spacer"></div>
+      <button class="btn" onclick="anAnalyze('${p}')">✨ 미분석 분석</button>
+      <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
+    <div class="doc-layout">
+      <div class="doc-tree" id="tree-${p}"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+      <div class="doc-analysis" id="an-${p}">
+        <div class="doc-an-bar">
+          <input class="search" id="anq-${p}" placeholder="🔍 회사·품목 검색" oninput="anRender('${p}')">
+          <span class="spacer" style="flex:1"></span>
+          <span id="ancount-${p}" style="font-size:12px;color:var(--t3)"></span>
+        </div>
+        <div class="an-tbl-wrap" id="antbl-${p}"><div class="an-empty">고객사를 선택하거나 [✨ 미분석 분석]을 누르세요</div></div>
+      </div>
+    </div>`;
+  // 분석 캐시 로드
+  AN_DATA[p]=(await spGetJson(`${root}/_analysis.json`))||{};
+  AN_FILTER[p]={customer:'',q:''};
+  // 고객사 트리
+  const customers=(await spList(root)).filter(x=>x.folder);
+  const tree=$('tree-'+p);
+  let html=`<div class="tree-item active" onclick="anPickCustomer('${p}','',this)"><span>📋 전체</span></div>`;
+  for(const f of customers){ html+=`<div class="tree-item" onclick="anPickCustomer('${p}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`; }
+  tree.innerHTML=html;
+  anRender(p);
+}
+function anPickCustomer(p,customer,el){
+  document.querySelectorAll(`#tree-${p} .tree-item`).forEach(x=>x.classList.remove('active'));
+  if(el) el.classList.add('active');
+  AN_FILTER[p].customer=customer;
+  anRender(p);
+}
+function anRender(p){
+  const data=AN_DATA[p]||{};
+  const q=($('anq-'+p)?.value||'').trim().toLowerCase();
+  const cust=AN_FILTER[p]?.customer||'';
+  let rows=Object.entries(data).map(([fid,d])=>({fid,...d}));
+  if(cust) rows=rows.filter(r=>(r.customer||'')===cust || (r.folder||'').startsWith(cust));
+  if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+  // 최신순
+  rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  $('ancount-'+p).textContent=`${rows.length}건`;
+  const wrap=$('antbl-'+p);
+  if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
+  let h=`<table class="an-tbl"><thead><tr>
+    <th>회사명</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
+    <th class="c">납기</th><th class="c">유효기한</th><th>비고</th><th>파일</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
+    const rowspan=items.length;
+    items.forEach((it,ix)=>{
+      h+=`<tr>`;
+      if(ix===0){
+        h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
+      }
+      h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
+      if(ix===0){
+        h+=`<td rowspan="${rowspan}" class="c">${esc(r.delivery||'')}</td>`+
+           `<td rowspan="${rowspan}" class="c">${esc(r.validUntil||'')}</td>`+
+           `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anMemo('${p}','${r.fid}',this.value)"></td>`+
+           `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`;
+      }
+      h+=`</tr>`;
+    });
+  }
+  h+=`</tbody></table>`;
+  wrap.innerHTML=h;
+}
+function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
+async function anMemo(p,fid,val){
+  if(AN_DATA[p]&&AN_DATA[p][fid]){ AN_DATA[p][fid].memo=val; try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast('비고 저장','ok'); }catch(e){ toast('저장 실패','bad'); } }
+}
+// 미분석 문서를 Copilot으로 분석
+async function anAnalyze(p){
+  const root=DOC_MAP[p];
+  toast('문서 목록 확인 중…');
+  // 고객사/분류/날짜 폴더를 모두 뒤져 파일 수집 (최대 3뎁스)
+  const files=[];
+  async function walk(path,customer){
+    const items=await spList(path);
+    for(const it of items){
+      if(it.folder) await walk(`${path}/${it.name}`, customer||it.name);
+      else if(it.file && /\.(pdf|xlsx|xls|xlsm)$/i.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||it.webUrl,customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10)});
+    }
+  }
+  await walk(root,'');
+  AN_DATA[p]=AN_DATA[p]||{};
+  const pending=files.filter(f=>!AN_DATA[p][f.id]);
+  if(!pending.length){ toast('새로 분석할 문서 없음','ok'); anRender(p); return; }
+  toast(`${pending.length}개 분석 중… (시간 걸림)`);
+  let done=0;
+  for(const f of pending){
+    done++;
+    try{
+      // 1) 서버로 텍스트 추출
+      const er=await fetch(`${SERVER}/api/mail/extract-text`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:f.url,name:f.name})});
+      const ed=await er.json();
+      const text=(ed.ok?ed.text:'')||'';
+      // 2) Copilot 분석
+      const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"발행 회사명","delivery":"납기","validUntil":"유효기한(견적유효기간)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- 여러 품목이면 items 배열에 모두. 없는 값은 빈 문자열.
+- 회사명은 발행처(공급자) 기준.
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+      let info=null;
+      try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+      AN_DATA[p][f.id]={
+        company:(info&&info.company)||f.customer||'',
+        items:(info&&info.items)||[],
+        delivery:(info&&info.delivery)||'',
+        validUntil:(info&&info.validUntil)||'',
+        memo:'', fileName:f.name, url:f.url, customer:f.customer, folder:f.folder, date:f.date
+      };
+      if(done%3===0){ anRender(p); toast(`분석 중… ${done}/${pending.length}`); }
+    }catch(e){ console.warn('분석 실패',f.name,e.message); }
+    await new Promise(r=>setTimeout(r,400));
+  }
+  try{ await spPutJson(`${root}/_analysis.json`, AN_DATA[p]); }catch(e){}
+  anRender(p);
+  toast(`${pending.length}개 분석 완료`,'ok');
+}
+
+// 기존 트리 방식 (기술자료 탭)
+async function renderDocTree(p){
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]}</h2><div class="spacer"></div>
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
@@ -745,11 +897,10 @@ async function renderDocPage(p){
       <div class="doc-tree" id="tree-${p}"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
       <div class="doc-files" id="files-${p}"><div class="rd-empty"><div class="big">📁</div>고객사·분류를 선택하세요</div></div>
     </div>`;
-  // 1단계: 고객사 폴더 목록
   const customers=await spList(root);
   const folders=customers.filter(x=>x.folder);
   const tree=$('tree-'+p);
-  if(!folders.length){ tree.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3)">아직 문서가 없습니다.<br>메일 첨부에서 저장하세요.</div>`; return; }
+  if(!folders.length){ tree.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3)">아직 문서가 없습니다.</div>`; return; }
   let html='';
   for(const f of folders){ html+=`<div class="tree-item" onclick="openDocCustomer('${p}','${esc(root)}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`; }
   tree.innerHTML=html;
@@ -1173,7 +1324,7 @@ function schTable(list){
 }
 function schCommentBox(i,t){
   const cl=(t.cm||[]).map((c,ci)=>`<div class="sch-cmt"><div class="meta"><span>${esc(c.by||"익명")} · ${c.at}</span><span class="del" onclick="schDelC(${i},${ci})">삭제</span></div>${esc(c.tx)}</div>`).join("");
-  return `<div class="sch-cbox"><h4>💬 ${esc(t.t)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="schcby${i}" placeholder="이름(선택)"><textarea id="schctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="schAddC(${i})">등록</button></div></div>`;
+  return `<div class="sch-cbox"><h4>💬 ${esc(t.t)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="schcby${i}" value="${esc(myName())}" placeholder="이름"><textarea id="schctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="schAddC(${i})">등록</button></div></div>`;
 }
 function schLegend(isT){
   const items=isT?[["Trial 막대",SCH_COLORS.teal],["마감/마일스톤 ◆",SCH_COLORS.red],["지속 →","#A6E3DB"]]:[["제작",SCH_COLORS.purple],["핵심 게이트(FAT/DFM/SAT)",SCH_COLORS.amber],["발주/도착",SCH_COLORS.green],["설치",SCH_COLORS.indigo]];
@@ -1184,7 +1335,7 @@ function schToggleEmph(i){SCH_DATA[schView][i].emph=!SCH_DATA[schView][i].emph;s
 function schDelRow(i){if(confirm("이 작업을 삭제할까요?")){SCH_DATA[schView].splice(i,1);schSave(false);schRender();}}
 function schAddRow(){const isT=schView==="trial";SCH_DATA[schView].push({ph:isT?"트라이얼":"제작",phc:isT?"teal":"purple",t:"새 작업",o:"",s:"2026-06-15",f:"2026-06-16",loc:"한국",note:"",type:"bar",color:isT?"teal":"purple",emph:false,cm:[]});schSave(false);schRender();}
 function schToggleC(i){const el=$('schcrow'+i);const show=el.style.display==="none";document.querySelectorAll('#schTbl .crow').forEach(r=>r.style.display="none");el.style.display=show?"table-row":"none";if(show)setTimeout(()=>$('schctx'+i)?.focus(),30);}
-function schAddC(i){const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(SCH_DATA[schView][i].cm=SCH_DATA[schView][i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+function schAddC(i){const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(SCH_DATA[schView][i].cm=SCH_DATA[schView][i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 function schDelC(i,ci){SCH_DATA[schView][i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 
 
