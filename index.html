@@ -58,6 +58,9 @@ body{display:flex;flex-direction:column;height:100vh}
 .mr-subj{font-size:13px;color:var(--t2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mr-clip{color:var(--y);font-size:11px;margin-left:5px}
 .mr-cnt{display:inline-block;background:var(--p);color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px}
+.mr-label{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle}
+.mr-label.co{background:var(--gd);color:#065f46}
+.mr-label.cat{background:#fef3c7;color:#92400e}
 .mr-caret{color:var(--t3);font-size:11px;margin-left:6px;transition:.15s}
 .grp.open .mr-caret{transform:rotate(90deg)}
 .grp-children{display:none;background:var(--bg3)}
@@ -427,7 +430,7 @@ function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
 function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",phone:"",category:"",memo:""}); renderContacts(); }
 function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
 async function saveContacts(){
-  try{ await spPutJson(CONTACTS_PATH, CONTACTS); toast("주소록 저장 완료","ok"); }
+  try{ await spPutJson(CONTACTS_PATH, CONTACTS); toast("주소록 저장 완료","ok"); if(MAILS.length) renderList(); }
   catch(e){ toast("저장 실패: "+e.message,"bad"); }
 }
 // 받은편지함 보낸사람 중 외부(비-enjet) 자동 수집
@@ -514,21 +517,31 @@ async function scanContactsCopilot(){
     // 2) 각 메일 본문 가져와 Copilot 분석 (과부하 방지: 최대 25개)
     for(const tg of targets.slice(0,25)){
       done++;
-      let body="";
+      let body="", bodyHtml="";
       try{
         const br=await fetch(`${SERVER}/api/mail/body?folder=inbox&uid=${encodeURIComponent(tg.uid)}`);
         const bd=await br.json();
-        body=(bd.body||bd.bodyHtml||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,2500);
+        // HTML 본문이 서명(회사/전화/주소) 포함 가능성 높음 → 둘 다 활용
+        bodyHtml=(bd.bodyHtml||"").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/\s+/g," ").trim();
+        body=(bd.body||"").replace(/\s+/g," ").trim();
       }catch(_){}
-      const prompt=`아래는 비즈니스 이메일의 보낸사람 정보와 본문(서명 포함)입니다. 보낸사람의 명함/연락처 정보를 추출해서 JSON 객체 하나로만 답하세요. 다른 설명 없이 JSON만.
-형식: {"name":"이름","company":"회사명","phone":"전화번호","category":"분류"}
-- category는 다음 중 하나로만: 가공, 구매품, 로봇, 공압품, 물류, 기타 (본문 내용으로 추정, 모르면 기타)
-- 정보 없으면 빈 문자열
-보낸사람 이메일: ${tg.email}
-보낸사람 이름(헤더): ${tg.name}
-제목: ${tg.subject}
-본문:
-${body}`;
+      const content=((body+" \n "+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
+      const prompt=`너는 비즈니스 이메일에서 '보낸사람의 명함 정보'를 추출하는 도우미야. 아래 이메일의 본문과 서명(signature)을 분석해서, 보낸사람 본인의 연락처를 JSON 객체 하나로만 답해. 설명·마크다운 없이 순수 JSON만 출력해.
+
+추출 규칙:
+- name: 보낸사람 이름 (서명의 사람 이름. 직급/주임/대리 등은 빼고 이름만)
+- company: 회사명 (서명 맨 위 회사명. "(주)","㈜","주식회사" 같은 표기는 유지해도 됨)
+- phone: 휴대폰 번호 우선(Mobile/010), 없으면 대표 전화(TEL)
+- category: 반드시 다음 중 하나 [가공, 구매품, 로봇, 공압품, 물류, 기타]. 회사·부서·본문 내용으로 업종 추정. (예: "로봇영업","컨트롤러"→로봇 / "CNC","밀링"→가공 / "실린더","밸브"→공압품 / "운송","포장"→물류). 애매하면 기타.
+- 값을 못 찾으면 빈 문자열 "".
+
+예시 출력: {"name":"홍길동","company":"한국화낙(주)","phone":"010-1234-5678","category":"로봇"}
+
+[보낸사람 이메일] ${tg.email}
+[헤더 이름] ${tg.name}
+[제목] ${tg.subject}
+[본문+서명]
+${content}`;
       let info=null;
       try{
         const txt=await callCopilot(prompt);
@@ -538,16 +551,19 @@ ${body}`;
         info=JSON.parse(t);
       }catch(_){ info=null; }
       const company=(info&&info.company)?info.company:guessCompany(tg.email,tg.name);
+      let cat=(info&&info.category)||"";
+      if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((company||"")+" "+(tg.subject||""));
       CONTACTS.push({
         name:(info&&info.name)||tg.name||"",
         email:tg.email,
         company:company||"",
         phone:(info&&info.phone)||"",
-        category:(info&&info.category)||"",
+        category:cat||"",
         memo:"Copilot 수집"
       });
       existing.add(tg.email.toLowerCase());
       added++;
+      await new Promise(r=>setTimeout(r,400)); // rate limit 완화
       if(done%5===0){ renderContacts(); toast(`분석 중… ${done}/${Math.min(targets.length,25)}`); }
     }
     renderContacts();
@@ -687,6 +703,8 @@ function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
 async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function senderKey(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();return e||fromName(m.from).toLowerCase();}
+function contactFor(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
+function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
 let OPEN_GROUPS={};
 function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
 function renderList(){
@@ -709,7 +727,7 @@ function renderList(){
     const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
     html+=`<div class="grp${open}" data-k="${esc(k)}">
       <div class="mailrow${sel}" ${onclick}>
-        <div class="mr-top"><span class="mr-from">${esc(fromName(head.from))}${cnt}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
+        <div class="mr-top"><span class="mr-from">${esc(fromName(head.from))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
         <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
       </div>`;
     if(multi){
@@ -735,7 +753,10 @@ function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
 async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
-function startApp(){ checkHealth(); loadList(); }
+function startApp(){ checkHealth(); loadList(); preloadContacts(); }
+async function preloadContacts(){
+  try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
+}
 setInterval(()=>{ if(_account) checkHealth(); },60000);
 tryAutoLogin();
 
