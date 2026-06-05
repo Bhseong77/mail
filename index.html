@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ENJET 메일 대시보드</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a6fd4'/%3E%3Cstop offset='1' stop-color='%230f4c81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3EEN%3C/text%3E%3C/svg%3E">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <style>
@@ -61,6 +62,13 @@ body{display:flex;flex-direction:column;height:100vh}
 .mr-label{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle}
 .mr-label.co{background:var(--gd);color:#065f46}
 .mr-label.cat{background:#fef3c7;color:#92400e}
+.sel-all{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.sel-all input{width:15px;height:15px;cursor:pointer}
+.btn.danger{background:var(--r);color:#fff;border-color:var(--r)}
+.btn.danger:hover{background:#b91c1c}
+.mr-chk{width:15px;height:15px;margin-right:8px;cursor:pointer;flex-shrink:0;vertical-align:middle}
+.mailrow .mr-row{display:flex;align-items:flex-start}
+.mailrow .mr-body{flex:1;min-width:0}
 .mr-caret{color:var(--t3);font-size:11px;margin-left:6px;transition:.15s}
 .grp.open .mr-caret{transform:rotate(90deg)}
 .grp-children{display:none;background:var(--bg3)}
@@ -240,6 +248,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="renderList()">
   </div>
   <span class="count" id="count"></span>
+  <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
+  <button class="btn sm danger" id="delBtn" onclick="deleteSelected()" style="display:none">🗑 삭제 <span id="delCnt"></span></button>
 </div>
 <div class="main">
   <div class="list" id="list"></div>
@@ -777,7 +787,7 @@ function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('
 function closeSettings(){$('settings').classList.remove('on');}
 function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
-async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
+async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();if(DEEPLINK_UID){const tgt=DEEPLINK_UID;DEEPLINK_UID=null;const exists=MAILS.find(x=>String(x.uid)===String(tgt));if(exists){openMail(exists.uid);}else{openMail(tgt);}}setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function senderKey(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();return e||fromName(m.from).toLowerCase();}
 function contactFor(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
 function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
@@ -801,20 +811,63 @@ function renderList(){
     const cnt=multi?`<span class="mr-cnt">${arr.length}</span>`:'';
     const caret=multi?`<span class="mr-caret">▶</span>`:'';
     const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
+    const hck=SELECTED_UIDS.has(String(head.uid))?'checked':'';
     html+=`<div class="grp${open}" data-k="${esc(k)}">
       <div class="mailrow${sel}" ${onclick}>
-        <div class="mr-top"><span class="mr-from">${esc(fromName(head.from))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
-        <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
+        <div class="mr-row">
+          <input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
+          <div class="mr-body">
+            <div class="mr-top"><span class="mr-from">${esc(fromName(head.from))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
+            <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
+          </div>
+        </div>
       </div>`;
     if(multi){
-      html+=`<div class="grp-children">`+arr.map(m=>{const cs=(SELECTED===m.uid)?' sel':'';return `<div class="grp-child${cs}" onclick="openMail('${m.uid}')"><div class="gc-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div><div class="gc-date">${esc(m.date||'')}</div></div>`;}).join('')+`</div>`;
+      html+=`<div class="grp-children">`+arr.map(m=>{const cs=(SELECTED===m.uid)?' sel':'';const cck=SELECTED_UIDS.has(String(m.uid))?'checked':'';return `<div class="grp-child${cs}" onclick="openMail('${m.uid}')"><div class="mr-row"><input type="checkbox" class="mr-chk" ${cck} onclick="event.stopPropagation();toggleSelect('${m.uid}',this.checked)"><div class="mr-body"><div class="gc-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div><div class="gc-date">${esc(m.date||'')}</div></div></div></div>`;}).join('')+`</div>`;
     }
     html+=`</div>`;
   }
   $('list').innerHTML=html;
+  updateDelBtn();
 }
 // 그룹 대표 클릭: 카드 토글 + 최신메일 열기
 function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
+
+// ── 메일 선택 삭제 (휴지통 이동) ──
+let SELECTED_UIDS=new Set();
+function toggleSelect(uid,on){ if(on)SELECTED_UIDS.add(String(uid)); else SELECTED_UIDS.delete(String(uid)); updateDelBtn(); }
+function toggleSelectAll(on){
+  SELECTED_UIDS=new Set();
+  if(on){ for(const m of MAILS) SELECTED_UIDS.add(String(m.uid)); }
+  renderList();
+}
+function updateDelBtn(){
+  const n=SELECTED_UIDS.size;
+  const b=$('delBtn'); if(!b)return;
+  b.style.display=n?'inline-flex':'none';
+  $('delCnt').textContent=n?`(${n})`:'';
+  const sa=$('selAll'); if(sa) sa.checked = (n>0 && n===MAILS.length);
+}
+async function deleteSelected(){
+  const uids=[...SELECTED_UIDS];
+  if(!uids.length) return;
+  const where = FOLDER==='inbox'?'받은편지함':'보낸편지함';
+  if(!confirm(`선택한 ${uids.length}개 메일을 휴지통으로 이동할까요?\n(${where} · 복구 가능)`)) return;
+  const b=$('delBtn'); b.disabled=true; const old=b.innerHTML; b.innerHTML='🗑 이동 중…';
+  try{
+    const r=await fetch(`${SERVER}/api/mail/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:FOLDER,uids})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`${d.count}개 휴지통 이동 완료`,'ok');
+      SELECTED_UIDS=new Set();
+      if(SELECTED && uids.includes(String(SELECTED))){ SELECTED=null; renderReaderEmpty(); }
+      loadList();
+    }else{
+      toast('삭제 실패: '+(d.error||''),'bad');
+    }
+  }catch(e){ toast('삭제 오류: '+e.message,'bad'); }
+  b.disabled=false; b.innerHTML=old; updateDelBtn();
+}
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
 function renderReaderEmpty(){$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
 async function openMail(uid){SELECTED=uid;renderList();const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
@@ -839,7 +892,7 @@ function renderBody(m,d){
   $('reader').innerHTML=head+actions+attHtml+bodyHtml;
 }
 async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
-function setFolder(f){FOLDER=f;$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
@@ -848,7 +901,18 @@ function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
 async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
-function startApp(){ checkHealth(); loadList(); preloadContacts(); }
+let DEEPLINK_UID=null;
+function startApp(){
+  // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
+  try{
+    const p=new URLSearchParams(location.search);
+    const f=p.get('folder'), u=p.get('uid');
+    if(u){ DEEPLINK_UID=u; if(f==='sent'||f==='inbox') FOLDER=f; }
+  }catch(e){}
+  if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
+  showPage('mail');
+  checkHealth(); loadList(); preloadContacts();
+}
 async function preloadContacts(){
   try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
 }
