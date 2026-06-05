@@ -3,293 +3,235 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ENJET 메일 · enjet_ed</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&display=swap" rel="stylesheet">
+<title>ENJET 메일 대시보드</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <style>
 :root{
-  --paper:#f6f4ee; --card:#fffdf8; --ink:#1f1b16; --ink2:#6b6356; --line:#e7e1d4;
-  --accent:#7c2d2d; --accent2:#b08442; --ok:#2f7d4f; --bad:#b3261e; --hover:#f0ece1;
-  --shadow:0 1px 2px rgba(40,30,15,.05),0 8px 24px rgba(40,30,15,.06);
+  --bg:#f4f6fa; --bg2:#fff; --bg3:#f8f9fc;
+  --p:#1a6fd4; --pd:#e6f0fc; --p2:#0f4c81;
+  --t1:#1a202c; --t2:#4a5568; --t3:#9ca3af;
+  --border:#e5e7eb; --border2:#d1d5db;
+  --g:#10b981; --gd:#d1fae5;
+  --r:#dc2626; --rd:#fee2e2;
+  --y:#d97706; --yd:#fef3c7;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow2:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06);
+  --shadow3:0 10px 15px rgba(0,0,0,0.08),0 4px 6px rgba(0,0,0,0.05);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
-body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--paper);color:var(--ink);
-  line-height:1.5;font-size:14px;
-  background-image:radial-gradient(circle at 1px 1px, rgba(120,90,40,.05) 1px, transparent 0);background-size:22px 22px;}
-.wrap{max-width:1280px;margin:0 auto;padding:0 16px;height:100vh;display:flex;flex-direction:column}
-
-/* 헤더 */
-header{display:flex;align-items:center;gap:14px;padding:16px 4px 14px;border-bottom:2px solid var(--ink);flex-wrap:wrap}
-.brand{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:24px;letter-spacing:-.5px}
-.brand .dot{color:var(--accent)}
-.acct{font-size:12.5px;color:var(--ink2);background:var(--card);border:1px solid var(--line);padding:3px 10px;border-radius:20px}
+html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
+body{display:flex;flex-direction:column;height:100vh}
+.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0}
+.hdr::before{content:"";position:absolute;top:-50%;right:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%)}
+.hdr-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1;flex-wrap:wrap}
+.hdr-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.hdr-sub{font-size:12.5px;opacity:.85;margin-top:1px}
 .spacer{flex:1}
-.status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
-.status .led{width:9px;height:9px;border-radius:50%;background:#bbb}
-.status.on .led{background:var(--ok);box-shadow:0 0 0 3px rgba(47,125,79,.15)}
-.status.off .led{background:var(--bad);box-shadow:0 0 0 3px rgba(179,38,30,.15)}
-.btn{font-family:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);
-  padding:7px 13px;border-radius:9px;cursor:pointer;transition:.15s;font-weight:600}
-.btn:hover{background:var(--hover);border-color:#d8d0bf}
-.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-.btn.primary:hover{background:#000}
-.btn:active{transform:translateY(1px)}
-
-/* 툴바 */
-.toolbar{display:flex;align-items:center;gap:10px;padding:12px 4px;flex-wrap:wrap}
-.folders{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:4px}
-.folders button{font-family:inherit;border:none;background:transparent;color:var(--ink2);font-size:13.5px;font-weight:700;
-  padding:7px 16px;border-radius:8px;cursor:pointer;transition:.15s}
-.folders button.active{background:var(--accent);color:#fff}
-.search{flex:1;min-width:160px;position:relative}
-.search input{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px 9px 34px;border:1px solid var(--line);
-  border-radius:10px;background:var(--card);color:var(--ink)}
-.search input:focus{outline:none;border-color:var(--accent2)}
-.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.4}
-.count{font-size:12px;color:var(--ink2);white-space:nowrap}
-
-/* 본문 2단 */
-.panes{flex:1;display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:16px;min-height:0;padding-bottom:16px}
-.list,.reader{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:auto}
-.list{padding:0}
-.mailrow{padding:13px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s;position:relative}
-.mailrow:hover{background:var(--hover)}
-.mailrow.sel{background:#f3ede0}
-.mailrow.sel:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.hdr-sync{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:5px 11px;border-radius:6px;font-size:13px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#9ca3af}
+.hdr-sync.on .sync-dot{background:#4ade80;box-shadow:0 0 6px #4ade80;animation:pulse 2s infinite}
+.hdr-sync.off .sync-dot{background:#f87171;box-shadow:0 0 6px #f87171}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-hdr{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:7px 13px;border-radius:6px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600}
+.btn-hdr:hover{background:rgba(255,255,255,0.25)}
+.btn-hdr.primary{background:#fff;color:var(--p2);font-weight:700;border-color:#fff}
+.toolbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.folders{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px}
+.folders button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:13.5px;font-weight:600;padding:7px 16px;border-radius:6px;cursor:pointer;transition:.12s}
+.folders button.active{background:var(--p);color:#fff;box-shadow:var(--shadow)}
+.search{flex:1;min-width:170px;position:relative}
+.search input{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.search input:focus{outline:none;border-color:var(--p);background:#fff}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3)}
+.count{font-size:12.5px;color:var(--t2);white-space:nowrap;font-weight:600}
+.main{flex:1;display:flex;gap:14px;padding:14px 18px;min-height:0}
+.list,.reader{background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:auto}
+.list{width:400px;flex-shrink:0;padding:0}
+.reader{flex:1;display:flex;flex-direction:column}
+.mailrow{padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:.1s;border-left:3px solid transparent}
+.mailrow:hover{background:var(--bg3)}
+.mailrow.sel{background:var(--pd);border-left-color:var(--p)}
 .mr-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.mr-from{font-weight:700;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%}
-.mr-date{font-size:11.5px;color:var(--ink2);white-space:nowrap}
-.mr-subj{font-size:13px;color:var(--ink);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mr-clip{color:var(--accent2);font-size:11px;margin-left:5px}
-
-/* 리더 */
-.reader{padding:0;display:flex;flex-direction:column}
-.rd-empty{margin:auto;text-align:center;color:var(--ink2);padding:40px}
-.rd-empty .big{font-family:'Nanum Myeongjo',serif;font-size:34px;color:var(--line);margin-bottom:8px}
-.rd-head{padding:22px 26px 16px;border-bottom:1px solid var(--line)}
-.rd-subj{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:20px;line-height:1.35;margin:0 0 12px}
-.rd-meta{font-size:12.5px;color:var(--ink2);display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
-.rd-meta b{color:var(--ink);font-weight:600}
-.rd-atts{padding:12px 26px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px}
-.att{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;background:var(--paper);border:1px solid var(--line);
-  border-radius:8px;padding:6px 11px;text-decoration:none;color:var(--ink);font-weight:600;cursor:pointer}
-.att:hover{border-color:var(--accent2);background:#fbf6ec}
+.mr-from{font-weight:700;font-size:13.5px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68%}
+.mr-date{font-size:11.5px;color:var(--t3);white-space:nowrap}
+.mr-subj{font-size:13px;color:var(--t2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mr-clip{color:var(--y);font-size:11px;margin-left:5px}
+.rd-empty{margin:auto;text-align:center;color:var(--t3);padding:40px}
+.rd-empty .big{font-size:46px;margin-bottom:10px;opacity:.5}
+.rd-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.rd-subj{font-weight:800;font-size:18px;line-height:1.4;margin:0 0 12px;color:var(--t1)}
+.rd-meta{font-size:12.5px;color:var(--t2);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.rd-meta b{color:var(--t1);font-weight:600;white-space:nowrap}
+.rd-actions{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border)}
+.btn{font-family:inherit;font-size:13px;border:1px solid var(--border);background:#fff;color:var(--t1);padding:7px 13px;border-radius:8px;cursor:pointer;transition:.12s;font-weight:600}
+.btn:hover{background:var(--bg3);border-color:var(--border2)}
+.btn.primary{background:var(--p);color:#fff;border-color:var(--p)}
+.btn.primary:hover{background:var(--p2)}
+.btn:active{transform:translateY(1px)}
+.btn.sm{font-size:12.5px;padding:6px 11px}
+.rd-atts{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px}
+.att{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 11px;color:var(--t1);font-weight:600;cursor:pointer}
+.att:hover{border-color:var(--p);background:var(--pd)}
 .rd-body{flex:1;min-height:0}
-.rd-body pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.7;
-  margin:0;padding:24px 26px;color:#2a2620}
+.rd-body pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.75;margin:0;padding:22px 24px;color:var(--t1)}
 .rd-body iframe{width:100%;height:100%;border:0;background:#fff}
-
-.empty,.err{padding:40px;text-align:center;color:var(--ink2);font-size:13.5px}
-.err{color:var(--bad)}
-.spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;
-  animation:sp .7s linear infinite;margin:30px auto}
+.empty,.err{padding:40px;text-align:center;color:var(--t2);font-size:13.5px}
+.err{color:var(--r)}
+.spin{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:sp .7s linear infinite;margin:34px auto}
 @keyframes sp{to{transform:rotate(360deg)}}
-.skel{padding:13px 16px;border-bottom:1px solid var(--line)}
-.skel div{height:10px;background:linear-gradient(90deg,#efe9dc,#f6f1e6,#efe9dc);background-size:200% 100%;
-  animation:sh 1.2s infinite;border-radius:4px;margin:5px 0}
+.skel{padding:13px 16px;border-bottom:1px solid var(--border)}
+.skel div{height:10px;background:linear-gradient(90deg,#eef1f6,#f6f8fb,#eef1f6);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:4px;margin:5px 0}
 @keyframes sh{to{background-position:-200% 0}}
-
-/* 설정 모달 */
-.modal{position:fixed;inset:0;background:rgba(30,22,12,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
 .modal.on{display:flex}
-.mbox{background:var(--card);border-radius:16px;padding:24px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.mbox h3{font-family:'Nanum Myeongjo',serif;margin:0 0 6px;font-size:19px}
-.mbox p{margin:0 0 16px;font-size:12.5px;color:var(--ink2)}
-.mbox label{font-size:12px;font-weight:700;color:var(--ink2);display:block;margin:12px 0 5px}
-.mbox input{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--paper)}
+.mbox{background:#fff;border-radius:14px;padding:0;width:100%;max-width:460px;box-shadow:var(--shadow3);overflow:hidden}
+.mbox-h{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:16px 22px;font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+.mbox-h .x{background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px}
+.mbox-b{padding:20px 22px}
+.mbox-b p{margin:0 0 14px;font-size:12.5px;color:var(--t2)}
+.mbox label{font-size:12px;font-weight:700;color:var(--t2);display:block;margin:12px 0 5px}
+.mbox input[type=text],.mbox textarea{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.mbox input:focus,.mbox textarea:focus{outline:none;border-color:var(--p);background:#fff}
+.mbox textarea{resize:vertical;line-height:1.6}
 .mbox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-
-@media(max-width:820px){
-  .panes{grid-template-columns:1fr;grid-template-rows:auto}
-  .list{max-height:38vh}
-  .reader{min-height:48vh}
-}
+.cbox{max-width:640px}
+.cfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cfiles .chip{font-size:12px;background:var(--pd);border:1px solid #c7ddf7;border-radius:7px;padding:4px 9px;display:inline-flex;gap:6px;align-items:center;color:var(--p2)}
+.cfiles .chip b{font-weight:600}
+.cfiles .chip span{cursor:pointer;color:var(--r);font-weight:700}
+.cmsg{font-size:12.5px;margin-top:10px;min-height:18px;font-weight:600}
+@media(max-width:860px){.main{flex-direction:column}.list{width:100%;max-height:38vh}.reader{min-height:46vh}}
+/* 로그인 게이트 */
+#gate{position:fixed;inset:0;z-index:2000;background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+#gate.hide{display:none}
+.gate-card{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px 36px;width:100%;max-width:380px;text-align:center}
+.gate-logo{font-size:44px;margin-bottom:10px}
+.gate-card h1{font-size:21px;font-weight:800;margin:0 0 4px;color:var(--t1)}
+.gate-card p{font-size:13px;color:var(--t2);margin:0 0 26px}
+.gate-btn{width:100%;background:var(--p);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+.gate-btn:hover{background:var(--p2)}
+.gate-btn:disabled{opacity:.6;cursor:default}
+.gate-ms{width:18px;height:18px}
+.gate-err{color:var(--r);font-size:12.5px;margin-top:14px;min-height:16px}
+.gate-foot{font-size:11.5px;color:var(--t3);margin-top:20px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="brand">ENJET 메일<span class="dot">.</span></div>
-    <div class="acct" id="acct">enjet_ed@enjet.co.kr</div>
-    <div class="spacer"></div>
-    <div class="status" id="status"><span class="led"></span><span id="statusTxt">확인 중…</span></div>
-    <button class="btn" onclick="openSettings()">⚙ 서버</button>
-    <button class="btn primary" onclick="loadList()">↻ 새로고침</button>
-  </header>
-
-  <div class="toolbar">
-    <div class="folders">
-      <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
-      <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
-    </div>
-    <div class="search">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="renderList()">
-    </div>
-    <span class="count" id="count"></span>
-  </div>
-
-  <div class="panes">
-    <div class="list" id="list"></div>
-    <div class="reader" id="reader">
-      <div class="rd-empty"><div class="big">✉</div>메일을 선택하세요</div>
-    </div>
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">📧</div>
+    <h1>ENJET 메일 대시보드</h1>
+    <p>회사 Microsoft 계정으로 로그인하세요</p>
+    <button class="gate-btn" id="gateBtn" onclick="doLogin()">
+      <svg class="gate-ms" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#7fba00" d="M12 0h11v11H12z"/><path fill="#00a4ef" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>
+      Microsoft 계정으로 로그인
+    </button>
+    <div class="gate-err" id="gateErr"></div>
+    <div class="gate-foot">enjet.co.kr 계정만 접근 가능</div>
   </div>
 </div>
-
-<!-- 설정 -->
+<div class="hdr">
+  <div class="hdr-row">
+    <div>
+      <div class="hdr-title">📧 ENJET 메일 대시보드</div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
+    <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
+    <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
+    <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
+    <button class="btn-hdr" onclick="logout()">로그아웃</button>
+  </div>
+</div>
+<div class="toolbar">
+  <div class="folders">
+    <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
+    <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
+  </div>
+  <div class="search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="renderList()">
+  </div>
+  <span class="count" id="count"></span>
+</div>
+<div class="main">
+  <div class="list" id="list"></div>
+  <div class="reader" id="reader"><div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div></div>
+</div>
 <div class="modal" id="settings">
   <div class="mbox">
-    <h3>서버 주소</h3>
-    <p>ENJET ERP 서버와 동일한 주소(cloudflare 터널)를 사용합니다. 같은 브라우저의 ERP 대시보드와 자동 공유됩니다.</p>
-    <label>서버 URL</label>
-    <input id="srvInput" type="text" placeholder="https://xxxx.trycloudflare.com">
-    <div class="row">
-      <button class="btn" onclick="closeSettings()">취소</button>
-      <button class="btn primary" onclick="saveSettings()">저장</button>
+    <div class="mbox-h"><span>⚙ 서버 주소</span><button class="x" onclick="closeSettings()">✕</button></div>
+    <div class="mbox-b">
+      <p>ENJET ERP 서버와 동일한 주소(cloudflare 터널)를 사용합니다. 같은 브라우저의 ERP 대시보드와 자동 공유됩니다.</p>
+      <label>서버 URL</label>
+      <input id="srvInput" type="text" placeholder="https://xxxx.trycloudflare.com">
+      <div class="row"><button class="btn" onclick="closeSettings()">취소</button><button class="btn primary" onclick="saveSettings()">저장</button></div>
     </div>
   </div>
 </div>
-
+<div class="modal" id="compose">
+  <div class="mbox cbox">
+    <div class="mbox-h"><span id="cTitle">새 메일</span><button class="x" onclick="closeCompose()">✕</button></div>
+    <div class="mbox-b">
+      <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span></label>
+      <input id="cTo" type="text" placeholder="someone@enjet.co.kr, ...">
+      <label>참조 (CC)</label>
+      <input id="cCc" type="text" placeholder="(선택)">
+      <label>제목</label>
+      <input id="cSubj" type="text">
+      <label>내용</label>
+      <textarea id="cBody" rows="11"></textarea>
+      <label>첨부파일</label>
+      <input id="cFiles" type="file" multiple onchange="onFiles()">
+      <div id="cFileList" class="cfiles"></div>
+      <div id="cMsg" class="cmsg"></div>
+      <div class="row"><button class="btn" onclick="closeCompose()">취소</button><button class="btn primary" id="cSend" onclick="sendMail()">✉ 보내기</button></div>
+    </div>
+  </div>
+</div>
 <script>
-// ── 서버 주소: ERP 대시보드와 localStorage 공유 (같은 origin) ──
-const SERVER_KEY = 'enjet_server_url';
-const DEFAULT_SERVER = 'https://jonathan-ivory-draw-take.trycloudflare.com';
-let SERVER = (localStorage.getItem(SERVER_KEY) || DEFAULT_SERVER).replace(/\/+$/,'');
-let FOLDER = 'inbox';
-let MAILS = [];
-let SELECTED = null;
+const SERVER_KEY='enjet_server_url';
+const DEFAULT_SERVER='https://jonathan-ivory-draw-take.trycloudflare.com';
+let SERVER=(localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'');
+let FOLDER='inbox', MAILS=[], SELECTED=null;
+const $=id=>document.getElementById(id);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ── MS 회사계정 로그인 (Azure AD, ERP 대시보드와 동일 앱) ──
+const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
+const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
+let _msalApp=null,_account=null;
+function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:location.href.split("?")[0].split("#")[0]},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
+async function doLogin(){const btn=$('gateBtn'),err=$('gateErr');btn.disabled=true;err.textContent='';try{const app=msalApp();await app.initialize();let acct=app.getAllAccounts()[0];if(!acct){const r=await app.loginPopup({scopes:["User.Read"],prompt:"select_account"});acct=r.account;}const upn=(acct.username||"").toLowerCase();if(!upn.endsWith("@enjet.co.kr")){err.textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";try{await app.logoutPopup({account:acct});}catch(e){}btn.disabled=false;return;}_account=acct;$('gate').classList.add('hide');startApp();}catch(e){err.textContent="로그인 실패: "+(e.message||e);btn.disabled=false;}}
+async function tryAutoLogin(){try{const app=msalApp();await app.initialize();const acct=app.getAllAccounts()[0];if(acct&&(acct.username||"").toLowerCase().endsWith("@enjet.co.kr")){_account=acct;$('gate').classList.add('hide');startApp();return true;}}catch(e){}return false;}
+function logout(){try{msalApp().logoutPopup({account:_account});}catch(e){location.reload();}}
+function fromName(a){if(!a||!a.length)return '(보낸사람 없음)';return a[0].name||a[0].email||'';}
+function addrLine(a){if(!a||!a.length)return '-';return a.map(x=>x.name?`${esc(x.name)} <${esc(x.email)}>`:esc(x.email)).join(', ');}
+function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('on');}
+function closeSettings(){$('settings').classList.remove('on');}
+function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
+async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
+async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
+function renderList(){const q=$('q').value.trim().toLowerCase();let rows=MAILS;if(q){rows=MAILS.filter(m=>(m.subject||'').toLowerCase().includes(q)||fromName(m.from).toLowerCase().includes(q)||(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().includes(q));}updateCount(rows.length);if(!rows.length){$('list').innerHTML='<div class="empty">메일이 없습니다</div>';return;}$('list').innerHTML=rows.map(m=>{const sel=SELECTED===m.uid?' sel':'';return `<div class="mailrow${sel}" onclick="openMail('${m.uid}')"><div class="mr-top"><span class="mr-from">${esc(fromName(m.from))}</span><span class="mr-date">${esc(m.date||'')}</span></div><div class="mr-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div></div>`;}).join('');}
+function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
+function renderReaderEmpty(){$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
+async function openMail(uid){SELECTED=uid;renderList();const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+function renderBody(m,d){const atts=(d.attachments||[]);const attHtml=atts.length?`<div class="rd-atts">${atts.map(a=>`<span class="att" onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span>`).join('')}</div>`:'';let bodyHtml;if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;}else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}const head=$('reader').querySelector('.rd-head').outerHTML;const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button></div>`;$('reader').innerHTML=head+actions+attHtml+bodyHtml;}
+async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
+function setFolder(f){FOLDER=f;$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
+let COMPOSE_ATT=[],REPLY_CTX={};
+function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
+async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
+function closeCompose(){$('compose').classList.remove('on');}
+function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];let total=0;const proc=files.map(f=>new Promise(res=>{total+=f.size;const fr=new FileReader();fr.onload=()=>{COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]});res();};fr.onerror=()=>res();fr.readAsDataURL(f);}));Promise.all(proc).then(()=>{if(total>20*1024*1024){$('cMsg').style.color='var(--r)';$('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다';}renderFileChips();});}
+function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
+function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+function startApp(){ checkHealth(); loadList(); }
+setInterval(()=>{ if(_account) checkHealth(); },60000);
+tryAutoLogin();
 
-const $ = id => document.getElementById(id);
-const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function fromName(arr){ if(!arr||!arr.length) return '(보낸사람 없음)'; const a=arr[0]; return a.name||a.email||''; }
-function addrLine(arr){ if(!arr||!arr.length) return '-'; return arr.map(a=>a.name?`${esc(a.name)} <${esc(a.email)}>`:esc(a.email)).join(', '); }
-
-// ── 설정 ──
-function openSettings(){ $('srvInput').value = SERVER; $('settings').classList.add('on'); }
-function closeSettings(){ $('settings').classList.remove('on'); }
-function saveSettings(){
-  const v = $('srvInput').value.trim().replace(/\/+$/,'');
-  if(v){ SERVER = v; localStorage.setItem(SERVER_KEY, v); }
-  closeSettings(); checkHealth(); loadList();
-}
-
-// ── 상태 점검 ──
-async function checkHealth(){
-  const s=$('status'), t=$('statusTxt');
-  s.className='status'; t.textContent='확인 중…';
-  try{
-    const r = await fetch(SERVER+'/api/mail/health'); const d = await r.json();
-    if(d.ok){ s.className='status on'; t.textContent='연결됨'; }
-    else { s.className='status off'; t.textContent='로그인 실패'; }
-  }catch(e){ s.className='status off'; t.textContent='서버 오프라인'; }
-}
-
-// ── 목록 ──
-async function loadList(){
-  $('list').innerHTML = '<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);
-  SELECTED=null; renderReaderEmpty();
-  try{
-    const r = await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);
-    const d = await r.json();
-    if(!d.ok){ $('list').innerHTML = `<div class="err">조회 실패: ${esc(d.error||'')}</div>`; MAILS=[]; updateCount(); return; }
-    MAILS = d.mails||[]; renderList();
-  }catch(e){
-    $('list').innerHTML = `<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;
-    MAILS=[]; updateCount();
-  }
-}
-
-function renderList(){
-  const q = $('q').value.trim().toLowerCase();
-  let rows = MAILS;
-  if(q){ rows = MAILS.filter(m => (m.subject||'').toLowerCase().includes(q) || fromName(m.from).toLowerCase().includes(q) || (m.from?.[0]?.email||'').toLowerCase().includes(q)); }
-  updateCount(rows.length);
-  if(!rows.length){ $('list').innerHTML = '<div class="empty">메일이 없습니다</div>'; return; }
-  $('list').innerHTML = rows.map(m=>{
-    const sel = SELECTED===m.uid ? ' sel':'';
-    return `<div class="mailrow${sel}" onclick="openMail('${m.uid}')">
-      <div class="mr-top"><span class="mr-from">${esc(fromName(m.from))}</span><span class="mr-date">${esc(m.date||'')}</span></div>
-      <div class="mr-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
-    </div>`;
-  }).join('');
-}
-
-function updateCount(shown){
-  const total = MAILS.length;
-  $('count').textContent = shown==null ? `${total}통` : (shown===total?`${total}통`:`${shown} / ${total}통`);
-}
-
-// ── 본문 ──
-function renderReaderEmpty(){ $('reader').innerHTML = '<div class="rd-empty"><div class="big">✉</div>메일을 선택하세요</div>'; }
-
-async function openMail(uid){
-  SELECTED = uid; renderList();
-  const m = MAILS.find(x=>x.uid===uid) || {};
-  $('reader').innerHTML = `<div class="rd-head">
-      <h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2>
-      <div class="rd-meta">
-        <b>보낸사람</b><span>${addrLine(m.from)}</span>
-        <b>받는사람</b><span>${addrLine(m.to)}</span>
-        ${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}
-        <b>날짜</b><span>${esc(m.date||'')}</span>
-      </div></div>
-    <div class="spin"></div>`;
-  try{
-    const r = await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);
-    const d = await r.json();
-    if(SELECTED!==uid) return; // 그새 다른 메일 선택됨
-    if(!d.ok){ document.querySelector('.spin')?.replaceWith(Object.assign(document.createElement('div'),{className:'err',textContent:'본문 조회 실패: '+(d.error||'')})); return; }
-    renderBody(m, d);
-  }catch(e){
-    const sp=document.querySelector('.spin'); if(sp) sp.outerHTML = `<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;
-  }
-}
-
-function renderBody(m, d){
-  const atts = (d.attachments||[]);
-  const attHtml = atts.length ? `<div class="rd-atts">${atts.map(a=>
-    `<span class="att" onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span>`).join('')}</div>` : '';
-  let bodyHtml;
-  if(d.isHtml && d.bodyHtml){
-    // 보안: sandbox iframe (스크립트 차단) 으로 HTML 메일 렌더
-    const safe = esc(d.bodyHtml);
-    bodyHtml = `<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;
-  }else{
-    bodyHtml = `<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;
-  }
-  const head = $('reader').querySelector('.rd-head').outerHTML;
-  $('reader').innerHTML = head + attHtml + bodyHtml;
-}
-
-async function dlAtt(uid, idx, name){
-  const url = `${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;
-  try{
-    const r = await fetch(url);
-    if(!r.ok){ alert('첨부 다운로드 실패'); return; }
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = name||'file';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-  }catch(e){ alert('다운로드 오류: '+e.message); }
-}
-
-// ── 폴더 ──
-function setFolder(f){
-  FOLDER=f;
-  $('f-inbox').classList.toggle('active', f==='inbox');
-  $('f-sent').classList.toggle('active', f==='sent');
-  loadList();
-}
-
-// ── 시작 ──
-checkHealth();
-loadList();
-setInterval(checkHealth, 60000);
 </script>
 </body>
 </html>
