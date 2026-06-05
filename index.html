@@ -133,6 +133,10 @@ body{display:flex;flex-direction:column;height:100vh}
 .topnav button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:600;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.12s}
 .topnav button:hover{color:var(--p)}
 .topnav button.active{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+.nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
+tr.new-contact{background:#fffbeb}
+tr.new-contact:hover{background:#fef3c7}
+.new-tag{display:inline-block;font-size:10px;font-weight:800;color:#92400e;background:#fde68a;border-radius:8px;padding:1px 7px;margin-left:6px}
 /* 페이지 전환 */
 .page{flex:1;display:none;flex-direction:column;min-height:0}
 .page.on{display:flex}
@@ -173,6 +177,18 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:600;z-index:3000;box-shadow:var(--shadow3);opacity:0;transition:.2s;pointer-events:none}
 .toast.show{opacity:1}
 .toast.ok{background:var(--g)} .toast.bad{background:var(--r)}
+/* 일괄 이송 모달 */
+.mbox.wide{max-width:860px}
+.move-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.move-tbl th{background:var(--bg3);text-align:left;padding:7px 8px;font-weight:700;color:var(--t2);font-size:11.5px;border-bottom:2px solid var(--border);white-space:nowrap}
+.move-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.move-tbl select,.move-tbl input{width:100%;font-family:inherit;font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.move-tbl select:focus,.move-tbl input:focus{outline:none;border-color:var(--p)}
+.move-tbl .fname{font-weight:600;color:var(--t1);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.move-tbl .badge-lg{font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:8px;padding:1px 6px;margin-left:4px}
+.move-tbl .st{font-size:11px;white-space:nowrap}
+.move-chk{width:16px;height:16px}
+.move-scroll{max-height:50vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
 </style>
 </head>
 <body>
@@ -205,7 +221,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="topnav">
   <button id="nav-mail" class="active" onclick="showPage('mail')">📧 메일</button>
-  <button id="nav-contacts" onclick="showPage('contacts')">👥 주소록</button>
+  <button id="nav-contacts" onclick="showPage('contacts')">👥 주소록<span class="nav-badge" id="newBadge" style="display:none">0</span></button>
   <button id="nav-doc-quote" onclick="showPage('doc-quote')">📄 견적서</button>
   <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
@@ -291,31 +307,28 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
-<!-- 첨부 → 문서함 이송 모달 -->
+<!-- 첨부 → 문서함 일괄 이송 모달 -->
 <div class="modal" id="moveModal">
-  <div class="mbox">
-    <div class="mbox-h"><span>📁 문서함으로 저장</span><button class="x" onclick="closeMove()">✕</button></div>
+  <div class="mbox wide">
+    <div class="mbox-h"><span>📁 문서함으로 이송</span><button class="x" onclick="closeMove()">✕</button></div>
     <div class="mbox-b">
-      <p id="moveFileName" style="font-weight:700;color:var(--t1)"></p>
-      <label>문서 종류</label>
-      <select id="moveDocType">
-        <option value="02.견적서">견적서</option>
-        <option value="03.거래명세서">거래명세서</option>
-        <option value="04.세금계산서">세금계산서</option>
-        <option value="05.기술자료">기술자료</option>
-      </select>
-      <label>고객사 <span style="font-weight:400;color:var(--t3)">(자동 추측 — 수정 가능)</span></label>
-      <input id="moveCustomer" type="text" placeholder="예: 한국화낙">
-      <label>분류</label>
-      <select id="moveCategory">
-        <option value="가공">가공</option><option value="구매품">구매품</option>
-        <option value="로봇">로봇</option><option value="공압품">공압품</option>
-        <option value="물류">물류</option><option value="기타">기타</option>
-      </select>
-      <label>날짜</label>
-      <input id="moveDate" type="text" placeholder="YYYY-MM-DD">
+      <p>첨부별로 <b>문서종류·고객사·분류</b>를 확인/수정 후, 체크한 항목을 한 번에 저장합니다. (자동 추측됨 — 수정 가능)</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0">공통 고객사</label>
+        <input id="moveCommonCust" type="text" style="width:160px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="전체 적용">
+        <button class="btn sm" onclick="applyCommonCust()">전체 적용</button>
+        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0 0 0 8px">기준 날짜</label>
+        <input id="moveCommonDate" type="text" style="width:120px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="move-scroll">
+        <table class="move-tbl"><thead><tr>
+          <th style="width:30px"><input type="checkbox" class="move-chk" id="moveAll" checked onchange="toggleAllMove(this.checked)"></th>
+          <th>파일명</th><th style="width:130px">문서종류</th><th style="width:130px">고객사</th>
+          <th style="width:100px">분류</th><th style="width:110px">날짜</th><th style="width:70px">상태</th>
+        </tr></thead><tbody id="moveBody"></tbody></table>
+      </div>
       <div id="moveMsg" class="cmsg"></div>
-      <div class="row"><button class="btn" onclick="closeMove()">취소</button><button class="btn primary" id="moveBtn" onclick="doMove()">저장</button></div>
+      <div class="row"><button class="btn" onclick="closeMove()">닫기</button><button class="btn primary" id="moveBtn" onclick="doMoveAll()">💾 선택 항목 저장</button></div>
     </div>
   </div>
 </div>
@@ -407,17 +420,29 @@ let CONTACTS=[];
 async function loadContacts(){
   $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">불러오는 중…</td></tr>`;
   const data=await spGetJson(CONTACTS_PATH);
-  CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]);
+  const saved=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]);
+  // 미저장 신규는 보존하면서 병합 (저장본 우선, 신규는 중복 아닌 것만 유지)
+  const savedEmails=new Set(saved.map(c=>(c.email||'').toLowerCase()));
+  const keepNew=CONTACTS.filter(c=>c.isNew && !savedEmails.has((c.email||'').toLowerCase()));
+  CONTACTS=[...keepNew, ...saved];
   renderContacts();
+}
+function newCount(){ return CONTACTS.filter(c=>c.isNew).length; }
+function updateNewBadge(){
+  const n=newCount(); const b=$('newBadge');
+  if(b){ b.textContent=n; b.style.display=n?'inline-block':'none'; }
 }
 function renderContacts(){
   const q=($('contactSearch').value||'').trim().toLowerCase();
-  let rows=CONTACTS.map((c,i)=>({c,i}));
+  // 신규를 맨 위로
+  let rows=CONTACTS.map((c,i)=>({c,i})).sort((a,b)=>(b.c.isNew?1:0)-(a.c.isNew?1:0));
   if(q) rows=rows.filter(({c})=>JSON.stringify(c).toLowerCase().includes(q));
-  $('contactCount').textContent=`${CONTACTS.length}명`;
-  if(!rows.length){ $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">연락처가 없습니다 · [메일에서 수집] 또는 [+추가]</td></tr>`; return; }
-  $('contactBody').innerHTML=rows.map(({c,i})=>`<tr>
-    <td><input value="${esc(c.name||'')}" onchange="editContact(${i},'name',this.value)"></td>
+  const nc=newCount();
+  $('contactCount').textContent=`${CONTACTS.length}명`+(nc?` · 신규 ${nc}`:'');
+  updateNewBadge();
+  if(!rows.length){ $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">연락처가 없습니다 · [✨ Copilot 수집] 또는 [+추가]</td></tr>`; return; }
+  $('contactBody').innerHTML=rows.map(({c,i})=>`<tr class="${c.isNew?'new-contact':''}">
+    <td><input value="${esc(c.name||'')}" onchange="editContact(${i},'name',this.value)">${c.isNew?'<span class="new-tag">신규</span>':''}</td>
     <td><input value="${esc(c.email||'')}" onchange="editContact(${i},'email',this.value)"></td>
     <td><input value="${esc(c.company||'')}" onchange="editContact(${i},'company',this.value)"></td>
     <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
@@ -430,7 +455,14 @@ function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
 function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",phone:"",category:"",memo:""}); renderContacts(); }
 function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
 async function saveContacts(){
-  try{ await spPutJson(CONTACTS_PATH, CONTACTS); toast("주소록 저장 완료","ok"); if(MAILS.length) renderList(); }
+  try{
+    // 저장하면 신규 플래그 제거 (확정) — SharePoint엔 isNew 없이 저장
+    CONTACTS.forEach(c=>{ delete c.isNew; });
+    await spPutJson(CONTACTS_PATH, CONTACTS);
+    toast("주소록 저장 완료","ok");
+    renderContacts(); updateNewBadge();
+    if(MAILS.length) renderList();
+  }
   catch(e){ toast("저장 실패: "+e.message,"bad"); }
 }
 // 받은편지함 보낸사람 중 외부(비-enjet) 자동 수집
@@ -450,11 +482,11 @@ async function scanContactsFromMail(){
       if(existing.has(em)) continue;
       existing.add(em);
       const company=guessCompany(from.email, from.name);
-      CONTACTS.push({name:from.name||"", email:from.email, company, phone:"", category:"", memo:"자동수집"});
+      CONTACTS.push({name:from.name||"", email:from.email, company, phone:"", category:"", memo:"빠른수집", isNew:true});
       added++;
     }
-    renderContacts();
-    toast(added?`${added}명 추가됨 (저장 눌러 반영)`:"새 연락처 없음","ok");
+    renderContacts(); updateNewBadge();
+    toast(added?`${added}명 신규 추가됨 (💾 저장 눌러 확정)`:"새 연락처 없음","ok");
   }catch(e){ toast("수집 오류: "+e.message,"bad"); }
 }
 function guessCompany(email,name){
@@ -490,18 +522,25 @@ function extractJsonArray(text){
   try{ return JSON.parse(t); }catch(_){ return null; }
 }
 // Copilot로 메일 본문·서명 분석해서 연락처 추출
-async function scanContactsCopilot(){
-  toast("Copilot 분석 준비 중…");
-  const btnMsg=(s)=>toast(s);
+let _autoScanRunning=false, _autoScanned=false;
+function scanContactsCopilot(){ return _scanCopilot(false); }
+// 메일 로드 시 자동 백그라운드 스캔 (1회)
+async function autoScanOnLoad(){
+  if(_autoScanned||_autoScanRunning) return;
+  _autoScanned=true;
+  // 토큰/권한 준비됐을 때만 (조용히 실패 허용)
+  try{ await _scanCopilot(true); }catch(e){}
+}
+async function _scanCopilot(silent){
+  if(_autoScanRunning) return;
+  _autoScanRunning=true;
+  if(!silent) toast("Copilot 분석 준비 중…");
   try{
-    // 1) 받은편지함 목록
     const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=120`);
     const d=await r.json();
-    if(!d.ok){ toast("메일 조회 실패","bad"); return; }
+    if(!d.ok){ if(!silent) toast("메일 조회 실패","bad"); return; }
     const existing=new Set(CONTACTS.map(c=>(c.email||'').toLowerCase()));
-    // 외부 보낸사람만, 이메일 중복 제거
-    const targets=[];
-    const seen=new Set();
+    const targets=[]; const seen=new Set();
     for(const m of (d.mails||[])){
       const f=(m.from&&m.from[0])?m.from[0]:null;
       if(!f||!f.email) continue;
@@ -511,17 +550,15 @@ async function scanContactsCopilot(){
       seen.add(em);
       targets.push({uid:m.uid, email:f.email, name:f.name||"", subject:m.subject||""});
     }
-    if(!targets.length){ toast("새 외부 연락처 없음","ok"); return; }
-    toast(`${targets.length}명 본문 분석 중… (다소 시간 걸림)`);
+    if(!targets.length){ if(!silent) toast("새 외부 연락처 없음","ok"); return; }
+    if(!silent) toast(`${targets.length}명 본문 분석 중… (다소 시간 걸림)`);
     let added=0, done=0;
-    // 2) 각 메일 본문 가져와 Copilot 분석 (과부하 방지: 최대 25개)
     for(const tg of targets.slice(0,25)){
       done++;
       let body="", bodyHtml="";
       try{
         const br=await fetch(`${SERVER}/api/mail/body?folder=inbox&uid=${encodeURIComponent(tg.uid)}`);
         const bd=await br.json();
-        // HTML 본문이 서명(회사/전화/주소) 포함 가능성 높음 → 둘 다 활용
         bodyHtml=(bd.bodyHtml||"").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/\s+/g," ").trim();
         body=(bd.body||"").replace(/\s+/g," ").trim();
       }catch(_){}
@@ -559,16 +596,22 @@ ${content}`;
         company:company||"",
         phone:(info&&info.phone)||"",
         category:cat||"",
-        memo:"Copilot 수집"
+        memo:"Copilot 자동수집",
+        isNew:true
       });
       existing.add(tg.email.toLowerCase());
       added++;
-      await new Promise(r=>setTimeout(r,400)); // rate limit 완화
-      if(done%5===0){ renderContacts(); toast(`분석 중… ${done}/${Math.min(targets.length,25)}`); }
+      await new Promise(r=>setTimeout(r,400));
+      // 주소록 탭 보고 있으면 진행상황 갱신, 아니면 배지만
+      if(curPage==='contacts'){ if(done%5===0){ renderContacts(); if(!silent) toast(`분석 중… ${done}/${Math.min(targets.length,25)}`); } }
+      updateNewBadge();
     }
-    renderContacts();
-    toast(`${added}명 추가됨 · [저장] 눌러 반영`,"ok");
-  }catch(e){ toast("Copilot 수집 오류: "+e.message,"bad"); }
+    if(curPage==='contacts') renderContacts();
+    updateNewBadge();
+    if(!silent) toast(`${added}명 신규 추가됨 · [💾 저장] 눌러 확정`,"ok");
+    else if(added) toast(`주소록 신규 ${added}명 (주소록 탭에서 확인)`,"ok");
+  }catch(e){ if(!silent) toast("Copilot 수집 오류: "+e.message,"bad"); }
+  finally{ _autoScanRunning=false; }
 }
 
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
@@ -631,67 +674,100 @@ function renderFileRows(files){
   }).join('');
 }
 
-// ── 첨부 → 문서함 이송 ──
-let MOVE_CTX=null; // {uid, idx, name}
-function openMove(uid,idx,name){
-  MOVE_CTX={uid,idx,name};
-  $('moveFileName').textContent='📎 '+name;
-  $('moveMsg').textContent='';
-  // 제목·날짜로 고객사/분류 자동 추측
-  const m=MAILS.find(x=>x.uid===uid)||{};
-  const subj=(m.subject||'');
-  $('moveCustomer').value=guessCustomerFromSubject(subj, m);
-  $('moveCategory').value=guessCategory(subj+' '+name);
-  $('moveDate').value=(m.dateRaw||'').slice(0,10) || new Date().toISOString().slice(0,10);
-  // 첨부파일명에 따라 문서종류 추측
-  const low=(name+subj).toLowerCase();
-  if(/견적|quot|estimate/.test(low)) $('moveDocType').value='02.견적서';
-  else if(/명세|거래명세|invoice|delivery/.test(low)) $('moveDocType').value='03.거래명세서';
-  else if(/세금|계산서|tax/.test(low)) $('moveDocType').value='04.세금계산서';
-  else $('moveDocType').value='05.기술자료';
-  $('moveModal').classList.add('on');
-}
-function closeMove(){ $('moveModal').classList.remove('on'); }
+// ── 첨부 → 문서함 일괄 이송 ──
+let CUR_BODY=null, CUR_MAIL=null, MOVE_ROWS=[];
 function guessCustomerFromSubject(subj,m){
-  // [회사명] 패턴 우선
-  const br=subj.match(/[\[\(]([^\]\)]+)[\]\)]/);
+  const br=(subj||'').match(/[\[\(]([^\]\)]+)[\]\)]/);
   if(br && br[1]) return br[1].replace(/주식회사|㈜|\(주\)/g,'').trim();
-  // 주소록에서 보낸사람 회사 매칭
-  const from=(m.from&&m.from[0])?m.from[0].email:'';
-  const c=CONTACTS.find(x=>(x.email||'').toLowerCase()===from.toLowerCase());
+  const from=(m&&m.from&&m.from[0])?m.from[0].email:'';
+  const c=CONTACTS.find(x=>(x.email||'').toLowerCase()===(from||'').toLowerCase());
   if(c&&c.company) return c.company;
   return '';
 }
 function guessCategory(text){
-  const t=text.toLowerCase();
-  if(/로봇|robot|컨트롤러|controller/.test(t)) return '로봇';
-  if(/가공|machining|cnc|밀링|선반/.test(t)) return '가공';
+  const t=(text||'').toLowerCase();
+  if(/로봇|robot|컨트롤러|controller|mate|arc|fanuc|화낙/.test(t)) return '로봇';
+  if(/가공|machining|cnc|밀링|선반|dxf|x_t|step|3d|2d|도면/.test(t)) return '가공';
   if(/공압|pneumat|실린더|밸브|valve/.test(t)) return '공압품';
   if(/물류|logist|운송|배송|포장/.test(t)) return '물류';
   if(/구매|purchas|부품|part/.test(t)) return '구매품';
   return '기타';
 }
-async function doMove(){
-  if(!MOVE_CTX) return;
-  const docType=$('moveDocType').value;
-  const customer=($('moveCustomer').value||'미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
-  const cat=$('moveCategory').value;
-  const date=($('moveDate').value||new Date().toISOString().slice(0,10)).trim();
+function guessDocType(name,subj){
+  const low=((name||'')+' '+(subj||'')).toLowerCase();
+  if(/견적|quot|estimate/.test(low)) return '02.견적서';
+  if(/명세|거래명세|invoice|delivery/.test(low)) return '03.거래명세서';
+  if(/세금|계산서|tax/.test(low)) return '04.세금계산서';
+  return '05.기술자료'; // 도면(DXF/X_T 등)·기타 기본
+}
+const DOCTYPES=[['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
+function openMove(){
+  if(!CUR_BODY||!CUR_MAIL){ toast('메일을 먼저 여세요','bad'); return; }
+  const m=CUR_MAIL, subj=m.subject||'';
+  const cust=guessCustomerFromSubject(subj,m);
+  const date=(m.dateRaw||'').slice(0,10) || new Date().toISOString().slice(0,10);
+  $('moveCommonCust').value=cust;
+  $('moveCommonDate').value=date;
+  // 일반첨부 + 대용량첨부 모두 행으로
+  MOVE_ROWS=[];
+  for(const a of (CUR_BODY.attachments||[])){
+    MOVE_ROWS.push({kind:'normal', uid:m.uid, idx:a.idx, name:a.name,
+      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+  }
+  for(const a of (CUR_BODY.largeAttachments||[])){
+    MOVE_ROWS.push({kind:'large', url:a.url, name:a.name,
+      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+  }
+  renderMoveRows();
+  $('moveMsg').textContent='';
+  $('moveModal').classList.add('on');
+}
+function renderMoveRows(){
+  $('moveBody').innerHTML=MOVE_ROWS.map((r,i)=>`<tr>
+    <td><input type="checkbox" class="move-chk" ${r.checked?'checked':''} onchange="MOVE_ROWS[${i}].checked=this.checked"></td>
+    <td class="fname" title="${esc(r.name)}">${r.kind==='large'?'🔗':'📎'} ${esc(r.name)}</td>
+    <td><select onchange="MOVE_ROWS[${i}].docType=this.value">${DOCTYPES.map(([v,t])=>`<option value="${v}" ${r.docType===v?'selected':''}>${t}</option>`).join('')}</select></td>
+    <td><input value="${esc(r.customer)}" onchange="MOVE_ROWS[${i}].customer=this.value"></td>
+    <td><select onchange="MOVE_ROWS[${i}].category=this.value">${CATEGORIES.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></td>
+    <td><input value="${esc(r.date)}" onchange="MOVE_ROWS[${i}].date=this.value"></td>
+    <td class="st" id="movest-${i}">${r.status||''}</td>
+  </tr>`).join('');
+}
+function toggleAllMove(on){ MOVE_ROWS.forEach(r=>r.checked=on); renderMoveRows(); $('moveAll').checked=on; }
+function applyCommonCust(){ const c=$('moveCommonCust').value; MOVE_ROWS.forEach(r=>r.customer=c); renderMoveRows(); }
+function closeMove(){ $('moveModal').classList.remove('on'); }
+async function doMoveAll(){
+  const targets=MOVE_ROWS.map((r,i)=>({r,i})).filter(x=>x.r.checked);
+  if(!targets.length){ toast('선택된 첨부 없음','bad'); return; }
   const btn=$('moveBtn'); btn.disabled=true;
-  $('moveMsg').style.color='var(--t2)'; $('moveMsg').textContent='⏳ 첨부 받는 중…';
-  try{
-    // 1) 서버에서 첨부 바이트 받기
-    const ar=await fetch(`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(MOVE_CTX.uid)}&idx=${MOVE_CTX.idx}`);
-    if(!ar.ok) throw new Error("첨부 다운로드 실패");
-    const blob=await ar.blob();
-    $('moveMsg').textContent='⏳ SharePoint 업로드 중…';
-    // 2) 경로: 문서종류/고객사/분류/날짜/파일명
-    const path=`${docType}/${customer}/${cat}/${date}/${MOVE_CTX.name}`;
-    await spPutFile(path, blob, blob.type||'application/octet-stream');
-    $('moveMsg').style.color='var(--g)'; $('moveMsg').textContent='✅ 저장 완료: '+path;
-    toast("문서함 저장 완료","ok");
-    setTimeout(closeMove,1100);
-  }catch(e){ $('moveMsg').style.color='var(--r)'; $('moveMsg').textContent='실패: '+e.message; }
+  $('moveMsg').style.color='var(--t2)'; $('moveMsg').textContent=`⏳ ${targets.length}개 저장 중…`;
+  let ok=0, fail=0;
+  for(const {r,i} of targets){
+    const cell=$('movest-'+i); if(cell){cell.textContent='⏳';}
+    try{
+      let blob;
+      if(r.kind==='normal'){
+        const ar=await fetch(`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(r.uid)}&idx=${r.idx}`);
+        if(!ar.ok) throw new Error('첨부 다운로드 실패');
+        blob=await ar.blob();
+      }else{
+        // 대용량: 서버 프록시로 외부 URL 받기
+        const pr=await fetch(`${SERVER}/api/mail/fetch-url?url=${encodeURIComponent(r.url)}&name=${encodeURIComponent(r.name)}`);
+        if(!pr.ok) throw new Error('대용량 다운로드 실패');
+        blob=await pr.blob();
+      }
+      const cust=(r.customer||'미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
+      const cat=r.category||'기타';
+      const date=(r.date||new Date().toISOString().slice(0,10)).trim();
+      const safeName=(r.name||'file').replace(/[\\/:*?"<>|]/g,'_');
+      const path=`${r.docType}/${cust}/${cat}/${date}/${safeName}`;
+      await spPutFile(path, blob, blob.type||'application/octet-stream');
+      r.status='✅'; if(cell)cell.textContent='✅'; ok++;
+    }catch(e){ r.status='❌'; if(cell)cell.textContent='❌'; fail++; }
+  }
+  $('moveMsg').style.color=fail?'var(--y)':'var(--g)';
+  $('moveMsg').textContent=`완료: 성공 ${ok} / 실패 ${fail}`;
+  toast(`이송 완료 (성공 ${ok}${fail?`, 실패 ${fail}`:''})`, fail?'bad':'ok');
   btn.disabled=false;
 }
 
@@ -701,7 +777,7 @@ function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('
 function closeSettings(){$('settings').classList.remove('on');}
 function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
-async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
+async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function senderKey(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();return e||fromName(m.from).toLowerCase();}
 function contactFor(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
 function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
@@ -742,7 +818,26 @@ function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
 function renderReaderEmpty(){$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
 async function openMail(uid){SELECTED=uid;renderList();const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
-function renderBody(m,d){const atts=(d.attachments||[]);const attHtml=atts.length?`<div class="rd-atts">${atts.map(a=>`<span class="att movable"><span onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span><span class="att-actions"><button class="att-mini" onclick="openMove('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📁 저장</button></span></span>`).join('')}</div>`:'';let bodyHtml;if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;}else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}const head=$('reader').querySelector('.rd-head').outerHTML;const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button></div>`;$('reader').innerHTML=head+actions+attHtml+bodyHtml;}
+function renderBody(m,d){
+  CUR_BODY=d; CUR_MAIL=m;
+  const atts=(d.attachments||[]);
+  const large=(d.largeAttachments||[]);
+  const totalAtt=atts.length+large.length;
+  // 첨부 표시 (다운로드용) + 대용량은 링크 열기
+  let attHtml='';
+  if(totalAtt){
+    const normal=atts.map(a=>`<span class="att"><span onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span></span>`).join('');
+    const big=large.map(a=>`<span class="att" onclick="window.open('${esc(a.url)}','_blank')">🔗 ${esc(a.name)} <span class="badge-lg">대용량</span></span>`).join('');
+    attHtml=`<div class="rd-atts">${normal}${big}</div>`;
+  }
+  let bodyHtml;
+  if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;}
+  else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}
+  const head=$('reader').querySelector('.rd-head').outerHTML;
+  const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
+  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button>${moveBtn}</div>`;
+  $('reader').innerHTML=head+actions+attHtml+bodyHtml;
+}
 async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
 function setFolder(f){FOLDER=f;$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
