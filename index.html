@@ -554,6 +554,9 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     </div>
   </div>
 </div>
+
+<!-- 첨부 → 문서함 일괄 이송 모달 -->
+<div class="modal" id="moveModal">
   <div class="mbox wide">
     <div class="mbox-h"><span>📁 문서함으로 이송</span><button class="x" onclick="closeMove()">✕</button></div>
     <div class="mbox-b">
@@ -1932,6 +1935,9 @@ async function resolveServerEndpoint(){
   return SERVER;
 }
 function startApp(){
+  // 안전장치: 로그인 직후 떠있을 수 있는 모든 모달 강제 닫기
+  document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));
+  $('compose')?.classList.remove('on');
   // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
   try{
     const p=new URLSearchParams(location.search);
@@ -1939,14 +1945,17 @@ function startApp(){
     if(u){ DEEPLINK_UID=u; if(f==='sent'||f==='inbox') FOLDER=f; }
   }catch(e){}
   if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
-  showPage('mail');
-  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
+  showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
   resolveServerEndpoint().finally(()=>{ checkHealth(); loadList(); preloadContacts(); });
 }
 async function preloadContacts(){
   try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
 }
 setInterval(async ()=>{ if(_account){ try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(!d.ok){await resolveServerEndpoint();} }catch(e){ await resolveServerEndpoint(); } checkHealth(); } },60000);
+// 모달 배경(바깥) 탭하면 닫기 — 모바일 안전장치
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('on'); });
+});
 // ── 진입점: ?auth=1 또는 팝업 redirect 복귀 → 인증 팝업 모드 ──
 if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getItem('_authPopup')==='1'){
   runAuthPopup();
