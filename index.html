@@ -886,17 +886,24 @@ async function renderFileTree(p){
   if(FT_SEL[p]===undefined) FT_SEL[p]='';
   await ftLoadChildren(p,'');
   cont.innerHTML=`<div class="ft-tools">
-      <button class="btn sm" onclick="ftNewFolder('${p}','')">📁 새 폴더</button>
+      <button class="btn sm" onclick="ftNewFolder('${p}', FT_SEL['${p}']||'')">📁 새 폴더</button>
       <button class="btn sm" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
     </div>
+    <div id="ftsel-${p}" style="padding:4px 10px;font-size:11px;color:var(--t3)"></div>
     <div class="ftree" id="ftree-${p}"></div>`;
   await ftRenderNodes(p);
+}
+function ftUpdateSelLabel(p){
+  const el=$('ftsel-'+p); if(!el) return;
+  const sel=FT_SEL[p]||'';
+  el.innerHTML = sel ? `📍 선택: <b style="color:var(--p)">${esc(sel)}</b> (새 폴더·업로드는 여기로)` : `📍 선택: 루트 (폴더를 클릭해 선택하세요)`;
 }
 async function ftRenderNodes(p){
   const box=$('ftree-'+p);
   let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
   html+=await ftNodeHtml(p,'',0);
   box.innerHTML=html;
+  ftUpdateSelLabel(p);
 }
 async function ftNodeHtml(p,path,depth){
   const items=FT_CHILDREN[ftKey(p,path)]||await ftLoadChildren(p,path);
