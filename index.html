@@ -166,6 +166,8 @@ table.grid input:focus,table.grid select:focus{outline:none;border-color:var(--p
 table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(--border)}
 .cat-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--pd);color:var(--p2)}
 .row-del{cursor:pointer;color:var(--t3);font-weight:700;border:none;background:none;font-size:14px}
+.row-mail{cursor:pointer;color:var(--p);border:none;background:none;font-size:15px;margin-right:4px}
+.row-mail:hover{color:var(--p2)}
 .row-del:hover{color:var(--r)}
 /* 문서 탭: 고객사/분류 트리 + 파일 */
 .doc-layout{flex:1;display:flex;gap:14px;min-height:0}
@@ -463,7 +465,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <table class="grid" id="contactGrid"><thead><tr>
         <th style="width:130px">이름</th><th style="width:200px">이메일</th>
         <th style="width:150px">회사</th><th style="width:130px">연락처</th>
-        <th style="width:120px">카테고리</th><th style="width:160px">메모</th><th style="width:36px"></th>
+        <th style="width:120px">카테고리</th><th style="width:160px">메모</th><th style="width:64px"></th>
       </tr></thead><tbody id="contactBody"></tbody></table>
     </div>
   </div>
@@ -524,9 +526,9 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="mbox cbox">
     <div class="mbox-h"><span id="cTitle">새 메일</span><button class="x" onclick="closeCompose()">✕</button></div>
     <div class="mbox-b">
-      <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span></label>
+      <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span> <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cTo')">📇 주소록</button></label>
       <input id="cTo" type="text" placeholder="someone@enjet.co.kr, ...">
-      <label>참조 (CC)</label>
+      <label>참조 (CC) <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cCc')">📇 주소록</button></label>
       <input id="cCc" type="text" placeholder="(선택)">
       <label>제목</label>
       <input id="cSubj" type="text">
@@ -541,8 +543,17 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
-<!-- 첨부 → 문서함 일괄 이송 모달 -->
-<div class="modal" id="moveModal">
+<!-- 주소록에서 받는사람 선택 모달 -->
+<div class="modal" id="ctPickModal">
+  <div class="mbox" style="max-width:520px">
+    <div class="mbox-h"><span>📇 주소록에서 선택</span><button class="x" onclick="closeContactPicker()">✕</button></div>
+    <div class="mbox-b">
+      <input id="ctPickSearch" type="text" placeholder="🔍 이름·회사·이메일 검색" oninput="renderContactPicker()" style="margin-bottom:8px">
+      <div id="ctPickList" style="max-height:48vh;overflow:auto;border:1px solid var(--border);border-radius:10px"></div>
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="closeContactPicker()">취소</button><button class="btn primary" onclick="applyContactPicker()">✓ 선택 추가 (<span id="ctPickN">0</span>)</button></div>
+    </div>
+  </div>
+</div>
   <div class="mbox wide">
     <div class="mbox-h"><span>📁 문서함으로 이송</span><button class="x" onclick="closeMove()">✕</button></div>
     <div class="mbox-b">
@@ -854,8 +865,15 @@ function renderContacts(){
     <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
     <td><select onchange="editContact(${i},'category',this.value)">${['',...CATEGORIES].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}</select></td>
     <td><input value="${esc(c.memo||'')}" onchange="editContact(${i},'memo',this.value)"></td>
-    <td><button class="row-del" onclick="delContact(${i})">✕</button></td>
+    <td style="white-space:nowrap"><button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
   </tr>`).join('');
+}
+// 주소록에서 메일쓰기: 받는사람 채워서 열기
+function composeTo(email,name){
+  if(!email){ toast('이메일이 없는 연락처입니다','bad'); return; }
+  openCompose('new');
+  $('cTo').value=email;
+  $('cCc').value=''; $('cSubj').value=''; $('cBody').value='';
 }
 function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
 function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",phone:"",category:"",memo:""}); renderContacts(); }
@@ -1675,6 +1693,45 @@ let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
 function closeCompose(){$('compose').classList.remove('on');}
+// ── 메일쓰기: 주소록에서 받는사람/참조 선택 ──
+let _ctPickTarget='cTo', _ctPickSel=new Set();
+async function openContactPicker(targetId){
+  _ctPickTarget=targetId; _ctPickSel=new Set();
+  $('ctPickSearch').value='';
+  $('ctPickModal').classList.add('on');
+  if(!CONTACTS||!CONTACTS.length){
+    $('ctPickList').innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+    try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); }catch(e){}
+  }
+  renderContactPicker();
+}
+function closeContactPicker(){ $('ctPickModal').classList.remove('on'); }
+function renderContactPicker(){
+  const q=($('ctPickSearch').value||'').trim().toLowerCase();
+  let list=(CONTACTS||[]).filter(c=>c&&c.email);
+  if(q) list=list.filter(c=>((c.name||'')+(c.company||'')+(c.email||'')).toLowerCase().includes(q));
+  list.sort((a,b)=>(a.name||a.email||'').localeCompare(b.name||b.email||'','ko'));
+  if(!list.length){ $('ctPickList').innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">연락처 없음</div>'; $('ctPickN').textContent='0'; return; }
+  $('ctPickList').innerHTML=list.map(c=>{
+    const on=_ctPickSel.has(c.email);
+    return `<div onclick="toggleCtPick('${esc(c.email)}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;${on?'background:var(--pd)':''}">
+      <span style="width:18px">${on?'✅':'⬜'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${esc(c.name||'(이름없음)')}${c.company?` <span style="font-weight:400;color:var(--t3)">· ${esc(c.company)}</span>`:''}</div>
+        <div style="font-size:11.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis">${esc(c.email)}</div>
+      </div></div>`;
+  }).join('');
+  $('ctPickN').textContent=String(_ctPickSel.size);
+}
+function toggleCtPick(email){ if(_ctPickSel.has(email)) _ctPickSel.delete(email); else _ctPickSel.add(email); renderContactPicker(); }
+function applyContactPicker(){
+  if(!_ctPickSel.size){ closeContactPicker(); return; }
+  const inp=$(_ctPickTarget);
+  const cur=(inp.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  for(const e of _ctPickSel){ if(!cur.includes(e)) cur.push(e); }
+  inp.value=cur.join(', ');
+  closeContactPicker();
+}
 function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];let total=0;const proc=files.map(f=>new Promise(res=>{total+=f.size;const fr=new FileReader();fr.onload=()=>{COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]});res();};fr.onerror=()=>res();fr.readAsDataURL(f);}));Promise.all(proc).then(()=>{if(total>20*1024*1024){$('cMsg').style.color='var(--r)';$('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다';}renderFileChips();});}
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
