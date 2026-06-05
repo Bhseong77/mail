@@ -796,11 +796,22 @@ function renderFileRows(files){
 // ── 첨부 → 문서함 일괄 이송 ──
 let CUR_BODY=null, CUR_MAIL=null, MOVE_ROWS=[];
 function guessCustomerFromSubject(subj,m){
-  const br=(subj||'').match(/[\[\(]([^\]\)]+)[\]\)]/);
-  if(br && br[1]) return br[1].replace(/주식회사|㈜|\(주\)/g,'').trim();
+  // 보낸이(상대 회사)가 고객사. 받는이/우리(엔젯)는 제외.
   const from=(m&&m.from&&m.from[0])?m.from[0].email:'';
+  const fromName=(m&&m.from&&m.from[0])?(m.from[0].name||''):'';
+  // ① 주소록에 등록된 보낸이의 회사명 우선
   const c=CONTACTS.find(x=>(x.email||'').toLowerCase()===(from||'').toLowerCase());
   if(c&&c.company) return c.company;
+  // ② 보낸이 이름에 회사 느낌이 있으면 (예: "한국화낙 정현재")
+  const nm=(fromName||'').replace(/주식회사|㈜|\(주\)/g,'').trim();
+  // ③ 제목 대괄호 — 단, 우리 회사명(엔젯/ENJET)은 제외
+  const brs=[...(subj||'').matchAll(/[\[\(]([^\]\)]+)[\]\)]/g)].map(x=>x[1].replace(/주식회사|㈜|\(주\)/g,'').trim());
+  for(const b of brs){ if(b && !/엔젯|enjet/i.test(b)) return b; }
+  // ④ 도메인 추측 (gmail 등 제외, 보낸이가 외부일 때)
+  if(from && !from.toLowerCase().endsWith('@enjet.co.kr')){
+    const g=guessCompany(from, fromName);
+    if(g) return g;
+  }
   return '';
 }
 function guessCategory(text){
