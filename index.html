@@ -288,6 +288,19 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .an-co{display:inline-block;font-size:11px;font-weight:700;color:#065f46;background:var(--gd);border-radius:8px;padding:1px 7px}
 .an-empty{padding:40px;text-align:center;color:var(--t3)}
 .an-pending{font-size:11px;color:var(--y);font-weight:700}
+/* 파일 관리 공통 */
+.doc-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.doc-search{width:170px;font-family:inherit;font-size:12.5px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.doc-search:focus{outline:none;border-color:var(--p);background:#fff}
+.filerow .fr-act{display:flex;gap:4px;margin-left:auto;opacity:0;transition:.12s}
+.filerow:hover .fr-act{opacity:1}
+.fr-btn{width:24px;height:24px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:11px;display:grid;place-items:center}
+.fr-btn:hover{background:var(--pd)}
+.fr-btn.del:hover{background:#fee2e2;border-color:var(--r)}
+.an-actcell{white-space:nowrap}
+.an-mini{font-size:11px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer;margin-left:3px}
+.an-mini:hover{background:var(--pd)}
+.an-mini.del:hover{background:#fee2e2;border-color:var(--r)}
 </style>
 </head>
 <body>
@@ -471,6 +484,24 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
+<!-- 파일 이동 모달 -->
+<div class="modal" id="fileMoveModal">
+  <div class="mbox">
+    <div class="mbox-h"><span>📂 파일 이동</span><button class="x" onclick="$('fileMoveModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-b">
+      <p id="fmvName" style="font-weight:700;color:var(--t1)"></p>
+      <label>고객사</label>
+      <input id="fmvCust" type="text" placeholder="예: 한국화낙">
+      <label>분류</label>
+      <select id="fmvCat"><option value="가공">가공</option><option value="구매품">구매품</option><option value="로봇">로봇</option><option value="공압품">공압품</option><option value="물류">물류</option><option value="기타">기타</option></select>
+      <label>날짜 (폴더, 선택)</label>
+      <input id="fmvDate" type="text" placeholder="YYYY-MM-DD (비우면 생략)">
+      <div id="fmvMsg" class="cmsg"></div>
+      <div class="row"><button class="btn" onclick="$('fileMoveModal').classList.remove('on')">취소</button><button class="btn primary" id="fmvBtn" onclick="doFileMove()">이동</button></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const SERVER_KEY='enjet_server_url';
@@ -539,6 +570,49 @@ async function spList(path){
   }catch(e){ return []; }
 }
 function toast(msg,kind){ const t=$('toast'); t.textContent=msg; t.className='toast show '+(kind||''); setTimeout(()=>t.className='toast',2600); }
+
+// ── Graph 파일 조작 (업로드/이름변경/이동/삭제/폴더) ──
+async function spUploadFile(path,bytes,contentType){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":contentType||"application/octet-stream"},body:bytes});
+  if(!r.ok) throw new Error("업로드 실패 "+r.status); return await r.json();
+}
+async function spEnsureFolder(path){
+  // path의 각 단계 폴더를 순차 생성(있으면 무시)
+  const t=await graphToken(); const d=await spDrive();
+  const parts=path.split("/").filter(Boolean); let cur="";
+  for(const seg of parts){
+    const parent=cur; cur=cur?`${cur}/${seg}`:seg;
+    const url=parent?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(parent)}:/children`
+                    :`https://graph.microsoft.com/v1.0/drives/${d}/root/children`;
+    await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},
+      body:JSON.stringify({name:seg,folder:{},"@microsoft.graph.conflictBehavior":"fail"})}).catch(()=>{});
+  }
+}
+async function spRenameItem(itemId,newName){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,
+    {method:"PATCH",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({name:newName})});
+  if(!r.ok) throw new Error("이름변경 실패 "+r.status); return await r.json();
+}
+async function spMoveItem(itemId,newParentPath){
+  const t=await graphToken(); const d=await spDrive();
+  // 대상 폴더 id 조회
+  const pr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(newParentPath)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!pr.ok){ await spEnsureFolder(newParentPath); }
+  const pr2=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(newParentPath)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!pr2.ok) throw new Error("대상 폴더 확인 실패");
+  const pid=(await pr2.json()).id;
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,
+    {method:"PATCH",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({parentReference:{id:pid}})});
+  if(!r.ok) throw new Error("이동 실패 "+r.status); return await r.json();
+}
+async function spDeleteItem(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}});
+  if(!r.ok && r.status!==204) throw new Error("삭제 실패 "+r.status); return true;
+}
 
 // ── 페이지 전환 ──
 let curPage='mail';
@@ -766,6 +840,8 @@ async function renderDocPage(p){
   if(!DOC_ANALYZE.includes(p)) return renderDocTree(p); // 기술자료는 기존 트리
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]} · 분석 목록</h2><div class="spacer"></div>
+      <input type="file" id="up-${p}" style="display:none" multiple onchange="anUpload('${p}',this.files)">
+      <button class="btn" onclick="$('up-${p}').click()">⬆ 업로드</button>
       <button class="btn" onclick="anAnalyze('${p}')">✨ 미분석 분석</button>
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
@@ -810,7 +886,7 @@ function anRender(p){
   if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
   let h=`<table class="an-tbl"><thead><tr>
     <th>회사명</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
-    <th class="c">납기</th><th class="c">유효기한</th><th>비고</th><th>파일</th></tr></thead><tbody>`;
+    <th class="c">납기</th><th class="c">유효기한</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
   for(const r of rows){
     const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
     const rowspan=items.length;
@@ -824,7 +900,8 @@ function anRender(p){
         h+=`<td rowspan="${rowspan}" class="c">${esc(r.delivery||'')}</td>`+
            `<td rowspan="${rowspan}" class="c">${esc(r.validUntil||'')}</td>`+
            `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anMemo('${p}','${r.fid}',this.value)"></td>`+
-           `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`;
+           `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+           `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
       }
       h+=`</tr>`;
     });
@@ -835,6 +912,64 @@ function anRender(p){
 function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
 async function anMemo(p,fid,val){
   if(AN_DATA[p]&&AN_DATA[p][fid]){ AN_DATA[p][fid].memo=val; try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast('비고 저장','ok'); }catch(e){ toast('저장 실패','bad'); } }
+}
+// 수동 업로드 (현재 선택된 고객사 폴더로, 없으면 _미분류)
+async function anUpload(p,files){
+  if(!files||!files.length) return;
+  const root=DOC_MAP[p];
+  const cust=(AN_FILTER[p]?.customer)||'_미분류';
+  const date=new Date().toISOString().slice(0,10);
+  toast(`${files.length}개 업로드 중…`);
+  let ok=0;
+  for(const f of files){
+    try{
+      const path=`${root}/${cust}/${f.name}`;
+      const buf=await f.arrayBuffer();
+      await spUploadFile(path, new Blob([buf]), f.type||'application/octet-stream');
+      ok++;
+    }catch(e){ console.warn('업로드 실패',f.name,e.message); }
+  }
+  toast(`${ok}개 업로드 완료 · [✨ 미분석 분석]으로 분석`,'ok');
+  renderDocPage(p);
+}
+let _anCtx=null;
+function anRename(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  const nn=prompt('새 파일 이름:', r.fileName||'');
+  if(!nn||nn===r.fileName) return;
+  spRenameItem(fid,nn).then(()=>{ r.fileName=nn; spPutJson(`${DOC_MAP[p]}/_analysis.json`,AN_DATA[p]); anRender(p); toast('이름 변경됨','ok'); }).catch(e=>toast('실패: '+e.message,'bad'));
+}
+function anMove(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  _anCtx={mode:'an',p,fid};
+  $('fmvName').textContent='📄 '+(r.fileName||'');
+  $('fmvCust').value=r.customer||r.company||'';
+  $('fmvDate').value=r.date||'';
+  $('fmvMsg').textContent='';
+  $('fileMoveModal').classList.add('on');
+}
+async function anDelete(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  if(!confirm(`"${r.fileName}" 파일을 삭제할까요? (SharePoint에서 영구 삭제)`)) return;
+  try{ await spDeleteItem(fid); delete AN_DATA[p][fid]; await spPutJson(`${DOC_MAP[p]}/_analysis.json`,AN_DATA[p]); anRender(p); toast('삭제됨','ok'); }
+  catch(e){ toast('삭제 실패: '+e.message,'bad'); }
+}
+async function doFileMove(){
+  if(!_anCtx) return;
+  const {p,fid}=_anCtx;
+  const root=DOC_MAP[p];
+  const cust=($('fmvCust').value||'_미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
+  const cat=$('fmvCat').value;
+  const date=($('fmvDate').value||'').trim();
+  const dest=date?`${root}/${cust}/${cat}/${date}`:`${root}/${cust}/${cat}`;
+  $('fmvMsg').style.color='var(--t2)'; $('fmvMsg').textContent='이동 중…';
+  try{
+    await spEnsureFolder(dest);
+    await spMoveItem(fid,dest);
+    if(_anCtx.mode==='an'&&AN_DATA[p]&&AN_DATA[p][fid]){ AN_DATA[p][fid].customer=cust; AN_DATA[p][fid].folder=dest.replace(root+'/',''); await spPutJson(`${root}/_analysis.json`,AN_DATA[p]); }
+    $('fileMoveModal').classList.remove('on');
+    toast('이동 완료','ok'); renderDocPage(p);
+  }catch(e){ $('fmvMsg').style.color='var(--r)'; $('fmvMsg').textContent='실패: '+e.message; }
 }
 // 미분석 문서를 Copilot으로 분석
 async function anAnalyze(p){
@@ -892,6 +1027,9 @@ ${text.slice(0,6000)}`;
 async function renderDocTree(p){
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]}</h2><div class="spacer"></div>
+      <input class="doc-search" id="treeq-${p}" placeholder="🔍 파일 검색" oninput="treeSearch('${p}')">
+      <input type="file" id="upt-${p}" style="display:none" multiple onchange="treeUpload('${p}',this.files)">
+      <button class="btn" onclick="$('upt-${p}').click()">⬆ 업로드</button>
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
       <div class="doc-tree" id="tree-${p}"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
@@ -905,9 +1043,39 @@ async function renderDocTree(p){
   for(const f of folders){ html+=`<div class="tree-item" onclick="openDocCustomer('${p}','${esc(root)}','${esc(f.name)}',this)"><span>📂 ${esc(f.name)}</span></div>`; }
   tree.innerHTML=html;
 }
+// 트리 탭 전역 검색 (모든 폴더 재귀)
+async function treeSearch(p){
+  const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
+  if(!q){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">📁</div>고객사·분류를 선택하세요</div>`; return; }
+  const root=DOC_MAP[p];
+  $('files-'+p).innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
+  const hits=[];
+  async function walk(path){const items=await spList(path);for(const it of items){if(it.folder)await walk(`${path}/${it.name}`);else if(it.file&&it.name.toLowerCase().includes(q))hits.push({...it,_folder:path.replace(root+'/','')});}}
+  await walk(root);
+  if(!hits.length){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">🔍</div>"${esc(q)}" 검색 결과 없음</div>`; return; }
+  $('files-'+p).innerHTML=hits.map(f=>treeFileRow(p,f,f._folder)).join('');
+}
+function treeUpload(p,files){
+  if(!files||!files.length) return;
+  const cust=(treeCurCustomer[p])||'_미분류';
+  (async()=>{
+    const root=DOC_MAP[p]; toast(`${files.length}개 업로드 중…`); let ok=0;
+    for(const f of files){ try{ const buf=await f.arrayBuffer(); await spUploadFile(`${root}/${cust}/${f.name}`,new Blob([buf]),f.type); ok++; }catch(e){} }
+    toast(`${ok}개 업로드 완료`,'ok'); renderDocPage(p);
+  })();
+}
+function treeFileRow(p,f,folder){
+  const dt=(f.lastModifiedDateTime||'').slice(0,10);const kb=f.size?Math.round(f.size/1024):0;
+  return `<div class="filerow"><span style="font-size:16px">📄</span><span class="fn" onclick="window.open('${esc(f.webUrl||'#')}','_blank')">${esc(f.name)}</span><span class="fm">${esc(folder||'')} · ${dt} · ${kb}KB</span><span class="fr-act"><button class="fr-btn" title="이름변경" onclick="treeRename('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">✏</button><button class="fr-btn" title="이동" onclick="treeMove('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button><button class="fr-btn del" title="삭제" onclick="treeDelete('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">🗑</button></span></div>`;
+}
+function treeRename(p,fid,name){const nn=prompt('새 이름:',name);if(!nn||nn===name)return;spRenameItem(fid,nn).then(()=>{toast('이름 변경됨','ok');renderDocPage(p);}).catch(e=>toast('실패: '+e.message,'bad'));}
+function treeMove(p,fid,name){_anCtx={mode:'tree',p,fid};$('fmvName').textContent='📄 '+name;$('fmvCust').value=treeCurCustomer[p]||'';$('fmvDate').value='';$('fmvMsg').textContent='';$('fileMoveModal').classList.add('on');}
+async function treeDelete(p,fid,name){if(!confirm(`"${name}" 삭제할까요? (SharePoint 영구삭제)`))return;try{await spDeleteItem(fid);toast('삭제됨','ok');renderDocPage(p);}catch(e){toast('삭제 실패: '+e.message,'bad');}}
+let treeCurCustomer={};
 async function openDocCustomer(p,root,customer,el){
   document.querySelectorAll(`#tree-${p} .tree-item`).forEach(x=>x.classList.remove('active'));
   if(el) el.classList.add('active');
+  treeCurCustomer[p]=customer;
   const sub=await spList(`${root}/${customer}`);
   const cats=sub.filter(x=>x.folder);
   const files=sub.filter(x=>x.file);
@@ -916,32 +1084,24 @@ async function openDocCustomer(p,root,customer,el){
   if(cats.length){
     html+=cats.map(c=>`<div class="filerow" onclick="openDocCat('${p}','${esc(root)}','${esc(customer)}','${esc(c.name)}')"><span style="font-size:16px">📁</span><span class="fn">${esc(c.name)}</span><span class="fm">분류</span></div>`).join('');
   }
-  html+=renderFileRows(files,root,customer,'');
+  html+=files.map(f=>treeFileRow(p,f,customer)).join('');
   fp.innerHTML=html||`<div class="rd-empty"><div class="big">📂</div>비어 있습니다</div>`;
 }
 async function openDocCat(p,root,customer,cat){
+  treeCurCustomer[p]=customer;
   const files=(await spList(`${root}/${customer}/${cat}`)).filter(x=>x.file);
-  // 날짜 폴더가 또 있을 수 있음
   const sub=(await spList(`${root}/${customer}/${cat}`)).filter(x=>x.folder);
   let html=`<div class="filerow" onclick="openDocCustomer('${p}','${esc(root)}','${esc(customer)}')"><span>⬅</span><span class="fn">뒤로</span></div>`;
   if(sub.length) html+=sub.map(s=>`<div class="filerow" onclick="openDocDate('${p}','${esc(root)}','${esc(customer)}','${esc(cat)}','${esc(s.name)}')"><span style="font-size:16px">📅</span><span class="fn">${esc(s.name)}</span></div>`).join('');
-  html+=renderFileRows(files,root,`${customer}/${cat}`,'');
+  html+=files.map(f=>treeFileRow(p,f,`${customer}/${cat}`)).join('');
   $('files-'+p).innerHTML=html;
 }
 async function openDocDate(p,root,customer,cat,date){
+  treeCurCustomer[p]=customer;
   const files=(await spList(`${root}/${customer}/${cat}/${date}`)).filter(x=>x.file);
   let html=`<div class="filerow" onclick="openDocCat('${p}','${esc(root)}','${esc(customer)}','${esc(cat)}')"><span>⬅</span><span class="fn">뒤로</span></div>`;
-  html+=renderFileRows(files,root,`${customer}/${cat}/${date}`,'');
+  html+=files.map(f=>treeFileRow(p,f,`${customer}/${cat}/${date}`)).join('');
   $('files-'+p).innerHTML=html;
-}
-function renderFileRows(files){
-  if(!files||!files.length) return '';
-  return files.map(f=>{
-    const dt=(f.lastModifiedDateTime||'').slice(0,10);
-    const kb=f.size?Math.round(f.size/1024):0;
-    const url=f.webUrl||'#';
-    return `<div class="filerow" onclick="window.open('${esc(url)}','_blank')"><span style="font-size:16px">📄</span><span class="fn">${esc(f.name)}</span><span class="fm">${dt} · ${kb}KB</span></div>`;
-  }).join('');
 }
 
 // ── 첨부 → 문서함 일괄 이송 ──
