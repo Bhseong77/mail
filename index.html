@@ -7,6 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a6fd4'/%3E%3Cstop offset='1' stop-color='%230f4c81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3EEN%3C/text%3E%3C/svg%3E">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+<script src="https://res.cdn.office.net/teams-js/2.24.0/js/MicrosoftTeams.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
@@ -595,43 +596,94 @@ const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 // ── MS 회사계정 로그인 (Azure AD, ERP 대시보드와 동일 앱) ──
 const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
 const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
-let _msalApp=null,_account=null;
-function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:location.href.split("?")[0].split("#")[0]},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
-// 모바일/웹뷰 감지 — 팝업 대신 리다이렉트 로그인 사용
-function isMobileEnv(){
-  const ua=navigator.userAgent||'';
-  return /Android|iPhone|iPad|iPod|Mobile|Teams|wv/i.test(ua) || window.innerWidth<700;
+let _msalApp=null,_account=null,_inTeams=false,_teamsReady=false;
+const BASE_URL=location.href.split("?")[0].split("#")[0];
+function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:BASE_URL},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
+
+// Teams 환경인지 초기화 시도
+async function initTeams(){
+  try{
+    if(!window.microsoftTeams) return false;
+    await microsoftTeams.app.initialize();
+    _teamsReady=true;
+    const ctx=await microsoftTeams.app.getContext();
+    _inTeams=!!ctx;
+    return true;
+  }catch(e){ return false; }
 }
+
+// ───── 인증 팝업 모드 (?auth=1) : Teams가 이 페이지를 팝업으로 띄움 ─────
+async function runAuthPopup(){
+  try{
+    if(window.microsoftTeams){ try{ await microsoftTeams.app.initialize(); }catch(e){} }
+    sessionStorage.setItem('_authPopup','1'); // redirect 후 돌아와도 팝업임을 기억
+    const app=msalApp(); await app.initialize();
+    const rr=await app.handleRedirectPromise();
+    if(rr&&rr.account){
+      sessionStorage.removeItem('_authPopup');
+      const payload=JSON.stringify({username:rr.account.username,name:rr.account.name});
+      try{ microsoftTeams.authentication.notifySuccess(payload); return; }catch(e){}
+      if(window.opener){ window.opener.postMessage({_authResult:JSON.parse(payload)}, BASE_URL); }
+      document.body.innerHTML='<p style="padding:30px;font-family:sans-serif;text-align:center">✅ 로그인 완료. 이 창은 닫아도 됩니다.</p>';
+      return;
+    }
+    // 아직 로그인 안됨 → redirect 시작 (redirectUri는 bare, 등록된 SPA URI 사용)
+    await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+  }catch(e){
+    try{ microsoftTeams.authentication.notifyFailure(String(e.message||e)); }catch(_){ document.body.innerHTML='<p style="padding:20px;font-family:sans-serif">로그인 오류: '+(e.message||e)+'</p>'; }
+  }
+}
+
 async function _checkAcct(acct){
   const upn=(acct.username||"").toLowerCase();
   if(!upn.endsWith("@enjet.co.kr")){
     $('gateErr').textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";
-    try{ await msalApp().logoutRedirect({account:acct}); }catch(e){}
     const b=$('gateBtn'); if(b) b.disabled=false;
     return false;
   }
   _account=acct; $('gate').classList.add('hide'); startApp(); return true;
 }
+
 async function doLogin(){
   const btn=$('gateBtn'),err=$('gateErr'); btn.disabled=true; err.textContent='';
   try{
     const app=msalApp(); await app.initialize();
     let acct=app.getAllAccounts()[0];
-    if(acct){ await _checkAcct(acct); return; }
+    if(acct){ if(await _checkAcct(acct)) return; }
+
+    if(_inTeams){
+      // ★ Teams: 전용 인증 팝업 사용 (iframe 안에서 유일하게 동작)
+      microsoftTeams.authentication.authenticate({
+        url: BASE_URL+"?auth=1",
+        width: 600, height: 535
+      }).then(async (result)=>{
+        // 팝업에서 로그인 완료 → MSAL 캐시(localStorage)에 토큰 있음
+        const app2=msalApp(); await app2.initialize();
+        let a=app2.getAllAccounts()[0];
+        if(!a && result){ try{ const o=JSON.parse(result); a=app2.getAllAccounts().find(x=>x.username===o.username)||app2.getAllAccounts()[0]; }catch(_){} }
+        if(a){ await _checkAcct(a); } else { err.textContent="로그인 정보를 가져오지 못했습니다. 다시 시도해주세요."; btn.disabled=false; }
+      }).catch((e)=>{ err.textContent="로그인 취소/실패: "+e; btn.disabled=false; });
+      return;
+    }
+
     if(isMobileEnv()){
-      // 모바일/웹뷰: 팝업이 막히므로 리다이렉트 로그인
-      await app.loginRedirect({scopes:["User.Read"],prompt:"select_account"});
-      // 페이지가 MS 로그인으로 이동 → 돌아오면 handleRedirect에서 처리
+      await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
     }else{
-      const r=await app.loginPopup({scopes:["User.Read"],prompt:"select_account"});
+      const r=await app.loginPopup({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
       await _checkAcct(r.account);
     }
   }catch(e){ err.textContent="로그인 실패: "+(e.message||e); btn.disabled=false; }
 }
+
+function isMobileEnv(){
+  const ua=navigator.userAgent||'';
+  return /Android|iPhone|iPad|iPod|Mobile|wv/i.test(ua) || window.innerWidth<700;
+}
+
 async function tryAutoLogin(){
   try{
+    await initTeams(); // Teams 여부 먼저 확인
     const app=msalApp(); await app.initialize();
-    // 리다이렉트 로그인 후 돌아온 경우 결과 처리
     const rr=await app.handleRedirectPromise();
     if(rr&&rr.account){ await _checkAcct(rr.account); return true; }
     const acct=app.getAllAccounts()[0];
@@ -639,7 +691,13 @@ async function tryAutoLogin(){
   }catch(e){}
   return false;
 }
-function logout(){try{ if(isMobileEnv()) msalApp().logoutRedirect({account:_account}); else msalApp().logoutPopup({account:_account}); }catch(e){location.reload();}}
+function logout(){
+  try{
+    if(_inTeams){ msalApp().logoutRedirect({account:_account,postLogoutRedirectUri:BASE_URL}); }
+    else if(isMobileEnv()){ msalApp().logoutRedirect({account:_account}); }
+    else { msalApp().logoutPopup({account:_account}); }
+  }catch(e){location.reload();}
+}
 function myName(){ try{ return (_account && (_account.name || (_account.username||'').split('@')[0])) || '익명'; }catch(e){ return '익명'; } }
 
 // ── Graph(SharePoint) 토큰 + 헬퍼 ──
@@ -1823,7 +1881,12 @@ async function preloadContacts(){
   try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
 }
 setInterval(async ()=>{ if(_account){ try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(!d.ok){await resolveServerEndpoint();} }catch(e){ await resolveServerEndpoint(); } checkHealth(); } },60000);
-tryAutoLogin();
+// ── 진입점: ?auth=1 또는 팝업 redirect 복귀 → 인증 팝업 모드 ──
+if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getItem('_authPopup')==='1'){
+  runAuthPopup();
+}else{
+  tryAutoLogin();
+}
 
 </script>
 </body>
