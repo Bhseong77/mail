@@ -7,6 +7,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a6fd4'/%3E%3Cstop offset='1' stop-color='%230f4c81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3EEN%3C/text%3E%3C/svg%3E">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
 <style>
 :root{
   --bg:#f4f6fa; --bg2:#fff; --bg3:#f8f9fc;
@@ -972,16 +975,47 @@ async function doFileMove(){
   }catch(e){ $('fmvMsg').style.color='var(--r)'; $('fmvMsg').textContent='실패: '+e.message; }
 }
 // 미분석 문서를 Copilot으로 분석
+// 브라우저에서 직접 파일 텍스트 추출 (PDF=pdf.js, 엑셀=SheetJS) — 서버/터널 불필요
+async function extractTextBrowser(f){
+  // Graph로 직접 다운로드 (downloadUrl 또는 items/{id}/content)
+  let blob=null;
+  try{
+    if(f.url){ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); }
+  }catch(_){}
+  if(!blob){ // downloadUrl 만료 시 Graph content로 폴백
+    const t=await graphToken(); const d=await spDrive();
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok) blob=await r.blob();
+  }
+  if(!blob) throw new Error("다운로드 실패");
+  const name=(f.name||'').toLowerCase();
+  if(name.endsWith('.pdf')){
+    if(!window.pdfjsLib) throw new Error("pdf.js 미로드");
+    const buf=await blob.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let text=''; const n=Math.min(pdf.numPages,10);
+    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); text+=tc.items.map(x=>x.str).join(' ')+'\n'; }
+    return text.slice(0,8000);
+  }
+  if(/\.(xlsx|xls|xlsm)$/.test(name)){
+    if(!window.XLSX) throw new Error("SheetJS 미로드");
+    const buf=await blob.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    let text='';
+    wb.SheetNames.slice(0,3).forEach(sn=>{ text+=`[시트:${sn}]\n`+XLSX.utils.sheet_to_csv(wb.Sheets[sn]).slice(0,3000)+'\n'; });
+    return text.slice(0,8000);
+  }
+  return '';
+}
 async function anAnalyze(p){
   const root=DOC_MAP[p];
   toast('문서 목록 확인 중…');
-  // 고객사/분류/날짜 폴더를 모두 뒤져 파일 수집 (최대 3뎁스)
   const files=[];
   async function walk(path,customer){
     const items=await spList(path);
     for(const it of items){
       if(it.folder) await walk(`${path}/${it.name}`, customer||it.name);
-      else if(it.file && /\.(pdf|xlsx|xls|xlsm)$/i.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||it.webUrl,customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10)});
+      else if(it.file && /\.(pdf|xlsx|xls|xlsm)$/i.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||'',customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10),webUrl:it.webUrl});
     }
   }
   await walk(root,'');
@@ -993,10 +1027,9 @@ async function anAnalyze(p){
   for(const f of pending){
     done++;
     try{
-      // 1) 서버로 텍스트 추출
-      const er=await fetch(`${SERVER}/api/mail/extract-text`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:f.url,name:f.name})});
-      const ed=await er.json();
-      const text=(ed.ok?ed.text:'')||'';
+      // 1) 브라우저에서 직접 텍스트 추출 (서버 안 거침)
+      let text='';
+      try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
       // 2) Copilot 분석
       const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
 {"company":"발행 회사명","delivery":"납기","validUntil":"유효기한(견적유효기간)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
@@ -1012,7 +1045,7 @@ ${text.slice(0,6000)}`;
         items:(info&&info.items)||[],
         delivery:(info&&info.delivery)||'',
         validUntil:(info&&info.validUntil)||'',
-        memo:'', fileName:f.name, url:f.url, customer:f.customer, folder:f.folder, date:f.date
+        memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
       };
       if(done%3===0){ anRender(p); toast(`분석 중… ${done}/${pending.length}`); }
     }catch(e){ console.warn('분석 실패',f.name,e.message); }
