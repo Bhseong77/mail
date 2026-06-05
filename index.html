@@ -352,15 +352,24 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .doc-files,.doc-analysis{width:100%;min-height:40vh}
   .doc-an-bar{flex-wrap:wrap}
   .doc-an-bar input.search,.doc-search{width:100%}
-  .an-tbl{font-size:11px}
-  .an-tbl th,.an-tbl td{padding:5px 5px}
-  .an-tbl .item{max-width:120px}
+  .an-tbl{font-size:11.5px;min-width:680px}
+  .an-tbl th,.an-tbl td{padding:7px 7px;white-space:nowrap}
+  .an-tbl .item{max-width:none;white-space:normal;min-width:130px}
+  .an-tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .sch-wrap{padding:10px 12px 24px}
   .sch-stats{grid-template-columns:repeat(2,1fr);gap:8px}
   .sch-subtabs{flex-wrap:wrap}
   .sch-panel-h{padding:11px 13px}
-  .sch-tbl{font-size:11px}
-  #contactBody,table{font-size:11.5px}
+  .sch-tbl{font-size:11.5px;min-width:640px}
+  .sch-tbl th,.sch-tbl td{white-space:nowrap;padding:7px 6px}
+  /* 모든 데이터 테이블: 가로 스크롤 + 한 글자씩 끊김 방지 */
+  .doc-analysis,.doc-files,.sch-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{font-size:11.5px}
+  table td,table th{white-space:nowrap}
+  /* 주소록/명세 테이블 컨테이너 가로 스크롤 */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .grid{min-width:760px}
+  .grid th,.grid td{white-space:nowrap}
   .mbox{max-width:96vw;margin:0 8px}
   .cbox{max-width:96vw}
   .ft-row{padding:9px 8px}
@@ -372,7 +381,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 @media(max-width:400px){
   .topnav button{font-size:12px;padding:10px 8px}
   .hdr-title{font-size:15px}
-  .an-tbl{font-size:10px}
+  .an-tbl{font-size:11px}
 }
 
 </style>
