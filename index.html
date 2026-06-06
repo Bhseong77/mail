@@ -44,6 +44,9 @@ body{display:flex;flex-direction:column;height:100vh}
 .btn-hdr{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:7px 13px;border-radius:6px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600}
 .btn-hdr:hover{background:rgba(255,255,255,0.25)}
 .btn-hdr.primary{background:#fff;color:var(--p2);font-weight:700;border-color:#fff}
+.btn-chat-back{background:rgba(255,255,255,0.92);color:var(--p2);border:none;padding:9px 13px;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.btn-chat-back:hover{background:#fff}
+.btn-chat-back:active{transform:scale(.96)}
 .toolbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .folders{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px}
 .folders button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:13.5px;font-weight:600;padding:7px 16px;border-radius:6px;cursor:pointer;transition:.12s}
@@ -347,6 +350,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .hdr-sub{font-size:11px}
   .hdr-row{gap:8px}
   .btn-hdr{padding:6px 9px;font-size:12px}
+  .btn-chat-back{padding:7px 10px;font-size:12.5px}
   .hdr-sync{padding:4px 8px;font-size:11px}
   .topnav{padding:0 8px;gap:0}
   .topnav button{padding:11px 11px;font-size:13px;white-space:nowrap}
@@ -437,13 +441,15 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="hdr">
   <div class="hdr-row">
-    <div>
-      <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v10</span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn-chat-back" onclick="backToTeamsChat()" title="Teams 채팅으로 돌아가기">← 채팅</button>
+      <div>
+        <div class="hdr-title">📧 ENJET 메일 대시보드</div>
+        <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v11</span></div>
+      </div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
-    <button class="btn-hdr" id="backToChatBtn" style="display:none" onclick="backToTeamsChat()">← 채팅으로</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
@@ -674,27 +680,28 @@ async function initTeams(){
 }
 // Teams 채팅으로 돌아가기
 async function backToTeamsChat(){
+  // Teams 환경 아니면 브라우저 뒤로
+  if(!window.microsoftTeams){ history.back(); return; }
+  try{ await microsoftTeams.app.initialize(); }catch(e){}
+  // 컨텍스트 최신화 (chat.id 확보 시도)
+  let ctx=_teamsCtx;
+  try{ ctx=await microsoftTeams.app.getContext(); _teamsCtx=ctx; }catch(e){}
+  // 1순위: Teams 페이지 네비게이션 뒤로가기 (탭→채팅)
   try{
-    // 1순위: Teams 페이지 네비게이션 뒤로가기 (탭→채팅)
-    if(window.microsoftTeams && microsoftTeams.pages){
-      try{
-        if(microsoftTeams.pages.backStack && microsoftTeams.pages.backStack.navigateBack){
-          await microsoftTeams.pages.backStack.navigateBack(); return;
-        }
-      }catch(e){}
-      try{
-        if(microsoftTeams.pages.navigateBack){ await microsoftTeams.pages.navigateBack(); return; }
-      }catch(e){}
-    }
-    // 2순위: 채팅 딥링크
-    const ctx=_teamsCtx||{};
-    const chatId=ctx?.chat?.id;
-    if(chatId && window.microsoftTeams && microsoftTeams.app && microsoftTeams.app.openLink){
-      try{ await microsoftTeams.app.openLink(`https://teams.microsoft.com/l/chat/0/0?conversationId=${encodeURIComponent(chatId)}`); return; }catch(e){}
-    }
-    // 최후: 브라우저 뒤로
-    history.back();
-  }catch(e){ history.back(); }
+    if(microsoftTeams.pages?.backStack?.navigateBack){ await microsoftTeams.pages.backStack.navigateBack(); return; }
+  }catch(e){}
+  try{
+    if(microsoftTeams.pages?.navigateBack){ await microsoftTeams.pages.navigateBack(); return; }
+  }catch(e){}
+  // 2순위: 채팅 딥링크
+  const chatId=ctx?.chat?.id;
+  if(chatId){
+    const link=`https://teams.microsoft.com/l/chat/0/0?conversationId=${encodeURIComponent(chatId)}`;
+    try{ await microsoftTeams.app.openLink(link); return; }catch(e){}
+    try{ window.open(link,'_blank'); return; }catch(e){}
+  }
+  // 최후: 브라우저 뒤로
+  try{ history.back(); }catch(e){ toast('채팅으로 이동할 수 없습니다','bad'); }
 }
 
 // ───── 인증 팝업 모드 (?auth=1) : Teams가 이 페이지를 팝업으로 띄움 ─────
