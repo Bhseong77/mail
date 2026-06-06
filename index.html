@@ -400,8 +400,13 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .grid{min-width:760px}
   .grid th,.grid td{white-space:nowrap}
-  .mbox{max-width:96vw;margin:0 8px}
+  .mbox{max-width:96vw;margin:0 8px;max-height:90vh;display:flex;flex-direction:column}
+  .mbox-b{overflow-y:auto;-webkit-overflow-scrolling:touch}
   .cbox{max-width:96vw}
+  .cbox #cBody{rows:6}
+  .cbox textarea{min-height:120px}
+  /* 모달 하단 버튼 줄: 잘 보이게 여백 */
+  .mbox .row{position:sticky;bottom:0;background:#fff;padding-top:10px;margin-top:4px}
   .ft-row{padding:9px 8px}
   .ft-children{margin-left:10px}
   .ctxmenu .ci{padding:11px 14px;font-size:13.5px}
@@ -434,7 +439,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v9</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v10</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -2009,6 +2014,8 @@ function startApp(){
   // 안전장치: 로그인 직후 떠있을 수 있는 모든 모달 강제 닫기
   document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));
   $('compose')?.classList.remove('on');
+  // Teams 환경이면 '채팅으로' 버튼 표시 (initTeams 못 돈 경우 대비)
+  initTeams().then(()=>{ if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; } });
   // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
   try{
     const p=new URLSearchParams(location.search);
