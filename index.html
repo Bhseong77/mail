@@ -443,7 +443,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v12</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v16</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -678,28 +678,11 @@ async function initTeams(){
 }
 // Teams 채팅으로 돌아가기
 async function backToTeamsChat(){
-  // Teams 환경 아니면 브라우저 뒤로
-  if(!window.microsoftTeams){ history.back(); return; }
-  try{ await microsoftTeams.app.initialize(); }catch(e){}
-  // 컨텍스트 최신화 (chat.id 확보 시도)
-  let ctx=_teamsCtx;
-  try{ ctx=await microsoftTeams.app.getContext(); _teamsCtx=ctx; }catch(e){}
-  // 1순위: Teams 페이지 네비게이션 뒤로가기 (탭→채팅)
-  try{
-    if(microsoftTeams.pages?.backStack?.navigateBack){ await microsoftTeams.pages.backStack.navigateBack(); return; }
-  }catch(e){}
-  try{
-    if(microsoftTeams.pages?.navigateBack){ await microsoftTeams.pages.navigateBack(); return; }
-  }catch(e){}
-  // 2순위: 채팅 딥링크
-  const chatId=ctx?.chat?.id;
-  if(chatId){
-    const link=`https://teams.microsoft.com/l/chat/0/0?conversationId=${encodeURIComponent(chatId)}`;
-    try{ await microsoftTeams.app.openLink(link); return; }catch(e){}
-    try{ window.open(link,'_blank'); return; }catch(e){}
-  }
-  // 최후: 브라우저 뒤로
-  try{ history.back(); }catch(e){ toast('채팅으로 이동할 수 없습니다','bad'); }
+  const T=window.microsoftTeams;
+  // Teams 네이티브 뒤로가기 우선 (가장 안정적)
+  try{ if(T){ await T.app.initialize(); if(T.pages?.backStack?.navigateBack){ await T.pages.backStack.navigateBack(); return; } } }catch(e){}
+  // 브라우저/시스템 뒤로가기
+  history.back();
 }
 
 // ───── 인증 팝업 모드 (?auth=1) : Teams가 이 페이지를 팝업으로 띄움 ─────
@@ -1737,7 +1720,7 @@ async function deleteSelected(){
 }
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
 function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
-async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');try{history.pushState({reading:true},'');}catch(e){}window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
 function autoSizeIframe(ifr){
   try{
@@ -2038,10 +2021,6 @@ setInterval(async ()=>{ if(_account){ try{const r=await fetch(SERVER+'/api/mail/
 // 모달 배경(바깥) 탭하면 닫기 — 모바일 안전장치
 document.querySelectorAll('.modal').forEach(m=>{
   m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('on'); });
-});
-// 하드웨어/제스처 뒤로가기 → 메일 읽기 중이면 목록으로
-window.addEventListener('popstate',()=>{
-  if(document.body.classList.contains('reading-mail')){ backToList(); }
 });
 // ── 진입점: ?auth=1 또는 팝업 redirect 복귀 → 인증 팝업 모드 ──
 if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getItem('_authPopup')==='1'){
