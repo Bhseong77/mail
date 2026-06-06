@@ -443,7 +443,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v16</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v17</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -968,10 +968,39 @@ async function scanContactsFromMail(){
   }catch(e){ toast("수집 오류: "+e.message,"bad"); }
 }
 function guessCompany(email,name){
-  // 도메인에서 회사 추측 (gmail/naver 등 일반메일은 제외)
+  email=(email||"").toLowerCase().trim();
+  const nm=(name||"").trim();
+  if(Array.isArray(CONTACTS)){
+    // 1순위: 이메일 완전 일치
+    if(email){
+      const c=CONTACTS.find(x=>x&&(x.email||"").toLowerCase().trim()===email);
+      if(c&&c.company) return c.company;
+    }
+    // 2순위: 이름 완전 일치
+    if(nm){
+      const c=CONTACTS.find(x=>x&&(x.name||"").trim()===nm && x.company);
+      if(c&&c.company) return c.company;
+    }
+    // 3순위: 이름 부분 일치 (메일이름이 주소록이름 포함 또는 반대)
+    if(nm){
+      const c=CONTACTS.find(x=>{
+        if(!x||!x.company||!x.name) return false;
+        const xn=x.name.trim();
+        return xn && (nm.includes(xn) || xn.includes(nm));
+      });
+      if(c&&c.company) return c.company;
+    }
+    // 4순위: 이메일 로컬파트(@ 앞) 일치
+    if(email){
+      const local=email.split("@")[0];
+      const c=CONTACTS.find(x=>x&&(x.email||"").toLowerCase().split("@")[0]===local && x.company);
+      if(c&&c.company) return c.company;
+    }
+  }
+  // 5순위: 도메인에서 추측 (일반메일 제외)
   const dom=(email.split("@")[1]||"").toLowerCase();
   const generic=["gmail.com","naver.com","daum.net","hanmail.net","kakao.com","nate.com","outlook.com","hotmail.com","yahoo.com"];
-  if(generic.includes(dom)) return "";
+  if(!dom||generic.includes(dom)) return "";
   return dom.split(".")[0];
 }
 
