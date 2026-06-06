@@ -434,10 +434,11 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v8</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v9</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
+    <button class="btn-hdr" id="backToChatBtn" style="display:none" onclick="backToTeamsChat()">← 채팅으로</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
@@ -652,6 +653,7 @@ const BASE_URL=location.href.split("?")[0].split("#")[0];
 function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:BASE_URL},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
 
 // Teams 환경인지 초기화 시도
+let _teamsCtx=null;
 async function initTeams(){
   try{
     if(!window.microsoftTeams) return false;
@@ -659,8 +661,35 @@ async function initTeams(){
     _teamsReady=true;
     const ctx=await microsoftTeams.app.getContext();
     _inTeams=!!ctx;
+    _teamsCtx=ctx;
+    // Teams 안이면 '채팅으로' 버튼 표시
+    if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; }
     return true;
   }catch(e){ return false; }
+}
+// Teams 채팅으로 돌아가기
+async function backToTeamsChat(){
+  try{
+    // 1순위: Teams 페이지 네비게이션 뒤로가기 (탭→채팅)
+    if(window.microsoftTeams && microsoftTeams.pages){
+      try{
+        if(microsoftTeams.pages.backStack && microsoftTeams.pages.backStack.navigateBack){
+          await microsoftTeams.pages.backStack.navigateBack(); return;
+        }
+      }catch(e){}
+      try{
+        if(microsoftTeams.pages.navigateBack){ await microsoftTeams.pages.navigateBack(); return; }
+      }catch(e){}
+    }
+    // 2순위: 채팅 딥링크
+    const ctx=_teamsCtx||{};
+    const chatId=ctx?.chat?.id;
+    if(chatId && window.microsoftTeams && microsoftTeams.app && microsoftTeams.app.openLink){
+      try{ await microsoftTeams.app.openLink(`https://teams.microsoft.com/l/chat/0/0?conversationId=${encodeURIComponent(chatId)}`); return; }catch(e){}
+    }
+    // 최후: 브라우저 뒤로
+    history.back();
+  }catch(e){ history.back(); }
 }
 
 // ───── 인증 팝업 모드 (?auth=1) : Teams가 이 페이지를 팝업으로 띄움 ─────
