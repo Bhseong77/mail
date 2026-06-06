@@ -467,7 +467,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v22</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v23</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -1031,7 +1031,7 @@ function admDefaultChannel(){
     id: 'ch_'+Date.now()+'_'+Math.floor(Math.random()*1000),
     name: '새 채널',
     sourceChatId: '', sourceLink: '',
-    targetChatId: '', targetLink: '',
+    targetChatId: '', targetLink: '', targetTeamId: '',
     enabled: true,
     schedule: {morning:"08:00", noon:"12:30", evening:"16:30", night:"20:00"},
     welcome: '',
@@ -1042,7 +1042,9 @@ function admDefaultChannel(){
 const ADMIN_SEED_TPROJECT={
   id:'tproject', name:'T프로젝트',
   sourceChatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', sourceLink:'',
-  targetChatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', targetLink:'',
+  targetChatId:'19:YyDR9agQlAOKiB26UUd_caBtpxsBfGLUrjziPvoNPAg1@thread.tacv2',
+  targetLink:'https://teams.microsoft.com/l/channel/19%3AYyDR9agQlAOKiB26UUd_caBtpxsBfGLUrjziPvoNPAg1%40thread.tacv2/01.%ED%86%B5%ED%95%A9%EA%B4%80%EB%A6%AC?groupId=8457d8bf-1dd8-4e24-ad22-250816cc7d6d&tenantId=58b310e1-9278-47ab-8e49-792728818c9e',
+  targetTeamId:'8457d8bf-1dd8-4e24-ad22-250816cc7d6d',
   enabled:true, schedule:{morning:"08:00",noon:"12:30",evening:"16:30",night:"20:00"},
   welcome:`<div style="font-family:Segoe UI,sans-serif;max-width:560px;"><div style="background:#7c3aed;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:17px;font-weight:bold;">👋 T Project 방에 오신 것을 환영합니다</div><div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;"><div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Trial Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">BG26002</span></div><table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;"><tr><td style="padding:6px 0;color:#6b7280;width:110px;vertical-align:top;">📅 전체 일정표</td><td style="padding:6px 0;"><a href="https://enjetco-my.sharepoint.com/:x:/g/personal/baekhoon_enjet_co_kr/IQAl5nToyCWFRYdQ_bZsZVWRARgbWUtYsEimzEv92bH1qyw?e=hsYEjp" style="color:#1a6fd4;font-weight:600;">일정표 열기 →</a></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">🛒 구매요청</td><td style="padding:6px 0;">엑셀파일 (파일명 하승수 작성예정)</td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📧 메일·업무</td><td style="padding:6px 0;"><a href="https://bhseong77.github.io/mail/" style="color:#1a6fd4;font-weight:600;">메일 대시보드 열기 →</a><br><span style="color:#9ca3af;font-size:12px;">쓰기/받기/주소록/견적서/기술자료</span></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📁 문서저장</td><td style="padding:6px 0;"><a href="https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx" style="color:#1a6fd4;font-weight:600;">문서함 열기 →</a></td></tr></table><div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>enjet_ed@enjet.co.kr</b> / pw <b>20260604</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span><br>4층 오피스 PW: <b>260604</b></div><div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기</div><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>받은메일 · 보낸메일을 이 방에 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b></div></div></div>`, welcomeOn:true
 };
@@ -1092,8 +1094,9 @@ function admRenderChannels(){
       <div class="adm-row col"><span class="adm-lbl">소스 채팅 ID</span><input type="text" value="${esc(c.sourceChatId||c.chatId||'')}" placeholder="19:xxxxx@thread.v2 (읽어올 대화)" onchange="admEdit(${i},'sourceChatId',this.value)"></div>
       <div class="adm-card-h" style="margin-top:12px">📤 요약 보여줄 채널 (타겟)</div>
       <div class="adm-row col"><span class="adm-lbl">타겟 채널 링크</span><input type="text" value="${esc(c.targetLink||'')}" placeholder="요약을 올릴 채널/채팅 링크" onchange="admEdit(${i},'targetLink',this.value)"></div>
-      <div class="adm-row col"><span class="adm-lbl">타겟 채널 ID</span><input type="text" value="${esc(c.targetChatId||'')}" placeholder="19:xxxxx@thread.v2 (요약 올릴 곳)" onchange="admEdit(${i},'targetChatId',this.value)"></div>
-      <div class="adm-hint">소스 채팅의 대화를 요약해서 타겟 채널에 올립니다. (같은 곳이면 둘 다 같은 ID)</div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 채널 ID</span><input type="text" value="${esc(c.targetChatId||'')}" placeholder="19:xxxxx@thread.tacv2 (채널) 또는 @thread.v2 (채팅)" onchange="admEdit(${i},'targetChatId',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 팀 ID</span><input type="text" value="${esc(c.targetTeamId||'')}" placeholder="팀 채널이면 groupId (채팅이면 비움)" onchange="admEdit(${i},'targetTeamId',this.value)"></div>
+      <div class="adm-hint">소스 채팅의 대화를 요약해서 타겟에 올립니다. 타겟이 <b>팀 채널</b>이면 팀 ID(groupId)도 입력하세요.</div>
       <div class="adm-card-h" style="margin-top:12px">⏰ 자동요약 시간</div>
       <div class="adm-grid">
         <label class="adm-row"><span class="adm-lbl">🌅 오전</span><input type="time" value="${c.schedule?.morning||''}" onchange="admEditSched(${i},'morning',this.value)"></label>
