@@ -373,6 +373,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .rd-actions{padding:10px 12px;gap:6px;flex-wrap:wrap}
   .rd-actions .btn{padding:8px 10px;font-size:12.5px}
   .rd-body pre{padding:16px 16px;font-size:13.5px;line-height:1.7}
+  /* 본문 전체 펼침 — 내부 스크롤 없이 페이지 전체가 스크롤 */
+  .reader{overflow:visible!important}
+  .rd-body{flex:none!important;min-height:0}
+  .rd-body iframe{height:auto;min-height:300px}
   .doc-layout{flex-direction:column;gap:10px}
   .doc-tree{width:100%!important;max-width:none!important;max-height:38vh}
   .doc-files,.doc-analysis{width:100%;min-height:40vh}
@@ -430,7 +434,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v7</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v8</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -1696,6 +1700,13 @@ function updateCount(shown){const total=MAILS.length;$('count').textContent=show
 function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
 async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');try{history.pushState({reading:true},'');}catch(e){}window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
+function autoSizeIframe(ifr){
+  try{
+    const doc=ifr.contentDocument||ifr.contentWindow.document;
+    const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300);
+    ifr.style.height=(h+20)+'px';
+  }catch(e){ ifr.style.height='600px'; }
+}
 function renderBody(m,d){
   CUR_BODY=d; CUR_MAIL=m;
   const atts=(d.attachments||[]);
@@ -1714,7 +1725,7 @@ function renderBody(m,d){
     </div>`;
   }
   let bodyHtml;
-  if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;}
+  if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}" onload="autoSizeIframe(this)"></iframe></div>`;}
   else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}
   const head=$('reader').querySelector('.rd-head').outerHTML;
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
