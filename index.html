@@ -96,6 +96,13 @@ body{display:flex;flex-direction:column;height:100vh}
 .btn.primary:hover{background:var(--p2)}
 .btn:active{transform:translateY(1px)}
 .btn.sm{font-size:12.5px;padding:6px 11px}
+.rd-att-box{border-bottom:1px solid var(--border)}
+.rd-att-toggle{padding:11px 24px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:700;color:var(--p);background:var(--bg3)}
+.rd-att-toggle:hover{background:var(--pd)}
+.rd-att-caret{transition:transform .15s;font-size:11px}
+.rd-att-box.open .rd-att-caret{transform:rotate(180deg)}
+.rd-att-box .rd-atts{display:none;border-bottom:none}
+.rd-att-box.open .rd-atts{display:flex}
 .rd-atts{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px}
 .att{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 11px;color:var(--t1);font-weight:600;cursor:pointer}
 .att:hover{border-color:var(--p);background:var(--pd)}
@@ -1684,12 +1691,17 @@ function renderBody(m,d){
   const atts=(d.attachments||[]);
   const large=(d.largeAttachments||[]);
   const totalAtt=atts.length+large.length;
-  // 첨부 표시 (다운로드용) + 대용량은 링크 열기
+  // 첨부 표시 (접기/펼치기 — 기본 접힘, 본문 먼저 보이게)
   let attHtml='';
   if(totalAtt){
     const normal=atts.map(a=>`<span class="att"><span onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span></span>`).join('');
     const big=large.map(a=>`<span class="att" onclick="window.open('${esc(a.url)}','_blank')">🔗 ${esc(a.name)} <span class="badge-lg">대용량</span></span>`).join('');
-    attHtml=`<div class="rd-atts">${normal}${big}</div>`;
+    attHtml=`<div class="rd-att-box">
+      <div class="rd-att-toggle" onclick="this.parentNode.classList.toggle('open')">
+        <span>📎 첨부파일 ${totalAtt}개</span><span class="rd-att-caret">▼</span>
+      </div>
+      <div class="rd-atts">${normal}${big}</div>
+    </div>`;
   }
   let bodyHtml;
   if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}"></iframe></div>`;}
