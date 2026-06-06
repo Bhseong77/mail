@@ -467,11 +467,12 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v19</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v21</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
     <button class="btn-chat-back" onclick="backToTeamsChat()">← 채팅으로</button>
+    <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
@@ -486,7 +487,6 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
-  <button id="nav-admin" onclick="showPage('admin')">⚙️ 관리자설정</button>
 </div>
 
 <!-- 메일 페이지 -->
@@ -918,11 +918,16 @@ async function spDeleteItem(itemId){
 let curPage='mail';
 function showPage(p){
   curPage=p;
+  // 관리자설정은 baekhoon만
+  if(p==='admin'){
+    const upn=(_account&&(_account.username||'')).toLowerCase();
+    if(upn!=='baekhoon@enjet.co.kr'){ toast('관리자 전용입니다','bad'); return; }
+  }
   document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail');
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.topnav button').forEach(el=>el.classList.remove('active'));
   $('page-'+p).classList.add('on');
-  $('nav-'+p).classList.add('active');
+  $('nav-'+p)?.classList.add('active');
   if(p==='contacts'){ loadContacts(); }
   else if(p.startsWith('doc-')){ renderDocPage(p); }
   else if(p==='schedule'){ schInit(); }
@@ -1018,8 +1023,8 @@ function admDefaultChannel(){
   return {
     id: 'ch_'+Date.now()+'_'+Math.floor(Math.random()*1000),
     name: '새 채널',
-    chatId: '',
-    chatLink: '',
+    sourceChatId: '', sourceLink: '',
+    targetChatId: '', targetLink: '',
     enabled: true,
     schedule: {morning:"08:00", noon:"12:30", evening:"16:30", night:"20:00"},
     welcome: '',
@@ -1029,9 +1034,10 @@ function admDefaultChannel(){
 // 기존 단일설정 → 채널배열로 마이그레이션
 const ADMIN_SEED_TPROJECT={
   id:'tproject', name:'T프로젝트',
-  chatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', chatLink:'',
+  sourceChatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', sourceLink:'',
+  targetChatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', targetLink:'',
   enabled:true, schedule:{morning:"08:00",noon:"12:30",evening:"16:30",night:"20:00"},
-  welcome:'', welcomeOn:false
+  welcome:`<div style="font-family:Segoe UI,sans-serif;max-width:560px;"><div style="background:#7c3aed;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:17px;font-weight:bold;">👋 T Project 방에 오신 것을 환영합니다</div><div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;"><div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Trial Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">BG26002</span></div><table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;"><tr><td style="padding:6px 0;color:#6b7280;width:110px;vertical-align:top;">📅 전체 일정표</td><td style="padding:6px 0;"><a href="https://enjetco-my.sharepoint.com/:x:/g/personal/baekhoon_enjet_co_kr/IQAl5nToyCWFRYdQ_bZsZVWRARgbWUtYsEimzEv92bH1qyw?e=hsYEjp" style="color:#1a6fd4;font-weight:600;">일정표 열기 →</a></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">🛒 구매요청</td><td style="padding:6px 0;">엑셀파일 (파일명 하승수 작성예정)</td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📧 메일·업무</td><td style="padding:6px 0;"><a href="https://bhseong77.github.io/mail/" style="color:#1a6fd4;font-weight:600;">메일 대시보드 열기 →</a><br><span style="color:#9ca3af;font-size:12px;">쓰기/받기/주소록/견적서/기술자료</span></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📁 문서저장</td><td style="padding:6px 0;"><a href="https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx" style="color:#1a6fd4;font-weight:600;">문서함 열기 →</a></td></tr></table><div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>enjet_ed@enjet.co.kr</b> / pw <b>20260604</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span><br>4층 오피스 PW: <b>260604</b></div><div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기</div><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>받은메일 · 보낸메일을 이 방에 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b></div></div></div>`, welcomeOn:true
 };
 let ADMIN_CFG={master:true, channels:[]};
 
@@ -1040,11 +1046,19 @@ async function admLoad(){
   let cfg=null;
   try{ cfg=await spGetJson(ADMIN_PATH); }catch(e){}
   if(cfg && Array.isArray(cfg.channels)){
-    ADMIN_CFG={master: cfg.master!==false, channels: cfg.channels};
-  }else if(cfg && cfg.chatId){
-    // 구버전(단일) → 채널 1개로 변환
+    // 채널 배열 — 구필드(chatId) 있으면 source/target로 보정
+    const chs=cfg.channels.map(c=>{
+      if(!c.sourceChatId && c.chatId){ c.sourceChatId=c.chatId; c.targetChatId=c.targetChatId||c.chatId; }
+      if(!c.sourceLink && c.chatLink){ c.sourceLink=c.chatLink; c.targetLink=c.targetLink||c.chatLink; }
+      return c;
+    });
+    ADMIN_CFG={master: cfg.master!==false, channels: chs};
+  }else if(cfg && (cfg.chatId)){
+    // 아주 옛버전(단일) → 채널 1개로 변환
     ADMIN_CFG={master: cfg.enabled!==false, channels:[{
-      id:'tproject', name:'T프로젝트', chatId:cfg.chatId, chatLink:cfg.chatLink||'',
+      id:'tproject', name:'T프로젝트',
+      sourceChatId:cfg.chatId, sourceLink:cfg.chatLink||'',
+      targetChatId:cfg.chatId, targetLink:cfg.chatLink||'',
       enabled:cfg.enabled!==false, schedule:cfg.schedule||ADMIN_SEED_TPROJECT.schedule,
       welcome:cfg.welcome||'', welcomeOn:!!cfg.welcomeOn
     }]};
@@ -1066,8 +1080,13 @@ function admRenderChannels(){
         <label class="adm-toggle"><input type="checkbox" ${c.enabled?'checked':''} onchange="admEdit(${i},'enabled',this.checked)"> <span>요약 사용</span></label>
         <button class="adm-ch-del" onclick="admDelChannel(${i})" title="채널 삭제">🗑</button>
       </div>
-      <div class="adm-row col"><span class="adm-lbl">채팅 ID</span><input type="text" value="${esc(c.chatId||'')}" placeholder="19:xxxxx@thread.v2" onchange="admEdit(${i},'chatId',this.value)"></div>
-      <div class="adm-row col"><span class="adm-lbl">채팅방 링크</span><input type="text" value="${esc(c.chatLink||'')}" placeholder="https://teams.microsoft.com/l/chat/..." onchange="admEdit(${i},'chatLink',this.value)"></div>
+      <div class="adm-card-h" style="margin-top:4px">📥 요약할 채팅 (소스)</div>
+      <div class="adm-row col"><span class="adm-lbl">소스 채팅 링크</span><input type="text" value="${esc(c.sourceLink||'')}" placeholder="요약 대상 채팅방 링크 https://teams.microsoft.com/l/..." onchange="admEdit(${i},'sourceLink',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">소스 채팅 ID</span><input type="text" value="${esc(c.sourceChatId||c.chatId||'')}" placeholder="19:xxxxx@thread.v2 (읽어올 대화)" onchange="admEdit(${i},'sourceChatId',this.value)"></div>
+      <div class="adm-card-h" style="margin-top:12px">📤 요약 보여줄 채널 (타겟)</div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 채널 링크</span><input type="text" value="${esc(c.targetLink||'')}" placeholder="요약을 올릴 채널/채팅 링크" onchange="admEdit(${i},'targetLink',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 채널 ID</span><input type="text" value="${esc(c.targetChatId||'')}" placeholder="19:xxxxx@thread.v2 (요약 올릴 곳)" onchange="admEdit(${i},'targetChatId',this.value)"></div>
+      <div class="adm-hint">소스 채팅의 대화를 요약해서 타겟 채널에 올립니다. (같은 곳이면 둘 다 같은 ID)</div>
       <div class="adm-card-h" style="margin-top:12px">⏰ 자동요약 시간</div>
       <div class="adm-grid">
         <label class="adm-row"><span class="adm-lbl">🌅 오전</span><input type="time" value="${c.schedule?.morning||''}" onchange="admEditSched(${i},'morning',this.value)"></label>
@@ -1076,13 +1095,23 @@ function admRenderChannels(){
         <label class="adm-row"><span class="adm-lbl">🌙 야간</span><input type="time" value="${c.schedule?.night||''}" onchange="admEditSched(${i},'night',this.value)"></label>
       </div>
       <div class="adm-hint">비워두면 그 시간대 요약 안 함</div>
-      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지</div>
-      <textarea rows="3" placeholder="새 멤버 입장 시 보낼 메시지" onchange="admEdit(${i},'welcome',this.value)">${esc(c.welcome||'')}</textarea>
-      <label class="adm-toggle" style="margin-top:8px"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
+      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지 (HTML)</div>
+      <textarea rows="5" placeholder="새 멤버 입장 시 보낼 HTML 메시지" onchange="admEdit(${i},'welcome',this.value)" style="font-family:monospace;font-size:12px">${esc(c.welcome||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <label class="adm-toggle" style="flex:1"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
+        <button class="btn sm" onclick="admPreview(${i})">👁 미리보기</button>
+      </div>
     </div>`).join('');
 }
 function admEdit(i,key,val){ if(ADMIN_CFG.channels[i]) ADMIN_CFG.channels[i][key]=val; }
 function admEditSched(i,key,val){ if(ADMIN_CFG.channels[i]){ ADMIN_CFG.channels[i].schedule=ADMIN_CFG.channels[i].schedule||{}; ADMIN_CFG.channels[i].schedule[key]=val; } }
+function admPreview(i){
+  const c=ADMIN_CFG.channels[i]; if(!c) return;
+  const html=c.welcome||'<i>(내용 없음)</i>';
+  const w=window.open('','_preview','width=620,height=720');
+  if(w){ w.document.write('<html><head><meta charset="utf-8"><title>환영 메시지 미리보기</title></head><body style="margin:20px;background:#f4f6fa">'+html+'</body></html>'); w.document.close(); }
+  else { alert('팝업이 차단되었습니다. 미리보기를 보려면 팝업을 허용하세요.'); }
+}
 function admAddChannel(){ ADMIN_CFG.channels.push(admDefaultChannel()); admRenderChannels(); }
 function admDelChannel(i){ const c=ADMIN_CFG.channels[i]; if(!confirm(`"${c?.name||'채널'}" 삭제할까요?`)) return; ADMIN_CFG.channels.splice(i,1); admRenderChannels(); }
 async function admSave(){
@@ -2160,6 +2189,11 @@ function startApp(){
   // 안전장치: 로그인 직후 떠있을 수 있는 모든 모달 강제 닫기
   document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));
   $('compose')?.classList.remove('on');
+  // 관리자(baekhoon)만 관리자설정 버튼 표시
+  try{
+    const upn=(_account&&(_account.username||'')).toLowerCase();
+    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; }
+  }catch(e){}
   // Teams 환경이면 '채팅으로' 버튼 표시 (initTeams 못 돈 경우 대비)
   initTeams().then(()=>{ if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; } });
   // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
