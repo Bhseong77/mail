@@ -423,6 +423,30 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .an-tbl{font-size:11px}
 }
 
+/* 관리자 설정 */
+.adm-wrap{max-width:720px;margin:0 auto;padding:20px 22px 40px}
+.adm-head h2{font-size:19px;font-weight:800;margin:0 0 4px;color:var(--t1)}
+.adm-sub{font-size:12.5px;color:var(--t3);margin-bottom:18px}
+.adm-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.adm-card-h{font-size:14px;font-weight:700;color:var(--p);margin-bottom:12px}
+.adm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.adm-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.adm-row.col{flex-direction:column;align-items:stretch;gap:5px}
+.adm-lbl{font-size:13px;color:var(--t2);min-width:110px;font-weight:600}
+.adm-row input[type=text],.adm-row input[type=time],.adm-wrap textarea{flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)}
+.adm-wrap textarea{width:100%;resize:vertical;line-height:1.6}
+.adm-toggle{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;color:var(--t1)}
+.adm-toggle input{width:18px;height:18px;cursor:pointer}
+.adm-hint{font-size:11.5px;color:var(--t3);margin-top:7px}
+.adm-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.adm-saved{text-align:right;font-size:12px;color:var(--g);margin-top:8px;min-height:16px}
+@media(max-width:640px){.adm-wrap{padding:14px 14px 30px}.adm-grid{grid-template-columns:1fr}.adm-lbl{min-width:90px}}
+
+.adm-ch-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.adm-ch-name{flex:1;min-width:120px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;background:var(--bg);color:var(--t1)}
+.adm-ch-del{background:none;border:none;cursor:pointer;font-size:16px;color:var(--t3);padding:4px 8px;border-radius:6px}
+.adm-ch-del:hover{background:#fee2e2;color:var(--r)}
+.adm-ch{border-left:3px solid var(--p)}
 </style>
 </head>
 <body>
@@ -443,7 +467,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v17</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v19</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -462,6 +486,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
+  <button id="nav-admin" onclick="showPage('admin')">⚙️ 관리자설정</button>
 </div>
 
 <!-- 메일 페이지 -->
@@ -547,6 +572,25 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div style="overflow-x:auto"><table id="schTbl" class="sch-tbl"></table></div>
       <div class="sch-note"><b>💡 사용법</b> 셀 클릭해 수정 · 날짜(MM/DD) 수정 시 간트 자동 반영 · 💬 댓글 · [💾 SharePoint 저장]으로 모두에게 공유</div>
     </div>
+  </div>
+</div>
+<div class="page" id="page-admin">
+  <div class="adm-wrap">
+    <div class="adm-head">
+      <h2>⚙️ 관리자 설정 — Teams 자동요약 채널</h2>
+      <div class="adm-sub">채널별로 자동요약 시간·환영메시지·on/off를 관리합니다. 저장하면 서버가 읽어 자동 반영됩니다.</div>
+    </div>
+    <div class="adm-card">
+      <div class="adm-card-h">🔔 전체 자동요약</div>
+      <label class="adm-toggle"><input type="checkbox" id="adm_master"> <span>전체 자동요약 사용 (끄면 모든 채널 중지)</span></label>
+    </div>
+    <div id="adm_channels"></div>
+    <div class="adm-actions">
+      <button class="btn" onclick="admAddChannel()">＋ 채널 추가</button>
+      <button class="btn" onclick="admLoad()">↻ 다시 불러오기</button>
+      <button class="btn primary" onclick="admSave()">💾 전체 저장</button>
+    </div>
+    <div class="adm-saved" id="adm_saved"></div>
   </div>
 </div>
 <div class="modal" id="settings">
@@ -882,6 +926,7 @@ function showPage(p){
   if(p==='contacts'){ loadContacts(); }
   else if(p.startsWith('doc-')){ renderDocPage(p); }
   else if(p==='schedule'){ schInit(); }
+  else if(p==='admin'){ admLoad(); }
 }
 
 // ── 주소록 ──
@@ -967,6 +1012,90 @@ async function scanContactsFromMail(){
     toast(added?`${added}명 신규 추가됨 (💾 저장 눌러 확정)`:"새 연락처 없음","ok");
   }catch(e){ toast("수집 오류: "+e.message,"bad"); }
 }
+// ════════ 관리자 설정 (T프로젝트 자동요약) ════════
+const ADMIN_PATH="admin-settings.json"; // SharePoint TIC-Mail 루트
+function admDefaultChannel(){
+  return {
+    id: 'ch_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+    name: '새 채널',
+    chatId: '',
+    chatLink: '',
+    enabled: true,
+    schedule: {morning:"08:00", noon:"12:30", evening:"16:30", night:"20:00"},
+    welcome: '',
+    welcomeOn: false
+  };
+}
+// 기존 단일설정 → 채널배열로 마이그레이션
+const ADMIN_SEED_TPROJECT={
+  id:'tproject', name:'T프로젝트',
+  chatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', chatLink:'',
+  enabled:true, schedule:{morning:"08:00",noon:"12:30",evening:"16:30",night:"20:00"},
+  welcome:'', welcomeOn:false
+};
+let ADMIN_CFG={master:true, channels:[]};
+
+async function admLoad(){
+  const sv=$('adm_saved'); if(sv) sv.textContent='불러오는 중…';
+  let cfg=null;
+  try{ cfg=await spGetJson(ADMIN_PATH); }catch(e){}
+  if(cfg && Array.isArray(cfg.channels)){
+    ADMIN_CFG={master: cfg.master!==false, channels: cfg.channels};
+  }else if(cfg && cfg.chatId){
+    // 구버전(단일) → 채널 1개로 변환
+    ADMIN_CFG={master: cfg.enabled!==false, channels:[{
+      id:'tproject', name:'T프로젝트', chatId:cfg.chatId, chatLink:cfg.chatLink||'',
+      enabled:cfg.enabled!==false, schedule:cfg.schedule||ADMIN_SEED_TPROJECT.schedule,
+      welcome:cfg.welcome||'', welcomeOn:!!cfg.welcomeOn
+    }]};
+  }else{
+    // 최초 — T프로젝트 시드
+    ADMIN_CFG={master:true, channels:[JSON.parse(JSON.stringify(ADMIN_SEED_TPROJECT))]};
+  }
+  $('adm_master').checked=ADMIN_CFG.master;
+  admRenderChannels();
+  if(sv) sv.textContent='';
+}
+function admRenderChannels(){
+  const box=$('adm_channels'); if(!box) return;
+  if(!ADMIN_CFG.channels.length){ box.innerHTML='<div class="adm-card" style="text-align:center;color:var(--t3)">채널이 없습니다. [＋ 채널 추가]를 누르세요.</div>'; return; }
+  box.innerHTML=ADMIN_CFG.channels.map((c,i)=>`
+    <div class="adm-card adm-ch">
+      <div class="adm-ch-head">
+        <input class="adm-ch-name" value="${esc(c.name||'')}" placeholder="채널 이름" onchange="admEdit(${i},'name',this.value)">
+        <label class="adm-toggle"><input type="checkbox" ${c.enabled?'checked':''} onchange="admEdit(${i},'enabled',this.checked)"> <span>요약 사용</span></label>
+        <button class="adm-ch-del" onclick="admDelChannel(${i})" title="채널 삭제">🗑</button>
+      </div>
+      <div class="adm-row col"><span class="adm-lbl">채팅 ID</span><input type="text" value="${esc(c.chatId||'')}" placeholder="19:xxxxx@thread.v2" onchange="admEdit(${i},'chatId',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">채팅방 링크</span><input type="text" value="${esc(c.chatLink||'')}" placeholder="https://teams.microsoft.com/l/chat/..." onchange="admEdit(${i},'chatLink',this.value)"></div>
+      <div class="adm-card-h" style="margin-top:12px">⏰ 자동요약 시간</div>
+      <div class="adm-grid">
+        <label class="adm-row"><span class="adm-lbl">🌅 오전</span><input type="time" value="${c.schedule?.morning||''}" onchange="admEditSched(${i},'morning',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">☀️ 정오</span><input type="time" value="${c.schedule?.noon||''}" onchange="admEditSched(${i},'noon',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">🌆 오후</span><input type="time" value="${c.schedule?.evening||''}" onchange="admEditSched(${i},'evening',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">🌙 야간</span><input type="time" value="${c.schedule?.night||''}" onchange="admEditSched(${i},'night',this.value)"></label>
+      </div>
+      <div class="adm-hint">비워두면 그 시간대 요약 안 함</div>
+      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지</div>
+      <textarea rows="3" placeholder="새 멤버 입장 시 보낼 메시지" onchange="admEdit(${i},'welcome',this.value)">${esc(c.welcome||'')}</textarea>
+      <label class="adm-toggle" style="margin-top:8px"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
+    </div>`).join('');
+}
+function admEdit(i,key,val){ if(ADMIN_CFG.channels[i]) ADMIN_CFG.channels[i][key]=val; }
+function admEditSched(i,key,val){ if(ADMIN_CFG.channels[i]){ ADMIN_CFG.channels[i].schedule=ADMIN_CFG.channels[i].schedule||{}; ADMIN_CFG.channels[i].schedule[key]=val; } }
+function admAddChannel(){ ADMIN_CFG.channels.push(admDefaultChannel()); admRenderChannels(); }
+function admDelChannel(i){ const c=ADMIN_CFG.channels[i]; if(!confirm(`"${c?.name||'채널'}" 삭제할까요?`)) return; ADMIN_CFG.channels.splice(i,1); admRenderChannels(); }
+async function admSave(){
+  const sv=$('adm_saved');
+  ADMIN_CFG.master=$('adm_master').checked;
+  const out={ master:ADMIN_CFG.master, channels:ADMIN_CFG.channels, _updatedAt:new Date().toISOString(), _updatedBy:myName() };
+  try{
+    await spPutJson(ADMIN_PATH, out);
+    if(sv){ sv.textContent='✅ 저장됨 · 서버가 다음 주기에 반영합니다'; setTimeout(()=>{if(sv)sv.textContent='';},5000); }
+    toast('관리자 설정 저장됨','ok');
+  }catch(e){ if(sv) sv.textContent='저장 실패: '+e.message; toast('저장 실패','bad'); }
+}
+
 function guessCompany(email,name){
   email=(email||"").toLowerCase().trim();
   const nm=(name||"").trim();
