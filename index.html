@@ -441,15 +441,13 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="hdr">
   <div class="hdr-row">
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="btn-chat-back" onclick="backToTeamsChat()" title="Teams 채팅으로 돌아가기">← 채팅</button>
-      <div>
-        <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-        <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v11</span></div>
-      </div>
+    <div>
+      <div class="hdr-title">📧 ENJET 메일 대시보드</div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v12</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
+    <button class="btn-chat-back" onclick="backToTeamsChat()">← 채팅으로</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
