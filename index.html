@@ -54,6 +54,7 @@ body{display:flex;flex-direction:column;height:100vh}
 .list,.reader{background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:auto}
 .list{width:400px;flex-shrink:0;padding:0}
 .reader{flex:1;display:flex;flex-direction:column}
+.mobile-back{display:none}
 .mailrow{padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:.1s;border-left:3px solid transparent}
 .mailrow:hover{background:var(--bg3)}
 .mailrow.sel{background:var(--pd);border-left-color:var(--p)}
@@ -344,11 +345,17 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .folders button{flex:1;padding:9px 8px;font-size:13px}
   .search{min-width:0;width:100%;order:3}
   .count{order:2}
-  .main{flex-direction:column;padding:10px 12px;gap:10px}
-  .list{width:100%;max-height:42vh}
-  .reader{min-height:50vh}
-  .mailrow{padding:12px 13px}
-  .mr-subj{font-size:13.5px}
+  .main{flex-direction:column;padding:0;gap:0;position:relative}
+  /* 기본(목록 보기): 목록만 전체화면, 본문 숨김 */
+  .list{width:100%;max-height:none;border-radius:0;border:none}
+  .reader{display:none}
+  /* 메일 선택 시: 본문만 전체화면, 목록·툴바 숨김 */
+  .main.reading .list{display:none}
+  .main.reading .reader{display:block;width:100%;min-height:calc(100vh - 60px)}
+  body.reading-mail .toolbar{display:none}
+  .mobile-back{display:flex;align-items:center;gap:6px;padding:12px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--p);cursor:pointer;position:sticky;top:0;z-index:5}
+  .mailrow{padding:13px 14px}
+  .mr-subj{font-size:14px}
   .doc-layout{flex-direction:column;gap:10px}
   .doc-tree{width:100%!important;max-width:none!important;max-height:38vh}
   .doc-files,.doc-analysis{width:100%;min-height:40vh}
@@ -824,6 +831,7 @@ async function spDeleteItem(itemId){
 let curPage='mail';
 function showPage(p){
   curPage=p;
+  document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail');
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.topnav button').forEach(el=>el.classList.remove('active'));
   $('page-'+p).classList.add('on');
@@ -1668,8 +1676,9 @@ async function deleteSelected(){
   b.disabled=false; b.innerHTML=old; updateDelBtn();
 }
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
-function renderReaderEmpty(){$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
-async function openMail(uid){SELECTED=uid;renderList();const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
+async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
 function renderBody(m,d){
   CUR_BODY=d; CUR_MAIL=m;
   const atts=(d.attachments||[]);
@@ -1688,10 +1697,10 @@ function renderBody(m,d){
   const head=$('reader').querySelector('.rd-head').outerHTML;
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
   const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button>${moveBtn}</div>`;
-  $('reader').innerHTML=head+actions+attHtml+bodyHtml;
+  $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+attHtml+bodyHtml;
 }
 async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
-function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
