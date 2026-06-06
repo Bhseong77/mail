@@ -467,7 +467,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v21</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v22</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -682,6 +682,13 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- 환영 메시지 미리보기 모달 -->
+<div class="modal" id="admPrevModal">
+  <div class="mbox" style="max-width:600px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="mbox-h"><span>👁 환영 메시지 미리보기</span><button class="x" onclick="admPreviewClose()">✕</button></div>
+    <div class="mbox-b" id="admPrevBody" style="overflow-y:auto"></div>
+  </div>
+</div>
 <!-- 파일탐색기 우클릭 메뉴 -->
 <div class="ctxmenu" id="ftCtx">
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
@@ -1107,11 +1114,15 @@ function admEdit(i,key,val){ if(ADMIN_CFG.channels[i]) ADMIN_CFG.channels[i][key
 function admEditSched(i,key,val){ if(ADMIN_CFG.channels[i]){ ADMIN_CFG.channels[i].schedule=ADMIN_CFG.channels[i].schedule||{}; ADMIN_CFG.channels[i].schedule[key]=val; } }
 function admPreview(i){
   const c=ADMIN_CFG.channels[i]; if(!c) return;
-  const html=c.welcome||'<i>(내용 없음)</i>';
-  const w=window.open('','_preview','width=620,height=720');
-  if(w){ w.document.write('<html><head><meta charset="utf-8"><title>환영 메시지 미리보기</title></head><body style="margin:20px;background:#f4f6fa">'+html+'</body></html>'); w.document.close(); }
-  else { alert('팝업이 차단되었습니다. 미리보기를 보려면 팝업을 허용하세요.'); }
+  const html=c.welcome||'<i style="color:#999">(내용 없음)</i>';
+  // iframe srcdoc으로 안전하게 렌더링
+  $('admPrevBody').innerHTML='<iframe id="admPrevFrame" style="width:100%;border:0;background:#f4f6fa;border-radius:8px" sandbox="allow-same-origin"></iframe>';
+  const ifr=$('admPrevFrame');
+  ifr.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:14px;background:#f4f6fa">'+html+'</body></html>';
+  ifr.onload=function(){ try{ const h=ifr.contentDocument.body.scrollHeight; ifr.style.height=(h+30)+'px'; }catch(e){ ifr.style.height='500px'; } };
+  $('admPrevModal').classList.add('on');
 }
+function admPreviewClose(){ $('admPrevModal').classList.remove('on'); }
 function admAddChannel(){ ADMIN_CFG.channels.push(admDefaultChannel()); admRenderChannels(); }
 function admDelChannel(i){ const c=ADMIN_CFG.channels[i]; if(!confirm(`"${c?.name||'채널'}" 삭제할까요?`)) return; ADMIN_CFG.channels.splice(i,1); admRenderChannels(); }
 async function admSave(){
