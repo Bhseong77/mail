@@ -475,6 +475,11 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ta-fx-row .go{font-size:11px;color:var(--t3)}
 .ta-note{font-size:12px;color:var(--p);margin-top:4px;line-height:1.45;white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:5px 8px;border-radius:6px;border-left:2px solid var(--p)}
 .ta-moved{display:inline-block;margin-left:8px;font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;border:1px solid #bbf7d0;border-radius:6px;padding:2px 7px;vertical-align:middle}
+.ta-fx-row.file{cursor:default;color:var(--t2)}
+.ta-fx-row.file:hover{background:transparent}
+.ta-fx-row.file .fn{color:var(--t2)}
+.ta-fx-row.dup{background:#fef2f2}
+.ta-fx-row.dup .fn{color:var(--r);font-weight:600}
 </style>
 </head>
 <body>
@@ -495,7 +500,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v33</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v35</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -793,6 +798,21 @@ let SERVER=(localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'')
 let FOLDER='inbox', MAILS=[], SELECTED=null;
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 윈도우 탐색기식 정렬: 숫자(자연순) → 한글 가나다 → 영문 ABC → 기타
+function winSortKey(name){
+  const n=(name||'').trim();
+  const ch=n.charCodeAt(0)||0;
+  if(/^[0-9]/.test(n)) return 0;                  // 숫자
+  if(ch>=0xAC00 && ch<=0xD7A3) return 1;          // 한글
+  if(/^[a-zA-Z]/.test(n)) return 2;               // 영문
+  return 3;                                       // 기타(특수문자 등)
+}
+function winCompare(a,b){
+  const an=(a||'').trim(), bn=(b||'').trim();
+  const ga=winSortKey(an), gb=winSortKey(bn);
+  if(ga!==gb) return ga-gb;
+  return an.localeCompare(bn, 'ko', {numeric:true, sensitivity:'base'});
+}
 // ── MS 회사계정 로그인 (Azure AD, ERP 대시보드와 동일 앱) ──
 const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
 const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
@@ -1598,11 +1618,20 @@ async function taFxRender(){
     return;
   }
   const items=await spList(taFxFullPath());
-  const folders=items.filter(x=>x.folder).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const folders=items.filter(x=>x.folder).sort((a,b)=>winCompare(a.name,b.name));
+  const files=items.filter(x=>x.file).sort((a,b)=>winCompare(a.name,b.name));
+  const curName=((TA_DATA.items||[])[_taMoveIdx]||{}).name||'';
   let html='';
   if(_taFxRel){ html+=`<div class="ta-fx-row" onclick="taFxUp()"><span>⬆️</span><span class="fn">.. (상위로)</span></div>`; }
-  if(!folders.length){ html+='<div style="padding:10px 12px;color:var(--t3);font-size:12px">이 위치에 하위 폴더 없음 — [＋ 새 폴더]로 만들거나 [여기에 복사]</div>'; }
+  // 폴더 먼저
   html+=folders.map(f=>`<div class="ta-fx-row" onclick="taFxEnter('${esc(f.name)}')"><span>📁</span><span class="fn">${esc(f.name)}</span><span class="go">열기 ›</span></div>`).join('');
+  // 그 다음 파일 (클릭 안 됨, 회색). 옮기려는 파일과 같은 이름이면 ⚠️ 강조
+  html+=files.map(f=>{
+    const dup=(f.name===curName);
+    const sz=f.size?` <span style="color:var(--t3);font-size:11px">${taFmtSize(f.size)}</span>`:'';
+    return `<div class="ta-fx-row file${dup?' dup':''}"><span>${taIcon(f.name)}</span><span class="fn">${esc(f.name)}${sz}</span>${dup?'<span class="go" style="color:var(--r)">⚠️ 동일파일 있음</span>':''}</div>`;
+  }).join('');
+  if(!folders.length && !files.length){ html+='<div style="padding:10px 12px;color:var(--t3);font-size:12px">이 위치는 비어 있음 — [＋ 새 폴더]로 만들거나 [여기에 복사]</div>'; }
   list.innerHTML=html;
 }
 function taFxGo(rel){ _taFxRel=rel; taFxRender(); }
@@ -1687,8 +1716,8 @@ async function ftRenderNodes(p){
 }
 async function ftNodeHtml(p,path,depth){
   const items=FT_CHILDREN[ftKey(p,path)]||await ftLoadChildren(p,path);
-  const folders=items.filter(x=>x.folder && x.name!=='_analysis.json');
-  const files=items.filter(x=>x.file && x.name!=='_analysis.json');
+  const folders=items.filter(x=>x.folder && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
+  const files=items.filter(x=>x.file && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
   let html='<div class="ft-children">';
   for(const f of folders){
     const childPath=path?`${path}/${f.name}`:f.name;
@@ -2045,8 +2074,8 @@ async function openDocCustomer(p,root,customer,el){
   if(el) el.classList.add('active');
   treeCurCustomer[p]=customer;
   const sub=await spList(`${root}/${customer}`);
-  const cats=sub.filter(x=>x.folder);
-  const files=sub.filter(x=>x.file);
+  const cats=sub.filter(x=>x.folder).sort((a,b)=>winCompare(a.name,b.name));
+  const files=sub.filter(x=>x.file).sort((a,b)=>winCompare(a.name,b.name));
   const fp=$('files-'+p);
   let html='';
   if(cats.length){
