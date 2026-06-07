@@ -248,6 +248,18 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sch-save.show{opacity:1}
 .sch-gantt-wrap{padding:16px 18px 22px;overflow-x:auto}
 .sch-gantt{min-width:760px}
+.sch-secrow{background:linear-gradient(90deg,rgba(83,74,183,.12),transparent);border-left:3px solid var(--p);padding:7px 10px;margin:8px 0 2px;font-size:12px;font-weight:800;color:var(--p);border-radius:0 6px 6px 0}
+.sch-grouprow{display:flex;align-items:center;min-height:26px}
+.sch-grouprow .sch-label{font-size:12px}
+.sch-sdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.sch-bar.sub{opacity:.92;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);font-weight:800}
+.sch-bar.done{filter:saturate(.85)}
+.sch-stsel{font-size:11px;padding:3px 4px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--t1);font-family:inherit;cursor:pointer}
+.sch-st-완료{background:rgba(30,158,87,.14);border-color:#1E9E57;color:#1E9E57;font-weight:700}
+.sch-st-지연{background:rgba(214,68,46,.14);border-color:#D6442E;color:#D6442E;font-weight:700}
+.sch-st-진행{background:rgba(26,111,212,.12);border-color:#1a6fd4;color:#1a6fd4;font-weight:700}
+.sch-trsec td{background:rgba(83,74,183,.07);font-weight:800;color:var(--p)}
+.sch-trgrp td{background:var(--bg2);font-weight:700;color:var(--t2)}
 .sch-axis{display:flex;position:relative;height:24px;margin-left:var(--lw);border-bottom:1px solid var(--border)}
 .sch-month{flex:1;font-size:11px;font-weight:800;color:var(--p2);text-align:left;padding-left:6px;border-left:1px solid var(--border)}
 .sch-row{display:flex;align-items:center;height:34px;position:relative}
@@ -836,7 +848,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v68</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v69</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -1449,8 +1461,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div class="page" id="page-schedule">
   <div class="sch-wrap">
     <div class="sch-subtabs">
-      <div class="sch-subtab trial active" data-v="trial" onclick="schSwitch('trial')"><span class="tag"></span>Trial 일정관리</div>
-      <div class="sch-subtab demo" data-v="demo" onclick="schSwitch('demo')"><span class="tag"></span>Demo 일정관리</div>
+      <div id="schSubtabWrap" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       <div style="flex:1"></div>
       <span class="sch-today" id="schToday">—</span>
     </div>
@@ -1460,6 +1471,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
         <h2><span class="sch-accent" id="schGanttAccent"></span><span id="schGanttTitle"></span> · Gantt</h2>
         <div class="sch-tools">
           <span class="sch-save" id="schSaveInd">✓ 저장됨</span>
+          <button class="btn sm" onclick="schSyncExcel()">📥 엑셀 동기화</button>
           <button class="btn sm" onclick="schReload()">↻ 새로고침</button>
         </div>
       </div>
@@ -1475,7 +1487,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
         </div>
       </div>
       <div style="overflow-x:auto"><table id="schTbl" class="sch-tbl"></table></div>
-      <div class="sch-note"><b>💡 사용법</b> 셀 클릭해 수정 · 날짜(MM/DD) 수정 시 간트 자동 반영 · 💬 댓글 · [💾 SharePoint 저장]으로 모두에게 공유</div>
+      <div class="sch-note"><b>💡 사용법</b> 시트 탭 = 엑셀 시트 · 셀 클릭 수정(날짜 MM/DD) · <b>상태</b>(완료/지연/진행)는 간트색 반영 · ➕ 선택 행 <b>아래에 삽입</b> · 💬 댓글 · 마스터 엑셀이 바뀌면 [📥 엑셀 동기화](댓글·상태 유지)
     </div>
   </div>
 </div>
@@ -4128,44 +4140,70 @@ function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<spa
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
 async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
 let DEEPLINK_UID=null;
-// ════════ 통합일정관리 ════════
+// ════════ 통합일정관리 (엑셀 멀티시트 기반) ════════
 const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
-const SCH_PATH="01.통합관리/02.일정표/TIC_Schedule_data.json";
+const SCH_DIR="01.통합관리/02.일정표";
+const SCH_XLSX="TIC_Schedule_2sheets_KOR_통합.xlsx";          // 마스터 엑셀 (시트=서브탭)
+const SCH_JSON="TIC_Schedule_data.json";                       // 대시보드 작업본(편집·댓글·상태)
 let _schDriveId=null;
 const SCH_COLORS={teal:"#1FA89B",purple:"#534AB7",amber:"#E0921E",green:"#1E9E57",red:"#D6442E",indigo:"#3F3B8C"};
-const SCH_PHC={teal:"#1FA89B",purple:"#534AB7",indigo:"#3F3B8C"};
-const SCH_SEED={
-  trial:[
-    {ph:"트라이얼",phc:"teal",t:"화학용액 공급(핸드캐리)",o:"",s:"2026-06-14",f:"2026-06-14",loc:"한국",note:"핸드캐리 공급 마감",type:"ms",color:"red",emph:true,cm:[]},
-    {ph:"트라이얼",phc:"teal",t:"기존 엔젯 장비 개조",o:"",s:"2026-06-15",f:"2026-06-15",loc:"한국(엔젯)",note:"장비 개조 완료",type:"ms",color:"teal",emph:false,cm:[]},
-    {ph:"트라이얼",phc:"teal",t:"디버깅 · 티칭",o:"",s:"2026-06-17",f:"2026-06-17",loc:"한국(엔젯)",note:"티칭 완료",type:"ms",color:"teal",emph:false,cm:[]},
-    {ph:"트라이얼",phc:"teal",t:"트라이얼 테스트(지속)",o:"",s:"2026-06-17",f:"2026-06-24",loc:"한국(엔젯)",note:"초기 실행 후 계속 진행 →",type:"ongoing",color:"teal",emph:true,cm:[]}
-  ],
-  demo:[
-    {ph:"제작",phc:"purple",t:"기구 설계",o:"",s:"2026-06-10",f:"2026-06-27",loc:"한국",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"전장 설계",o:"",s:"2026-06-10",f:"2026-06-27",loc:"한국",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"1호기 상세설계",o:"",s:"2026-06-18",f:"2026-06-18",loc:"한국",note:"",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"DFM 리뷰",o:"",s:"2026-06-20",f:"2026-06-20",loc:"한국",note:"설계 게이트",type:"ms",color:"amber",emph:true,cm:[]},
-    {ph:"제작",phc:"purple",t:"장납기 구매품: 발주",o:"",s:"2026-06-20",f:"2026-06-20",loc:"한국",note:"발주",type:"ms",color:"green",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"장납기 구매품: 납품",o:"",s:"2026-06-20",f:"2026-07-29",loc:"한국",note:"40일 (크리티컬 패스)",type:"bar",color:"purple",emph:true,cm:[]},
-    {ph:"제작",phc:"purple",t:"가공품: 발주/납품",o:"",s:"2026-06-28",f:"2026-08-12",loc:"한국",note:"1.5개월",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"추가 구매품",o:"",s:"2026-06-28",f:"2026-07-28",loc:"한국",note:"1개월",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"조립 / 배선",o:"",s:"2026-08-14",f:"2026-08-24",loc:"한국",note:"1.5주",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"I/O / 모터 / 티칭",o:"",s:"2026-08-25",f:"2026-08-29",loc:"한국",note:"",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"제작",phc:"purple",t:"드라이런 + FAT",o:"",s:"2026-08-30",f:"2026-09-06",loc:"한국",note:"한국 FAT — 핵심 게이트",type:"bar",color:"amber",emph:true,cm:[]},
-    {ph:"제작",phc:"purple",t:"포장 + 항공운송 + 통관",o:"",s:"2026-09-07",f:"2026-09-20",loc:"한국→현장",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
-    {ph:"설치",phc:"indigo",t:"현장 도착",o:"",s:"2026-09-20",f:"2026-09-20",loc:"인도/중국",note:"현장 도착",type:"ms",color:"green",emph:false,cm:[]},
-    {ph:"설치",phc:"indigo",t:"현장 설치 + SAT 완료",o:"",s:"2026-09-21",f:"2026-10-20",loc:"인도/중국",note:"SAT — 최종 인수",type:"bar",color:"amber",emph:true,cm:[]}
-  ]
-};
-let SCH_DATA=null, schView="trial", _schLoaded=false;
+const SCH_ACCENTS=["teal","purple","indigo","green","amber"];
 const SMS=86400000;
+let SCH_DATA=null, schView=null, _schLoaded=false;
+
 function schPd(s){if(!s)return null;const p=String(s).split("-");if(p.length===3)return new Date(+p[0],+p[1]-1,+p[2]);return null;}
 function schFmtMD(s){const d=schPd(s);if(!d)return s||"";return String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");}
-function schParseMD(txt,fb){txt=(txt||"").trim();let m=txt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;m=txt.match(/^(\d{1,2})[\/\.](\d{1,2})$/);if(m)return `2026-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`;return fb;}
+function schParseMD(txt,fb){txt=(txt||"").trim();if(txt==="지속")return"지속";let m=txt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;m=txt.match(/^(\d{1,2})[\/\.](\d{1,2})$/);if(m)return `2026-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`;return fb;}
 function schInc(s,f){const a=schPd(s),b=schPd(f);if(!a||!b)return"";return Math.round((b-a)/SMS)+1;}
 function schToday(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
 function schShade(hex,p){const n=parseInt(hex.slice(1),16);let r=(n>>16)+p,g=((n>>8)&255)+p,b=(n&255)+p;r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));return"#"+((r<<16)|(g<<8)|b).toString(16).padStart(6,"0");}
+
+// 단계(구분) → 배지 색 키
+function schPhcKey(ph,accent){const p=String(ph||"");if(/트라이얼|TRIAL/i.test(p))return"teal";if(/설치|SETUP/i.test(p))return"indigo";if(/제작|MFG|MANUF/i.test(p))return"purple";return accent||"purple";}
+// 막대 색 키 (상태 우선)
+function schColorKey(t,accent){if(t.status==="완료")return"green";if(t.status==="지연")return"red";const n=String(t.note||"");if(/게이트|FAT|SAT|DFM|크리티컬/i.test(n))return"amber";if(/마감/.test(n))return"red";if(/발주|도착/.test(n))return"green";return schPhcKey(t.ph,accent);}
+
+// ── 엑셀(SheetJS) → sheets[] 파싱 ──
+function _mdToISO(v){const s=String(v==null?"":v).trim();if(!s||s==="지속"||s==="→")return s;let m=s.match(/^(\d{1,2})[\/\.](\d{1,2})$/);if(m)return `2026-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`;m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;return s;}
+function schParseWb(wb){
+  const sheets=[];
+  wb.SheetNames.forEach((sn,si)=>{
+    const ws=wb.Sheets[sn];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""});
+    const accent=SCH_ACCENTS[si%SCH_ACCENTS.length];
+    const title=String((rows[0]&&rows[0][0])||sn).trim();
+    const subtitle=String((rows[1]&&rows[1][0])||"").trim();
+    const tasks=[]; let curPh="";
+    rows.forEach((r,ri)=>{
+      const A=String(r[0]==null?"":r[0]).replace(/\s+/g," ").trim();
+      const B=String(r[1]==null?"":r[1]).replace(/\s+/g," ").trim();
+      const C=_mdToISO(r[2]), D=_mdToISO(r[3]);
+      const F=String(r[5]==null?"":r[5]).trim(), G=String(r[6]==null?"":r[6]).trim();
+      if(ri<=1) return;                                  // 제목·부제
+      if(!A && !B) return;                               // 빈 행
+      if(A==="구분") return;                              // 헤더 반복행
+      if(B==="범례" || A==="범례") return;                // 범례행
+      if(A.startsWith("■")){ tasks.push({kind:"section",t:A.replace(/^■\s*/,""),ph:"",s:"",f:"",loc:"",note:"",type:"",color:accent,status:"",emph:false,cm:[]}); return; }
+      const noDates=!C && !D;
+      if(A && !B && noDates){ curPh=A; tasks.push({kind:"group",t:A,ph:"",s:"",f:"",loc:"",note:G,type:"",color:accent,status:"",emph:false,cm:[]}); return; }
+      // 일반/소계 행
+      if(A && B) curPh=A;                                // 구분 셀이 채워진 행 → 단계 갱신
+      const ph=curPh;
+      const isSub=B.startsWith("▶");
+      let s=C, f=D, type="bar";
+      if(f==="지속"||f==="→"){ type="ongoing"; if(!schPd(f)) f=s; }
+      else if(s && f && s===f) type="ms";
+      else if(!f) f=s;
+      const colorKey=isSub?"amber":undefined;
+      const emph=/게이트|FAT|SAT|DFM|크리티컬|최종|마감/i.test(G);
+      tasks.push({kind:isSub?"subtotal":"task",ph,t:B,s,f,loc:F,note:G,type,
+        color:colorKey||schColorKey({ph,note:G,status:""},accent),status:"",emph,cm:[]});
+    });
+    sheets.push({name:sn,title,subtitle,accent,tasks});
+  });
+  return sheets;
+}
+
 async function schInit(){
   $('schToday').textContent=(()=>{const t=schToday();return `오늘 ${t.getFullYear()}.${String(t.getMonth()+1).padStart(2,"0")}.${String(t.getDate()).padStart(2,"0")}`;})();
   if(!_schLoaded){ await schLoad(); _schLoaded=true; } else schRender();
@@ -4181,75 +4219,131 @@ async function schDrive(){
   if(!r2.ok) throw new Error("드라이브 조회 실패");
   _schDriveId=(await r2.json()).id; return _schDriveId;
 }
+function _schValid(j){ return j && Array.isArray(j.sheets) && j.sheets.length && Array.isArray(j.sheets[0].tasks); }
+
 async function schLoad(){
   $('schGantt').innerHTML='<div style="padding:30px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  // 1) 작업본 JSON
   try{
     const t=await graphToken(); const d=await schDrive();
-    const enc=SCH_PATH.split("/").map(encodeURIComponent).join("/");
+    const enc=`${SCH_DIR}/${SCH_JSON}`.split("/").map(encodeURIComponent).join("/");
     const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
-    if(r.ok){ const j=await r.json(); if(j&&j.trial&&j.demo) SCH_DATA=j; }
-  }catch(e){ console.warn("일정 로드 실패, 기본값:",e.message); }
-  if(!SCH_DATA) SCH_DATA=JSON.parse(JSON.stringify(SCH_SEED));
-  schRender();
+    if(r.ok){ const j=await r.json(); if(_schValid(j)) SCH_DATA=j; }
+  }catch(e){ console.warn("일정 JSON 로드 실패:",e.message); }
+  // 2) 없으면 엑셀에서 최초 임포트
+  if(!_schValid(SCH_DATA)){
+    try{ await schImportExcel(false); }
+    catch(e){ console.warn("엑셀 임포트 실패:",e.message); SCH_DATA={sheets:[]}; }
+  }
+  if(!schView || !SCH_DATA.sheets.some(s=>s.name===schView)) schView=(SCH_DATA.sheets[0]||{}).name||null;
+  schRenderSubtabs(); schRender();
 }
+
+// 엑셀 → 파싱 → (기존 댓글·상태 보존) SCH_DATA 교체
+async function schImportExcel(saveAfter){
+  if(!window.XLSX) throw new Error("SheetJS 미로드");
+  const t=await graphToken(); const d=await schDrive();
+  const enc=`${SCH_DIR}/${SCH_XLSX}`.split("/").map(encodeURIComponent).join("/");
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("엑셀 조회 실패 "+r.status+" (파일명·경로 확인)");
+  const buf=await r.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const fresh=schParseWb(wb);
+  // 기존 댓글/상태 보존 (시트명::작업명 매칭)
+  const keep={};
+  if(_schValid(SCH_DATA)) SCH_DATA.sheets.forEach(sh=>sh.tasks.forEach(t2=>{ if(t2.kind==="task"||t2.kind==="subtotal") keep[sh.name+"::"+t2.t]={cm:t2.cm||[],status:t2.status||"",emph:t2.emph}; }));
+  fresh.forEach(sh=>sh.tasks.forEach(t2=>{ const k=keep[sh.name+"::"+t2.t]; if(k){ t2.cm=k.cm; t2.status=k.status; if(k.emph!==undefined)t2.emph=k.emph; } }));
+  SCH_DATA={sheets:fresh, importedAt:new Date().toISOString()};
+  if(saveAfter) await schSave(false);
+}
+async function schSyncExcel(){
+  if(!confirm("마스터 엑셀(TIC_Schedule_2sheets_KOR_통합.xlsx)에서 다시 불러옵니다.\n행 구성은 엑셀 기준으로 갱신되고, 작업명이 같으면 댓글·상태는 유지됩니다. 진행할까요?")) return;
+  const _j=_J("일정 엑셀 동기화");
+  try{
+    if(!schView){} 
+    await schImportExcel(true);
+    if(!schView || !SCH_DATA.sheets.some(s=>s.name===schView)) schView=(SCH_DATA.sheets[0]||{}).name||null;
+    schRenderSubtabs(); schRender();
+    _Jok(_j,SCH_DATA.sheets.length+"개 시트"); toast("엑셀에서 동기화 완료","ok");
+  }catch(e){ _Jno(_j,e.message); toast("동기화 실패: "+e.message,"bad"); }
+}
+
 let _schSaveT;
 async function schSave(manual){
+  const _j=manual?_J("일정 저장"):null;
   try{
     const t=await graphToken(); const d=await schDrive();
-    const enc=SCH_PATH.split("/").map(encodeURIComponent).join("/");
+    const enc=`${SCH_DIR}/${SCH_JSON}`.split("/").map(encodeURIComponent).join("/");
     const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,
       {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(SCH_DATA,null,2)});
     if(!r.ok) throw new Error("저장 실패 "+r.status);
-    const ind=$('schSaveInd'); ind.classList.add('show'); clearTimeout(_schSaveT); _schSaveT=setTimeout(()=>ind.classList.remove('show'),1500);
-    if(manual) toast("일정 SharePoint 저장 완료","ok");
-  }catch(e){ if(manual) toast("저장 실패: "+e.message,"bad"); else console.warn("일정 자동저장 실패:",e.message); }
+    const ind=$('schSaveInd'); if(ind){ ind.classList.add('show'); clearTimeout(_schSaveT); _schSaveT=setTimeout(()=>ind.classList.remove('show'),1500); }
+    if(manual){ _Jok(_j,"완료"); toast("일정 SharePoint 저장 완료","ok"); }
+  }catch(e){ if(manual){ _Jno(_j,e.message); toast("저장 실패: "+e.message,"bad"); } else console.warn("일정 자동저장 실패:",e.message); }
 }
-function schSwitch(v){schView=v;document.querySelectorAll('.sch-subtab').forEach(s=>s.classList.toggle('active',s.dataset.v===v));schRender();}
+
+function schCur(){ return (SCH_DATA&&SCH_DATA.sheets||[]).find(s=>s.name===schView)||null; }
+function schRenderSubtabs(){
+  const wrap=$('schSubtabWrap'); if(!wrap) return;
+  const sheets=(SCH_DATA&&SCH_DATA.sheets)||[];
+  wrap.innerHTML=sheets.map(s=>{
+    const col=SCH_COLORS[s.accent]||SCH_COLORS.purple;
+    const on=s.name===schView;
+    return `<div class="sch-subtab${on?' active':''}" onclick="schSwitch('${esc(s.name).replace(/'/g,"\\'")}')" style="${on?`border-color:${col};color:${col}`:''}"><span class="tag" style="background:${col}"></span>${esc(s.name)}</div>`;
+  }).join("")||'<span style="color:var(--t3);padding:8px">시트 없음 — [📥 엑셀 동기화]</span>';
+}
+function schSwitch(name){ schView=name; schRenderSubtabs(); schRender(); }
+
 function schAxis(list){let min=null,max=null;list.forEach(t=>{const s=schPd(t.s),f=schPd(t.f);if(s&&(!min||s<min))min=s;if(f&&(!max||f>max))max=f;});if(!min)min=new Date(2026,5,1);if(!max)max=new Date(2026,5,30);const a=new Date(min.getFullYear(),min.getMonth(),1);let b=new Date(max.getFullYear(),max.getMonth()+1,0);const tu=schToday();if(tu>b)b=new Date(tu.getFullYear(),tu.getMonth()+1,0);const a2=(tu<a)?new Date(tu.getFullYear(),tu.getMonth(),1):a;return {a:a2,b};}
 function schPct(d,ax){return ((schPd(d)||ax.a)-ax.a)/((ax.b-ax.a)||1)*100;}
 function schPctDt(dt,ax){return (dt-ax.a)/((ax.b-ax.a)||1)*100;}
 function schMonths(ax){const out=[];let d=new Date(ax.a);while(d<=ax.b){out.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth()+1,1);}return out;}
+
 function schRender(){
-  if(!SCH_DATA)return;
-  const list=SCH_DATA[schView]; const isT=schView==="trial";
-  const accent=isT?SCH_COLORS.teal:SCH_COLORS.purple;
+  if(!SCH_DATA){return;}
+  const sh=schCur();
+  if(!sh){ $('schGantt').innerHTML='<div style="padding:30px;text-align:center;color:var(--t3)">시트가 없습니다. [📥 엑셀 동기화]로 마스터 엑셀을 불러오세요.</div>'; $('schStats').innerHTML=''; $('schTbl').innerHTML=''; $('schLegend').innerHTML=''; $('schGanttTitle').textContent=''; return; }
+  const accent=SCH_COLORS[sh.accent]||SCH_COLORS.purple;
   $('schGanttAccent').style.background=accent; $('schTblAccent').style.background=accent;
-  $('schGanttTitle').textContent=isT?"Trial 일정관리":"Demo 일정관리";
-  schStats(list,isT); schGantt(list,accent); schTable(list); schLegend(isT);
+  $('schGanttTitle').textContent=sh.name;
+  schStats(sh,accent); schGantt(sh,accent); schTable(sh); schLegend(sh,accent);
 }
-function schStats(list,isT){
-  const real=list.filter(t=>schPd(t.s)&&schPd(t.f));
-  let min=null,max=null;real.forEach(t=>{const s=schPd(t.s),f=schPd(t.f);if(!min||s<min)min=s;if(!max||f>max)max=f;});
+function schStats(sh,accent){
+  const tasks=sh.tasks;
+  const real=tasks.filter(t=>(t.kind==="task"||t.kind==="subtotal")&&schPd(t.s));
+  let min=null,max=null;real.forEach(t=>{const s=schPd(t.s),f=schPd(t.f)||schPd(t.s);if(!min||s<min)min=s;if(max==null||f>max)max=f;});
   const span=(min&&max)?Math.round((max-min)/SMS)+1:0;
-  const tu=schToday();const done=real.filter(t=>schPd(t.f)<tu).length;const ongoing=list.some(t=>t.type==="ongoing");
-  let prog=0;if(min&&max){prog=Math.max(0,Math.min(100,Math.round((tu-min)/((max-min)||1)*100)));}
+  const taskCnt=tasks.filter(t=>t.kind==="task").length;
+  const done=tasks.filter(t=>t.status==="완료").length;
+  const delay=tasks.filter(t=>t.status==="지연").length;
+  const tu=schToday();
+  let prog=taskCnt?Math.round(done/taskCnt*100):0;
   const fmt=d=>d?(d.getMonth()+1)+"/"+d.getDate():"—";
-  const cards=isT?[
-    {k:"상태",v:ongoing?"진행/지속":"—",d:"시작 06/14 · 초기 ≈1.5주",c:SCH_COLORS.teal},
-    {k:"기간",v:span+"일",d:fmt(min)+" ~ "+fmt(max)+" (+지속)",c:SCH_COLORS.teal},
-    {k:"작업 수",v:list.length+"개",d:"마일스톤 + 테스트",c:SCH_COLORS.amber},
-    {k:"오늘 진행",v:(tu<min?"시작 전":prog+"%"),d:"완료 "+done+"/"+real.length,c:"#1a6fd4"}
-  ]:[
-    {k:"데모 총 기간",v:span+"일",d:fmt(min)+" → "+fmt(max),c:SCH_COLORS.purple},
-    {k:"제작(한국)",v:"≈3.4개월",d:"06/10 → 09/20 · 103일",c:SCH_COLORS.purple},
-    {k:"설치(현장)",v:"≈1개월",d:"09/21 → 10/20 · 30일",c:SCH_COLORS.indigo},
-    {k:"오늘 진행",v:(tu<min?"시작 전":prog+"%"),d:"완료 "+done+"/"+real.length+" 작업",c:"#1a6fd4"}
+  const cards=[
+    {k:"총 기간",v:span+"일",d:fmt(min)+" → "+fmt(max),c:accent},
+    {k:"작업 수",v:taskCnt+"개",d:sh.subtitle?sh.subtitle.split("·")[0].slice(0,22):"마일스톤+작업",c:SCH_COLORS.purple},
+    {k:"완료 / 지연",v:done+" / "+delay,d:"상태 선택 반영",c:delay?SCH_COLORS.red:SCH_COLORS.green},
+    {k:"오늘 진행",v:prog+"%",d:"완료 "+done+"/"+taskCnt+" 작업",c:"#1a6fd4"}
   ];
-  $('schStats').innerHTML=cards.map(c=>`<div class="sch-stat"><div class="bar" style="background:${c.c}"></div><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="d">${c.d}</div></div>`).join("");
+  $('schStats').innerHTML=cards.map(c=>`<div class="sch-stat"><div class="bar" style="background:${c.c}"></div><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="d">${esc(c.d)}</div></div>`).join("");
 }
-function schGantt(list,accent){
-  const ax=schAxis(list);const ms=schMonths(ax);const lw="200px";
+function _schStatusDot(st){if(st==="완료")return`<span class="sch-sdot" style="background:${SCH_COLORS.green}" title="완료"></span>`;if(st==="지연")return`<span class="sch-sdot" style="background:${SCH_COLORS.red}" title="지연"></span>`;if(st==="진행")return`<span class="sch-sdot" style="background:#1a6fd4" title="진행"></span>`;return"";}
+function schGantt(sh,accent){
+  const list=sh.tasks; const ax=schAxis(list);const ms=schMonths(ax);const lw="220px";
   let html=`<div style="--lw:${lw};position:relative">`;
   html+=`<div class="sch-axis">`;
   ms.forEach(m=>{const w=(new Date(m.getFullYear(),m.getMonth()+1,1)-m)/((ax.b-ax.a))*100;html+=`<div class="sch-month" style="flex:0 0 ${Math.min(100,w)}%">${m.getMonth()+1}월</div>`;});
   html+=`</div>`;
   list.forEach(t=>{
-    const col=SCH_COLORS[t.color]||accent;
-    html+=`<div class="sch-row"><div class="sch-label"><span class="ph" style="background:${SCH_PHC[t.phc]||accent}">${esc(t.ph)}</span>${esc(t.t)}</div><div class="sch-track"><div class="sch-grid">`;
+    if(t.kind==="section"){ html+=`<div class="sch-secrow"><span>${esc(t.t)}</span></div>`; return; }
+    if(t.kind==="group"){ html+=`<div class="sch-grouprow"><div class="sch-label" style="font-weight:800;color:var(--t2)">▸ ${esc(t.t)}</div><div class="sch-track"></div></div>`; return; }
+    const col=SCH_COLORS[schColorKey(t,accent)]||accent;
+    const phc=SCH_COLORS[schPhcKey(t.ph,accent)]||accent;
+    html+=`<div class="sch-row"><div class="sch-label">${_schStatusDot(t.status)}<span class="ph" style="background:${phc}">${esc(t.ph||(t.kind==="subtotal"?"소계":""))}</span>${esc(t.t)}</div><div class="sch-track"><div class="sch-grid">`;
     ms.forEach(m=>{const l=schPctDt(m,ax);if(l>0.5)html+=`<span style="left:${l}%"></span>`;});
     html+=`</div>`;
-    if(t.type==="ms"){const l=schPct(t.s,ax);html+=`<div class="sch-ms" style="left:${l}%;background:${col}"></div>`;}
-    else{let l=schPct(t.s,ax),r=schPct(t.f,ax);if(r<l+1.5)r=l+1.5;html+=`<div class="sch-bar" style="left:${l}%;width:${r-l}%;background:linear-gradient(135deg,${col},${schShade(col,-18)})">${esc(t.note&&(r-l>14)?t.note:"")}</div>`;if(t.type==="ongoing"){html+=`<div class="sch-bar ongoing-ext" style="left:${r}%;width:${Math.max(0,100-r)}%;background:${col}"></div><div style="position:absolute;right:2px;top:8px;font-size:11px;font-weight:800;color:${col}">→</div>`;}}
+    if(t.type==="ms"){const l=schPct(t.s,ax);html+=`<div class="sch-ms" style="left:${l}%;background:${col}" title="${esc(t.note||t.t)}"></div>`;}
+    else{let l=schPct(t.s,ax),r=schPct(t.f,ax);if(r<l+1.5)r=l+1.5;const lab=t.note&&(r-l>14)?t.note:"";html+=`<div class="sch-bar${t.kind==="subtotal"?" sub":""}${t.status==="완료"?" done":""}" style="left:${l}%;width:${r-l}%;background:linear-gradient(135deg,${col},${schShade(col,-18)})" title="${esc(t.t)} (${schFmtMD(t.s)}~${t.type==="ongoing"?"지속":schFmtMD(t.f)})">${esc(lab)}</div>`;if(t.type==="ongoing"){html+=`<div class="sch-bar ongoing-ext" style="left:${r}%;width:${Math.max(0,100-r)}%;background:${col}"></div><div style="position:absolute;right:2px;top:8px;font-size:11px;font-weight:800;color:${col}">→</div>`;}}
     html+=`</div></div>`;
   });
   const tu=schToday();const tl=schPctDt(tu,ax);
@@ -4257,40 +4351,56 @@ function schGantt(list,accent){
   html+=`</div>`;
   $('schGantt').innerHTML=html;
 }
-function schTable(list){
-  const head=`<thead><tr><th>단계</th><th>작업</th><th>담당</th><th class="c">시작</th><th class="c">종료</th><th class="c">일수</th><th>장소</th><th>비고</th><th class="c" style="width:90px">댓글/행</th></tr></thead>`;
+function _schStatusSel(i,st){
+  const opt=(v,lb)=>`<option value="${v}" ${st===v?"selected":""}>${lb}</option>`;
+  return `<select class="sch-stsel sch-st-${st||'none'}" onchange="schStatus(${i},this.value)">${opt("","상태")}${opt("진행","진행")}${opt("완료","완료")}${opt("지연","지연")}</select>`;
+}
+function schTable(sh){
+  const list=sh.tasks;
+  const head=`<thead><tr><th>단계</th><th>작업</th><th class="c">시작</th><th class="c">종료</th><th class="c">일수</th><th>장소/담당</th><th>비고</th><th class="c" style="width:84px">상태</th><th class="c" style="width:118px">댓글/행</th></tr></thead>`;
   let body="<tbody>";
   list.forEach((t,i)=>{
-    const days=t.type==="ms"?((t.s===t.f)?"1":schInc(t.s,t.f)):schInc(t.s,t.f);
-    body+=`<tr class="${t.emph?'emph':''}"><td><div class="cell"><span class="row-ph" style="background:${SCH_PHC[t.phc]||'#888'}">${esc(t.ph)}</span></div></td>
+    if(t.kind==="section"){ body+=`<tr class="sch-trsec"><td colspan="9"><div class="cell" contenteditable onblur="schUp(${i},'t',this)">■ ${esc(t.t)}</div></td></tr>`; body+=_schCrow(i,t); return; }
+    if(t.kind==="group"){ body+=`<tr class="sch-trgrp"><td></td><td colspan="6"><div class="cell" contenteditable onblur="schUp(${i},'t',this)">▸ ${esc(t.t)}</div></td><td></td><td class="c"><div class="sch-rowact">${_schRowBtns(i,t)}</div></td></tr>`; body+=_schCrow(i,t); return; }
+    const days=t.type==="ongoing"?"→":(t.type==="ms"?((t.s===t.f)?"1":schInc(t.s,t.f)):schInc(t.s,t.f));
+    body+=`<tr class="${t.emph?'emph':''}"><td><div class="cell"><span class="row-ph" style="background:${SCH_COLORS[schPhcKey(t.ph,sh.accent)]||'#888'}" contenteditable onblur="schUp(${i},'ph',this)">${esc(t.ph)}</span></div></td>
       <td><div class="cell" contenteditable onblur="schUp(${i},'t',this)">${esc(t.t)}</div></td>
-      <td><div class="cell" contenteditable onblur="schUp(${i},'o',this)">${esc(t.o||"")}</div></td>
       <td class="c"><div class="cell" contenteditable onblur="schUp(${i},'s',this)">${schFmtMD(t.s)}</div></td>
       <td class="c"><div class="cell" contenteditable onblur="schUp(${i},'f',this)">${t.type==="ongoing"?"지속":schFmtMD(t.f)}</div></td>
-      <td class="c"><div class="cell" style="color:var(--t3)">${t.type==="ongoing"?"→":days}</div></td>
+      <td class="c"><div class="cell" style="color:var(--t3)">${days}</div></td>
       <td><div class="cell" contenteditable onblur="schUp(${i},'loc',this)">${esc(t.loc||"")}</div></td>
       <td><div class="cell" contenteditable onblur="schUp(${i},'note',this)">${esc(t.note||"")}</div></td>
-      <td><div class="sch-rowact"><button class="sch-iconbtn" onclick="schToggleC(${i})">💬${t.cm&&t.cm.length?`<span class="cnt">${t.cm.length}</span>`:""}</button><button class="sch-iconbtn" onclick="schToggleEmph(${i})">${t.emph?'<span class="sch-star">★</span>':'☆'}</button><button class="sch-iconbtn" onclick="schDelRow(${i})">🗑</button></div></td></tr>`;
-    body+=`<tr class="crow" id="schcrow${i}" style="display:none"><td colspan="9">${schCommentBox(i,t)}</td></tr>`;
+      <td class="c">${_schStatusSel(i,t.status)}</td>
+      <td><div class="sch-rowact">${_schRowBtns(i,t)}</div></td></tr>`;
+    body+=_schCrow(i,t);
   });
   body+="</tbody>";
   $('schTbl').innerHTML=head+body;
 }
+function _schRowBtns(i,t){
+  return `<button class="sch-iconbtn" title="아래에 행 추가" onclick="schInsertBelow(${i})">➕</button>`+
+    `<button class="sch-iconbtn" title="댓글" onclick="schToggleC(${i})">💬${t.cm&&t.cm.length?`<span class="cnt">${t.cm.length}</span>`:""}</button>`+
+    `<button class="sch-iconbtn" title="강조" onclick="schToggleEmph(${i})">${t.emph?'<span class="sch-star">★</span>':'☆'}</button>`+
+    `<button class="sch-iconbtn" title="삭제" onclick="schDelRow(${i})">🗑</button>`;
+}
+function _schCrow(i,t){ return `<tr class="crow" id="schcrow${i}" style="display:none"><td colspan="9">${schCommentBox(i,t)}</td></tr>`; }
 function schCommentBox(i,t){
   const cl=(t.cm||[]).map((c,ci)=>`<div class="sch-cmt"><div class="meta"><span>${esc(c.by||"익명")} · ${c.at}</span><span class="del" onclick="schDelC(${i},${ci})">삭제</span></div>${esc(c.tx)}</div>`).join("");
   return `<div class="sch-cbox"><h4>💬 ${esc(t.t)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="schcby${i}" value="${esc(myName())}" placeholder="이름"><textarea id="schctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="schAddC(${i})">등록</button></div></div>`;
 }
-function schLegend(isT){
-  const items=isT?[["Trial 막대",SCH_COLORS.teal],["마감/마일스톤 ◆",SCH_COLORS.red],["지속 →","#A6E3DB"]]:[["제작",SCH_COLORS.purple],["핵심 게이트(FAT/DFM/SAT)",SCH_COLORS.amber],["발주/도착",SCH_COLORS.green],["설치",SCH_COLORS.indigo]];
+function schLegend(sh,accent){
+  const items=[["완료",SCH_COLORS.green],["지연",SCH_COLORS.red],["진행/기본",accent],["핵심 게이트(FAT/SAT/DFM)",SCH_COLORS.amber],["발주/도착",SCH_COLORS.green],["마일스톤 ◆",accent]];
   $('schLegend').innerHTML=items.map(it=>`<span class="it"><span class="sw" style="background:${it[1]}"></span>${it[0]}</span>`).join("")+`<span class="it"><span class="sw" style="background:${SCH_COLORS.red}"></span>오늘 표시선</span><span class="it">★ 강조 = 핵심</span>`;
 }
-function schUp(i,k,el){let v=el.innerText.trim();const t=SCH_DATA[schView][i];if(k==="s"||k==="f")v=schParseMD(v,t[k]);t[k]=v;schSave(false);schRender();}
-function schToggleEmph(i){SCH_DATA[schView][i].emph=!SCH_DATA[schView][i].emph;schSave(false);schRender();}
-function schDelRow(i){if(confirm("이 작업을 삭제할까요?")){SCH_DATA[schView].splice(i,1);schSave(false);schRender();}}
-function schAddRow(){const isT=schView==="trial";SCH_DATA[schView].push({ph:isT?"트라이얼":"제작",phc:isT?"teal":"purple",t:"새 작업",o:"",s:"2026-06-15",f:"2026-06-16",loc:"한국",note:"",type:"bar",color:isT?"teal":"purple",emph:false,cm:[]});schSave(false);schRender();}
-function schToggleC(i){const el=$('schcrow'+i);const show=el.style.display==="none";document.querySelectorAll('#schTbl .crow').forEach(r=>r.style.display="none");el.style.display=show?"table-row":"none";if(show)setTimeout(()=>$('schctx'+i)?.focus(),30);}
-function schAddC(i){const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(SCH_DATA[schView][i].cm=SCH_DATA[schView][i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
-function schDelC(i,ci){SCH_DATA[schView][i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+function schUp(i,k,el){const sh=schCur();if(!sh)return;const t=sh.tasks[i];if(!t)return;let v=el.innerText.trim();if(k==="s"||k==="f"){v=schParseMD(v,t[k]);if(v==="지속"){t.type="ongoing";}else if(t.type==="ongoing"&&k==="f"){t.type="bar";}}if(k==="t"){v=v.replace(/^[■▸]\s*/,"");}t[k]=v;if((k==="s"||k==="f")&&t.s&&t.f&&t.s===t.f&&t.type!=="ongoing")t.type="ms";schSave(false);schRender();}
+function schStatus(i,v){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].status=v;schSave(false);schRender();}
+function schToggleEmph(i){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].emph=!sh.tasks[i].emph;schSave(false);schRender();}
+function schDelRow(i){const sh=schCur();if(!sh||!sh.tasks[i])return;if(confirm("이 행을 삭제할까요?")){sh.tasks.splice(i,1);schSave(false);schRender();}}
+function schInsertBelow(i){const sh=schCur();if(!sh)return;const ref=sh.tasks[i]||{};const nt={kind:"task",ph:ref.ph||"",t:"새 작업",s:ref.f||ref.s||"2026-06-15",f:ref.f||ref.s||"2026-06-16",loc:ref.loc||"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]};sh.tasks.splice(i+1,0,nt);schSave(false);schRender();setTimeout(()=>{const rows=document.querySelectorAll('#schTbl tbody tr');},10);}
+function schAddRow(){const sh=schCur();if(!sh)return;sh.tasks.push({kind:"task",ph:"",t:"새 작업",s:"2026-06-15",f:"2026-06-16",loc:"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]});schSave(false);schRender();}
+function schToggleC(i){const el=$('schcrow'+i);if(!el)return;const show=el.style.display==="none";document.querySelectorAll('#schTbl .crow').forEach(r=>r.style.display="none");el.style.display=show?"table-row":"none";if(show)setTimeout(()=>$('schctx'+i)?.focus(),30);}
+function schAddC(i){const sh=schCur();if(!sh||!sh.tasks[i])return;const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(sh.tasks[i].cm=sh.tasks[i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+function schDelC(i,ci){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 
 
 // 서버 주소를 SharePoint(server.py가 자동 기록)에서 읽어 갱신 — 재부팅으로 터널 주소 바뀌어도 자동 추적
