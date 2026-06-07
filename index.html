@@ -489,6 +489,13 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ft-row.file:hover .ft-move{display:inline-block}
 .ft-move:hover{opacity:1}
 .pv-bar{padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border);font-size:13px}
+.ft-tabbar{display:none;gap:2px;background:var(--bg);border-bottom:1px solid var(--border);padding:5px 6px 0;overflow-x:auto;flex-shrink:0}
+.ft-tab{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;font-size:12.5px;max-width:200px;white-space:nowrap;color:var(--t2)}
+.ft-tab.active{background:#fff;color:var(--t1);font-weight:600;border-color:var(--p);border-bottom:2px solid #fff;margin-bottom:-1px}
+.ft-tab-nm{overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.ft-tab-x{opacity:.5;font-size:11px;padding:0 2px;border-radius:4px}
+.ft-tab-x:hover{opacity:1;background:var(--border)}
+.ft-tabbody{background:#fff}
 </style>
 </head>
 <body>
@@ -509,7 +516,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v43</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v44</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -2353,19 +2360,60 @@ async function renderDocTree(p){
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
       <div class="doc-tree" id="tree-${p}" style="width:42%;max-width:560px;flex-shrink:0"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
-      <div class="doc-files" id="ftPreview-${p}" style="flex:1;display:flex;align-items:center;justify-content:center">
-        <div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 미리보기됩니다</div>
+      <div class="doc-files" id="ftPreview-${p}" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="ft-tabbar" id="ftTabs-${p}"></div>
+        <div class="ft-tabbody" id="ftBody-${p}" style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 탭으로 열립니다</div>
+        </div>
       </div>
     </div>`;
   FT_SEL[p]='';
   _ftPreviewPanel=p;
+  renderTabs(p);
   await renderFileTree(p);
 }
 let _ftPreviewPanel=null;
-// 기술자료 트리에서 파일 클릭 → 오른쪽 패널 미리보기
+// ── 파일 탭 시스템 ──
+let _ftTabs={};   // {page: [{itemId,name}]}
+let _ftActive={}; // {page: itemId}
+function renderTabs(p){
+  const bar=$('ftTabs-'+p); if(!bar) return;
+  const tabs=_ftTabs[p]||[];
+  if(!tabs.length){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  bar.innerHTML=tabs.map(t=>{
+    const act=_ftActive[p]===t.itemId?'active':'';
+    return `<div class="ft-tab ${act}" onclick="ftTabSwitch('${p}','${t.itemId}')" title="${esc(t.name)}">
+      <span class="ft-tab-ic">${taIcon(t.name)}</span><span class="ft-tab-nm">${esc(t.name)}</span>
+      <span class="ft-tab-x" onclick="event.stopPropagation();ftTabClose('${p}','${t.itemId}')">✕</span>
+    </div>`;
+  }).join('');
+}
+function ftTabSwitch(p,itemId){
+  const t=(_ftTabs[p]||[]).find(x=>x.itemId===itemId); if(!t) return;
+  _ftActive[p]=itemId; renderTabs(p); _renderTabBody(p,t);
+}
+function ftTabClose(p,itemId){
+  let tabs=_ftTabs[p]||[];
+  const idx=tabs.findIndex(x=>x.itemId===itemId);
+  tabs=tabs.filter(x=>x.itemId!==itemId); _ftTabs[p]=tabs;
+  if(_ftActive[p]===itemId){
+    if(tabs.length){ const ni=Math.min(idx, tabs.length-1); _ftActive[p]=tabs[ni].itemId; renderTabs(p); _renderTabBody(p,tabs[ni]); }
+    else { _ftActive[p]=null; renderTabs(p); const b=$('ftBody-'+p); b.style.display='flex';b.style.alignItems='center';b.style.justifyContent='center'; b.innerHTML='<div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 탭으로 열립니다</div>'; }
+  } else renderTabs(p);
+}
+// 기술자료 트리에서 파일 클릭 → 탭으로 열기(있으면 전환)
 async function ftPreviewFile(p,itemId,name){
-  const box=$('ftPreview-'+p); if(!box) return;
+  if(!_ftTabs[p]) _ftTabs[p]=[];
+  if(!_ftTabs[p].find(x=>x.itemId===itemId)) _ftTabs[p].push({itemId,name});
+  _ftActive[p]=itemId;
   _ftCur={p,itemId,name};
+  renderTabs(p);
+  await _renderTabBody(p,{itemId,name});
+}
+async function _renderTabBody(p,t){
+  const box=$('ftBody-'+p); if(!box) return;
+  const {itemId,name}=t;
   box.style.display='block'; box.style.alignItems=''; box.style.justifyContent='';
   box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   try{
@@ -2394,15 +2442,15 @@ async function ftEditNewWin(itemId){
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
   const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
-  const box=$('ftPreview-'+p);
-  if(!q){ box.style.display='flex'; box.innerHTML=`<div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 미리보기됩니다</div>`; return; }
+  const box=$('ftBody-'+p);
+  if(!q){ box.style.display='flex';box.style.alignItems='center';box.style.justifyContent='center'; box.innerHTML=`<div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 탭으로 열립니다</div>`; return; }
   const root=DOC_MAP[p];
-  box.style.display='block'; box.innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
+  box.style.display='block';box.style.alignItems='';box.style.justifyContent=''; box.innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
   const hits=[];
   async function walk(path){const items=await spList(path);for(const it of items){if(it.folder)await walk(`${path}/${it.name}`);else if(it.file&&it.name.toLowerCase().includes(q))hits.push({...it,_folder:path.replace(root+'/','')});}}
   await walk(root);
   if(!hits.length){ box.innerHTML=`<div class="rd-empty"><div class="big">🔍</div>"${esc(q)}" 검색 결과 없음</div>`; return; }
-  box.innerHTML='<div style="padding:8px">'+hits.map(f=>treeFileRow(p,f,f._folder)).join('')+'</div>';
+  box.innerHTML='<div style="padding:8px">'+hits.map(f=>`<div class="filerow"><span style="font-size:16px">${taIcon(f.name)}</span><span class="fn" onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">${esc(f.name)}</span><span class="fm">${esc(f._folder||'')}</span></div>`).join('')+'</div>';
 }
 function treeUpload(p,files){
   if(!files||!files.length) return;
