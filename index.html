@@ -482,7 +482,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v27</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v28</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -2416,8 +2416,8 @@ function schDelC(i,ci){SCH_DATA[schView][i].cm.splice(ci,1);schSave(false);schRe
 
 
 // 서버 주소를 SharePoint(server.py가 자동 기록)에서 읽어 갱신 — 재부팅으로 터널 주소 바뀌어도 자동 추적
-const SERVER_ENDPOINT_SITE="enjetco.sharepoint.com:/sites/06.BackOffice";
-const SERVER_ENDPOINT_PATH="📋 전자결재/99.Dashboard(real-time)/server-endpoint.json";
+const SERVER_ENDPOINT_SITE="enjetco.sharepoint.com:/sites/TIC";
+const SERVER_ENDPOINT_PATH="01.통합관리/99.서버/server-endpoint.json";
 let _epDriveId=null;
 async function resolveServerEndpoint(){
   try{
