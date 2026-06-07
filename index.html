@@ -836,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v63</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v64</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -897,14 +897,16 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <input id="contactSearch" type="text" placeholder="검색" style="width:180px;font-family:inherit;font-size:13.5px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)" oninput="renderContacts()">
       <button class="btn" onclick="scanContactsFromMail()">📥 빠른수집</button>
       <button class="btn" onclick="scanContactsCopilot()">✨ Copilot 수집</button>
+      <button class="btn" onclick="$('cardFile').click()">📇 명함 스캔</button>
+      <input type="file" id="cardFile" accept="image/*" capture="environment" multiple style="display:none" onchange="scanBusinessCards(this.files)">
       <button class="btn" onclick="addContactRow()">+ 추가</button>
       <button class="btn primary" onclick="saveContacts()">💾 저장</button>
     </div>
     <div class="tbl-wrap">
       <table class="grid" id="contactGrid"><thead><tr>
         <th style="width:130px">이름</th><th style="width:200px">이메일</th>
-        <th style="width:150px">회사</th><th style="width:130px">연락처</th>
-        <th style="width:120px">카테고리</th><th style="width:160px">메모</th><th style="width:64px"></th>
+        <th style="width:140px">회사</th><th style="width:90px">부서</th><th style="width:90px">직급</th><th style="width:120px">연락처</th>
+        <th style="width:110px">카테고리</th><th style="width:140px">메모</th><th style="width:64px"></th>
       </tr></thead><tbody id="contactBody"></tbody></table>
     </div>
   </div>
@@ -1953,7 +1955,7 @@ const CONTACTS_PATH="01.연락처/contacts.json";
 const CATEGORIES=["가공","구매품","로봇","공압품","물류","기타"];
 let CONTACTS=[];
 async function loadContacts(){
-  $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">불러오는 중…</td></tr>`;
+  $('contactBody').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--t3)">불러오는 중…</td></tr>`;
   const data=await spGetJson(CONTACTS_PATH);
   const saved=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]);
   // 미저장 신규는 보존하면서 병합 (저장본 우선, 신규는 중복 아닌 것만 유지)
@@ -1975,15 +1977,17 @@ function renderContacts(){
   const nc=newCount();
   $('contactCount').textContent=`${CONTACTS.length}명`+(nc?` · 신규 ${nc}`:'');
   updateNewBadge();
-  if(!rows.length){ $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">연락처가 없습니다 · [✨ Copilot 수집] 또는 [+추가]</td></tr>`; return; }
+  if(!rows.length){ $('contactBody').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--t3)">연락처가 없습니다 · [📇 명함 스캔] · [✨ Copilot 수집] 또는 [+추가]</td></tr>`; return; }
   $('contactBody').innerHTML=rows.map(({c,i})=>`<tr class="${c.isNew?'new-contact':''}">
     <td><input value="${esc(c.name||'')}" onchange="editContact(${i},'name',this.value)">${c.isNew?'<span class="new-tag">신규</span>':''}</td>
     <td><input value="${esc(c.email||'')}" onchange="editContact(${i},'email',this.value)"></td>
     <td><input value="${esc(c.company||'')}" onchange="editContact(${i},'company',this.value)"></td>
+    <td><input value="${esc(c.dept||'')}" onchange="editContact(${i},'dept',this.value)"></td>
+    <td><input value="${esc(c.title||'')}" onchange="editContact(${i},'title',this.value)"></td>
     <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
     <td><select onchange="editContact(${i},'category',this.value)">${['',...CATEGORIES].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}</select></td>
     <td><input value="${esc(c.memo||'')}" onchange="editContact(${i},'memo',this.value)"></td>
-    <td style="white-space:nowrap"><button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
+    <td style="white-space:nowrap">${c.cardUrl?`<button class="row-mail" title="명함 보기" onclick="window.open('${esc(c.cardUrl)}','_blank')">📇</button>`:''}<button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
   </tr>`).join('');
 }
 // 주소록에서 메일쓰기: 받는사람 채워서 열기
@@ -1994,7 +1998,7 @@ function composeTo(email,name){
   $('cCc').value=''; $('cSubj').value=''; $('cBody').value='';
 }
 function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
-function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",phone:"",category:"",memo:""}); renderContacts(); }
+function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",dept:"",title:"",phone:"",category:"",memo:""}); renderContacts(); }
 function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
 async function saveContacts(){
   try{
@@ -2295,6 +2299,38 @@ function extractJsonArray(text){
 // Copilot로 메일 본문·서명 분석해서 연락처 추출
 let _autoScanRunning=false, _autoScanned=false;
 function scanContactsCopilot(){ return _scanCopilot(false); }
+// 📇 명함 사진 → 서버(GPT-4o 비전) 파싱 → 주소록 추가 + 원본을 01.연락처에 저장
+function _fileToB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(new Error('파일 읽기 실패')); r.readAsDataURL(f); }); }
+function _safeFn(s){ return String(s||'').replace(/[~"#%&*:<>?/\\{|}\r\n\t]/g,' ').replace(/\s+/g,' ').trim(); }
+async function scanBusinessCards(files){
+  if(!files||!files.length) return;
+  $('cardFile').value='';
+  const list=[...files];
+  toast(`명함 ${list.length}장 분석 중…`);
+  let ok=0;
+  for(const f of list){
+    try{
+      const b64=await _fileToB64(f);
+      const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:f.type||'image/jpeg'})});
+      const d=await r.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
+      if(!d.ok||!d.contact){ toast('명함 분석 실패: '+(d.error||f.name),'bad'); continue; }
+      const c=d.contact;
+      let cat=c.category; if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((c.company||'')+' '+(c.dept||'')+' '+(c.title||''));
+      const rec={name:c.name||'',email:c.email||'',company:c.company||'',dept:c.dept||'',title:c.title||'',phone:c.phone||'',category:cat||'',memo:'명함스캔',isNew:true};
+      // 원본 이미지 저장: 01.연락처/회사-이름-부서-직급-연락처.ext
+      try{
+        const ext=((f.name.match(/\.([a-zA-Z0-9]+)$/)||[,'jpg'])[1]||'jpg').toLowerCase();
+        const base=[rec.company,rec.name,rec.dept,rec.title,rec.phone].map(_safeFn).filter(Boolean).join('-')||('명함_'+Date.now());
+        const bytes=await f.arrayBuffer();
+        const up=await spUploadFile(`01.연락처/${base}.${ext}`, bytes, f.type||'image/jpeg');
+        if(up&&up.webUrl) rec.cardUrl=up.webUrl;
+      }catch(e){ /* 이미지 저장 실패해도 연락처는 추가 */ }
+      CONTACTS.unshift(rec); ok++;
+    }catch(e){ toast('명함 처리 오류: '+e.message,'bad'); }
+  }
+  renderContacts();
+  if(ok){ toast(`명함 ${ok}장 추가됨 — 확인 후 [💾 저장]`,'ok'); try{ actLog(`📇 명함 스캔 ${ok}건`); }catch(e){} }
+}
 // 메일 로드 시 자동 백그라운드 스캔 (1회)
 async function autoScanOnLoad(){
   if(_autoScanned||_autoScanRunning) return;
