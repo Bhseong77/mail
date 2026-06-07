@@ -836,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v62</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v63</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -3634,6 +3634,29 @@ async function doMoveAll(){
 }
 
 function fromName(a){if(!a||!a.length)return '(보낸사람 없음)';return a[0].name||a[0].email||'';}
+// 이름/회사명 문자열로 실제 이메일 찾기 (현재 메일 주소 → 주소록 순)
+function lookupEmail(nameStr, mail){
+  if(!nameStr) return '';
+  const s=String(nameStr).trim().toLowerCase(); if(!s) return '';
+  if(mail){
+    const all=[...(mail.from||[]),...(mail.to||[]),...(mail.cc||[])];
+    for(const a of all){ const nm=(a.name||'').toLowerCase(); if(a.email&&nm&&nm.length>=2&&(nm===s||s.includes(nm))) return a.email; }
+  }
+  for(const c of (typeof CONTACTS!=='undefined'?CONTACTS:[])){
+    const nm=(c.name||'').toLowerCase(), co=(c.company||'').toLowerCase();
+    if(c.email&&nm&&nm.length>=2&&(nm===s||s.includes(nm))) return c.email;
+    if(c.email&&co&&co.length>=2&&(co===s||s.includes(co))) return c.email;
+  }
+  return '';
+}
+function addrLine(a){
+  if(!a||!a.length) return '-';
+  return a.map(x=>{
+    let em=x.email||''; if(!em && x.name) em=lookupEmail(x.name);
+    if(x.name && em) return `${esc(x.name)} &lt;${esc(em)}&gt;`;
+    return esc(em||x.name||'');
+  }).join(', ');
+}
 // 본문에 인용/포워딩된 '원본 메일'의 발신·수신 정보를 추출 (휴리스틱)
 function extractFwdInfo(text){
   if(!text) return null;
@@ -3656,7 +3679,6 @@ function extractFwdInfo(text){
   if(!from && !to) return null;     // 발신·수신 중 하나도 없으면 표시 안 함
   return {from,to,cc,subj,date};
 }
-function addrLine(a){if(!a||!a.length)return '-';return a.map(x=>x.name?`${esc(x.name)} <${esc(x.email)}>`:esc(x.email)).join(', ');}
 function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('on');}
 function closeSettings(){$('settings').classList.remove('on');}
 function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
@@ -3782,8 +3804,9 @@ function renderBody(m,d){
     if(!_txt && d.bodyHtml){ _txt=String(d.bodyHtml).replace(/<\s*br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|tr)>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
     const fwd=extractFwdInfo(_txt);
     if(fwd){
-      const row=(l,v)=>v?`<b>${l}</b><span>${esc(v)}</span>`:'';
-      fwdHtml=`<div class="rd-fwd"><div class="rd-fwd-h">📨 본문에 포함된 원본 메일</div><div class="rd-meta">${row('발신',fwd.from)}${row('수신',fwd.to)}${row('참조',fwd.cc)}${row('제목',fwd.subj)}${row('날짜',fwd.date)}</div></div>`;
+      const withEmail=(v)=>{ if(!v) return ''; const em=lookupEmail(v,m); return em?`${esc(v)} &lt;${esc(em)}&gt;`:esc(v); };
+      const row=(l,v,isAddr)=>v?`<b>${l}</b><span>${isAddr?withEmail(v):esc(v)}</span>`:'';
+      fwdHtml=`<div class="rd-fwd"><div class="rd-fwd-h">📨 본문에 포함된 원본 메일</div><div class="rd-meta">${row('발신',fwd.from,1)}${row('수신',fwd.to,1)}${row('참조',fwd.cc,1)}${row('제목',fwd.subj,0)}${row('날짜',fwd.date,0)}</div></div>`;
     }
   }catch(e){}
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
