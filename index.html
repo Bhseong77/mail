@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v76</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v77</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -4392,7 +4392,7 @@ async function schSyncExcel(){
     await schImportExcel(true);
     if(!schView || !SCH_DATA.sheets.some(s=>s.name===schView)) schView=(SCH_DATA.sheets[0]||{}).name||null;
     schRenderSubtabs(); schRender();
-    _Jok(_j,SCH_DATA.sheets.length+"개 시트"); toast("엑셀에서 동기화 완료","ok");
+    _Jok(_j,SCH_DATA.sheets.length+"개 시트"); toast("엑셀에서 동기화 완료","ok"); try{ actLog("📅 일정 엑셀 동기화 ("+SCH_DATA.sheets.length+"개 시트)"); }catch(e){}
   }catch(e){ _Jno(_j,e.message); toast("동기화 실패: "+e.message,"bad"); }
 }
 
@@ -4406,7 +4406,7 @@ async function schSave(manual){
       {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(SCH_DATA,null,2)});
     if(!r.ok) throw new Error("저장 실패 "+r.status);
     const ind=$('schSaveInd'); if(ind){ ind.classList.add('show'); clearTimeout(_schSaveT); _schSaveT=setTimeout(()=>ind.classList.remove('show'),1500); }
-    if(manual){ _Jok(_j,"완료"); toast("일정 SharePoint 저장 완료","ok"); }
+    if(manual){ _Jok(_j,"완료"); toast("일정 SharePoint 저장 완료","ok"); try{ actLog("📅 통합일정 저장"+(schView?(" ["+schView+"]"):"")); }catch(e){} }
   }catch(e){ if(manual){ _Jno(_j,e.message); toast("저장 실패: "+e.message,"bad"); } else console.warn("일정 자동저장 실패:",e.message); }
 }
 
@@ -4522,14 +4522,15 @@ function schLegend(sh,accent){
   const items=[["완료",SCH_COLORS.green],["지연",SCH_COLORS.red],["진행/기본",accent],["핵심 게이트(FAT/SAT/DFM)",SCH_COLORS.amber],["발주/도착",SCH_COLORS.green],["마일스톤 ◆",accent]];
   $('schLegend').innerHTML=items.map(it=>`<span class="it"><span class="sw" style="background:${it[1]}"></span>${it[0]}</span>`).join("")+`<span class="it"><span class="sw" style="background:${SCH_COLORS.red}"></span>오늘 표시선</span><span class="it">★ 강조 = 핵심</span>`;
 }
-function schUp(i,k,el){const sh=schCur();if(!sh)return;const t=sh.tasks[i];if(!t)return;let v=el.innerText.trim();if(k==="s"||k==="f"){v=schParseMD(v,t[k]);if(v==="지속"){t.type="ongoing";}else if(t.type==="ongoing"&&k==="f"){t.type="bar";}}if(k==="t"){v=v.replace(/^[■▸]\s*/,"");}t[k]=v;if((k==="s"||k==="f")&&t.s&&t.f&&t.s===t.f&&t.type!=="ongoing")t.type="ms";schSave(false);schRender();}
-function schStatus(i,v){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].status=v;schSave(false);schRender();}
+const SCH_FIELD={ph:"단계",t:"작업",s:"시작",f:"종료",loc:"장소",note:"비고"};
+function schUp(i,k,el){const sh=schCur();if(!sh)return;const t=sh.tasks[i];if(!t)return;const old=t[k]||"";let v=el.innerText.trim();if(k==="s"||k==="f"){v=schParseMD(v,t[k]);if(v==="지속"){t.type="ongoing";}else if(t.type==="ongoing"&&k==="f"){t.type="bar";}}if(k==="t"){v=v.replace(/^[■▸]\s*/,"");}t[k]=v;if((k==="s"||k==="f")&&t.s&&t.f&&t.s===t.f&&t.type!=="ongoing")t.type="ms";schSave(false);schRender();if(String(v)!==String(old)){try{actLog(`📅 일정 수정[${SCH_FIELD[k]||k}] ${(t.t||"").slice(0,24)}: ${String(v).slice(0,40)}`);}catch(e){}}}
+function schStatus(i,v){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].status=v;schSave(false);schRender();try{actLog(`📅 일정 상태→${v||"없음"}: ${(sh.tasks[i].t||"").slice(0,30)}`);}catch(e){}}
 function schToggleEmph(i){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].emph=!sh.tasks[i].emph;schSave(false);schRender();}
-function schDelRow(i){const sh=schCur();if(!sh||!sh.tasks[i])return;if(confirm("이 행을 삭제할까요?")){sh.tasks.splice(i,1);schSave(false);schRender();}}
-function schInsertBelow(i){const sh=schCur();if(!sh)return;const ref=sh.tasks[i]||{};const nt={kind:"task",ph:ref.ph||"",t:"새 작업",s:ref.f||ref.s||"2026-06-15",f:ref.f||ref.s||"2026-06-16",loc:ref.loc||"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]};sh.tasks.splice(i+1,0,nt);schSave(false);schRender();setTimeout(()=>{const rows=document.querySelectorAll('#schTbl tbody tr');},10);}
-function schAddRow(){const sh=schCur();if(!sh)return;sh.tasks.push({kind:"task",ph:"",t:"새 작업",s:"2026-06-15",f:"2026-06-16",loc:"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]});schSave(false);schRender();}
+function schDelRow(i){const sh=schCur();if(!sh||!sh.tasks[i])return;const lbl=sh.tasks[i].t||"";if(confirm("이 행을 삭제할까요?")){sh.tasks.splice(i,1);schSave(false);schRender();try{actLog("📅 일정 행삭제: "+lbl.slice(0,30));}catch(e){}}}
+function schInsertBelow(i){const sh=schCur();if(!sh)return;const ref=sh.tasks[i]||{};const nt={kind:"task",ph:ref.ph||"",t:"새 작업",s:ref.f||ref.s||"2026-06-15",f:ref.f||ref.s||"2026-06-16",loc:ref.loc||"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]};sh.tasks.splice(i+1,0,nt);schSave(false);schRender();try{actLog("📅 일정 행추가");}catch(e){}setTimeout(()=>{const rows=document.querySelectorAll('#schTbl tbody tr');},10);}
+function schAddRow(){const sh=schCur();if(!sh)return;sh.tasks.push({kind:"task",ph:"",t:"새 작업",s:"2026-06-15",f:"2026-06-16",loc:"",note:"",type:"bar",color:sh.accent,status:"",emph:false,cm:[]});schSave(false);schRender();try{actLog("📅 일정 행추가");}catch(e){}}
 function schToggleC(i){const el=$('schcrow'+i);if(!el)return;const show=el.style.display==="none";document.querySelectorAll('#schTbl .crow').forEach(r=>r.style.display="none");el.style.display=show?"table-row":"none";if(show)setTimeout(()=>$('schctx'+i)?.focus(),30);}
-function schAddC(i){const sh=schCur();if(!sh||!sh.tasks[i])return;const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(sh.tasks[i].cm=sh.tasks[i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+function schAddC(i){const sh=schCur();if(!sh||!sh.tasks[i])return;const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(sh.tasks[i].cm=sh.tasks[i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);try{actLog(`💬 일정 댓글[${(sh.tasks[i].t||"").slice(0,20)}]: ${tx.slice(0,30)}`);}catch(e){}}
 function schDelC(i,ci){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 
 
@@ -4607,13 +4608,13 @@ async function specSave(manual){
   try{
     await spPutJson(`${SPEC_DIR}/${SPEC_JSON}`, SPEC_DATA);
     const ind=$('specSaveInd'); if(ind){ ind.classList.add('show'); clearTimeout(_specSaveT); _specSaveT=setTimeout(()=>ind.classList.remove('show'),1500); }
-    if(manual){ _Jok(_j,"완료"); toast("사양서 SharePoint 저장 완료","ok"); }
+    if(manual){ _Jok(_j,"완료"); toast("사양서 SharePoint 저장 완료","ok"); try{ actLog("🏭 설비제작사양서 저장"); }catch(e){} }
   }catch(e){ if(manual){ _Jno(_j,e.message); toast("저장 실패: "+e.message,"bad"); } else console.warn("사양서 자동저장 실패:",e.message); }
 }
 async function specSyncExcel(){
   if(!confirm("마스터 엑셀(TIC_장비제작사양서.xlsx)에서 다시 불러옵니다.\n항목은 엑셀 기준으로 갱신되고, 사양No+항목이 같으면 댓글·상태·확정사양은 유지됩니다. 진행할까요?")) return;
   const _j=_J("사양서 엑셀 동기화");
-  try{ await specImportExcel(true); specRender(); _Jok(_j,SPEC_DATA.rows.filter(r=>r.kind==="spec").length+"개 항목"); toast("엑셀에서 동기화 완료","ok"); }
+  try{ await specImportExcel(true); specRender(); const n=SPEC_DATA.rows.filter(r=>r.kind==="spec").length; _Jok(_j,n+"개 항목"); toast("엑셀에서 동기화 완료","ok"); try{ actLog("🏭 사양서 엑셀 동기화 ("+n+"개 항목)"); }catch(e){} }
   catch(e){ _Jno(_j,e.message); toast("동기화 실패: "+e.message,"bad"); }
 }
 function specRender(){
@@ -4681,15 +4682,16 @@ function specCommentBox(i,t){
   const label=t.kind==="section"?t.t:(t.item||t.no||"");
   return `<div class="sch-cbox"><h4>💬 ${esc(label)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="speccby${i}" value="${esc(myName())}" placeholder="이름"><textarea id="specctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="specAddC(${i})">등록</button></div></div>`;
 }
-function specUp(i,k,el){ const r=SPEC_DATA.rows[i]; if(!r)return; r[k]=el.innerText.trim(); specSave(false); }
-function specStatus(i,v){ const r=SPEC_DATA.rows[i]; if(!r)return; r.status=v; specSave(false); specRender(); }
+const SPEC_FIELD={no:"사양No",item:"항목",spec:"사양",unit:"단위",std:"표준",confirm:"최종확인",finalSpec:"확정사양"};
+function specUp(i,k,el){ const r=SPEC_DATA.rows[i]; if(!r)return; const old=r[k]||""; const nv=el.innerText.trim(); if(nv===old)return; r[k]=nv; specSave(false); try{ actLog(`🏭 사양 수정[${SPEC_FIELD[k]||k}] ${(r.item||r.no||"").slice(0,24)}: ${nv.slice(0,40)}`); }catch(e){} }
+function specStatus(i,v){ const r=SPEC_DATA.rows[i]; if(!r)return; r.status=v; specSave(false); specRender(); try{ actLog(`🏭 사양 상태→${v}: ${(r.item||r.no||"").slice(0,30)}`); }catch(e){} }
 function specToggleEmph(i){ const r=SPEC_DATA.rows[i]; if(!r)return; r.emph=!r.emph; specSave(false); specRender(); }
-function specDelRow(i){ const r=SPEC_DATA.rows[i]; if(!r)return; if(confirm("이 행을 삭제할까요?")){ SPEC_DATA.rows.splice(i,1); specSave(false); specRender(); } }
-function specInsertBelow(i){ const ref=SPEC_DATA.rows[i]||{}; SPEC_DATA.rows.splice(i+1,0,{kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); }
-function specAddRow(){ (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); }
-function specAddSection(){ const t=prompt("섹션 제목 (예: 15. 기타):",""); if(!t)return; (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"section",t:t.trim(),cm:[]}); specSave(false); specRender(); }
+function specDelRow(i){ const r=SPEC_DATA.rows[i]; if(!r)return; const lbl=r.item||r.no||r.t||""; if(confirm("이 행을 삭제할까요?")){ SPEC_DATA.rows.splice(i,1); specSave(false); specRender(); try{ actLog("🏭 사양 행삭제: "+lbl.slice(0,30)); }catch(e){} } }
+function specInsertBelow(i){ const ref=SPEC_DATA.rows[i]||{}; SPEC_DATA.rows.splice(i+1,0,{kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); try{ actLog("🏭 사양 행추가"); }catch(e){} }
+function specAddRow(){ (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); try{ actLog("🏭 사양 행추가"); }catch(e){} }
+function specAddSection(){ const t=prompt("섹션 제목 (예: 15. 기타):",""); if(!t)return; (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"section",t:t.trim(),cm:[]}); specSave(false); specRender(); try{ actLog("🏭 사양 섹션추가: "+t.trim().slice(0,30)); }catch(e){} }
 function specToggleC(i){ const el=$('speccrow'+i); if(!el)return; const show=el.style.display==="none"; document.querySelectorAll('#specTbl .crow').forEach(r=>r.style.display="none"); el.style.display=show?"table-row":"none"; if(show)setTimeout(()=>$('specctx'+i)?.focus(),30); }
-function specAddC(i){ const r=SPEC_DATA.rows[i]; if(!r)return; const tx=$('specctx'+i).value.trim(); if(!tx)return; const by=$('speccby'+i).value.trim()||myName(); const now=new Date(); const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`; (r.cm=r.cm||[]).push({by,tx,at}); specSave(false); specRender(); setTimeout(()=>specToggleC(i),20); }
+function specAddC(i){ const r=SPEC_DATA.rows[i]; if(!r)return; const tx=$('specctx'+i).value.trim(); if(!tx)return; const by=$('speccby'+i).value.trim()||myName(); const now=new Date(); const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`; (r.cm=r.cm||[]).push({by,tx,at}); specSave(false); specRender(); setTimeout(()=>specToggleC(i),20); try{ actLog(`💬 사양 댓글[${(r.item||r.no||r.t||"").slice(0,20)}]: ${tx.slice(0,30)}`); }catch(e){} }
 function specDelC(i,ci){ const r=SPEC_DATA.rows[i]; if(!r)return; r.cm.splice(ci,1); specSave(false); specRender(); setTimeout(()=>specToggleC(i),20); }
 
 // 서버 주소를 SharePoint(server.py가 자동 기록)에서 읽어 갱신 — 재부팅으로 터널 주소 바뀌어도 자동 추적
