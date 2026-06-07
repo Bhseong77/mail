@@ -488,6 +488,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ft-move{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.6}
 .ft-row.file:hover .ft-move{display:inline-block}
 .ft-move:hover{opacity:1}
+.pv-bar{padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border);font-size:13px}
 </style>
 </head>
 <body>
@@ -508,7 +509,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v40</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v42</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -1029,45 +1030,89 @@ const PREVIEW_EXT=/\.(pdf|pptx|ppt|xlsx|xls|xlsm|docx|doc|png|jpg|jpeg|gif|bmp|w
 function canPreview(name){ return PREVIEW_EXT.test(name||''); }
 function isImageFile(name){ return /\.(png|jpg|jpeg|gif|bmp|webp|svg)$/i.test(name||''); }
 // SharePoint 아이템 id로 임베드 가능한 미리보기 URL 획득 (Office/PDF 공용)
-async function spPreviewUrl(itemId){
-  const t=await graphToken(); const d=await spDrive();
+async function spPreviewUrl(itemId, driveId){
+  const t=await graphToken(); const d=driveId||await spDrive();
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/preview`,
     {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:"{}"});
   if(!r.ok) throw new Error("preview "+r.status);
   const j=await r.json();
   return j.getUrl||j.getURL||null;
 }
-// 다운로드 URL (이미지 직접 표시용)
-async function spDownloadUrl(itemId){
-  const t=await graphToken(); const d=await spDrive();
+async function spDownloadUrl(itemId, driveId){
+  const t=await graphToken(); const d=driveId||await spDrive();
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) throw new Error("item "+r.status);
   return (await r.json())["@microsoft.graph.downloadUrl"]||null;
 }
-// 공용 미리보기 모달: itemId(SharePoint) 또는 직접 url 둘 중 하나
+// 우리 드라이브에서 경로로 미리보기 (이동완료 파일용)
+async function spPreviewByPath(path){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("경로 조회 "+r.status);
+  const id=(await r.json()).id;
+  return await spPreviewUrl(id);
+}
+// webUrl 조회 (Office 편집 임베드용)
+async function spWebUrlById(itemId, driveId){
+  const t=await graphToken(); const d=driveId||await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("item "+r.status);
+  return (await r.json()).webUrl||null;
+}
+async function spWebUrlByPath(path){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("경로 조회 "+r.status);
+  return (await r.json()).webUrl||null;
+}
+function isOfficeFile(name){ return /\.(pptx|ppt|xlsx|xls|xlsm|docx|doc)$/i.test(name||''); }
+// webUrl → iframe 임베드용 Office Online 편집 URL
+// SharePoint Office는 webUrl에 ?action=edit&wdenableroaming... 붙이면 브라우저 편집기로 열림.
+// iframe 임베드는 web=1 파라미터로 페이지 크롬 없이 표시.
+function officeEmbedUrl(webUrl, edit){
+  if(!webUrl) return null;
+  const sep=webUrl.includes('?')?'&':'?';
+  // action=edit → 편집(공동작업·자동저장) / action=embedview → 보기 전용
+  return webUrl + sep + (edit ? 'action=edit&wdenableroaming=1&wdembedded=1' : 'action=embedview&wdembedded=1');
+}
 async function previewInModal(opts){
-  // opts: {name, itemId?, directUrl?}
-  const m=$('previewModal'); const body=$('previewBody'); const ttl=$('previewTitle');
-  ttl.textContent='👁 '+(opts.name||'미리보기');
-  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  // opts: {name, itemId?, driveId?, directUrl?, docPath?}
+  _previewOpts=opts; _previewEdit=isOfficeFile(opts.name||'');  // Office는 기본 편집모드
+  const m=$('previewModal'); const ttl=$('previewTitle');
+  ttl.innerHTML='👁 '+esc(opts.name||'미리보기')+(isOfficeFile(opts.name||'')?` <button class="btn sm" style="margin-left:10px" onclick="previewToggleEdit()" id="pvToggle">${_previewEdit?'👁 보기모드':'✏ 편집모드'}</button>`:'');
   m.classList.add('on');
-  try{
-    body.innerHTML=await _previewInner(opts);
-  }catch(e){
-    body.innerHTML=`<div style="padding:40px;text-align:center;color:var(--r)">미리보기 실패: ${esc(e.message)}<br><br>새 창에서 열어보세요.</div>`;
-  }
+  await _renderPreview();
+}
+let _previewOpts=null, _previewEdit=false;
+function previewToggleEdit(){ _previewEdit=!_previewEdit; const b=$('pvToggle'); if(b)b.textContent=_previewEdit?'👁 보기모드':'✏ 편집모드'; _renderPreview(); }
+async function _renderPreview(){
+  const body=$('previewBody');
+  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  try{ body.innerHTML=await _previewInner(_previewOpts); }
+  catch(e){ body.innerHTML=`<div style="padding:40px;text-align:center;color:var(--r)">미리보기 실패: ${esc(e.message)}<br><br>새 창에서 열어보세요.</div>`; }
 }
 async function _previewInner(opts){
   const name=opts.name||'';
   // 이미지: 직접 표시
   if(isImageFile(name)){
     let url=opts.directUrl;
-    if(!url && opts.itemId) url=await spDownloadUrl(opts.itemId);
+    if(!url && opts.docPath){ try{ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(opts.docPath)}`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) url=(await r.json())["@microsoft.graph.downloadUrl"]; }catch(e){} }
+    if(!url && opts.itemId) url=await spDownloadUrl(opts.itemId, opts.driveId);
     return `<img src="${esc(url)}" style="max-width:100%;max-height:78vh;display:block;margin:0 auto;object-fit:contain">`;
   }
-  // PDF + Office: SharePoint preview URL (iframe)
+  // Office 파일: webUrl 기반 편집/보기 임베드 (공동작업·자동저장)
+  if(isOfficeFile(name)){
+    let webUrl=null;
+    if(opts.docPath){ try{ webUrl=await spWebUrlByPath(opts.docPath); }catch(e){} }
+    if(!webUrl && opts.itemId){ try{ webUrl=await spWebUrlById(opts.itemId, opts.driveId); }catch(e){} }
+    const emb=officeEmbedUrl(webUrl, _previewEdit);
+    if(emb) return `<iframe src="${esc(emb)}" style="width:100%;height:80vh;border:none" allowfullscreen></iframe>`;
+    // webUrl 없으면 보기전용 preview로 폴백
+  }
+  // PDF (+Office 폴백): preview URL
   let pv=opts.directUrl;
-  if(opts.itemId){ try{ pv=await spPreviewUrl(opts.itemId); }catch(e){} }
+  if(!pv && opts.docPath){ try{ pv=await spPreviewByPath(opts.docPath); }catch(e){} }
+  if(!pv && opts.itemId){ try{ pv=await spPreviewUrl(opts.itemId, opts.driveId); }catch(e){} }
   if(pv) return `<iframe src="${esc(pv)}" style="width:100%;height:80vh;border:none" allowfullscreen></iframe>`;
   throw new Error("미리보기 URL을 만들 수 없습니다");
 }
@@ -1721,9 +1766,22 @@ async function taUnhide(id){
 }
 function taOpen(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
-  if(canPreview(it.name) && it.itemId){ previewInModal({name:it.name, itemId:it.itemId}); return; }
+  if(canPreview(it.name)){
+    const moved=TA_MOVED[it.id];  // 이미 문서함에 있으면 그 사본을 미리보기 (우리 드라이브 → 확실히 됨)
+    if(moved){ previewInModal({name:it.name, docPath:`${docDestToPath(moved)}/${it.name}`}); return; }
+    if(it.itemId){ previewInModal({name:it.name, itemId:it.itemId, driveId:it.driveId}); return; }
+  }
   const url=it.webUrl||it.downloadUrl||it.contentUrl;
   if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
+}
+// "기술자료/03.내부공유/APU/컨셉" → "05.기술자료/03.내부공유/APU/컨셉" (실제 루트 폴더명)
+function docDestToPath(dest){
+  for(const [tab,root] of Object.entries(DOC_MAP)){
+    const label=DOC_TITLE[tab].replace(/^[^ ]+ /,'');
+    if(dest===label) return root;
+    if(dest.startsWith(label+'/')) return root+dest.slice(label.length);
+  }
+  return dest;
 }
 let _taMoveIdx=-1;
 let _taFxRel="";   // 현재 탐색 중인 상대경로 (root 기준, ''=루트)
@@ -2300,17 +2358,29 @@ async function renderDocTree(p){
 }
 let _ftPreviewPanel=null;
 // 기술자료 트리에서 파일 클릭 → 오른쪽 패널 미리보기
+let _ftEditMode={};
 async function ftPreviewFile(p,itemId,name){
   const box=$('ftPreview-'+p); if(!box) return;
+  _ftCur={p,itemId,name};
   box.style.display='block'; box.style.alignItems=''; box.style.justifyContent='';
   box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   try{
     if(isImageFile(name)){
       const url=await spDownloadUrl(itemId);
-      box.innerHTML=`<div style="padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border)">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
+      box.innerHTML=`<div class="pv-bar">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
+    } else if(isOfficeFile(name)){
+      const edit=_ftEditMode[itemId]!==false; // 기본 편집모드
+      const webUrl=await spWebUrlById(itemId);
+      const emb=officeEmbedUrl(webUrl, edit);
+      box.innerHTML=`<div class="pv-bar">${edit?'✏':'👁'} ${esc(name)}
+        <span style="float:right">
+          <button class="btn sm" onclick="ftToggleEdit('${p}','${itemId}','${esc(name).replace(/'/g,"\\'")}')">${edit?'👁 보기모드':'✏ 편집모드'}</button>
+          <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="font-size:12px;margin-left:8px">새 창</a>
+        </span></div>
+        <iframe src="${esc(emb)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
     } else if(canPreview(name)){
       const pv=await spPreviewUrl(itemId);
-      box.innerHTML=`<div style="padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border)">👁 ${esc(name)} <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="float:right;font-size:12px">새 창</a></div><iframe src="${esc(pv)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
+      box.innerHTML=`<div class="pv-bar">👁 ${esc(name)} <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="float:right;font-size:12px">새 창</a></div><iframe src="${esc(pv)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
     } else {
       box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">📄</div>${esc(name)}<br><br>미리보기를 지원하지 않는 형식입니다.<br><button class="btn sm" style="margin-top:10px" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">다운로드</button></div>`;
     }
@@ -2318,6 +2388,8 @@ async function ftPreviewFile(p,itemId,name){
     box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span></div>`;
   }
 }
+let _ftCur=null;
+function ftToggleEdit(p,itemId,name){ _ftEditMode[itemId]=(_ftEditMode[itemId]===false); ftPreviewFile(p,itemId,name); }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
   const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
