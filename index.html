@@ -504,7 +504,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v36</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v38</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -617,7 +617,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
-
+<!-- 문서함 이동 모달 -->
+<div class="modal" id="taMoveModal">
   <div class="mbox" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
     <div class="mbox-h"><span>📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
     <div class="mbox-b" style="overflow-y:auto">
@@ -1516,27 +1517,67 @@ ${content}`;
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
 const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
 const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
+// ── 문서함 전체 파일 인덱스 (이동완료 판단용) ──
+// 4개 문서함을 재귀 스캔해서 {"파일명|크기": "기술자료/폴더경로"} 맵 생성
+let DOC_INDEX=null;        // {key: dest}  key="name|size"
+let DOC_INDEX_NAME=null;   // {name: dest}  크기 없는 항목(메일)용 폴백
+let DOC_INDEX_AT=0;
+function docIndexKey(name,size){ return `${name}|${size||0}`; }
+async function buildDocIndex(force){
+  if(DOC_INDEX && !force && (Date.now()-DOC_INDEX_AT<60000)) return DOC_INDEX;
+  const idx={}, idxName={};
+  for(const [tab,root] of Object.entries(DOC_MAP)){
+    const label=DOC_TITLE[tab].replace(/^[^ ]+ /,'');
+    async function walk(path,rel){
+      let items=[];
+      try{ items=await spList(path); }catch(e){ return; }
+      for(const it of items){
+        if(it.folder){ await walk(`${path}/${it.name}`, rel?`${rel}/${it.name}`:it.name); }
+        else if(it.file && it.name!=='_analysis.json'){
+          const dest=label+(rel?'/'+rel:'');
+          idx[docIndexKey(it.name, it.size)] = dest;
+          idxName[it.name] = dest;
+        }
+      }
+    }
+    await walk(root, '');
+  }
+  DOC_INDEX=idx; DOC_INDEX_NAME=idxName; DOC_INDEX_AT=Date.now();
+  return idx;
+}
+function docFindMoved(name,size){
+  if(!DOC_INDEX) return null;
+  return DOC_INDEX[docIndexKey(name,size)] || null;  // 이름+크기 일치(엄격)
+}
+function docFindMovedFlexible(name,size){
+  if(!DOC_INDEX) return null;
+  if(size){ const d=DOC_INDEX[docIndexKey(name,size)]; if(d) return d; }
+  // 크기 정보가 없으면(메일 첨부) 이름만으로 폴백
+  return DOC_INDEX_NAME ? (DOC_INDEX_NAME[name]||null) : null;
+}
 // ════════ 팀즈 첨부파일 정리 ════════
 const TA_PATH="teams_attachments.json";
 const TA_HIDDEN_PATH="teams_attachments_hidden.json";
 const TA_MOVED_PATH="teams_attachments_moved.json";
 let TA_DATA=null;
 let TA_HIDDEN=[];  // 숨긴 항목 id 배열 (SharePoint 공유)
-let TA_MOVED={};   // {id: {dest:'기술자료/폴더', at:'ISO'}} 이동완료 기록 (SharePoint 공유)
+let TA_MOVED={};   // {id: dest} — 문서함 스캔으로 계산 (이름+크기 일치)
 async function taLoad(){
   $('taList').innerHTML='<div class="an-empty">불러오는 중…</div>';
   TA_DATA=await spGetJson(TA_PATH);
   const hid=await spGetJson(TA_HIDDEN_PATH);
   TA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[];
-  const mv=await spGetJson(TA_MOVED_PATH);
-  TA_MOVED=(mv&&mv.moved&&typeof mv.moved==='object')?mv.moved:{};
   if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
+  // 문서함 전체 스캔 → 이동완료 계산 (이름+크기 일치)
+  $('taList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
+  try{ await buildDocIndex(true); }catch(e){}
+  TA_MOVED={};
   const all=(TA_DATA.items||[]);
+  for(const it of all){ const d=docFindMoved(it.name, it.size); if(d) TA_MOVED[it.id]=d; }
   const visN=all.filter(it=>!TA_HIDDEN.includes(it.id)).length;
   const movedN=all.filter(it=>TA_MOVED[it.id]).length;
   const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
   $('taSub').textContent=`T Project 채팅 첨부파일 · ${visN}건${movedN?` · ✅이동 ${movedN}`:''}${TA_HIDDEN.length?` · 숨김 ${TA_HIDDEN.length}`:''} · 수집 ${upd}`;
-  // 미정리(미이동·미숨김) 개수 → 탭 배지
   const unsorted=all.filter(it=>!TA_HIDDEN.includes(it.id)&&!TA_MOVED[it.id]).length;
   const badge=$('taCnt'); if(badge){ if(unsorted>0){ badge.textContent=unsorted; badge.style.display='inline-block'; } else badge.style.display='none'; }
   taRender();
@@ -1586,7 +1627,7 @@ function taRender(){
       const hidden=TA_HIDDEN.includes(it.id);
       const note=(it.note||'').trim();
       const mv=TA_MOVED[it.id];
-      const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv.dest)} 이동완료</span>`:'';
+      const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
       return `<tr style="${hidden?'opacity:.5':''}">
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(it.name||'(이름없음)')}${movedBadge}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
@@ -1639,7 +1680,7 @@ function taMove(idx){
       if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
       return await fr.arrayBuffer();
     },
-    onDone: async (destLabel)=>{ TA_MOVED[it.id]={dest:destLabel,at:new Date().toISOString()}; await taSaveMoved(); taLoad(); }
+    onDone: async (destLabel)=>{ DOC_INDEX_AT=0; taLoad(); }
   };
   _openMoveModal();
 }
@@ -1723,9 +1764,12 @@ async function maLoad(){
   $('maList').innerHTML='<div class="an-empty">불러오는 중…</div>';
   MA_DATA=await spGetJson(MA_PATH);
   const hid=await spGetJson(MA_HIDDEN_PATH); MA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[];
-  const mv=await spGetJson(MA_MOVED_PATH); MA_MOVED=(mv&&mv.moved&&typeof mv.moved==='object')?mv.moved:{};
   if(!MA_DATA){ $('maList').innerHTML='<div class="an-empty">수집된 메일 첨부파일이 없습니다. (서버 수집 스크립트 mail_attachments.py 실행 필요)</div>'; $('maSub').textContent='enjet_ed 메일 첨부파일'; return; }
+  $('maList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
+  try{ await buildDocIndex(true); }catch(e){}
+  MA_MOVED={};
   const all=(MA_DATA.items||[]);
+  for(const it of all){ const d=docFindMovedFlexible(it.name, it.size); if(d) MA_MOVED[it.id]=d; }
   const upd=MA_DATA.updatedAt?new Date(MA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
   $('maSub').textContent=`enjet_ed 메일 첨부파일 · 총 ${all.length}건 · 수집 ${upd}`;
   const cnt=(folder)=>all.filter(it=>it.folder===folder&&!MA_HIDDEN.includes(it.id)&&!MA_MOVED[it.id]).length;
@@ -1735,7 +1779,6 @@ async function maLoad(){
   maRender();
 }
 async function maSaveHidden(){ try{ await spPutJson(MA_HIDDEN_PATH,{hidden:MA_HIDDEN,updatedAt:new Date().toISOString()}); }catch(e){ toast('숨김 저장 실패','bad'); } }
-async function maSaveMoved(){ try{ await spPutJson(MA_MOVED_PATH,{moved:MA_MOVED,updatedAt:new Date().toISOString()}); }catch(e){ console.warn(e); } }
 function maSwitch(folder){
   MA_FOLDER=folder;
   $('maTabInbox').classList.toggle('active',folder==='inbox');
@@ -1761,7 +1804,7 @@ function maRender(){
       const realIdx=(MA_DATA.items||[]).indexOf(it);
       const hidden=MA_HIDDEN.includes(it.id);
       const mv=MA_MOVED[it.id];
-      const mvBadge=mv?`<span class="ta-moved">✅ ${esc(mv.dest)} 이동완료</span>`:'';
+      const mvBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
       const person=MA_FOLDER==='inbox'?(it.fromName||'?'):(it.toName||'?');
       return `<tr style="${hidden?'opacity:.5':''}">
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
@@ -1786,7 +1829,7 @@ function maMove(idx){
     name: it.name||'',
     mime: it.mime||'application/octet-stream',
     getBytes: async ()=>{ const fr=await fetch(maDlUrl(it)); if(!fr.ok) throw new Error("메일 첨부 다운로드 실패 "+fr.status); return await fr.arrayBuffer(); },
-    onDone: async (destLabel)=>{ MA_MOVED[it.id]={dest:destLabel,at:new Date().toISOString()}; await maSaveMoved(); maLoad(); }
+    onDone: async (destLabel)=>{ DOC_INDEX_AT=0; maLoad(); }
   };
   _openMoveModal();
 }
