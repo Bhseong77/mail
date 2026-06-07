@@ -836,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v66</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v68</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -1487,6 +1487,15 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="adm-sub">채널별로 자동요약 시간·환영메시지·on/off를 관리합니다. 저장하면 서버가 읽어 자동 반영됩니다.</div>
     </div>
     <div class="adm-card">
+      <div class="adm-card-h">🔑 OpenAI API 키 <span style="font-weight:400;color:var(--t3);font-size:12px">· 명함 스캔(비전) 파싱에 사용 · sites/TIC/01.통합관리/99.서버에 저장</span></div>
+      <div class="adm-row" style="display:flex;gap:8px;align-items:center">
+        <input type="password" id="adm_openai" placeholder="sk-..." style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" autocomplete="off">
+        <button class="btn sm" type="button" onclick="const e=$('adm_openai');e.type=e.type==='password'?'text':'password'">👁</button>
+        <button class="btn primary" onclick="admSaveOpenAI()">💾 키 저장</button>
+      </div>
+      <div id="adm_openai_msg" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
+    </div>
+    <div class="adm-card">
       <div class="adm-card-h">🔔 전체 자동요약</div>
       <label class="adm-toggle"><input type="checkbox" id="adm_master"> <span>전체 자동요약 사용 (끄면 모든 채널 중지)</span></label>
     </div>
@@ -2031,16 +2040,22 @@ function composeTo(email,name){
 function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
 function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",dept:"",title:"",phone:"",category:"",memo:""}); renderContacts(); }
 function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
+// ── 작업큐(우상단) 연동 헬퍼 (위젯/함수는 빌드시 주입됨) ──
+function _J(label){ try{ return (typeof _jobAdd==='function')?_jobAdd(label):null; }catch(e){ return null; } }
+function _Jok(id,msg){ try{ if(id!=null&&typeof _jobUpdate==='function') _jobUpdate(id,'done',msg||'완료'); }catch(e){} }
+function _Jno(id,msg){ try{ if(id!=null&&typeof _jobUpdate==='function') _jobUpdate(id,'fail',msg||'실패'); }catch(e){} }
 async function saveContacts(){
+  const _j=_J('주소록 저장');
   try{
     // 저장하면 신규 플래그 제거 (확정) — SharePoint엔 isNew 없이 저장
     CONTACTS.forEach(c=>{ delete c.isNew; });
     await spPutJson(CONTACTS_PATH, CONTACTS);
+    _Jok(_j, `${CONTACTS.length}명 저장`);
     toast("주소록 저장 완료","ok");
     renderContacts(); updateNewBadge();
     if(MAILS.length) renderList();
   }
-  catch(e){ toast("저장 실패: "+e.message,"bad"); }
+  catch(e){ _Jno(_j, e.message); toast("저장 실패: "+e.message,"bad"); }
 }
 // 받은편지함 보낸사람 중 외부(비-enjet) 자동 수집
 async function scanContactsFromMail(){
@@ -2132,6 +2147,7 @@ async function admLoad(){
   // welcomeFields가 있는 채널은 welcome HTML을 필드로부터 최신화
   ADMIN_CFG.channels.forEach(c=>{ if(c.welcomeFields){ c.welcome=admBuildWelcome(c.welcomeFields); } });
   admRenderChannels();
+  try{ const k=await loadOpenAIKey(true); const ke=$('adm_openai'); if(ke) ke.value=k||''; }catch(e){}
   if(sv) sv.textContent='';
 }
 function admRenderChannels(){
@@ -2330,6 +2346,47 @@ function extractJsonArray(text){
 // Copilot로 메일 본문·서명 분석해서 연락처 추출
 let _autoScanRunning=false, _autoScanned=false;
 function scanContactsCopilot(){ return _scanCopilot(false); }
+// ── OpenAI API 키 (관리자설정 → sites/TIC/01.통합관리/99.서버/openai-key.json) ──
+const OPENAI_KEY_SITE="enjetco.sharepoint.com:/sites/TIC";
+const OPENAI_KEY_PATH="01.통합관리/99.서버/openai-key.json";
+let _ticDriveId=null, _openaiKeyCache=null;
+async function _ticDrive(){
+  if(_ticDriveId) return _ticDriveId;
+  const t=await graphToken();
+  const r1=await fetch(`https://graph.microsoft.com/v1.0/sites/${OPENAI_KEY_SITE}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r1.ok) throw new Error("TIC 사이트 조회 실패 "+r1.status);
+  const s=await r1.json();
+  const r2=await fetch(`https://graph.microsoft.com/v1.0/sites/${s.id}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r2.ok) throw new Error("TIC 드라이브 조회 실패 "+r2.status);
+  _ticDriveId=(await r2.json()).id; return _ticDriveId;
+}
+async function loadOpenAIKey(force){
+  if(_openaiKeyCache!==null && !force) return _openaiKeyCache;
+  try{
+    const t=await graphToken(); const d=await _ticDrive();
+    const enc=OPENAI_KEY_PATH.split("/").map(encodeURIComponent).join("/");
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
+    _openaiKeyCache = r.ok ? ((await r.json()).key||"") : "";
+  }catch(e){ _openaiKeyCache=""; }
+  return _openaiKeyCache;
+}
+async function admSaveOpenAI(){
+  const key=($('adm_openai').value||'').trim();
+  const msg=$('adm_openai_msg');
+  if(!key){ msg.style.color='var(--r)'; msg.textContent='키를 입력하세요'; return; }
+  msg.style.color='var(--t3)'; msg.textContent='저장 중…';
+  const _j=_J('OpenAI 키 저장');
+  try{
+    const t=await graphToken(); const d=await _ticDrive();
+    const enc=OPENAI_KEY_PATH.split("/").map(encodeURIComponent).join("/");
+    const body=JSON.stringify({key, updated_at:new Date().toISOString(), updated_by:(typeof myName==='function'?myName():(_account&&_account.username)||'')}, null, 2);
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    _openaiKeyCache=key; _Jok(_j,'저장됨');
+    msg.style.color='var(--g)'; msg.textContent='✅ 저장 완료 — 명함 스캔에 사용됩니다';
+    try{ actLog('🔑 OpenAI 키 저장'); }catch(e){}
+  }catch(e){ _Jno(_j,e.message); msg.style.color='var(--r)'; msg.textContent='저장 실패: '+e.message; }
+}
 // 📇 명함 사진 → 서버(GPT-4o 비전) 파싱 → 모달에서 미리보기·편집 후 저장
 function _fileToB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(new Error('파일 읽기 실패')); r.readAsDataURL(f); }); }
 function _safeFn(s){ return String(s||'').replace(/[~"#%&*:<>?/\\{|}\r\n\t]/g,' ').replace(/\s+/g,' ').trim(); }
@@ -2358,9 +2415,11 @@ async function _cardNext(){
     const md=$('cardModal'); if(md) md.classList.add('on');
   }catch(e){ toast('명함 모달 오류: '+e.message,'bad'); return; }
   // Copilot/GPT 비전 파싱
+  const _j=_J('명함 파싱: '+(f.name||'').slice(0,24));
   try{
     const b64=await _fileToB64(f); _cardCur.b64=b64; _cardCur.mime=f.type||'image/jpeg';
-    const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:_cardCur.mime})});
+    let _oaKey=''; try{ _oaKey=await loadOpenAIKey(); }catch(e){}
+    const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:_cardCur.mime,openai_key:_oaKey})});
     const d=await r.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
     if(d.ok&&d.contact){
       const c=d.contact;
@@ -2370,12 +2429,14 @@ async function _cardNext(){
       let cat=c.category; if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((c.company||'')+' '+(c.dept||'')+' '+(c.title||''));
       const cs=$('cardCat'); if(cs) cs.innerHTML=_cardCatOptions(cat||'');
       set('cardMemo','명함스캔');
+      _Jok(_j, c.name||c.company||'파싱 완료');
       const msg=$('cardMsg'); if(msg){ msg.style.color='var(--g)'; msg.textContent='✅ 파싱 완료 — 확인·수정 후 [추가]'; }
     }else{
+      _Jno(_j, d.error||'파싱 실패');
       const me=$('cardMemo'); if(me) me.value='명함스캔';
       const msg=$('cardMsg'); if(msg){ msg.style.color='var(--r)'; msg.textContent='⚠️ 자동 파싱 실패 — 직접 입력 후 [추가] ('+(d.error||'서버 응답 없음')+')'; }
     }
-  }catch(e){ const msg=$('cardMsg'); if(msg){ msg.style.color='var(--r)'; msg.textContent='분석 오류 — 직접 입력 가능: '+e.message; } }
+  }catch(e){ _Jno(_j, e.message); const msg=$('cardMsg'); if(msg){ msg.style.color='var(--r)'; msg.textContent='분석 오류 — 직접 입력 가능: '+e.message; } }
   const sb=$('cardSaveBtn'); if(sb) sb.disabled=false;
 }
 async function cardSave(){
@@ -2385,6 +2446,7 @@ async function cardSave(){
     category:$('cardCat').value, memo:$('cardMemo').value.trim()||'명함스캔', isNew:true };
   if(!rec.name && !rec.company && !rec.email && !rec.phone){ $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='이름/회사/연락처 중 하나는 입력하세요'; return; }
   $('cardSaveBtn').disabled=true; $('cardMsg').style.color='var(--t2)'; $('cardMsg').textContent='저장 중…';
+  const _j=_J('명함 저장: '+(rec.name||rec.company||''));
   try{
     const f=_cardCur.file;
     const ext=((f.name.match(/\.([a-zA-Z0-9]+)$/)||[,'jpg'])[1]||'jpg').toLowerCase();
@@ -2392,7 +2454,8 @@ async function cardSave(){
     const bytes=await f.arrayBuffer();
     const up=await spUploadFile(`01.연락처/${base}.${ext}`, bytes, _cardCur.mime||'image/jpeg');
     if(up&&up.webUrl) rec.cardUrl=up.webUrl;
-  }catch(e){ /* 이미지 저장 실패해도 연락처는 추가 */ }
+    _Jok(_j,'명함 이미지 저장');
+  }catch(e){ _Jno(_j,'이미지 저장 실패: '+e.message); /* 이미지 저장 실패해도 연락처는 추가 */ }
   CONTACTS.unshift(rec); renderContacts();
   try{ actLog('📇 명함 추가: '+(rec.name||rec.company||'')); }catch(e){}
   toast('명함 추가됨 — [💾 저장]으로 확정','ok');
@@ -2405,20 +2468,21 @@ function cardCancelAll(){ _cardQueue=[]; _cardCur=null; $('cardModal').classList
 async function reparseContact(i){
   const c=CONTACTS[i]; if(!c){ return; }
   if(!c.email){ toast('이메일이 없는 연락처는 재수집 불가 (메일 본문 기반)','bad'); return; }
+  const _j=_J('재수집: '+(c.name||c.email));
   toast(`${c.name||c.email} 재수집 중…`);
   try{
     const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=200`);
     const d=await r.json();
     const em=c.email.toLowerCase();
     const m=(d.mails||[]).find(x=>((x.from&&x.from[0]&&x.from[0].email)||'').toLowerCase()===em);
-    if(!m){ toast('해당 연락처가 보낸 메일을 받은편지함에서 못 찾음','bad'); return; }
+    if(!m){ _Jno(_j,'보낸 메일 없음'); toast('해당 연락처가 보낸 메일을 받은편지함에서 못 찾음','bad'); return; }
     const br=await fetch(`${SERVER}/api/mail/body?folder=inbox&uid=${encodeURIComponent(m.uid)}`);
     const bd=await br.json();
     const bodyHtml=(bd.bodyHtml||'').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
     const body=(bd.body||'').replace(/\s+/g,' ').trim();
     const content=((body+' \n '+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
     const info=await _copilotParseSignature(c.email, c.name||'', m.subject||'', content);
-    if(!info){ toast('Copilot 파싱 실패','bad'); return; }
+    if(!info){ _Jno(_j,'Copilot 파싱 실패'); toast('Copilot 파싱 실패','bad'); return; }
     if(info.name) c.name=info.name;
     if(info.company) c.company=info.company;
     if(info.dept) c.dept=info.dept;
@@ -2427,8 +2491,9 @@ async function reparseContact(i){
     if(info.category && CATEGORIES.includes(info.category)) c.category=info.category;
     c.isNew=true;
     renderContacts();
+    _Jok(_j, (c.name||'')+' 갱신');
     toast('재수집 완료 — [💾 저장]으로 확정','ok');
-  }catch(e){ toast('재수집 오류: '+e.message,'bad'); }
+  }catch(e){ _Jno(_j,e.message); toast('재수집 오류: '+e.message,'bad'); }
 }
 // 서명 파싱 공통 (수집/재수집 공용) — 부서·직급 포함
 async function _copilotParseSignature(email, hdrName, subject, content){
@@ -2470,10 +2535,11 @@ async function _scanCopilot(silent){
   if(_autoScanRunning) return;
   _autoScanRunning=true;
   if(!silent) toast("Copilot 분석 준비 중…");
+  const _j=silent?null:_J("Copilot 연락처 수집");
   try{
     const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=120`);
     const d=await r.json();
-    if(!d.ok){ if(!silent) toast("메일 조회 실패","bad"); return; }
+    if(!d.ok){ _Jno(_j,"메일 조회 실패"); if(!silent) toast("메일 조회 실패","bad"); return; }
     const existing=new Set(CONTACTS.map(c=>(c.email||'').toLowerCase()));
     const targets=[]; const seen=new Set();
     for(const m of (d.mails||[])){
@@ -2485,7 +2551,7 @@ async function _scanCopilot(silent){
       seen.add(em);
       targets.push({uid:m.uid, email:f.email, name:f.name||"", subject:m.subject||""});
     }
-    if(!targets.length){ if(!silent) toast("새 외부 연락처 없음","ok"); return; }
+    if(!targets.length){ _Jok(_j,"신규 없음"); if(!silent) toast("새 외부 연락처 없음","ok"); return; }
     if(!silent) toast(`${targets.length}명 본문 분석 중… (다소 시간 걸림)`);
     let added=0, done=0;
     for(const tg of targets.slice(0,25)){
@@ -2522,9 +2588,9 @@ async function _scanCopilot(silent){
     }
     if(curPage==='contacts') renderContacts();
     updateNewBadge();
-    if(!silent) toast(`${added}명 신규 추가됨 · [💾 저장] 눌러 확정`,"ok");
+    _Jok(_j, `${added}명 신규 추가`); if(!silent) toast(`${added}명 신규 추가됨 · [💾 저장] 눌러 확정`,"ok");
     else if(added) toast(`주소록 신규 ${added}명 (주소록 탭에서 확인)`,"ok");
-  }catch(e){ if(!silent) toast("Copilot 수집 오류: "+e.message,"bad"); }
+  }catch(e){ _Jno(_j,e.message); if(!silent) toast("Copilot 수집 오류: "+e.message,"bad"); }
   finally{ _autoScanRunning=false; }
 }
 
@@ -2780,6 +2846,7 @@ async function taDoMove(){
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
+  const _jm=_J((_moveCtx.mode==='move'?'문서 이동: ':'문서함 복사: ')+(_moveCtx.name||''));
   try{
     if(_moveCtx.mode==='move' && _moveCtx.itemId){
       // 진짜 이동 (Graph PATCH parentReference) — 원본 폴더에서 제거됨
@@ -2794,10 +2861,12 @@ async function taDoMove(){
       msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
     }
     if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
+    _Jok(_jm, destLabel);
     actLog(`📁 문서함 ${_moveCtx.mode==='move'?'이동':'복사'}: ${_moveCtx.name} → ${destLabel}`);
     toast('완료','ok');
     setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
   }catch(e){
+    _Jno(_jm, e.message);
     msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
   }
 }
@@ -2808,6 +2877,7 @@ async function taDoCopy(){
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
+  const _jc=_J('문서 복사: '+(_moveCtx.name||''));
   try{
     msg.style.color='var(--t3)'; msg.textContent='복사 중…';
     let bytes, mime=_moveCtx.mime||'application/octet-stream';
@@ -2827,10 +2897,11 @@ async function taDoCopy(){
     await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, mime);
     msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨 (원본 유지)';
     if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
+    _Jok(_jc, destLabel);
     actLog(`📋 문서함 복사: ${_moveCtx.name} → ${destLabel}`);
     toast('복사 완료','ok');
     setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
-  }catch(e){ msg.style.color='var(--r)'; msg.textContent='복사 실패: '+e.message; }
+  }catch(e){ _Jno(_jc, e.message); msg.style.color='var(--r)'; msg.textContent='복사 실패: '+e.message; }
 }
 // 기술자료 트리 파일 → 다른 폴더로 이동(진짜 이동)
 function ftMoveFile(p,itemId,name){
@@ -4055,7 +4126,7 @@ function renderBigChips(big){
 }
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
-async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
 let DEEPLINK_UID=null;
 // ════════ 통합일정관리 ════════
 const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
@@ -7248,7 +7319,9 @@ async function loadPerm(){
 async function savePermFile(){
   PERM.updated_at=new Date().toISOString();
   PERM.updated_by=(typeof myName==='function'?myName():_myEmail());
-  await spPutJson(PERM_PATH, PERM);
+  const _j=(typeof _J==='function')?_J('권한 저장'):null;
+  try{ await spPutJson(PERM_PATH, PERM); if(typeof _Jok==='function')_Jok(_j,'완료'); }
+  catch(e){ if(typeof _Jno==='function')_Jno(_j,e.message); throw e; }
 }
 
 // ── TIC 채널 멤버 조회 (Graph, 추가 스코프) ──
