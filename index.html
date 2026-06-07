@@ -519,7 +519,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v46</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v47</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -833,6 +833,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <!-- 파일탐색기 우클릭 메뉴 -->
 <div class="ctxmenu" id="ftCtx">
+  <div class="ci" onclick="ftAct('mail')">✉ 첨부해서 새 메일</div>
+  <div class="sep"></div>
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
   <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
   <div class="ci" onclick="ftAct('rename')">✏ 이름 변경</div>
@@ -2056,7 +2058,7 @@ async function ftNodeHtml(p,path,depth){
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -2124,6 +2126,10 @@ async function ftAct(action){
   $('ftCtx').classList.remove('on');
   const p=t.page;
   if(action==='newfolder'){ await ftNewFolder(p, t.path); }
+  else if(action==='mail'){
+    if(!t.itemId || t.isFolder){ toast('파일만 첨부할 수 있습니다','bad'); return; }
+    await ftMailAttach(t.itemId, t.name);
+  }
   else if(action==='upload'){ ftUploadTo(p,t.path); }
   else if(action==='rename'){
     if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
@@ -2494,6 +2500,24 @@ let _ftCur=null;
 async function ftEditNewWin(itemId){
   try{ const w=await spWebUrlById(itemId); if(w) window.open(officeEmbedUrl(w,true),'_blank'); else toast('편집 링크 없음','bad'); }
   catch(e){ toast('편집 열기 실패: '+e.message,'bad'); }
+}
+// SharePoint 파일을 첨부한 새 메일 작성
+async function ftMailAttach(itemId,name){
+  try{
+    toast(`"${name}" 첨부 준비 중…`);
+    const url=await spDownloadUrl(itemId);
+    if(!url) throw new Error('다운로드 링크 없음');
+    const fr=await fetch(url);
+    if(!fr.ok) throw new Error('다운로드 실패 '+fr.status);
+    const blob=await fr.blob();
+    if(blob.size>20*1024*1024){ if(!confirm(`"${name}"이 20MB를 넘습니다(${(blob.size/1048576).toFixed(1)}MB). 그래도 첨부할까요?`)) return; }
+    const b64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=()=>rej(new Error('인코딩 실패')); r.readAsDataURL(blob); });
+    // 새 메일 열고 첨부 주입
+    await openCompose('new');
+    COMPOSE_ATT.push({filename:name, content_type:blob.type||'application/octet-stream', b64});
+    renderFileChips();
+    toast('첨부 완료 — 받는사람·제목 입력 후 보내세요','ok');
+  }catch(e){ toast('첨부 실패: '+e.message,'bad'); }
 }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
