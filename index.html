@@ -462,6 +462,18 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ta-table tr:hover td{background:var(--bg)}
 .ta-name{font-weight:600;color:var(--t1);word-break:break-all}
 @media(max-width:640px){.ta-wrap{padding:12px}.ta-table th:nth-child(4),.ta-table td:nth-child(4),.ta-table th:nth-child(5),.ta-table td:nth-child(5){display:none}}
+.ta-fx{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:4px}
+.ta-fx-bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.ta-fx-crumb{font-size:12.5px}
+.ta-fx-crumb a{color:var(--p);cursor:pointer;font-weight:600}
+.ta-fx-crumb a:hover{text-decoration:underline}
+.ta-fx-list{max-height:260px;overflow-y:auto;background:var(--bg2)}
+.ta-fx-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px}
+.ta-fx-row:last-child{border-bottom:none}
+.ta-fx-row:hover{background:var(--bg)}
+.ta-fx-row .fn{flex:1;color:var(--t1)}
+.ta-fx-row .go{font-size:11px;color:var(--t3)}
+.ta-note{font-size:12px;color:var(--p);margin-top:4px;line-height:1.45;white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:5px 8px;border-radius:6px;border-left:2px solid var(--p)}
 </style>
 </head>
 <body>
@@ -482,7 +494,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v28</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v30</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -575,22 +587,30 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 
 <!-- 문서함 이동 모달 -->
 <div class="modal" id="taMoveModal">
-  <div class="mbox" style="max-width:460px">
+  <div class="mbox" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
     <div class="mbox-h"><span>📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
-    <div class="mbox-b">
+    <div class="mbox-b" style="overflow-y:auto">
       <div id="taMoveFile" style="font-size:13px;color:var(--t2);margin-bottom:14px;word-break:break-all"></div>
       <div class="adm-row col" style="margin-bottom:10px"><span class="adm-lbl">분류</span>
-        <select id="taMoveDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <select id="taMoveDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px" onchange="taMoveOpenRoot()">
           <option value="doc-tech">📚 기술자료</option>
           <option value="doc-quote">📄 견적서</option>
           <option value="doc-invoice">📋 거래명세서</option>
           <option value="doc-tax">🧾 세금계산서</option>
         </select>
       </div>
-      <div class="adm-row col"><span class="adm-lbl">하위 폴더(선택)</span><input type="text" id="taMoveFolder" placeholder="예: 한국화낙 (비우면 루트)"></div>
+      <div class="ta-fx">
+        <div class="ta-fx-bar">
+          <span style="font-size:12px;color:var(--t3)">위치:</span>
+          <span class="ta-fx-crumb" id="taFxCrumb"></span>
+          <div style="flex:1"></div>
+          <button class="btn sm" onclick="taFxNewFolder()">＋ 새 폴더</button>
+        </div>
+        <div class="ta-fx-list" id="taFxList"></div>
+      </div>
       <div class="row" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="$('taMoveModal').classList.remove('on')">취소</button>
-        <button class="btn primary" onclick="taDoMove()">📁 복사</button>
+        <button class="btn primary" onclick="taDoMove()">📁 여기에 복사</button>
       </div>
       <div id="taMoveMsg" style="font-size:12px;margin-top:10px;text-align:right"></div>
     </div>
@@ -1451,15 +1471,24 @@ const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','do
 const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
 // ════════ 팀즈 첨부파일 정리 ════════
 const TA_PATH="teams_attachments.json";
+const TA_HIDDEN_PATH="teams_attachments_hidden.json";
 let TA_DATA=null;
+let TA_HIDDEN=[];  // 숨긴 항목 id 배열 (SharePoint 공유)
 async function taLoad(){
   $('taList').innerHTML='<div class="an-empty">불러오는 중…</div>';
   TA_DATA=await spGetJson(TA_PATH);
+  const hid=await spGetJson(TA_HIDDEN_PATH);
+  TA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[];
   if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
-  const n=(TA_DATA.items||[]).length;
+  const all=(TA_DATA.items||[]);
+  const visN=all.filter(it=>!TA_HIDDEN.includes(it.id)).length;
   const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
-  $('taSub').textContent=`T Project 채팅 첨부파일 · ${n}건 · 수집 ${upd}`;
+  $('taSub').textContent=`T Project 채팅 첨부파일 · ${visN}건${TA_HIDDEN.length?` (숨김 ${TA_HIDDEN.length})`:''} · 수집 ${upd}`;
   taRender();
+}
+async function taSaveHidden(){
+  try{ await spPutJson(TA_HIDDEN_PATH,{hidden:TA_HIDDEN,updatedAt:new Date().toISOString()}); }
+  catch(e){ toast('숨김 저장 실패: '+e.message,'bad'); }
 }
 function taIcon(name){
   const e=(name||'').split('.').pop().toLowerCase();
@@ -1473,29 +1502,49 @@ function taIcon(name){
   return '📄';
 }
 function taFmtSize(b){ if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(0)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+let TA_SHOW_HIDDEN=false;
+function taToggleHidden(){ TA_SHOW_HIDDEN=!TA_SHOW_HIDDEN; taRender(); }
 function taRender(){
   if(!TA_DATA) return;
   const q=($('taSearch').value||'').toLowerCase().trim();
   let items=TA_DATA.items||[];
-  if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.author||'').toLowerCase().includes(q));
-  if(!items.length){ $('taList').innerHTML='<div class="an-empty">검색 결과 없음</div>'; return; }
-  $('taList').innerHTML=`<table class="ta-table"><thead><tr>
-    <th style="width:42px"></th><th>파일명</th><th style="width:110px">작성자</th><th style="width:140px">작성일시</th><th style="width:70px">크기</th><th style="width:160px">작업</th>
-    </tr></thead><tbody>${items.map((it,idx)=>{
+  // 숨김 필터
+  if(!TA_SHOW_HIDDEN) items=items.filter(it=>!TA_HIDDEN.includes(it.id));
+  if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.author||'').toLowerCase().includes(q)||(it.note||'').toLowerCase().includes(q));
+  const hidBtn=TA_HIDDEN.length?`<button class="btn sm" onclick="taToggleHidden()" style="margin-bottom:10px">${TA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${TA_HIDDEN.length})`}</button>`:'';
+  if(!items.length){ $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
+  $('taList').innerHTML=hidBtn+`<table class="ta-table"><thead><tr>
+    <th style="width:42px"></th><th>파일명 / 메모</th><th style="width:100px">작성자</th><th style="width:120px">작성일시</th><th style="width:60px">크기</th><th style="width:180px">작업</th>
+    </tr></thead><tbody>${items.map((it)=>{
       const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
       const realIdx=(TA_DATA.items||[]).indexOf(it);
-      return `<tr>
+      const hidden=TA_HIDDEN.includes(it.id);
+      const note=(it.note||'').trim();
+      return `<tr style="${hidden?'opacity:.5':''}">
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
-        <td class="ta-name">${esc(it.name||'(이름없음)')}</td>
-        <td>${esc(it.author||'?')}</td>
+        <td class="ta-name">${esc(it.name||'(이름없음)')}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
+        <td style="font-size:12px">${esc(it.author||'?')}</td>
         <td style="color:var(--t3);font-size:12px">${dt}</td>
         <td style="color:var(--t3);font-size:12px">${taFmtSize(it.size)}</td>
-        <td><div style="display:flex;gap:6px">
+        <td><div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="btn sm" onclick="taOpen(${realIdx})" title="열기/미리보기">👁</button>
           <button class="btn sm primary" onclick="taMove(${realIdx})" title="문서함으로 복사">📁 이동</button>
+          ${hidden
+            ? `<button class="btn sm" onclick="taUnhide('${esc(it.id)}')" title="목록에 복원">↩ 복원</button>`
+            : `<button class="btn sm" onclick="taHide('${esc(it.id)}')" title="목록에서 삭제(숨김)">🗑</button>`}
         </div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
+}
+async function taHide(id){
+  if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id);
+  await taSaveHidden();
+  taLoad();
+}
+async function taUnhide(id){
+  TA_HIDDEN=TA_HIDDEN.filter(x=>x!==id);
+  await taSaveHidden();
+  taLoad();
 }
 function taOpen(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
@@ -1503,24 +1552,55 @@ function taOpen(idx){
   if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
 }
 let _taMoveIdx=-1;
+let _taFxRel="";   // 현재 탐색 중인 상대경로 (root 기준, ''=루트)
 function taMove(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
   _taMoveIdx=idx;
   $('taMoveFile').textContent='📄 '+(it.name||'');
-  $('taMoveFolder').value='';
   $('taMoveMsg').textContent='';
+  _taFxRel="";
   $('taMoveModal').classList.add('on');
+  taMoveOpenRoot();
+}
+function taMoveOpenRoot(){ _taFxRel=""; taFxRender(); }
+function taFxRoot(){ return DOC_MAP[$('taMoveDest').value]; }
+function taFxFullPath(){ return _taFxRel ? `${taFxRoot()}/${_taFxRel}` : taFxRoot(); }
+async function taFxRender(){
+  const list=$('taFxList'); const crumb=$('taFxCrumb');
+  // 빵부스러기
+  const parts=_taFxRel?_taFxRel.split('/'):[];
+  let crumbHtml=`<a onclick="taFxGo('')">🏠 ${esc($('taMoveDest').selectedOptions[0].text)}</a>`;
+  let acc='';
+  parts.forEach((p,i)=>{ acc=acc?acc+'/'+p:p; crumbHtml+=` <span style="color:var(--t3)">/</span> <a onclick="taFxGo('${esc(acc)}')">${esc(p)}</a>`; });
+  crumb.innerHTML=crumbHtml;
+  list.innerHTML='<div style="padding:12px;color:var(--t3);font-size:12px">불러오는 중…</div>';
+  const items=await spList(taFxFullPath());
+  const folders=items.filter(x=>x.folder).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  let html='';
+  if(_taFxRel){ html+=`<div class="ta-fx-row" onclick="taFxUp()"><span>⬆️</span><span class="fn">.. (상위로)</span></div>`; }
+  if(!folders.length && !_taFxRel){ html+='<div style="padding:10px 12px;color:var(--t3);font-size:12px">하위 폴더 없음 — 여기(루트)에 복사하거나 새 폴더를 만드세요</div>'; }
+  html+=folders.map(f=>`<div class="ta-fx-row" onclick="taFxEnter('${esc(f.name)}')"><span>📁</span><span class="fn">${esc(f.name)}</span><span class="go">열기 ›</span></div>`).join('');
+  list.innerHTML=html;
+}
+function taFxGo(rel){ _taFxRel=rel; taFxRender(); }
+function taFxEnter(name){ _taFxRel=_taFxRel?`${_taFxRel}/${name}`:name; taFxRender(); }
+function taFxUp(){ const p=_taFxRel.split('/'); p.pop(); _taFxRel=p.join('/'); taFxRender(); }
+async function taFxNewFolder(){
+  const name=(prompt('새 폴더 이름:')||'').trim();
+  if(!name) return;
+  try{
+    await spEnsureFolder(`${taFxFullPath()}/${name}`);
+    toast('폴더 생성됨','ok');
+    taFxEnter(name);  // 만든 폴더로 들어감
+  }catch(e){ toast('폴더 생성 실패: '+e.message,'bad'); }
 }
 async function taDoMove(){
   const it=(TA_DATA.items||[])[_taMoveIdx]; if(!it) return;
   const destTab=$('taMoveDest').value;
-  const root=DOC_MAP[destTab];
-  const folder=($('taMoveFolder').value||'').trim();
-  const destPath=(root + (folder?'/'+folder:'') + '/' + it.name);
+  const destPath=`${taFxFullPath()}/${it.name}`;
   const msg=$('taMoveMsg');
   msg.style.color='var(--t3)'; msg.textContent='복사 중…';
   try{
-    // 1) 원본 파일 다운로드 (downloadUrl 우선, 없으면 driveId/itemId)
     const t=await graphToken();
     let dlUrl=it.downloadUrl;
     if(!dlUrl && it.driveId && it.itemId){
@@ -1531,12 +1611,10 @@ async function taDoMove(){
     const fr=await fetch(dlUrl);
     if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
     const bytes=await fr.arrayBuffer();
-    // 2) 폴더 보장 + 업로드
-    if(folder) await spEnsureFolder(root+'/'+folder);
     await spUploadFile(destPath, bytes, it.mime||'application/octet-stream');
-    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+'로 복사됨';
+    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
     toast('문서함으로 복사 완료','ok');
-    setTimeout(()=>$('taMoveModal').classList.remove('on'),1200);
+    setTimeout(()=>$('taMoveModal').classList.remove('on'),1300);
   }catch(e){
     msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
   }
