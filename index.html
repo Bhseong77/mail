@@ -499,6 +499,17 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ft-drop-hover{background:#dbeafe!important;outline:2px dashed var(--p);outline-offset:-2px;border-radius:6px}
 .ft-row[draggable=true]{cursor:default}
 .ft-row[draggable=true]:active{opacity:.6}
+.act-log{flex:1;max-width:680px;min-width:240px;margin:0 16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;height:78px}
+.act-log-h{font-size:11px;font-weight:700;color:#fff;padding:4px 10px;border-bottom:1px solid rgba(255,255,255,0.18);flex-shrink:0;opacity:.95}
+.act-log-body{flex:1;overflow-y:auto;padding:3px 0}
+.act-log-body::-webkit-scrollbar{width:7px}
+.act-log-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.3);border-radius:4px}
+.act-log-row{font-size:11px;color:rgba(255,255,255,0.92);padding:2px 10px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid rgba(255,255,255,0.06)}
+.act-log-row .t{opacity:.65;font-variant-numeric:tabular-nums}
+.act-log-row .who{font-weight:700;color:#fde68a}
+.act-log-row .act{color:#fff}
+.act-log-empty{font-size:11px;color:rgba(255,255,255,0.5);padding:8px 10px;text-align:center}
+@media(max-width:1100px){.act-log{display:none}}
 </style>
 </head>
 <body>
@@ -519,9 +530,13 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v47</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v48</span></div>
     </div>
     <div class="spacer"></div>
+    <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
+      <div class="act-log-h">📋 작업 로그 <span id="actLogCnt" style="opacity:.6"></span></div>
+      <div class="act-log-body" id="actLogBody"><div class="act-log-empty">기록 없음</div></div>
+    </div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
     <button class="btn-chat-back" onclick="backToTeamsChat()">← 채팅으로</button>
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
@@ -1901,6 +1916,7 @@ async function taDoMove(){
       msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
     }
     if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
+    actLog(`📁 문서함 ${_moveCtx.mode==='move'?'이동':'복사'}: ${_moveCtx.name} → ${destLabel}`);
     toast('완료','ok');
     setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
   }catch(e){
@@ -2098,7 +2114,7 @@ async function ftDrop(e,p,destPath,el){
   try{
     toast(`"${d.name}" 이동 중…`);
     await spMoveItem(d.itemId, destFull);
-    toast(`"${d.name}" 이동 완료`,'ok');
+    toast(`"${d.name}" 이동 완료`,'ok'); actLog(`📂 이동: ${d.name} → ${DOC_TITLE[p].replace(/^[^ ]+ /,'')}/${destPath||'(루트)'}`);
     FT_CHILDREN={}; DOC_INDEX_AT=0;
     renderFileTree(p);
   }catch(err){ toast('이동 실패: '+err.message,'bad'); }
@@ -2135,12 +2151,12 @@ async function ftAct(action){
     if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
     const nn=prompt('새 이름:', t.name);
     if(!nn||nn===t.name) return;
-    try{ await spRenameItem(t.itemId,nn); toast('이름 변경됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    try{ await spRenameItem(t.itemId,nn); toast('이름 변경됨','ok'); actLog(`✏ 이름변경: ${t.name} → ${nn}`); FT_CHILDREN={}; renderFileTree(p); }
     catch(ex){ toast('실패: '+ex.message,'bad'); }
   }else if(action==='delete'){
     if(!t.itemId){ toast('루트는 삭제 불가','bad'); return; }
     if(!confirm(`"${t.name}" 삭제할까요? (SharePoint 영구삭제)`)) return;
-    try{ await spDeleteItem(t.itemId); toast('삭제됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    try{ await spDeleteItem(t.itemId); toast('삭제됨','ok'); actLog(`🗑 삭제: ${t.name}`); FT_CHILDREN={}; renderFileTree(p); }
     catch(ex){ toast('실패: '+ex.message,'bad'); }
   }
 }
@@ -2155,9 +2171,9 @@ async function ftNewFolder(p,parentPath){
     const PROJECT_SUBS=['01.설계','02.전장','03.제어','04.생산'];
     if(p==='doc-tech' && (parentPath==='04.프로젝트' || (parentPath||'').endsWith('/04.프로젝트'))){
       for(const sub of PROJECT_SUBS){ try{ await spEnsureFolder(`${full}/${sub}`); }catch(e){} }
-      toast('프로젝트 폴더 생성 + 표준 하위폴더(설계/전장/제어/생산) 자동 생성','ok');
+      toast('프로젝트 폴더 생성 + 표준 하위폴더(설계/전장/제어/생산) 자동 생성','ok'); actLog(`📁 프로젝트폴더 생성: ${clean} (+설계/전장/제어/생산)`);
     } else {
-      toast('폴더 생성됨','ok');
+      toast('폴더 생성됨','ok'); actLog(`📁 폴더 생성: ${clean}`);
     }
     FT_CHILDREN={};
     if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
@@ -2516,7 +2532,7 @@ async function ftMailAttach(itemId,name){
     await openCompose('new');
     COMPOSE_ATT.push({filename:name, content_type:blob.type||'application/octet-stream', b64});
     renderFileChips();
-    toast('첨부 완료 — 받는사람·제목 입력 후 보내세요','ok');
+    toast('첨부 완료 — 받는사람·제목 입력 후 보내세요','ok'); actLog(`✉ 메일첨부 준비: ${name}`);
   }catch(e){ toast('첨부 실패: '+e.message,'bad'); }
 }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
@@ -2861,7 +2877,7 @@ function applyContactPicker(){
 function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];let total=0;const proc=files.map(f=>new Promise(res=>{total+=f.size;const fr=new FileReader();fr.onload=()=>{COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]});res();};fr.onerror=()=>res();fr.readAsDataURL(f);}));Promise.all(proc).then(()=>{if(total>20*1024*1024){$('cMsg').style.color='var(--r)';$('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다';}renderFileChips();});}
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
-async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
 let DEEPLINK_UID=null;
 // ════════ 통합일정관리 ════════
 const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
@@ -3057,8 +3073,45 @@ async function resolveServerEndpoint(){
   }catch(e){ console.warn("서버 주소 조회 실패 → 기존값 사용:",SERVER,e.message); }
   return SERVER;
 }
+// ════════ 작업 로그 (SharePoint 공유, 최근 100개) ════════
+const ACTLOG_PATH="activity_log.json";
+let ACTLOG=[];
+let _actlogLoaded=false;
+function _actor(){
+  const u=(_account&&_account.username)||'';
+  const n=(_account&&_account.name)||'';
+  return n?`${n}`:(u||'알수없음');
+}
+async function actLogLoad(){
+  try{ const d=await spGetJson(ACTLOG_PATH); ACTLOG=(d&&Array.isArray(d.logs))?d.logs:[]; }
+  catch(e){ ACTLOG=[]; }
+  _actlogLoaded=true;
+  actLogRender();
+}
+async function actLog(action){
+  // action: 사람이 읽을 작업 설명 문자열
+  if(!_actlogLoaded){ try{ const d=await spGetJson(ACTLOG_PATH); ACTLOG=(d&&Array.isArray(d.logs))?d.logs:[]; _actlogLoaded=true; }catch(e){} }
+  const entry={ at:new Date().toISOString(), who:_actor(), uid:(_account&&_account.username)||'', act:String(action||'') };
+  ACTLOG.unshift(entry);                 // 최신이 위
+  if(ACTLOG.length>100) ACTLOG=ACTLOG.slice(0,100);  // 100개 초과분 삭제
+  actLogRender();
+  try{ await spPutJson(ACTLOG_PATH,{logs:ACTLOG,updatedAt:new Date().toISOString()}); }catch(e){}
+}
+function actLogRender(){
+  const body=$('actLogBody'); const cnt=$('actLogCnt');
+  if(!body) return;
+  if(cnt) cnt.textContent=ACTLOG.length?`(${ACTLOG.length})`:'';
+  if(!ACTLOG.length){ body.innerHTML='<div class="act-log-empty">기록 없음</div>'; return; }
+  body.innerHTML=ACTLOG.map(e=>{
+    const d=new Date(e.at);
+    const t=isNaN(d)?'':`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div class="act-log-row" title="${esc(e.who)} · ${esc(e.act)}"><span class="t">${t}</span> <span class="who">${esc(e.who)}</span> <span class="act">${esc(e.act)}</span></div>`;
+  }).join('');
+}
+
 function startApp(){
   // 안전장치: 로그인 직후 떠있을 수 있는 모든 모달 강제 닫기
+
   document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));
   $('compose')?.classList.remove('on');
   // 관리자(baekhoon)만 관리자설정 버튼 표시
@@ -3077,6 +3130,7 @@ function startApp(){
   if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
   showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
   resolveServerEndpoint().finally(()=>{ checkHealth(); loadList(); preloadContacts(); });
+  actLogLoad();
 }
 async function preloadContacts(){
   try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
