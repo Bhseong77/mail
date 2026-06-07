@@ -12,6 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <script src="https://res.cdn.office.net/teams-js/2.24.0/js/MicrosoftTeams.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
 <style>
@@ -530,7 +531,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v52</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v56</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -849,6 +850,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <!-- 파일탐색기 우클릭 메뉴 -->
 <div class="ctxmenu" id="ftCtx">
   <div class="ci" onclick="ftAct('mail')">✉ 첨부해서 새 메일</div>
+  <div class="ci" id="ftCtxUnzip" onclick="ftAct('unzip')" style="display:none">🗜 여기에 압축 풀기</div>
+  <div class="ci" id="ftCtxDownload" onclick="ftAct('download')">⬇ 다운로드</div>
   <div class="sep"></div>
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
   <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
@@ -2132,6 +2135,10 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   e.preventDefault(); e.stopPropagation();
   _ftCtxTarget={page:p,path,isFolder,itemId,name,size:size||0};
   const m=$('ftCtx');
+  // zip 파일일 때만 '압축 풀기' 표시, 파일일 때만 '다운로드' 표시
+  const isZip = !isFolder && /\.zip$/i.test(name||'');
+  const uz=$('ftCtxUnzip'); if(uz) uz.style.display = isZip ? '' : 'none';
+  const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId) ? '' : 'none';
   m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
   m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
   m.classList.add('on');
@@ -2147,6 +2154,15 @@ async function ftAct(action){
     await ftMailAttach(t.itemId, t.name, t.size);
   }
   else if(action==='upload'){ ftUploadTo(p,t.path); }
+  else if(action==='download'){
+    if(!t.itemId){ toast('다운로드 불가','bad'); return; }
+    try{ const u=await spDownloadUrl(t.itemId); if(u) window.open(u,'_blank'); else toast('링크 없음','bad'); }
+    catch(e){ toast('다운로드 실패: '+e.message,'bad'); }
+  }
+  else if(action==='unzip'){
+    if(!t.itemId || !/\.zip$/i.test(t.name)){ toast('zip 파일만 가능','bad'); return; }
+    await ftUnzipExisting(p, t.itemId, t.name, t.path);
+  }
   else if(action==='rename'){
     if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
     const nn=prompt('새 이름:', t.name);
@@ -2188,20 +2204,81 @@ async function ftUploadFiles(files){
   const {page,dir}=_ftUploadCtx;
   const root=DOC_MAP[page];
   if(!dir){ if(!confirm('루트에 바로 업로드합니다. (먼저 업체 폴더를 선택하는 걸 권장) 계속할까요?')) return; }
-  toast(`${files.length}개 업로드 중…`);
-  let ok=0;
+  const base = dir ? `${root}/${dir}` : root;
+  _unzipMkdirCache=new Set();
+  let ok=0, fail=0;
   for(const f of files){
+    // ZIP이면 압축 해제 여부 확인
+    if(/\.zip$/i.test(f.name) && window.JSZip){
+      const mode = confirm(`"${f.name}"을 압축 해제해서 폴더에 풀까요?\n\n[확인] 압축 풀어서 안의 파일들 업로드\n[취소] zip 파일 그대로 업로드`);
+      if(mode){
+        try{
+          const r=await _unzipUpload(f, base, page);
+          ok+=r.ok; fail+=r.fail;
+          continue;
+        }catch(e){ toast('압축 해제 실패: '+e.message,'bad'); }
+      }
+    }
+    // 일반 파일
     try{
-      const path=dir?`${root}/${dir}/${f.name}`:`${root}/${f.name}`;
+      const path=`${base}/${f.name}`;
       const buf=await f.arrayBuffer();
       await spUploadFile(path,new Blob([buf]),f.type||'application/octet-stream');
       ok++;
-    }catch(ex){ console.warn('업로드 실패',f.name,ex.message); }
+    }catch(ex){ fail++; console.warn('업로드 실패',f.name,ex.message); }
   }
-  toast(`${ok}개 업로드 완료${DOC_ANALYZE.includes(page)?' · [✨ 미분석 분석]으로 분석':''}`,'ok');
+  toast(`${ok}개 업로드 완료${fail?` · 실패 ${fail}`:''}${DOC_ANALYZE.includes(page)?' · [✨ 미분석 분석]으로 분석':''}`,'ok');
+  if(ok) actLog(`⬆ 업로드: ${files.length}개 → ${DOC_TITLE[page].replace(/^[^ ]+ /,'')}/${dir||'(루트)'}`);
   FT_CHILDREN={};
   if(dir) FT_OPEN[ftKey(page,dir)]=true;
   renderFileTree(page);
+}
+// zip 풀어서 base 폴더 아래에 (내부 폴더구조 유지) 업로드
+async function _unzipUpload(file, base, page){
+  toast(`"${file.name}" 압축 해제 중…`);
+  const zip=await JSZip.loadAsync(await file.arrayBuffer());
+  const entries=Object.values(zip.files).filter(e=>!e.dir);
+  let ok=0, fail=0, i=0;
+  for(const e of entries){
+    i++;
+    // __MACOSX, 숨김파일 스킵
+    if(/(^|\/)__MACOSX\//.test(e.name) || /(^|\/)\.[^\/]+$/.test(e.name)) continue;
+    try{
+      const blob=await e.async("blob");
+      // zip 내부 경로 유지: base/내부경로
+      const rel=e.name.split('/').map(s=>s).join('/');
+      const path=`${base}/${rel}`;
+      // 중간 폴더 보장 (한 번씩만)
+      const parent=path.split('/').slice(0,-1).join('/');
+      if(parent && !_unzipMkdirCache.has(parent)){ try{ await spEnsureFolder(parent); }catch(_){} _unzipMkdirCache.add(parent); }
+      await spUploadFile(path, blob, blob.type||'application/octet-stream');
+      ok++;
+      if(i%3===0) toast(`압축 해제 업로드… ${i}/${entries.length}`);
+    }catch(ex){ fail++; console.warn('zip 항목 업로드 실패',e.name,ex.message); }
+  }
+  return {ok,fail};
+}
+let _unzipMkdirCache=new Set();
+async function ftUnzipExisting(p, itemId, name, dirPath){
+  if(!window.JSZip){ toast('압축 모듈 로드 안 됨','bad'); return; }
+  const root=DOC_MAP[p];
+  const base = dirPath ? `${root}/${dirPath}` : root;
+  if(!confirm(`"${name}"을 같은 폴더에 압축 해제할까요?\n위치: ${dirPath||'(루트)'}`)) return;
+  try{
+    toast(`"${name}" 다운로드 중…`);
+    const url=await spDownloadUrl(itemId);
+    if(!url) throw new Error('다운로드 링크 없음');
+    const fr=await fetch(url);
+    if(!fr.ok) throw new Error('다운로드 실패 '+fr.status);
+    const blob=await fr.blob();
+    _unzipMkdirCache=new Set();
+    const r=await _unzipUpload(new File([blob], name), base, p);
+    toast(`압축 해제 완료: ${r.ok}개${r.fail?` · 실패 ${r.fail}`:''}`,'ok');
+    actLog(`🗜 압축해제: ${name} → ${DOC_TITLE[p].replace(/^[^ ]+ /,'')}/${dirPath||'(루트)'} (${r.ok}개)`);
+    FT_CHILDREN={};
+    if(dirPath) FT_OPEN[ftKey(p,dirPath)]=true;
+    renderFileTree(p);
+  }catch(e){ toast('압축 해제 실패: '+e.message,'bad'); }
 }
 
 
@@ -2265,8 +2342,8 @@ function anRender(p){
            `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.payment||'')}" onchange="anField('${p}','${r.fid}','payment',this.value)"></td>`+
            `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.warranty||'')}" onchange="anField('${p}','${r.fid}','warranty',this.value)"></td>`+
            `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
-           `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
-           `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
+           `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+           `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
       }
       h+=`</tr>`;
     });
@@ -2279,6 +2356,15 @@ function anPreview(p,fid){
   const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
   if(canPreview(d.fileName)){ previewInModal({name:d.fileName, itemId:fid}); }
   else if(d.url) window.open(d.url,'_blank');
+}
+async function anDownload(p,fid){
+  const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
+  try{
+    const url=await spDownloadUrl(fid);
+    if(url){ window.open(url,'_blank'); }
+    else if(d.url){ window.open(d.url,'_blank'); }
+    else toast('다운로드 링크 없음','bad');
+  }catch(e){ if(d.url) window.open(d.url,'_blank'); else toast('다운로드 실패: '+e.message,'bad'); }
 }
 async function anMemo(p,fid,val){ return anField(p,fid,'memo',val); }
 async function anField(p,fid,key,val){
@@ -2377,6 +2463,43 @@ async function extractTextBrowser(f){
     return text.slice(0,8000);
   }
   return '';
+}
+// 단일 파일 분석(텍스트추출+Copilot) → AN_DATA 갱신
+async function _analyzeOne(p, f){
+  let text='';
+  try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
+  const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"발행 회사명","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- delivery(납기): 물품을 언제 납품/인도하는지. 문서에 "납기","납품기일","납품시기","delivery","리드타임" 등으로 표기됨.
+- payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금"). "대금지불","지급조건","결제조건" 등으로 표기됨.
+- warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상"). "보증","무상","품질보증" 등. 특이사항·비고란도 찾을 것.
+- 유효기간은 무시한다. 없는 값은 빈 문자열. 여러 품목이면 items 배열에 모두. 회사명은 발행처(공급자) 기준.
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+  let info=null;
+  try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  const prev=AN_DATA[p][f.id]||{};
+  AN_DATA[p][f.id]={
+    company:(info&&info.company)||f.customer||prev.company||'',
+    items:(info&&info.items&&info.items.length?info.items:prev.items)||[],
+    delivery:(info&&info.delivery)||'',
+    payment:(info&&info.payment)||'',
+    warranty:(info&&info.warranty)||'',
+    memo:prev.memo||'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+  };
+  return info;
+}
+async function anReanalyze(p,fid){
+  const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d){ toast('데이터 없음','bad'); return; }
+  toast(`"${(d.fileName||'').slice(0,20)}" 재분석 중…`);
+  try{
+    const f={id:fid, name:d.fileName, url:d.url, webUrl:d.url, customer:d.customer, folder:d.folder, date:d.date};
+    await _analyzeOne(p,f);
+    await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]);
+    anRender(p);
+    toast('재분석 완료','ok');
+  }catch(e){ toast('재분석 실패: '+e.message,'bad'); }
 }
 async function anAnalyze(p){
   const root=DOC_MAP[p];
