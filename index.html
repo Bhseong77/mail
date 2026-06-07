@@ -496,6 +496,9 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ft-tab-x{opacity:.5;font-size:11px;padding:0 2px;border-radius:4px}
 .ft-tab-x:hover{opacity:1;background:var(--border)}
 .ft-tabbody{background:#fff}
+.ft-drop-hover{background:#dbeafe!important;outline:2px dashed var(--p);outline-offset:-2px;border-radius:6px}
+.ft-row[draggable=true]{cursor:default}
+.ft-row[draggable=true]:active{opacity:.6}
 </style>
 </head>
 <body>
@@ -516,7 +519,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v44</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v45</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -2029,7 +2032,7 @@ function ftUpdateSelLabel(p){
 }
 async function ftRenderNodes(p){
   const box=$('ftree-'+p);
-  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
+  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','',this)" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
   html+=await ftNodeHtml(p,'',0);
   box.innerHTML=html;
   ftUpdateSelLabel(p);
@@ -2043,15 +2046,60 @@ async function ftNodeHtml(p,path,depth){
     const childPath=path?`${path}/${f.name}`:f.name;
     const open=FT_OPEN[ftKey(p,childPath)];
     const sel=FT_SEL[p]===childPath?'sel':'';
-    html+=`<div class="ft-node"><div class="ft-row ${sel}" onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath)}',true,'${f.id}','${esc(f.name)}')"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+    html+=`<div class="ft-node"><div class="ft-row ${sel}" draggable="true"
+      ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
+      ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
+      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath)}',true,'${f.id}','${esc(f.name)}')"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
   for(const f of files){
-    html+=`<div class="ft-row file" onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+    html+=`<div class="ft-row file" draggable="true"
+      ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
+}
+// ── 드래그앤드롭 이동 ──
+let _ftDrag=null;  // {p, itemId, name, isFolder, srcPath}
+function ftDragStart(e,p,itemId,name,isFolder,srcPath){
+  e.stopPropagation();
+  _ftDrag={p,itemId,name,isFolder,srcPath};
+  e.dataTransfer.effectAllowed='move';
+  try{ e.dataTransfer.setData('text/plain',name); }catch(_){}
+}
+function ftDragOver(e,el){
+  if(!_ftDrag) return;
+  e.preventDefault(); e.stopPropagation();
+  e.dataTransfer.dropEffect='move';
+  el.classList.add('ft-drop-hover');
+}
+function ftDragLeave(el){ el.classList.remove('ft-drop-hover'); }
+async function ftDrop(e,p,destPath,el){
+  e.preventDefault(); e.stopPropagation();
+  el.classList.remove('ft-drop-hover');
+  const d=_ftDrag; _ftDrag=null;
+  if(!d) return;
+  const root=DOC_MAP[p];
+  // 자기 자신/같은 위치/자기 하위로는 이동 금지
+  const srcFull = d.srcPath ? `${root}/${d.srcPath}` : root;       // 파일이 있던 폴더(폴더면 자기 경로)
+  const dragFull = d.isFolder ? `${root}/${d.srcPath}` : null;
+  const destFull = `${root}/${destPath}`;
+  if(d.isFolder){
+    if(destFull===dragFull){ toast('같은 폴더입니다','bad'); return; }
+    if(destFull.startsWith(dragFull+'/')){ toast('하위 폴더로는 이동할 수 없습니다','bad'); return; }
+    if(destFull===dragFull.split('/').slice(0,-1).join('/')){ toast('이미 이 위치에 있습니다','bad'); return; }
+  } else {
+    if(srcFull===destFull){ toast('이미 이 폴더에 있습니다','bad'); return; }
+  }
+  try{
+    toast(`"${d.name}" 이동 중…`);
+    await spMoveItem(d.itemId, destFull);
+    toast(`"${d.name}" 이동 완료`,'ok');
+    FT_CHILDREN={}; DOC_INDEX_AT=0;
+    renderFileTree(p);
+  }catch(err){ toast('이동 실패: '+err.message,'bad'); }
 }
 async function ftToggle(p,path){
   const k=ftKey(p,path);
