@@ -511,6 +511,70 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .act-log-row .act{color:#fff}
 .act-log-empty{font-size:11px;color:rgba(255,255,255,0.5);padding:8px 10px;text-align:center}
 @media(max-width:1100px){.act-log{display:none}}
+
+/* ===== 구매 페이지 ===== */
+:root{ --a:#7c3aed; --ad:#ede9fe; }
+#page-purchase .pwrap{display:flex;gap:0;min-height:calc(100vh - 170px)}
+#page-purchase .psidebar{width:212px;flex-shrink:0;padding:14px 0}
+.psb-section{margin-bottom:6px}
+.psb-title{font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;text-transform:uppercase;padding:8px 14px 4px}
+.psb-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13.5px;color:var(--t2);border-radius:0 8px 8px 0;margin-right:10px;border-left:3px solid transparent;transition:all .1s}
+.psb-item:hover{background:var(--bg2);color:var(--p)}
+.psb-item.active{background:var(--pd);color:var(--p);font-weight:700;border-left-color:var(--p)}
+.psb-item.sub{padding-left:30px;font-size:13px}
+.psb-item.dim{opacity:.5}
+.psb-badge{margin-left:auto;font-size:11px;font-weight:800;padding:1px 7px;border-radius:99px;background:#e5e7eb;color:var(--t2)}
+.psb-badge.y{background:var(--yd);color:var(--y)}
+.psb-badge.g{background:var(--gd);color:var(--g)}
+.psb-badge.b{background:var(--pd);color:var(--p)}
+.psb-badge.p{background:var(--ad);color:var(--a)}
+#page-purchase .pcontent{flex:1;padding:16px 18px;min-width:0}
+.psub{display:none}
+.psub.on{display:block}
+.pkpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.pkpi{background:var(--bg2);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);border-left:4px solid var(--p)}
+.pkpi.g{border-left-color:var(--g)} .pkpi.y{border-left-color:var(--y)} .pkpi.p{border-left-color:var(--a)} .pkpi.b{border-left-color:var(--p)}
+.pkpi-label{font-size:12px;color:var(--t3);font-weight:700;margin-bottom:6px;letter-spacing:.3px}
+.pkpi-val{font-size:24px;font-weight:800;line-height:1;color:var(--t1)}
+.pkpi-sub{font-size:12px;color:var(--t3);margin-top:5px}
+.pcard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.pcard-h{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.pcard-title{font-size:15px;font-weight:800;color:var(--t1)}
+.pcard-cnt{font-size:12.5px;color:var(--t3)}
+.pcard-h .sp{flex:1}
+.ptbl-wrap{overflow-x:auto}
+.ptbl{width:100%;border-collapse:collapse;font-size:13px}
+.ptbl th{text-align:left;padding:9px 12px;background:var(--bg3);color:var(--t2);font-weight:700;font-size:12px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0}
+.ptbl td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle;white-space:nowrap}
+.ptbl td.wrap{white-space:normal;min-width:160px}
+.ptbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+.ptbl tr:hover td{background:var(--bg3)}
+.ptbl tr:last-child td{border-bottom:none}
+.pbadge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#e5e7eb;color:var(--t2)}
+.pbadge.g{background:var(--gd);color:#065f46} .pbadge.y{background:var(--yd);color:#92400e} .pbadge.b{background:var(--pd);color:var(--p2)} .pbadge.r{background:var(--rd);color:#991b1b}
+.ppjt{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:#0f4c81;color:#fff;letter-spacing:.3px}
+.ppjt.bp{background:#7c3aed}
+.pempty{text-align:center;color:var(--t3);padding:36px 16px;font-size:13.5px}
+.pbtn{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--t1);font-family:inherit}
+.pbtn:hover{border-color:var(--p);color:var(--p)}
+.pbtn.primary{background:var(--p);color:#fff;border-color:var(--p)}
+.pbtn.primary:hover{background:var(--p2);color:#fff}
+.pfilter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pfilter input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg3)}
+.ppill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding:5px 11px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;color:var(--t2)}
+.ppill.on{background:var(--p);color:#fff;border-color:var(--p)}
+.psoon{background:var(--ad);border:1px solid #ddd6fe;border-radius:12px;padding:22px;color:#5b21b6;font-size:14px;line-height:1.6}
+.pmeta{font-size:12px;color:var(--t3);margin-bottom:12px}
+.pacc{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:var(--bg2)}
+.pacc-h{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer}
+.pacc-h:hover{background:var(--bg3)}
+.pacc-stages{display:flex;gap:6px;flex-wrap:wrap}
+.pstage{font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:#e5e7eb;color:var(--t2)}
+.pstage.on{background:var(--gd);color:#065f46}
+.pacc-body{display:none;padding:0 15px 14px;border-top:1px solid var(--border)}
+.pacc.open .pacc-body{display:block}
+@media(max-width:760px){#page-purchase .pwrap{flex-direction:column}#page-purchase .psidebar{width:100%;display:flex;flex-wrap:wrap;gap:4px;padding:8px;border-bottom:1px solid var(--border)}.psb-section{display:flex;gap:4px;align-items:center}.psb-title{display:none}.psb-item{margin-right:0;border-radius:8px}}
+
 </style>
 </head>
 <body>
@@ -557,6 +621,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-tattach" onclick="showPage('tattach')">📎 팀즈첨부파일정리<span class="nav-cnt" id="taCnt" style="display:none">0</span></button>
   <button id="nav-mattach" onclick="showPage('mattach')">📧 이메일첨부파일정리<span class="nav-cnt" id="maCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
+  <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
 </div>
 
 <!-- 메일 페이지 -->
@@ -645,6 +710,71 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <button class="ma-subtab" id="maTabSent" onclick="maSwitch('sent')">📤 보낸편지함<span class="nav-cnt" id="maSentCnt" style="display:none">0</span></button>
     </div>
     <div id="maList"></div>
+  </div>
+</div>
+
+
+<!-- 구매 페이지 -->
+<div class="page" id="page-purchase">
+  <div class="pwrap">
+    <div class="psidebar">
+      <div class="psb-section">
+        <div class="psb-title">현황</div>
+        <div class="psb-item active" data-p="overview" onclick="pShowPage('overview')">📊 전체 현황</div>
+        <div class="psb-item" data-p="activity" onclick="pShowPage('activity')">🔄 구매활동 <span class="psb-badge p" id="pcnt-act">·</span></div>
+      </div>
+      <div class="psb-section">
+        <div class="psb-title">구매 프로세스 (조회)</div>
+        <div class="psb-item" data-p="pr" onclick="pShowPage('pr')">📋 구매요청 <span class="psb-badge y" id="pcnt-pr">-</span></div>
+        <div class="psb-item" data-p="pp" onclick="pShowPage('pp')">📝 구매품의 <span class="psb-badge" id="pcnt-pp">-</span></div>
+        <div class="psb-item" data-p="po" onclick="pShowPage('po')">📦 발주현황 <span class="psb-badge b" id="pcnt-po">-</span></div>
+        <div class="psb-item" data-p="rc" onclick="pShowPage('rc')">✅ 입고정산 <span class="psb-badge g" id="pcnt-rc">-</span></div>
+        <div class="psb-item" data-p="mr" onclick="pShowPage('mr')">📤 자재출고 <span class="psb-badge p" id="pcnt-mr">-</span></div>
+      </div>
+      <div class="psb-section">
+        <div class="psb-title">매출 연계</div>
+        <div class="psb-item" data-p="iv" onclick="pShowPage('iv')">🧾 거래명세서 <span class="psb-badge" id="pcnt-iv">-</span></div>
+      </div>
+      <div class="psb-section">
+        <div class="psb-title">작성 (영림원 직접 저장)</div>
+        <div class="psb-item dim" data-p="pp_new" onclick="pShowPage('pp_new')">✏️ 구매품의 작성</div>
+        <div class="psb-item dim" data-p="po_new" onclick="pShowPage('po_new')">✏️ 발주 작성</div>
+        <div class="psb-item dim" data-p="dv_new" onclick="pShowPage('dv_new')">✏️ 납품확인</div>
+        <div class="psb-item dim" data-p="iv_new" onclick="pShowPage('iv_new')">📄 전표발행</div>
+        <div class="psb-item dim" data-p="vch" onclick="pShowPage('vch')">🧾 전표작성</div>
+      </div>
+    </div>
+    <div class="pcontent">
+      <div class="pmeta" id="p-meta">불러오는 중…</div>
+
+      <!-- 전체 현황 -->
+      <div class="psub on" id="p-overview">
+        <div class="pkpi-grid" id="p-kpi"></div>
+        <div class="pcard">
+          <div class="pcard-h"><span class="pcard-title">📊 프로젝트별 진행 요약</span><span class="sp"></span>
+            <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button></div>
+          <div class="ptbl-wrap"><table class="ptbl" id="p-ovtbl"></table></div>
+        </div>
+      </div>
+
+      <!-- 구매활동 (파이프라인) -->
+      <div class="psub" id="p-activity"><div id="p-act-list"></div></div>
+
+      <!-- 조회 6종 -->
+      <div class="psub" id="p-pr"></div>
+      <div class="psub" id="p-pp"></div>
+      <div class="psub" id="p-po"></div>
+      <div class="psub" id="p-rc"></div>
+      <div class="psub" id="p-mr"></div>
+      <div class="psub" id="p-iv"></div>
+
+      <!-- 작성(준비중) -->
+      <div class="psub" id="p-pp_new"></div>
+      <div class="psub" id="p-po_new"></div>
+      <div class="psub" id="p-dv_new"></div>
+      <div class="psub" id="p-iv_new"></div>
+      <div class="psub" id="p-vch"></div>
+    </div>
   </div>
 </div>
 
@@ -1215,6 +1345,7 @@ function showPage(p){
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
   else if(p==='admin'){ admLoad(); }
+  else if(p==='purchase'){ pInit(); }
 }
 
 // ── 주소록 ──
@@ -3361,6 +3492,236 @@ if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getI
   runAuthPopup();
 }else{
   tryAutoLogin();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   구매 페이지 (조회) — 100.ERP/*.json 읽기 · BG26002·BP26009 한정
+   ════════════════════════════════════════════════════════════════ */
+const P_PROJECTS = ["BG26002", "BP26009"];      // 대상 프로젝트
+const P_ERP_FOLDER = "100.ERP";                 // TIC-Mail 사이트 내 폴더
+const P_FILES = ["pr","po","pp","rc","mr","iv"];
+let pData = {};                                  // {pr:[...], po:[...], ...}
+let pLoaded = false;
+let pCur = "overview";
+
+const pEsc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+const pNum = n => { const v=Number(n)||0; return v.toLocaleString(); };
+const pAmt = n => { const v=Number(n)||0;
+  if(Math.abs(v)>=1e8) return (v/1e8).toFixed(1)+"억";
+  if(Math.abs(v)>=1e4) return Math.round(v/1e4).toLocaleString()+"만";
+  return v.toLocaleString(); };
+const pYmd = s => { const d=String(s||"").replace(/-/g,"").slice(0,8);
+  return d.length===8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : (s||""); };
+function pProjCode(r){ return String(r.project_code || r.pjt_no || "").trim().toUpperCase(); }
+function pPjBadge(code){ const c=String(code||"").toUpperCase();
+  const cls = c.startsWith("BP") ? "ppjt bp" : "ppjt"; return `<span class="${cls}">${pEsc(c)}</span>`; }
+
+// ── 데이터 로드 (100.ERP에서) ──
+async function pInit(){
+  if(!pLoaded){ await pLoadAll(false); }
+  pShowPage(pCur);
+}
+async function pLoadAll(force){
+  document.getElementById("p-meta").textContent = "100.ERP에서 불러오는 중…";
+  let metaTxt = "";
+  try{
+    const results = await Promise.all(P_FILES.map(async k=>{
+      try{
+        const j = await spGetJson(`${P_ERP_FOLDER}/${k}.json`);
+        const rows = (j && Array.isArray(j.data)) ? j.data : (Array.isArray(j)? j : []);
+        // 안전망: 클라이언트에서도 프로젝트 재필터
+        const filtered = rows.filter(r => P_PROJECTS.map(p=>p.toUpperCase()).includes(pProjCode(r)));
+        return [k, filtered, j && j.updated_at];
+      }catch(e){ return [k, [], null]; }
+    }));
+    let upd = "";
+    results.forEach(([k,rows,u])=>{ pData[k]=rows; if(u && !upd) upd=u; });
+    pLoaded = true;
+    metaTxt = `프로젝트 ${P_PROJECTS.join(" · ")}  |  갱신 ${upd? new Date(upd).toLocaleString("ko-KR"):"-"}  |  100.ERP`;
+  }catch(e){
+    metaTxt = "데이터 로드 실패: " + (e.message||e);
+  }
+  document.getElementById("p-meta").textContent = metaTxt;
+  pUpdateCounts();
+  // 현재 페이지 다시 렌더
+  pRenderCurrent();
+}
+function pUpdateCounts(){
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set("pcnt-pr", pNum((pData.pr||[]).length));
+  set("pcnt-pp", pNum((pData.pp||[]).length));
+  set("pcnt-po", pNum((pData.po||[]).length));
+  set("pcnt-rc", pNum((pData.rc||[]).length));
+  set("pcnt-mr", pNum((pData.mr||[]).length));
+  set("pcnt-iv", pNum((pData.iv||[]).length));
+  set("pcnt-act", String(P_PROJECTS.length));
+}
+
+// ── 사이드 페이지 전환 ──
+function pShowPage(name){
+  pCur = name;
+  document.querySelectorAll("#page-purchase .psub").forEach(el=>el.classList.remove("on"));
+  const pg = document.getElementById("p-"+name); if(pg) pg.classList.add("on");
+  document.querySelectorAll("#page-purchase .psb-item").forEach(s=>s.classList.toggle("active", s.dataset.p===name));
+  pRenderCurrent();
+}
+function pRenderCurrent(){
+  const n = pCur;
+  if(n==="overview") return pRenderOverview();
+  if(n==="activity") return pRenderActivity();
+  if(P_FILES.includes(n)) return pRenderTable(n);
+  if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return pRenderSoon(n);
+}
+
+// ── 테이블 컬럼 구성 (실제 영림원 DB 스키마 기반) ──
+const P_COLS = {
+  pr: { title:"📋 구매요청", fields:[
+    ["req_date","요청일",pYmd], ["item_name","품명",null,"wrap"], ["item_no","품번"],
+    ["qty","수량","num"], ["amount","금액","amt"], ["dept","부서"], ["status","상태","badge"] ] },
+  pp: { title:"📝 구매품의", fields:[
+    ["appro_req_date","품의일",pYmd], ["appro_req_no","품의번호"], ["item_name","품명",null,"wrap"],
+    ["spec","규격"], ["qty","수량","num"], ["unit_name","단위"], ["tot_dom_amt","금액(VAT포함)","amt"],
+    ["cust_name","거래처"], ["emp_name","담당"], ["sm_curr_status_name","진행"] ] },
+  po: { title:"📦 발주현황", fields:[
+    ["order_date","발주일",pYmd], ["vendor","거래처"], ["item_name","품명",null,"wrap"], ["item_no","품번"],
+    ["qty","수량","num"], ["amount","금액","amt"], ["emp","담당"], ["status","상태","badge"] ] },
+  rc: { title:"✅ 입고정산", fields:[
+    ["delv_in_date","입고일",pYmd], ["delv_in_no","입고번호"], ["item_name","품명",null,"wrap"],
+    ["qty","수량","num"], ["unit_name","단위"], ["tot_dom_amt","금액(VAT포함)","amt"],
+    ["cust_name","거래처"], ["wh_name","창고"], ["slip_id","전표","slip"] ] },
+  mr: { title:"📤 자재출고", fields:[
+    ["out_date","출고일",pYmd], ["out_no","출고번호"], ["item_name","품명",null,"wrap"],
+    ["qty","수량","num"], ["unit_name","단위"], ["wh_name","창고"], ["use_type_name","용도"], ["emp_name","담당"] ] },
+  iv: { title:"🧾 거래명세서", fields:[
+    ["invoice_date","명세서일",pYmd], ["invoice_no","명세서번호"], ["cust_name","거래처"],
+    ["item_name","대표품명",null,"wrap"], ["tot_amt","총액","amt"], ["sm_progress_type_name","세금계산서","badge"] ] },
+};
+
+function pStatusBadge(v){
+  const s=String(v||"").trim();
+  let cls="";
+  if(/완료|확정|발행|승인/.test(s)) cls="g";
+  else if(/대기|미처리|미발행|작성/.test(s)) cls="y";
+  else if(/진행|발주|입고/.test(s)) cls="b";
+  else if(/취소|반려|중단/.test(s)) cls="r";
+  return s ? `<span class="pbadge ${cls}">${pEsc(s)}</span>` : '<span class="pbadge">-</span>';
+}
+
+function pRenderTable(key){
+  const cfg = P_COLS[key]; const rows = pData[key]||[];
+  const host = document.getElementById("p-"+key);
+  const head = cfg.fields.map(f=>`<th>${f[1]}</th>`).join("");
+  let body;
+  if(!rows.length){
+    body = `<tr><td colspan="${cfg.fields.length+1}"><div class="pempty">표시할 데이터가 없습니다.<br><span style="font-size:12px">서버에서 100.ERP/${key}.json 이 아직 안 올라왔거나, 해당 프로젝트 데이터가 없습니다.</span></div></td></tr>`;
+  } else {
+    body = rows.map(r=>{
+      const tds = cfg.fields.map(f=>{
+        const [fld,,fmt,extra]=f;
+        let v=r[fld];
+        let cls="", out="";
+        if(fmt==="num"){ cls="num"; out=pNum(v); }
+        else if(fmt==="amt"){ cls="num"; out=v!=null? Number(v).toLocaleString():"-"; }
+        else if(fmt==="badge"){ out=pStatusBadge(v); }
+        else if(fmt==="slip"){ out = v ? '<span class="pbadge g">완료</span>' : '<span class="pbadge y">미처리</span>'; }
+        else if(typeof fmt==="function"){ out=pEsc(fmt(v)); }
+        else { out=pEsc(v==null?"":v); }
+        if(extra==="wrap") cls=(cls+" wrap").trim();
+        return `<td class="${cls}">${out}</td>`;
+      }).join("");
+      return `<tr><td>${pPjBadge(pProjCode(r))}</td>${tds}</tr>`;
+    }).join("");
+  }
+  host.innerHTML = `
+    <div class="pfilter">
+      <strong style="font-size:15px">${cfg.title}</strong>
+      <span class="pcard-cnt">${rows.length}건 · ${P_PROJECTS.join(" / ")}</span>
+      <span style="flex:1"></span>
+      <input id="pq-${key}" placeholder="🔍 품명·번호·거래처 검색" oninput="pFilterTable('${key}')">
+      <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button>
+    </div>
+    <div class="pcard"><div class="ptbl-wrap"><table class="ptbl">
+      <thead><tr><th>프로젝트</th>${head}</tr></thead>
+      <tbody id="ptb-${key}">${body}</tbody>
+    </table></div></div>`;
+}
+function pFilterTable(key){
+  const q=(document.getElementById("pq-"+key).value||"").trim().toLowerCase();
+  const cfg=P_COLS[key]; const rows=pData[key]||[];
+  const filt = !q ? rows : rows.filter(r=>cfg.fields.some(f=>String(r[f[0]]==null?"":r[f[0]]).toLowerCase().includes(q))
+                                          || pProjCode(r).toLowerCase().includes(q));
+  const tb=document.getElementById("ptb-"+key); if(!tb) return;
+  if(!filt.length){ tb.innerHTML=`<tr><td colspan="${cfg.fields.length+1}"><div class="pempty">검색 결과 없음</div></td></tr>`; return; }
+  tb.innerHTML = filt.map(r=>{
+    const tds=cfg.fields.map(f=>{const [fld,,fmt,extra]=f;let v=r[fld];let cls="",out="";
+      if(fmt==="num"){cls="num";out=pNum(v);}else if(fmt==="amt"){cls="num";out=v!=null?Number(v).toLocaleString():"-";}
+      else if(fmt==="badge"){out=pStatusBadge(v);}else if(fmt==="slip"){out=v?'<span class="pbadge g">완료</span>':'<span class="pbadge y">미처리</span>';}
+      else if(typeof fmt==="function"){out=pEsc(fmt(v));}else{out=pEsc(v==null?"":v);}
+      if(extra==="wrap")cls=(cls+" wrap").trim();return `<td class="${cls}">${out}</td>`;}).join("");
+    return `<tr><td>${pPjBadge(pProjCode(r))}</td>${tds}</tr>`;}).join("");
+}
+
+// ── 전체 현황 (KPI + 프로젝트별 요약) ──
+function pRenderOverview(){
+  const kpi=document.getElementById("p-kpi");
+  const prN=(pData.pr||[]).length, poN=(pData.po||[]).length, ppN=(pData.pp||[]).length;
+  const rcN=(pData.rc||[]).length, mrN=(pData.mr||[]).length;
+  const rcAmt=(pData.rc||[]).reduce((s,r)=>s+(Number(r.tot_dom_amt)||0),0);
+  const rcPending=(pData.rc||[]).filter(r=>!r.slip_id).length;
+  kpi.innerHTML = `
+    <div class="pkpi y"><div class="pkpi-label">구매요청</div><div class="pkpi-val">${prN}</div><div class="pkpi-sub">건</div></div>
+    <div class="pkpi b"><div class="pkpi-label">구매품의</div><div class="pkpi-val">${ppN}</div><div class="pkpi-sub">건</div></div>
+    <div class="pkpi b"><div class="pkpi-label">발주</div><div class="pkpi-val">${poN}</div><div class="pkpi-sub">건</div></div>
+    <div class="pkpi g"><div class="pkpi-label">입고정산</div><div class="pkpi-val">${rcN}</div><div class="pkpi-sub">${pAmt(rcAmt)}원 · 미전표 ${rcPending}</div></div>
+    <div class="pkpi p"><div class="pkpi-label">자재출고</div><div class="pkpi-val">${mrN}</div><div class="pkpi-sub">건</div></div>`;
+  // 프로젝트별 요약 표
+  const tbl=document.getElementById("p-ovtbl");
+  const head=`<thead><tr><th>프로젝트</th><th>구매요청</th><th>구매품의</th><th>발주</th><th>입고정산</th><th class="num">입고금액</th><th>자재출고</th></tr></thead>`;
+  const byCode = code => ({
+    pr:(pData.pr||[]).filter(r=>pProjCode(r)===code).length,
+    pp:(pData.pp||[]).filter(r=>pProjCode(r)===code).length,
+    po:(pData.po||[]).filter(r=>pProjCode(r)===code).length,
+    rc:(pData.rc||[]).filter(r=>pProjCode(r)===code).length,
+    rcAmt:(pData.rc||[]).filter(r=>pProjCode(r)===code).reduce((s,r)=>s+(Number(r.tot_dom_amt)||0),0),
+    mr:(pData.mr||[]).filter(r=>pProjCode(r)===code).length,
+  });
+  const body = P_PROJECTS.map(code=>{ const c=code.toUpperCase(); const s=byCode(c);
+    return `<tr><td>${pPjBadge(c)}</td><td>${s.pr}</td><td>${s.pp}</td><td>${s.po}</td><td>${s.rc}</td><td class="num">${Number(s.rcAmt).toLocaleString()}</td><td>${s.mr}</td></tr>`;
+  }).join("");
+  tbl.innerHTML = head + "<tbody>" + body + "</tbody>";
+}
+
+// ── 구매활동 (프로젝트별 단계 파이프라인) ──
+function pRenderActivity(){
+  const host=document.getElementById("p-act-list");
+  const stages=[["pr","구매요청"],["pp","구매품의"],["po","발주"],["rc","입고정산"],["mr","자재출고"]];
+  host.innerHTML = `<div class="pmeta">프로젝트별 구매 진행 단계 — 클릭하면 최근 항목이 펼쳐집니다.</div>` +
+    P_PROJECTS.map((code,i)=>{ const c=code.toUpperCase();
+      const counts = stages.map(([k])=>({k, n:(pData[k]||[]).filter(r=>pProjCode(r)===c).length}));
+      const chips = stages.map(([k,lbl])=>{ const n=counts.find(x=>x.k===k).n;
+        return `<span class="pstage ${n>0?'on':''}">${lbl} ${n}</span>`; }).join("");
+      const recent = (pData.rc||[]).filter(r=>pProjCode(r)===c).slice(0,8);
+      const det = recent.length ? `<table class="ptbl"><thead><tr><th>입고일</th><th>품명</th><th class="num">금액</th><th>거래처</th><th>전표</th></tr></thead><tbody>`+
+        recent.map(r=>`<tr><td>${pYmd(r.delv_in_date)}</td><td class="wrap">${pEsc(r.item_name)}</td><td class="num">${Number(r.tot_dom_amt||0).toLocaleString()}</td><td>${pEsc(r.cust_name)}</td><td>${r.slip_id?'<span class="pbadge g">완료</span>':'<span class="pbadge y">미처리</span>'}</td></tr>`).join("")+
+        `</tbody></table>` : `<div class="pempty">입고정산 내역 없음</div>`;
+      return `<div class="pacc" id="pacc-${i}">
+        <div class="pacc-h" onclick="document.getElementById('pacc-${i}').classList.toggle('open')">
+          ${pPjBadge(c)} <strong style="font-size:14px">${pEsc((pData.pp||pData.rc||[]).find(r=>pProjCode(r)===c)?.project_name || "")}</strong>
+          <span style="flex:1"></span><div class="pacc-stages">${chips}</div></div>
+        <div class="pacc-body"><div style="margin-top:10px"></div>${det}</div></div>`;
+    }).join("");
+}
+
+// ── 작성 페이지 (준비중 안내) ──
+function pRenderSoon(name){
+  const labels={pp_new:"구매품의 작성",po_new:"발주 작성",dv_new:"납품확인",iv_new:"전표발행",vch:"전표작성(분개전표→전자결재)"};
+  document.getElementById("p-"+name).innerHTML = `
+    <div class="psoon">
+      <div style="font-size:17px;font-weight:800;margin-bottom:8px">✏️ ${labels[name]} — 연결 준비 중</div>
+      이 작성 기능은 영림원 ERP에 <b>직접 저장</b>되는 단계라(PC 서버 → Playwright → 영림원), 검증된 기존 코드를 그대로 이식해 다음 단계에 붙입니다.<br><br>
+      대상 프로젝트 <b>${P_PROJECTS.join(" · ")}</b> 의 미처리 건만 불러와 작성하도록 구성됩니다.<br>
+      <span style="font-size:12.5px;opacity:.8">※ 조회(구매요청·구매품의·발주현황·입고정산·자재출고·거래명세서)는 지금 바로 사용 가능합니다.</span>
+    </div>`;
 }
 
 </script>
