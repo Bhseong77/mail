@@ -499,7 +499,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ft-drop-hover{background:#dbeafe!important;outline:2px dashed var(--p);outline-offset:-2px;border-radius:6px}
 .ft-row[draggable=true]{cursor:default}
 .ft-row[draggable=true]:active{opacity:.6}
-.act-log{flex:1;max-width:680px;min-width:240px;margin:0 16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;height:78px}
+.act-log{flex:1;max-width:1100px;min-width:300px;margin:0 16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;height:78px}
 .act-log-h{font-size:11px;font-weight:700;color:#fff;padding:4px 10px;border-bottom:1px solid rgba(255,255,255,0.18);flex-shrink:0;opacity:.95}
 .act-log-body{flex:1;overflow-y:auto;padding:3px 0}
 .act-log-body::-webkit-scrollbar{width:7px}
@@ -530,7 +530,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v48</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v51</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -2074,7 +2074,7 @@ async function ftNodeHtml(p,path,depth){
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}',${f.size||0})"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -2128,9 +2128,9 @@ async function ftToggle(p,path){
   if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
 }
 function ftSelect(p,path){ FT_SEL[p]=path; ftRenderNodes(p); if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
-function ftMenu(e,p,path,isFolder,itemId,name){
+function ftMenu(e,p,path,isFolder,itemId,name,size){
   e.preventDefault(); e.stopPropagation();
-  _ftCtxTarget={page:p,path,isFolder,itemId,name};
+  _ftCtxTarget={page:p,path,isFolder,itemId,name,size:size||0};
   const m=$('ftCtx');
   m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
   m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
@@ -2144,7 +2144,7 @@ async function ftAct(action){
   if(action==='newfolder'){ await ftNewFolder(p, t.path); }
   else if(action==='mail'){
     if(!t.itemId || t.isFolder){ toast('파일만 첨부할 수 있습니다','bad'); return; }
-    await ftMailAttach(t.itemId, t.name);
+    await ftMailAttach(t.itemId, t.name, t.size);
   }
   else if(action==='upload'){ ftUploadTo(p,t.path); }
   else if(action==='rename'){
@@ -2518,22 +2518,61 @@ async function ftEditNewWin(itemId){
   catch(e){ toast('편집 열기 실패: '+e.message,'bad'); }
 }
 // SharePoint 파일을 첨부한 새 메일 작성
-async function ftMailAttach(itemId,name){
+// SharePoint 공유 링크 생성 (익명 30일 → 실패 시 조직 링크 폴백)
+async function spCreateShareLink(itemId, days){
+  const t=await graphToken(); const d=await spDrive();
+  const exp=new Date(Date.now()+ (days||30)*86400000).toISOString();
+  // 1차: 익명(누구나) 보기 링크 + 만료
+  const tryLink=async(scope, withExp)=>{
+    const body={type:"view", scope};
+    if(withExp) body.expirationDateTime=exp;
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/createLink`,
+      {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) return null;
+    const j=await r.json();
+    return {url:(j.link&&j.link.webUrl)||null, scope, exp:withExp?exp:null};
+  };
+  // 익명+만료 → 익명(만료없이) → 조직 순으로 시도
+  return (await tryLink("anonymous", true))
+      || (await tryLink("anonymous", false))
+      || (await tryLink("organization", true))
+      || (await tryLink("organization", false));
+}
+async function ftMailAttach(itemId,name,size){
   try{
+    // 20MB 넘으면 공유링크 방식 권장
+    const big = (size||0) > 20*1024*1024;
+    let useLink = big;
+    if(big){
+      useLink = confirm(`"${name}"은 20MB를 넘습니다(${(size/1048576).toFixed(1)}MB).\n\n[확인] SharePoint 공유링크로 보내기 (30일간 다운로드, 권장)\n[취소] 그래도 파일로 첨부 시도`);
+    }
+    if(useLink){
+      toast(`"${name}" 공유링크 생성 중…`);
+      const lk=await spCreateShareLink(itemId, 30);
+      if(!lk || !lk.url) throw new Error('공유링크 생성 실패 (테넌트 정책으로 익명 링크가 막혔을 수 있음)');
+      await openCompose('new');
+      const scopeTxt = lk.scope==='anonymous' ? '누구나 열람 가능' : '조직 내부(로그인 필요)';
+      const expTxt = lk.exp ? `\n(${new Date(lk.exp).toLocaleDateString('ko-KR')}까지 다운로드 가능)` : '';
+      $('cBody').value = `안녕하세요.\n\n첨부파일 "${name}"은 용량이 커서 다운로드 링크로 보내드립니다.\n\n▼ 다운로드 (${scopeTxt})${expTxt}\n${lk.url}\n\n감사합니다.\n`;
+      $('cSubj').value = name;
+      renderFileChips();
+      toast('공유링크 본문 삽입 완료 — 받는사람 입력 후 보내세요','ok');
+      actLog(`🔗 공유링크 메일: ${name} (${lk.scope}${lk.exp?', 30일':''})`);
+      return;
+    }
+    // 일반 첨부
     toast(`"${name}" 첨부 준비 중…`);
     const url=await spDownloadUrl(itemId);
     if(!url) throw new Error('다운로드 링크 없음');
     const fr=await fetch(url);
     if(!fr.ok) throw new Error('다운로드 실패 '+fr.status);
     const blob=await fr.blob();
-    if(blob.size>20*1024*1024){ if(!confirm(`"${name}"이 20MB를 넘습니다(${(blob.size/1048576).toFixed(1)}MB). 그래도 첨부할까요?`)) return; }
     const b64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=()=>rej(new Error('인코딩 실패')); r.readAsDataURL(blob); });
-    // 새 메일 열고 첨부 주입
     await openCompose('new');
     COMPOSE_ATT.push({filename:name, content_type:blob.type||'application/octet-stream', b64});
     renderFileChips();
     toast('첨부 완료 — 받는사람·제목 입력 후 보내세요','ok'); actLog(`✉ 메일첨부 준비: ${name}`);
-  }catch(e){ toast('첨부 실패: '+e.message,'bad'); }
+  }catch(e){ toast('실패: '+e.message,'bad'); }
 }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
@@ -2874,7 +2913,58 @@ function applyContactPicker(){
   inp.value=cur.join(', ');
   closeContactPicker();
 }
-function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];let total=0;const proc=files.map(f=>new Promise(res=>{total+=f.size;const fr=new FileReader();fr.onload=()=>{COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]});res();};fr.onerror=()=>res();fr.readAsDataURL(f);}));Promise.all(proc).then(()=>{if(total>20*1024*1024){$('cMsg').style.color='var(--r)';$('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다';}renderFileChips();});}
+async function onFiles(){
+  const files=Array.from($('cFiles').files||[]);
+  if(!files.length) return;
+  const BIG=20*1024*1024;
+  const small=files.filter(f=>f.size<=BIG);
+  const big=files.filter(f=>f.size>BIG);
+  // 작은 파일: 일반 첨부
+  COMPOSE_ATT=[];
+  await Promise.all(small.map(f=>new Promise(res=>{
+    const fr=new FileReader();
+    fr.onload=()=>{ COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]}); res(); };
+    fr.onerror=()=>res();
+    fr.readAsDataURL(f);
+  })));
+  renderFileChips();
+  // 작은 파일 합계도 20MB 넘으면 경고
+  const smallTotal=small.reduce((a,f)=>a+f.size,0);
+  if(smallTotal>BIG){ $('cMsg').style.color='var(--r)'; $('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다 — 일부를 빼주세요'; }
+  // 큰 파일: SharePoint 업로드 → 30일 공유링크 → 본문 삽입
+  if(big.length){
+    $('cMsg').style.color='var(--t2)';
+    const folder=`_메일첨부/${new Date().toISOString().slice(0,10)}_${Date.now().toString().slice(-5)}`;
+    let links='';
+    for(const f of big){
+      try{
+        $('cMsg').textContent=`📤 "${f.name}" 업로드 중… (${(f.size/1048576).toFixed(1)}MB)`;
+        await spEnsureFolder(folder);
+        const buf=await f.arrayBuffer();
+        const up=await spUploadFile(`${folder}/${f.name}`, buf, f.type||'application/octet-stream');
+        const lk=await spCreateShareLink(up.id, 30);
+        if(lk&&lk.url){
+          const scopeTxt=lk.scope==='anonymous'?'누구나 열람':'조직 내부(로그인)';
+          const expTxt=lk.exp?` · ${new Date(lk.exp).toLocaleDateString('ko-KR')}까지`:'';
+          links+=`\n▼ ${f.name} (${scopeTxt}${expTxt})\n${lk.url}\n`;
+          actLog(`🔗 메일 대용량링크: ${f.name} (${lk.scope})`);
+        } else {
+          links+=`\n▼ ${f.name} — 링크 생성 실패 (직접 공유 필요)\n`;
+        }
+      }catch(e){ links+=`\n▼ ${f.name} — 업로드 실패: ${e.message}\n`; }
+    }
+    // 본문에 링크 추가
+    const cur=$('cBody').value;
+    $('cBody').value = cur + (cur?'\n':'') + '【대용량 파일 다운로드 링크】' + links;
+    $('cMsg').style.color='var(--g)'; $('cMsg').textContent=`✅ 대용량 ${big.length}개 → 공유링크로 본문에 추가됨`;
+    renderBigChips(big);
+  }
+}
+// 큰 파일은 칩에 🔗 표시 (첨부가 아니라 링크임을 구분)
+function renderBigChips(big){
+  const extra=big.map(f=>`<span class="chip" style="background:#fef9c3;border-color:#fde047"><b>🔗 ${esc(f.name)}</b> <span style="font-size:11px;color:var(--t3)">(링크)</span></span>`).join('');
+  $('cFileList').insertAdjacentHTML('beforeend', extra);
+}
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
 async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
