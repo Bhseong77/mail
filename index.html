@@ -504,7 +504,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v38</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v39</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -589,7 +589,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="text" id="taSearch" placeholder="파일명·작성자 검색" oninput="taRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <button class="btn" onclick="taLoad()">↻ 새로고침</button>
+        <button class="btn" onclick="DOC_INDEX_AT=0;taLoad()">↻ 새로고침</button>
       </div>
     </div>
     <div id="taList"></div>
@@ -606,7 +606,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="text" id="maSearch" placeholder="파일명·제목·보낸사람 검색" oninput="maRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <button class="btn" onclick="maLoad()">↻ 새로고침</button>
+        <button class="btn" onclick="DOC_INDEX_AT=0;maLoad()">↻ 새로고침</button>
       </div>
     </div>
     <div class="ma-subtabs">
@@ -1518,42 +1518,47 @@ ${content}`;
 const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
 const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
 // ── 문서함 전체 파일 인덱스 (이동완료 판단용) ──
-// 4개 문서함을 재귀 스캔해서 {"파일명|크기": "기술자료/폴더경로"} 맵 생성
-let DOC_INDEX=null;        // {key: dest}  key="name|size"
-let DOC_INDEX_NAME=null;   // {name: dest}  크기 없는 항목(메일)용 폴백
+// 4개 문서함을 재귀 스캔해서 인덱스 생성. 이름 기준 매칭(크기는 보조 확인).
+let DOC_INDEX_NAME=null;   // {name: [{size, dest}]}  같은 이름이 여러 폴더에 있을 수 있음
 let DOC_INDEX_AT=0;
-function docIndexKey(name,size){ return `${name}|${size||0}`; }
+const DOC_INDEX_TTL=180000; // 3분 캐시
 async function buildDocIndex(force){
-  if(DOC_INDEX && !force && (Date.now()-DOC_INDEX_AT<60000)) return DOC_INDEX;
-  const idx={}, idxName={};
+  if(DOC_INDEX_NAME && !force && (Date.now()-DOC_INDEX_AT<DOC_INDEX_TTL)) return DOC_INDEX_NAME;
+  const byName={};
   for(const [tab,root] of Object.entries(DOC_MAP)){
     const label=DOC_TITLE[tab].replace(/^[^ ]+ /,'');
     async function walk(path,rel){
       let items=[];
       try{ items=await spList(path); }catch(e){ return; }
+      // 폴더/파일 병렬 처리 (하위 폴더 동시 스캔 → 속도↑)
+      const subdirs=[];
       for(const it of items){
-        if(it.folder){ await walk(`${path}/${it.name}`, rel?`${rel}/${it.name}`:it.name); }
+        if(it.folder){ subdirs.push([`${path}/${it.name}`, rel?`${rel}/${it.name}`:it.name]); }
         else if(it.file && it.name!=='_analysis.json'){
           const dest=label+(rel?'/'+rel:'');
-          idx[docIndexKey(it.name, it.size)] = dest;
-          idxName[it.name] = dest;
+          (byName[it.name]=byName[it.name]||[]).push({size:it.size||0, dest});
         }
       }
+      await Promise.all(subdirs.map(([p,r])=>walk(p,r)));
     }
     await walk(root, '');
   }
-  DOC_INDEX=idx; DOC_INDEX_NAME=idxName; DOC_INDEX_AT=Date.now();
-  return idx;
+  DOC_INDEX_NAME=byName; DOC_INDEX_AT=Date.now();
+  return byName;
 }
+// 이동완료 판단: 이름 일치 우선. 같은 이름이 여러 개면 크기로 정확한 폴더 선택.
 function docFindMoved(name,size){
-  if(!DOC_INDEX) return null;
-  return DOC_INDEX[docIndexKey(name,size)] || null;  // 이름+크기 일치(엄격)
+  if(!DOC_INDEX_NAME) return null;
+  const list=DOC_INDEX_NAME[name];
+  if(!list||!list.length) return null;
+  if(size){ const exact=list.find(x=>x.size===size); if(exact) return exact.dest; }
+  return list[0].dest;  // 이름만 일치 (크기 정보 없거나 안 맞아도 같은 이름이면 이동된 것으로 간주)
 }
-function docFindMovedFlexible(name,size){
-  if(!DOC_INDEX) return null;
-  if(size){ const d=DOC_INDEX[docIndexKey(name,size)]; if(d) return d; }
-  // 크기 정보가 없으면(메일 첨부) 이름만으로 폴백
-  return DOC_INDEX_NAME ? (DOC_INDEX_NAME[name]||null) : null;
+function docFindMovedFlexible(name,size){ return docFindMoved(name,size); }
+// 이동 직후: 전체 재스캔 없이 방금 올린 파일만 인덱스에 추가 (즉시 ✅ + 빠름)
+function docIndexAdd(name,size,dest){
+  if(!DOC_INDEX_NAME) DOC_INDEX_NAME={};
+  (DOC_INDEX_NAME[name]=DOC_INDEX_NAME[name]||[]).push({size:size||0, dest});
 }
 // ════════ 팀즈 첨부파일 정리 ════════
 const TA_PATH="teams_attachments.json";
@@ -1568,9 +1573,9 @@ async function taLoad(){
   const hid=await spGetJson(TA_HIDDEN_PATH);
   TA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[];
   if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
-  // 문서함 전체 스캔 → 이동완료 계산 (이름+크기 일치)
+  // 문서함 스캔(캐시 3분) → 이동완료 계산
   $('taList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
-  try{ await buildDocIndex(true); }catch(e){}
+  try{ await buildDocIndex(false); }catch(e){}
   TA_MOVED={};
   const all=(TA_DATA.items||[]);
   for(const it of all){ const d=docFindMoved(it.name, it.size); if(d) TA_MOVED[it.id]=d; }
@@ -1680,7 +1685,7 @@ function taMove(idx){
       if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
       return await fr.arrayBuffer();
     },
-    onDone: async (destLabel)=>{ DOC_INDEX_AT=0; taLoad(); }
+    onDone: async (destLabel)=>{ docIndexAdd(it.name, it.size, destLabel); taLoad(); }
   };
   _openMoveModal();
 }
@@ -1766,7 +1771,7 @@ async function maLoad(){
   const hid=await spGetJson(MA_HIDDEN_PATH); MA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[];
   if(!MA_DATA){ $('maList').innerHTML='<div class="an-empty">수집된 메일 첨부파일이 없습니다. (서버 수집 스크립트 mail_attachments.py 실행 필요)</div>'; $('maSub').textContent='enjet_ed 메일 첨부파일'; return; }
   $('maList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
-  try{ await buildDocIndex(true); }catch(e){}
+  try{ await buildDocIndex(false); }catch(e){}
   MA_MOVED={};
   const all=(MA_DATA.items||[]);
   for(const it of all){ const d=docFindMovedFlexible(it.name, it.size); if(d) MA_MOVED[it.id]=d; }
@@ -1829,7 +1834,7 @@ function maMove(idx){
     name: it.name||'',
     mime: it.mime||'application/octet-stream',
     getBytes: async ()=>{ const fr=await fetch(maDlUrl(it)); if(!fr.ok) throw new Error("메일 첨부 다운로드 실패 "+fr.status); return await fr.arrayBuffer(); },
-    onDone: async (destLabel)=>{ DOC_INDEX_AT=0; maLoad(); }
+    onDone: async (destLabel)=>{ docIndexAdd(it.name, it.size, destLabel); maLoad(); }
   };
   _openMoveModal();
 }
