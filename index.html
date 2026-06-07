@@ -832,7 +832,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v58</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v59</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -1400,6 +1400,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="row" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="$('taMoveModal').classList.remove('on')">취소</button>
+        <button class="btn" onclick="taDoCopy()" id="taCopyBtn" style="display:none">📋 여기로 복사</button>
         <button class="btn primary" onclick="taDoMove()" id="taMoveBtn">📁 여기에 복사</button>
       </div>
       <div id="taMoveMsg" style="font-size:12px;margin-top:10px;text-align:right"></div>
@@ -2567,6 +2568,7 @@ function _openMoveModal(){
   const isMove=_moveCtx&&_moveCtx.mode==='move';
   const tt=$('taMoveTitle'); if(tt) tt.textContent=isMove?'📂 다른 폴더로 이동':'📁 문서함으로 복사';
   const bt=$('taMoveBtn'); if(bt) bt.textContent=isMove?'📂 여기로 이동':'📁 여기에 복사';
+  const cb=$('taCopyBtn'); if(cb) cb.style.display=isMove?'inline-flex':'none';
   $('taMoveFile').textContent='📄 '+(_moveCtx?_moveCtx.name:'');
   $('taMoveMsg').textContent='';
   _taFxRel="";
@@ -2645,6 +2647,37 @@ async function taDoMove(){
   }catch(e){
     msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
   }
+}
+// 원본을 유지한 채 선택 폴더로 복사 (이동 모달의 '여기로 복사')
+async function taDoCopy(){
+  if(!_moveCtx) return;
+  const destTab=$('taMoveDest').value;
+  const destFolder=taFxFullPath();
+  const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
+  const msg=$('taMoveMsg');
+  try{
+    msg.style.color='var(--t3)'; msg.textContent='복사 중…';
+    let bytes, mime=_moveCtx.mime||'application/octet-stream';
+    if(typeof _moveCtx.getBytes==='function'){
+      bytes=await _moveCtx.getBytes();
+    } else if(_moveCtx.itemId){
+      const t=await graphToken(); const d=await spDrive();
+      const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${_moveCtx.itemId}`,{headers:{Authorization:"Bearer "+t}});
+      if(!r0.ok) throw new Error("원본 조회 실패 "+r0.status);
+      const meta=await r0.json();
+      if(meta.file&&meta.file.mimeType) mime=meta.file.mimeType;
+      const dlUrl=meta["@microsoft.graph.downloadUrl"];
+      if(!dlUrl) throw new Error("다운로드 링크 없음");
+      const fr=await fetch(dlUrl); if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
+      bytes=await fr.arrayBuffer();
+    } else { throw new Error("복사할 원본을 찾을 수 없음"); }
+    await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, mime);
+    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨 (원본 유지)';
+    if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
+    actLog(`📋 문서함 복사: ${_moveCtx.name} → ${destLabel}`);
+    toast('복사 완료','ok');
+    setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
+  }catch(e){ msg.style.color='var(--r)'; msg.textContent='복사 실패: '+e.message; }
 }
 // 기술자료 트리 파일 → 다른 폴더로 이동(진짜 이동)
 function ftMoveFile(p,itemId,name){
