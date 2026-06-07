@@ -832,7 +832,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v59</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v61</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -840,7 +840,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="act-log-body" id="actLogBody"><div class="act-log-empty">기록 없음</div></div>
     </div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
-    <button class="btn-chat-back" onclick="backToTeamsChat()">← 채팅으로</button>
+    <button class="btn-hdr" id="permNavBtn" style="display:none" onclick="showPage('perm')">🔐 권한설정</button>
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
@@ -1442,6 +1442,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     </div>
   </div>
 </div>
+<div class="page" id="page-perm"><div class="adm-wrap" id="perm-wrap"></div></div>
 <div class="page" id="page-admin">
   <div class="adm-wrap">
     <div class="adm-head">
@@ -1919,11 +1920,15 @@ async function spDeleteItem(itemId){
 let curPage='mail';
 function showPage(p){
   curPage=p;
-  // 관리자설정은 baekhoon만
-  if(p==='admin'){
+  // 권한설정 = 슈퍼관리자 전용 / 관리자설정 = 관리자
+  if(p==='perm'){
+    if((_account&&(_account.username||'')).toLowerCase()!=='baekhoon@enjet.co.kr'){ toast('슈퍼관리자 전용입니다','bad'); return; }
+  } else if(p==='admin'){
     const upn=(_account&&(_account.username||'')).toLowerCase();
     if(upn!=='baekhoon@enjet.co.kr'){ toast('관리자 전용입니다','bad'); return; }
   }
+  // 보기 권한 차단 (관리자/미설정은 통과)
+  if(typeof canView==='function' && !canView(p)){ toast('보기 권한이 없습니다','bad'); return; }
   document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail');
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.topnav button').forEach(el=>el.classList.remove('active'));
@@ -1935,6 +1940,7 @@ function showPage(p){
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
   else if(p==='admin'){ admLoad(); }
+  else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
 }
 
@@ -4086,8 +4092,10 @@ function startApp(){
   // 관리자(baekhoon)만 관리자설정 버튼 표시
   try{
     const upn=(_account&&(_account.username||'')).toLowerCase();
-    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; }
+    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; const pb=$('permNavBtn'); if(pb) pb.style.display='inline-block'; }
   }catch(e){}
+  // 권한 로드 → 탭 보기/입력 권한 적용
+  try{ if(typeof loadPerm==='function'){ loadPerm().then(()=>{ try{ permEnforce(); }catch(e){} }); } }catch(e){}
   // Teams 환경이면 '채팅으로' 버튼 표시 (initTeams 못 돈 경우 대비)
   initTeams().then(()=>{ if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; } });
   // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
@@ -6975,6 +6983,247 @@ function pWriteInit(name){
   _pWriteInited[name] = true;
   const fn = loaders[name];
   try{ if(typeof window[fn]==='function') window[fn](false); }catch(e){ console.warn('pWriteInit',name,e); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   권한설정 — 탭별 보기/입력 권한 (입력자는 [일반|TIC] 채널 멤버 기준)
+   저장: TIC-Mail/permissions.json  ·  관리자(baekhoon)만 편집
+   ════════════════════════════════════════════════════════════════ */
+const PERM_PATH = "permissions.json";
+const TIC_GROUP_ID = "8457d8bf-1dd8-4e24-ad22-250816cc7d6d"; // [일반|TIC] 팀
+const PERM_TABS = [
+  {id:'mail',        label:'📧 메일'},
+  {id:'contacts',    label:'👥 주소록'},
+  {id:'doc-quote',   label:'📄 견적서'},
+  {id:'doc-invoice', label:'📋 거래명세서'},
+  {id:'doc-tax',     label:'🧾 세금계산서'},
+  {id:'doc-tech',    label:'📚 기술자료'},
+  {id:'tattach',     label:'📎 팀즈첨부'},
+  {id:'mattach',     label:'📧 이메일첨부'},
+  {id:'schedule',    label:'📅 통합일정'},
+  {id:'purchase',    label:'🛒 구매'},
+];
+let PERM = null;          // {updated_at,updated_by,members:[{email,name}],perm:{email:{view:[],write:[]}}}
+let PERM_LOADED = false;
+let _permWrapped = false;
+let _permEdit = null;     // 편집 중 임시본
+
+// ── 슈퍼관리자 (권한설정 탭은 이 계정만) ──
+const SUPER_ADMIN = "baekhoon@enjet.co.kr";
+function _isSuperAdmin(){ return _myEmail() === SUPER_ADMIN; }
+
+// ── 권한 판정 ──
+function _myEmail(){ return (((typeof _account!=='undefined'&&_account)?_account.username:'')||'').toLowerCase(); }
+function _isAdmin(){ return _myEmail()===SUPER_ADMIN; }
+function _permConfigured(){ return !!(PERM && PERM.perm && Object.keys(PERM.perm).length); }
+function canView(tab){
+  if(tab==='perm') return _isSuperAdmin();               // 권한설정 = 슈퍼관리자 전용
+  if(tab==='admin') return _isAdmin();
+  if(_isAdmin()) return true;
+  if(!_permConfigured()) return true;                 // 설정 전 = 전체 허용
+  const u=PERM.perm[_myEmail()];
+  return !!(u && (u.view||[]).includes(tab));
+}
+function canWrite(tab){
+  if(_isAdmin()) return true;
+  if(!_permConfigured()) return true;
+  const u=PERM.perm[_myEmail()];
+  return !!(u && (u.write||[]).includes(tab));
+}
+function guardWrite(tab){ if(canWrite(tab)) return true; if(typeof toast==='function') toast('입력 권한이 없습니다','bad'); return false; }
+
+// ── 로드/저장 ──
+async function loadPerm(){
+  try{ const j=await spGetJson(PERM_PATH); PERM=(j&&j.perm)?j:{members:[],perm:{}}; }
+  catch(e){ PERM={members:[],perm:{}}; }
+  if(!PERM.members) PERM.members=[];
+  if(!PERM.perm) PERM.perm={};
+  PERM_LOADED=true;
+  permWrapWrites();
+  return PERM;
+}
+async function savePermFile(){
+  PERM.updated_at=new Date().toISOString();
+  PERM.updated_by=(typeof myName==='function'?myName():_myEmail());
+  await spPutJson(PERM_PATH, PERM);
+}
+
+// ── TIC 채널 멤버 조회 (Graph, 추가 스코프) ──
+async function loadTicMembers(){
+  const app=msalApp(); await app.initialize();
+  const acct=app.getAllAccounts()[0];
+  if(!acct) throw new Error("로그인 필요");
+  const scopes=["GroupMember.Read.All"];
+  let token;
+  try{ const r=await app.acquireTokenSilent({scopes,account:acct}); token=r.accessToken; }
+  catch(e){ const r=await app.acquireTokenPopup({scopes}); token=r.accessToken; }
+  const out=[];
+  let url=`https://graph.microsoft.com/v1.0/groups/${TIC_GROUP_ID}/members?$select=displayName,mail,userPrincipalName&$top=100`;
+  while(url){
+    const r=await fetch(url,{headers:{Authorization:"Bearer "+token}});
+    if(!r.ok){ const t=await r.text(); throw new Error(`HTTP ${r.status}: ${t.slice(0,120)}`); }
+    const j=await r.json();
+    (j.value||[]).forEach(u=>{
+      const email=(u.mail||u.userPrincipalName||'').toLowerCase();
+      if(email) out.push({email, name:u.displayName||email});
+    });
+    url=j['@odata.nextLink']||null;
+  }
+  return out;
+}
+
+// ── 페이지 진입 ──
+async function permInit(){
+  if(!_isSuperAdmin()){ document.getElementById('perm-wrap').innerHTML='<div class="psoon" style="margin:20px">🔒 권한설정은 슈퍼관리자(baekhoon@enjet.co.kr) 전용입니다.</div>'; return; }
+  if(!PERM_LOADED) await loadPerm();
+  _permEdit = _permCloneFromConfig();
+  permRender();
+}
+function _permCloneFromConfig(){
+  // members: config + 현재 perm 키 합집합
+  const map={};
+  (PERM.members||[]).forEach(m=>{ map[m.email]={email:m.email,name:m.name||m.email}; });
+  Object.keys(PERM.perm||{}).forEach(e=>{ if(!map[e]) map[e]={email:e,name:e}; });
+  const members=Object.values(map).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+  const perm={};
+  members.forEach(m=>{ const u=(PERM.perm||{})[m.email]||{}; perm[m.email]={view:[...(u.view||[])],write:[...(u.write||[])]}; });
+  return {members,perm};
+}
+
+function permRender(){
+  const host=document.getElementById('perm-wrap');
+  const E=_permEdit;
+  const upd = PERM.updated_at ? `최종 저장 ${new Date(PERM.updated_at).toLocaleString('ko-KR')}${PERM.updated_by?' · '+esc(PERM.updated_by):''}` : '아직 저장된 권한이 없습니다 — 지금은 전 사용자 전체 접근 (설정 저장 시부터 제한 적용)';
+  let head=`<th style="position:sticky;left:0;background:var(--bg3);z-index:2;min-width:160px">멤버</th>`;
+  PERM_TABS.forEach(t=>{ head+=`<th style="text-align:center;min-width:96px">${t.label}<div style="font-size:10px;color:var(--t3);font-weight:600;margin-top:2px">👁보기 ✏입력</div></th>`; });
+  head+=`<th style="text-align:center;min-width:70px">행 전체</th><th></th>`;
+
+  let rows = E.members.map((m,i)=>{
+    let cells=PERM_TABS.map(t=>{
+      const v=(E.perm[m.email].view||[]).includes(t.id);
+      const w=(E.perm[m.email].write||[]).includes(t.id);
+      return `<td style="text-align:center;white-space:nowrap">
+        <label title="보기"><input type="checkbox" ${v?'checked':''} onchange="permToggle('${esc(m.email)}','${t.id}','view',this.checked)"></label>
+        <label title="입력" style="margin-left:4px"><input type="checkbox" ${w?'checked':''} onchange="permToggle('${esc(m.email)}','${t.id}','write',this.checked)"></label>
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="position:sticky;left:0;background:var(--bg2);z-index:1"><b>${esc(m.name)}</b><div style="font-size:11px;color:var(--t3)">${esc(m.email)}</div></td>
+      ${cells}
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn sm" onclick="permRowAll('${esc(m.email)}',true)">전체</button>
+        <button class="btn sm" onclick="permRowAll('${esc(m.email)}',false)">해제</button>
+      </td>
+      <td style="text-align:center"><button class="btn sm" onclick="permRemoveMember('${esc(m.email)}')" style="color:var(--r)">✕</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="${PERM_TABS.length+3}"><div class="pempty" style="padding:30px">멤버가 없습니다. [TIC 멤버 불러오기] 또는 직접 추가하세요.</div></td></tr>`;
+
+  host.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <h2 style="margin:0">🔐 권한설정</h2>
+      <span style="font-size:13px;color:var(--t3)">탭별 보기·입력 권한 · 입력자 = [일반｜TIC] 채널 멤버</span>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="permFetchMembers(this)">👥 TIC 멤버 불러오기</button>
+      <button class="btn" onclick="permAddManual()">+ 멤버 직접추가</button>
+      <button class="btn primary" onclick="permSave()">💾 저장</button>
+    </div>
+    <div class="psoon" style="margin-bottom:14px">
+      <b>👁 보기</b> = 해당 탭 진입 가능 · <b>✏ 입력</b> = 해당 탭에서 쓰기(작성·저장·업로드·이동 등) 가능.<br>
+      관리자(baekhoon)는 항상 전체 권한. 저장 전에는 전 사용자가 전체 접근하며, <b>저장하는 순간부터 명단 기준으로 제한</b>됩니다.
+      체크되지 않은 멤버는 그 탭을 볼 수 없습니다.
+    </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:62vh">
+      <table class="ptbl" style="font-size:12.5px"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <div id="perm-msg" style="font-size:12.5px;margin-top:10px"></div>
+    <div class="pmeta" style="margin-top:6px">${upd}</div>`;
+}
+
+function permToggle(email,tab,kind,on){
+  const u=_permEdit.perm[email]; if(!u) return;
+  const arr=u[kind]||(u[kind]=[]);
+  const idx=arr.indexOf(tab);
+  if(on && idx<0) arr.push(tab);
+  if(!on && idx>=0) arr.splice(idx,1);
+  // 입력 체크 시 보기도 자동 on (입력하려면 봐야 함)
+  if(kind==='write' && on){ const vv=u.view||(u.view=[]); if(!vv.includes(tab)){ vv.push(tab); permRender(); } }
+}
+function permRowAll(email,on){
+  const u=_permEdit.perm[email]; if(!u) return;
+  u.view = on ? PERM_TABS.map(t=>t.id) : [];
+  u.write= on ? PERM_TABS.map(t=>t.id) : [];
+  permRender();
+}
+function permRemoveMember(email){
+  _permEdit.members=_permEdit.members.filter(m=>m.email!==email);
+  delete _permEdit.perm[email];
+  permRender();
+}
+function permAddManual(){
+  const email=(prompt('추가할 MS 계정(이메일):')||'').trim().toLowerCase();
+  if(!email) return;
+  if(_permEdit.members.some(m=>m.email===email)){ toast('이미 있는 멤버','bad'); return; }
+  _permEdit.members.push({email,name:email.split('@')[0]});
+  _permEdit.perm[email]={view:[],write:[]};
+  permRender();
+}
+async function permFetchMembers(btn){
+  const msg=document.getElementById('perm-msg');
+  const orig=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='불러오는 중…';}
+  msg.style.color='var(--t3)'; msg.textContent='TIC 채널 멤버 조회 중… (권한 동의 창이 뜰 수 있습니다)';
+  try{
+    const members=await loadTicMembers();
+    // 기존 편집본에 병합 (권한은 유지)
+    members.forEach(m=>{
+      if(!_permEdit.members.some(x=>x.email===m.email)){ _permEdit.members.push(m); _permEdit.perm[m.email]={view:[],write:[]}; }
+      else { const ex=_permEdit.members.find(x=>x.email===m.email); if(ex && (!ex.name||ex.name===ex.email)) ex.name=m.name; }
+    });
+    _permEdit.members.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+    msg.style.color='var(--g)'; msg.textContent=`✅ TIC 멤버 ${members.length}명 불러옴`;
+    permRender();
+  }catch(e){
+    msg.style.color='var(--r)';
+    msg.innerHTML='멤버 조회 실패: '+esc(e.message)+'<br><span style="color:var(--t3)">권한(GroupMember.Read.All) 동의가 필요할 수 있습니다. 관리자 동의가 안 되면 [멤버 직접추가]로 이메일을 넣어주세요.</span>';
+  }finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
+}
+async function permSave(){
+  const msg=document.getElementById('perm-msg');
+  msg.style.color='var(--t3)'; msg.textContent='저장 중…';
+  try{
+    PERM.members=_permEdit.members.map(m=>({email:m.email,name:m.name}));
+    PERM.perm={};
+    _permEdit.members.forEach(m=>{ const u=_permEdit.perm[m.email]||{view:[],write:[]}; PERM.perm[m.email]={view:[...new Set(u.view||[])],write:[...new Set(u.write||[])]}; });
+    await savePermFile();
+    msg.style.color='var(--g)'; msg.textContent='✅ 저장 완료 — 멤버들이 새로고침하면 적용됩니다.';
+    try{ permEnforce(); }catch(e){}
+    if(typeof actLog==='function') actLog('🔐 권한설정 저장');
+    if(typeof toast==='function') toast('권한 저장 완료','ok');
+  }catch(e){ msg.style.color='var(--r)'; msg.textContent='저장 실패: '+esc(e.message); }
+}
+
+// ── 적용 ──
+function permEnforce(){
+  PERM_TABS.forEach(t=>{ const nav=document.getElementById('nav-'+t.id); if(nav) nav.style.display = canView(t.id) ? '' : 'none'; });
+  if(typeof curPage!=='undefined' && !canView(curPage) && curPage!=='admin' && curPage!=='perm'){
+    const first=PERM_TABS.find(t=>canView(t.id));
+    if(first) showPage(first.id);
+  }
+}
+
+// ── 입력(쓰기) 권한 가드: 주요 쓰기 진입점 래핑 (1회) ──
+function permWrapWrites(){
+  if(_permWrapped) return; _permWrapped=true;
+  const g=(name,tab)=>{ const o=window[name]; if(typeof o!=='function') return; window[name]=function(){ if(!guardWrite(tab)) return; return o.apply(this,arguments); }; };
+  // 메일
+  g('openCompose','mail'); g('deleteSelected','mail');
+  // 주소록
+  g('saveContacts','contacts');
+  // 구매 작성 (영림원 직접 저장)
+  ['ppnewSave','ponewSave','dvnewSave','vchSubmitVoucher','vchMakeVoucher','ivnewIssue','pCfgSave'].forEach(n=>g(n,'purchase'));
+  // 문서 이동/복사 — 대상 탭(taMoveDest) 기준
+  ['taDoMove','taDoCopy'].forEach(name=>{ const o=window[name]; if(typeof o==='function'){ window[name]=function(){ const sel=document.getElementById('taMoveDest'); const tab=sel?sel.value:''; if(tab && !canWrite(tab)){ if(typeof toast==='function')toast('입력 권한이 없습니다','bad'); return; } return o.apply(this,arguments); }; } });
+  // 문서 트리 쓰기(업로드/삭제/이름변경/새폴더/압축풀기) — _ftCtxTarget.page 기준
+  { const o=window.ftAct; if(typeof o==='function'){ window.ftAct=function(action){ const writeActs=['newfolder','upload','unzip','rename','delete']; if(writeActs.includes(action)){ const tab=(typeof _ftCtxTarget!=='undefined'&&_ftCtxTarget)?_ftCtxTarget.page:''; if(tab && !canWrite(tab)){ if(typeof toast==='function')toast('입력 권한이 없습니다','bad'); return; } } return o.apply(this,arguments); }; } }
 }
 
 </script>
