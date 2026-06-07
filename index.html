@@ -575,6 +575,243 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .pacc.open .pacc-body{display:block}
 @media(max-width:760px){#page-purchase .pwrap{flex-direction:column}#page-purchase .psidebar{width:100%;display:flex;flex-wrap:wrap;gap:4px;padding:8px;border-bottom:1px solid var(--border)}.psb-section{display:flex;gap:4px;align-items:center}.psb-title{display:none}.psb-item{margin-right:0;border-radius:8px}}
 
+
+/* ===== 작성 플로우 CSS (ERP 이식) ===== */
+.acc-page {
+  padding: 24px;
+  background: #f7f8fb;
+  min-height: 100%;
+}
+.acc-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.acc-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.5px;
+}
+.acc-page-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+.acc-period-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.acc-period-selector input[type="date"],
+.acc-period-selector select {
+  border: none;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #0f4c81;
+  background: transparent;
+}
+.acc-period-btn {
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  transition: all 0.15s;
+}
+.acc-period-btn:hover { background: #e5e7eb; }
+.acc-period-btn.today {
+  background: #0f4c81;
+  color: #fff;
+  border-color: #0f4c81;
+}
+.acc-period-info {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+/* KPI 카드 그리드 */
+.acc-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.acc-kpi-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 20px 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.acc-kpi-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.acc-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0f4c81, #00b4d8);
+}
+.acc-kpi-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.acc-kpi-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+.acc-kpi-card.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.acc-kpi-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.acc-kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+.acc-kpi-unit {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.acc-kpi-sub {
+  font-size: 14px;
+  margin-top: 8px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+.acc-kpi-delta {
+  font-size: 14px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+.acc-kpi-delta.up { color: #10b981; }
+.acc-kpi-delta.down { color: #ef4444; }
+
+/* 카드 */
+.acc-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  margin-bottom: 18px;
+}
+.acc-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.acc-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.acc-card-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 그리드 */
+.acc-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.acc-grid-3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+/* 차트 영역 */
+.acc-chart-wrap {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+.acc-chart-wrap.tall { height: 320px; }
+.acc-chart-wrap.short { height: 220px; }
+
+/* 테이블 */
+.acc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.acc-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f9fafb;
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.acc-table thead th.num { text-align: right; }
+.acc-table tbody td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.acc-table tbody td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.acc-table tbody tr:hover { background: #f9fafb; }
+.acc-table tbody tr:last-child td { border-bottom: none; }
+.acc-table .total-row {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+.acc-table .total-row td { color: #0f4c81; }
+
+.acc-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.acc-pill-기업은행 { background: #dbeafe; color: #1e40af; }
+.acc-pill-국민은행 { background: #fef3c7; color: #92400e; }
+.acc-pill-농협은행 { background: #d1fae5; color: #065f46; }
+.acc-pill-신한은행 { background: #e0e7ff; color: #3730a3; }
+.acc-pill-우리은행 { background: #fce7f3; color: #9f1239; }
+.acc-pill-default { background: #f3f4f6; color: #374151; }
+@keyframes jobqspin { 100% { transform: rotate(360deg); } }
+.jobq-spin { display:inline-block; animation: jobqspin 1s linear infinite; }
+
 </style>
 </head>
 <body>
@@ -595,7 +832,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v57</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v58</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -737,11 +974,11 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
-        <div class="psb-item dim" data-p="pp_new" onclick="pShowPage('pp_new')">✏️ 구매품의 작성</div>
-        <div class="psb-item dim" data-p="po_new" onclick="pShowPage('po_new')">✏️ 발주 작성</div>
-        <div class="psb-item dim" data-p="dv_new" onclick="pShowPage('dv_new')">✏️ 납품확인</div>
-        <div class="psb-item dim" data-p="iv_new" onclick="pShowPage('iv_new')">📄 전표발행</div>
-        <div class="psb-item dim" data-p="vch" onclick="pShowPage('vch')">🧾 전표작성</div>
+        <div class="psb-item" data-p="pp_new" onclick="pShowPage('pp_new')">✏️ 구매품의 작성</div>
+        <div class="psb-item" data-p="po_new" onclick="pShowPage('po_new')">✏️ 발주 작성</div>
+        <div class="psb-item" data-p="dv_new" onclick="pShowPage('dv_new')">✏️ 납품확인</div>
+        <div class="psb-item" data-p="iv_new" onclick="pShowPage('iv_new')">📄 전표발행</div>
+        <div class="psb-item" data-p="vch" onclick="pShowPage('vch')">🧾 전표작성</div>
       </div>
       <div class="psb-section">
         <div class="psb-title">설정</div>
@@ -773,11 +1010,356 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="psub" id="p-iv"></div>
 
       <!-- 작성(준비중) -->
-      <div class="psub" id="p-pp_new"></div>
-      <div class="psub" id="p-po_new"></div>
-      <div class="psub" id="p-dv_new"></div>
-      <div class="psub" id="p-iv_new"></div>
-      <div class="psub" id="p-vch"></div>
+      <div class="psub" id="p-pp_new">
+        <div class="acc-page">
+          <div class="acc-page-header">
+            <div>
+              <div class="acc-page-title">✏️ 구매품의 신규 작성</div>
+              <div class="acc-page-subtitle">미품의 구매요청 선택 → 자동 채움 → 영림원 직접 저장 (BETA)</div>
+            </div>
+          </div>
+          
+          <!-- STEP 1: 확정(승인) 구매요청 불러오기 -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 1. 확정(승인) 구매요청 선택</div>
+              <div class="acc-card-subtitle">결재 완료(확정)된 구매요청만 품의 작성 가능</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="acc-period-btn today" onclick="ppnewLoadConfirmed(false)">🔄 확정 구매요청 불러오기</button>
+              <button class="acc-period-btn" onclick="ppnewLoadConfirmed(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
+              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
+              <input type="text" id="ppnew-pjt-search" placeholder="프로젝트/요청번호/품목 필터 (선택)" oninput="ppnewRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:240px;">
+              <span id="ppnew-search-info" style="color:#6b7280;font-size:14px;"></span>
+            </div>
+            <div id="ppnew-requests-list" style="max-height:320px;overflow-y:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">「확정 구매요청 불러오기」를 눌러주세요</div>
+            </div>
+            <!-- 품의담당자(직원) 검색 팝업 -->
+            <div id="ppnew-emp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)ppnewCloseEmp()">
+              <div style="background:#fff;border-radius:12px;width:460px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+                <div style="padding:14px 16px;background:#0f4c81;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                  <span>👤 품의담당자 검색</span>
+                  <span style="cursor:pointer;font-size:18px;" onclick="ppnewCloseEmp()">✕</span>
+                </div>
+                <div style="padding:12px 16px;">
+                  <input type="text" id="ppnew-emp-q" placeholder="직원 이름 검색 후 Enter" onkeydown="if(event.key==='Enter')ppnewEmpSearch()" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+                  <div style="margin-top:6px;font-size:13px;color:#9ca3af;">이름 입력 후 Enter 또는 검색 버튼 · 영림원 직원 조회</div>
+                </div>
+                <div id="ppnew-emp-results" style="overflow-y:auto;border-top:1px solid #f1f5f9;flex:1;min-height:80px;"><div style="padding:16px;color:#9ca3af;text-align:center;">이름을 검색하세요</div></div>
+              </div>
+            </div>
+            <!-- 거래처 검색 팝업 -->
+            <div id="ppnew-cust-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)ppnewCloseCust()">
+              <div style="background:#fff;border-radius:12px;width:520px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+                <div style="padding:14px 16px;background:#0f4c81;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                  <span>🏢 구매거래처 검색</span>
+                  <span style="cursor:pointer;font-size:18px;" onclick="ppnewCloseCust()">✕</span>
+                </div>
+                <div style="padding:12px 16px;">
+                  <input type="text" id="ppnew-cust-q" placeholder="거래처명 / 사업자번호 / 대표자 검색" oninput="ppnewCustFilter()" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+                </div>
+                <div id="ppnew-cust-results" style="overflow-y:auto;border-top:1px solid #f1f5f9;"></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- STEP 2: 선택한 품목들 (구매품의 행 미리보기) -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 2. 구매품의 행 (선택한 품목)</div>
+              <div class="acc-card-subtitle">단가 입력 후 저장</div>
+            </div>
+            <div id="ppnew-selected-items">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">위에서 구매요청을 선택해주세요</div>
+            </div>
+          </div>
+          
+          <!-- STEP 3: 마스터 정보 + 저장 -->
+          <div class="acc-card" id="ppnew-save-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 3. 품의 정보 + 저장</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">품의일자</label>
+                <input type="date" id="ppnew-appro-date" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">품의부서</label>
+                <input type="text" id="ppnew-dept" value="경영전략본부" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+                <input type="hidden" id="ppnew-dept-seq" value="3">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">발주담당자(작성자)</label>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <input type="text" id="ppnew-emp" value="성백훈" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;" title="기본=로그인 계정. 🔍로 다른 담당자 선택 가능">
+                  <button type="button" onclick="ppnewOpenEmp()" style="padding:8px 10px;border:1px solid #0f4c81;border-radius:6px;background:#fff;color:#0f4c81;cursor:pointer;">🔍</button>
+                </div>
+                <input type="hidden" id="ppnew-emp-seq" value="49">
+              </div>
+              <div style="grid-column:span 3;">
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">비고</label>
+                <input type="text" id="ppnew-remark" placeholder="(선택)" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button onclick="ppnewReset()" style="padding:10px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;">초기화</button>
+              <button onclick="ppnewSave()" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;">💾 영림원에 저장</button>
+            </div>
+            <div id="ppnew-save-result" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="psub" id="p-po_new">
+        <div class="acc-page">
+          <div class="acc-page-header">
+            <div>
+              <div class="acc-page-title">✏️ 발주 신규 작성</div>
+              <div class="acc-page-subtitle">작성 상태 구매품의 선택 → 영림원 발주 자동 생성 (BETA)</div>
+            </div>
+          </div>
+
+          <!-- STEP 1: 작성 상태 품의 불러오기 -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 1. 발주할 구매품의 선택</div>
+              <div class="acc-card-subtitle">진행상태=작성 + 진행수량이 남은 품의만 발주 가능</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="acc-period-btn today" onclick="ponewLoadDrafts(false)">🔄 작성 품의 불러오기</button>
+              <button class="acc-period-btn" onclick="ponewLoadDrafts(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
+              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
+              <input type="text" id="ponew-search" placeholder="품의번호/프로젝트/품목/거래처 필터 (선택)" oninput="ponewRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
+              <span id="ponew-search-info" style="color:#6b7280;font-size:14px;"></span>
+            </div>
+            <div id="ponew-list" style="max-height:420px;overflow-y:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">「작성 품의 불러오기」를 눌러주세요</div>
+            </div>
+          </div>
+
+          <!-- STEP 2: 발주 품목 (편집 가능) -->
+          <div class="acc-card" id="ponew-exec-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 2. 발주 품목 (선택한 품의)</div>
+              <div class="acc-card-subtitle">수량·단가·납기 확인/수정 후 발주</div>
+            </div>
+            <div id="ponew-selected"></div>
+          </div>
+
+          <!-- STEP 3: 발주 정보 + 등록 -->
+          <div class="acc-card" id="ponew-save-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 3. 발주 정보 + 등록</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">발주일자</label>
+                <input type="date" id="ponew-po-date" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">발주부서</label>
+                <input type="text" id="ponew-dept" value="경영전략본부" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+                <input type="hidden" id="ponew-dept-seq" value="3">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">발주담당자</label>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <input type="text" id="ponew-emp" value="성백훈" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;" title="기본=품의담당자. 🔍로 변경 가능">
+                  <button type="button" onclick="ponewOpenEmp()" style="padding:8px 10px;border:1px solid #0f4c81;border-radius:6px;background:#fff;color:#0f4c81;cursor:pointer;">🔍</button>
+                </div>
+                <input type="hidden" id="ponew-emp-seq" value="49">
+              </div>
+              <div style="grid-column:span 3;">
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">비고</label>
+                <input type="text" id="ponew-remark" placeholder="(선택)" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button onclick="ponewReset()" style="padding:10px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;">초기화</button>
+              <button id="ponew-save-btn" onclick="ponewSave()" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;">📦 영림원에 발주 등록</button>
+            </div>
+            <div id="ponew-save-result" style="margin-top:12px;"></div>
+          </div>
+
+          <!-- 발주담당자 검색 팝업 -->
+          <div id="ponew-emp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)ponewCloseEmp()">
+            <div style="background:#fff;border-radius:12px;width:460px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+              <div style="padding:14px 16px;background:#0f4c81;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                <span>👤 발주담당자 검색</span>
+                <span style="cursor:pointer;font-size:18px;" onclick="ponewCloseEmp()">✕</span>
+              </div>
+              <div style="padding:12px 16px;">
+                <input type="text" id="ponew-emp-q" placeholder="직원 이름 검색 후 Enter" onkeydown="if(event.key==='Enter')ponewEmpSearch()" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+              </div>
+              <div id="ponew-emp-results" style="overflow-y:auto;border-top:1px solid #f1f5f9;flex:1;min-height:80px;"><div style="padding:16px;color:#9ca3af;text-align:center;">이름을 검색하세요</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="psub" id="p-dv_new">
+        <div class="acc-page">
+          <div class="acc-page-header">
+            <div>
+              <div class="acc-page-title">✏️ 납품확인 신규 작성</div>
+              <div class="acc-page-subtitle">작성 상태 발주 선택 → 영림원 납품(입고) 자동 생성 (BETA)</div>
+            </div>
+          </div>
+
+          <!-- STEP 1: 작성 상태 발주 불러오기 -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 1. 납품할 발주 선택</div>
+              <div class="acc-card-subtitle">진행상태=작성 인 발주만 납품 가능</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="acc-period-btn today" onclick="dvnewLoadDrafts(false)">🔄 작성 발주 불러오기</button>
+              <button class="acc-period-btn" onclick="dvnewLoadDrafts(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
+              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
+              <input type="text" id="dvnew-search" placeholder="발주번호/품목/거래처 필터 (선택)" oninput="dvnewRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
+              <span id="dvnew-search-info" style="color:#6b7280;font-size:14px;"></span>
+            </div>
+            <div id="dvnew-list" style="max-height:420px;overflow-y:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">「작성 발주 불러오기」를 눌러주세요</div>
+            </div>
+          </div>
+
+          <!-- STEP 2: 납품 품목 (편집 가능) -->
+          <div class="acc-card" id="dvnew-exec-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 2. 납품 품목 (선택한 발주)</div>
+              <div class="acc-card-subtitle">납품수량 확인/수정 후 등록</div>
+            </div>
+            <div id="dvnew-selected"></div>
+          </div>
+
+          <!-- STEP 3: 납품 정보 + 등록 -->
+          <div class="acc-card" id="dvnew-save-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 3. 납품 정보 + 등록</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">납품일자</label>
+                <input type="date" id="dvnew-delv-date" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">납품부서</label>
+                <input type="text" id="dvnew-dept" value="경영전략본부" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+                <input type="hidden" id="dvnew-dept-seq" value="3">
+              </div>
+              <div>
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">납품담당자</label>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <input type="text" id="dvnew-emp" value="성백훈" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;" title="기본=발주담당자. 🔍로 변경 가능">
+                  <button type="button" onclick="dvnewOpenEmp()" style="padding:8px 10px;border:1px solid #0f4c81;border-radius:6px;background:#fff;color:#0f4c81;cursor:pointer;">🔍</button>
+                </div>
+                <input type="hidden" id="dvnew-emp-seq" value="49">
+              </div>
+              <div style="grid-column:span 3;">
+                <label style="font-size:14px;color:#6b7280;display:block;margin-bottom:4px;">비고</label>
+                <input type="text" id="dvnew-remark" placeholder="(선택)" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button onclick="dvnewReset()" style="padding:10px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;">초기화</button>
+              <button id="dvnew-save-btn" onclick="dvnewSave()" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;">✅ 영림원에 납품 등록</button>
+            </div>
+            <div id="dvnew-save-result" style="margin-top:12px;"></div>
+          </div>
+
+          <!-- 납품담당자 검색 팝업 -->
+          <div id="dvnew-emp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)dvnewCloseEmp()">
+            <div style="background:#fff;border-radius:12px;width:460px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+              <div style="padding:14px 16px;background:#0f4c81;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                <span>👤 납품담당자 검색</span>
+                <span style="cursor:pointer;font-size:18px;" onclick="dvnewCloseEmp()">✕</span>
+              </div>
+              <div style="padding:12px 16px;">
+                <input type="text" id="dvnew-emp-q" placeholder="직원 이름 검색 후 Enter" onkeydown="if(event.key==='Enter')dvnewEmpSearch()" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+              </div>
+              <div id="dvnew-emp-results" style="overflow-y:auto;border-top:1px solid #f1f5f9;flex:1;min-height:80px;"><div style="padding:16px;color:#9ca3af;text-align:center;">이름을 검색하세요</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="psub" id="p-iv_new">
+        <div class="acc-page">
+          <div class="acc-page-header">
+            <div>
+              <div class="acc-page-title">📄 전표발행 (구매납품전표)</div>
+              <div class="acc-page-subtitle">입고완료 납품 선택 → 영림원 전표 PDF 생성 → SharePoint 매입(구매)폴더 + PC 저장 (BETA)</div>
+            </div>
+          </div>
+
+          <!-- STEP 1: 입고완료 납품 불러오기 -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 1. 전표 발행할 납품 선택</div>
+              <div class="acc-card-subtitle">입고완료 상태 납품만 전표 발행 가능</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="acc-period-btn today" onclick="ivnewLoadList(false)">🔄 입고완료 납품 불러오기</button>
+              <button class="acc-period-btn" onclick="ivnewLoadList(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
+              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
+              <input type="text" id="ivnew-search" placeholder="납품번호/프로젝트/거래처 필터 (선택)" oninput="ivnewRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
+              <span id="ivnew-search-info" style="color:#6b7280;font-size:13px;"></span>
+            </div>
+            <div id="ivnew-list" style="max-height:480px;overflow-y:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">「입고완료 납품 불러오기」를 눌러주세요</div>
+            </div>
+          </div>
+
+          <!-- STEP 2: 전표 발행 결과 -->
+          <div class="acc-card" id="ivnew-result-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 2. 전표 발행 결과</div>
+            </div>
+            <div id="ivnew-result"></div>
+          </div>
+        </div>
+      </div>
+      <div class="psub" id="p-vch">
+        <div class="acc-page">
+          <div class="acc-page-header">
+            <div>
+              <div class="acc-page-title">🧾 전표작성 (분개전표 → 전자결재)</div>
+              <div class="acc-page-subtitle">미처리 입고정산 선택 → 영림원 분개전표 생성 → 전자결재 회계전표 상신 (BETA)</div>
+            </div>
+          </div>
+
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 1. 전표 생성할 입고정산 선택</div>
+              <div class="acc-card-subtitle">미처리 상태 입고정산만 표시 (본사·리사이클링·이엔 전 법인)</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <button class="acc-period-btn today" onclick="vchLoadList(false)">🔄 미처리 입고정산 불러오기</button>
+              <button class="acc-period-btn" onclick="vchLoadList(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
+              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <input type="text" id="vch-f-text" placeholder="거래처/프로젝트/입고번호 검색" oninput="vchRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:240px;">
+              <select id="vch-f-dept" onchange="vchRenderList()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"><option value="">전체 부서</option></select>
+              <input type="date" id="vch-f-from" onchange="vchRenderList()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+              <span style="color:#9ca3af">~</span>
+              <input type="date" id="vch-f-to" onchange="vchRenderList()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+              <button class="acc-period-btn" onclick="vchClearFilter()">필터 초기화</button>
+              <span id="vch-info" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
+            </div>
+            <div id="vch-list" style="max-height:520px;overflow-y:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">「미처리 입고정산 불러오기」를 눌러주세요</div>
+            </div>
+          </div>
+
+          <div class="acc-card" id="vch-result-section" style="display:none;">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 2. 전표 생성 결과</div>
+            </div>
+            <div id="vch-result"></div>
+          </div>
+        </div>
+      </div>
 
       <!-- 설정 -->
       <div class="psub" id="p-settings"></div>
@@ -3610,7 +4192,7 @@ function pRenderCurrent(){
   if(n==="overview") return pRenderOverview();
   if(n==="activity") return pRenderActivity();
   if(P_FILES.includes(n)) return pRenderTable(n);
-  if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return pRenderSoon(n);
+  if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n);
 }
 
 // ── 테이블 컬럼 구성 (실제 영림원 DB 스키마 기반) ──
@@ -3838,6 +4420,2534 @@ async function pCfgSave(){
   }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   구매 작성(쓰기) 플로우 — ERP 대시보드 검증 코드 이식 + 메일 대시보드 환경 shim
+   ════════════════════════════════════════════════════════════════ */
+const EMP_MAP = { "baekhoon@enjet.co.kr": { name:"성백훈", dept_name:"경영전략본부" } };
+
+// 토큰: 메일 대시보드 graphToken 재사용
+async function spGetToken(){ return await graphToken(); }
+async function getToken(){ return await graphToken(); }
+// IndexedDB 미사용 → stub (서버 라이브 조회로 대체)
+async function idbGet(){ return undefined; }
+
+// 06.BackOffice 드라이브 (전표/세금계산서 PDF 업로드용)
+let _sp06DriveId = null;
+async function sp06Drive(){
+  if(_sp06DriveId) return _sp06DriveId;
+  const t = await graphToken();
+  const r1 = await fetch("https://graph.microsoft.com/v1.0/sites/enjetco.sharepoint.com:/sites/06.BackOffice",{headers:{Authorization:"Bearer "+t}});
+  if(!r1.ok) throw new Error("06.BackOffice 사이트 조회 실패 "+r1.status);
+  const sid = (await r1.json()).id;
+  const r2 = await fetch(`https://graph.microsoft.com/v1.0/sites/${sid}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r2.ok) throw new Error("06.BackOffice 드라이브 조회 실패");
+  _sp06DriveId = (await r2.json()).id;
+  return _sp06DriveId;
+}
+// 기존 코드 호환 (단독 호출 시 06.BackOffice 반환)
+async function spGetDriveId(){ return await sp06Drive(); }
+
+function ppnewApplyLoginUser(){
+  const email = ((_account && _account.username) || "").toLowerCase();
+  const m = EMP_MAP[email];
+  const empEl = document.getElementById('ppnew-emp');
+  const deptEl = document.getElementById('ppnew-dept');
+  if (!empEl) return;
+  const dispName = (m && m.name) || (_account && _account.name) || "";
+  if (dispName) empEl.value = dispName;
+  if (m && m.dept_name) deptEl.value = m.dept_name;
+  empEl.title = `로그인 계정(${email})이 영림원 작성자로 기록됩니다`;
+}
+
+// ── 품의담당자(직원) 검색 팝업 ──
+
+function ppnewOpenEmp(){
+  document.getElementById('ppnew-emp-modal').style.display = 'flex';
+  const inp = document.getElementById('ppnew-emp-q');
+  inp.value = (document.getElementById('ppnew-emp').value||'').trim();
+  inp.focus(); inp.select();
+}
+
+function ppnewCloseEmp(){ document.getElementById('ppnew-emp-modal').style.display = 'none'; }
+
+async function ppnewEmpSearch(){
+  const q = (document.getElementById('ppnew-emp-q').value||'').trim();
+  const box = document.getElementById('ppnew-emp-results');
+  box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">검색 중... (영림원 조회 ~10초)</div>';
+  try {
+    const r = await fetch(SERVER + '/api/erp/employees?q=' + encodeURIComponent(q));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '조회 실패');
+    const rows = j.rows || [];
+    if (!rows.length){ box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">결과 없음</div>'; return; }
+    box.innerHTML = rows.map(e => `
+      <div onclick='ppnewPickEmp(${JSON.stringify(e).replace(/'/g,"&#39;")})'
+           style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;"
+           onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fff'">
+        <span><b>${esc(e.emp_name)}</b> <span style="color:#9ca3af;font-size:13px;">#${esc(String(e.emp_seq))} ${esc(e.emp_id||'')}</span></span>
+        <span style="color:#6b7280;font-size:14px;">${esc(e.dept_name||'')} ${esc(e.pos_name||'')}</span>
+      </div>`).join('');
+  } catch(err){
+    box.innerHTML = `<div style="padding:16px;color:#ef4444;">오류: ${esc(err.message)}</div>`;
+  }
+}
+
+function ppnewPickEmp(e){
+  document.getElementById('ppnew-emp').value = e.emp_name||'';
+  document.getElementById('ppnew-emp-seq').value = e.emp_seq||'';
+  if (e.dept_seq){ document.getElementById('ppnew-dept-seq').value = e.dept_seq; }
+  if (e.dept_name){ document.getElementById('ppnew-dept').value = e.dept_name; }
+  ppnewCloseEmp();
+}
+
+let ppnewSelected = [];        // 선택된 구매요청 행들
+let ppnewCustomers = [];       // [{cust_seq, cust_name}] 매입 거래처
+let ppnewConfirmed = [];       // 확정(승인) 구매요청 전체
+
+function _ppnewYmdToInput(s){ s=(s||'').replace(/-/g,''); return s.length===8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : ''; }
+
+async function ppnewLoadCustomers(){
+  if (ppnewCustomers.length) return ppnewCustomers;
+  try {
+    const r = await fetch(SERVER + '/api/customers/buy');
+    const rows = await r.json();
+    ppnewCustomers = (rows||[]).map(x => ({
+      cust_seq: x.cust_seq, cust_name: x.cust_name||'',
+      biz_no: x.biz_no||'', cust_no: x.cust_no||'',
+      owner: x.owner||'', kind: x.cust_kind_name||''
+    }));
+  } catch(e){ ppnewCustomers = []; }
+  return ppnewCustomers;
+}
+
+// 행별 선택된 거래처: { idx: {seq, name} }
+let ppnewRowCust = {};
+
+// ── 거래처 검색 팝업 ──
+let _ppnewCustTarget = null;
+
+function ppnewOpenCust(i){
+  _ppnewCustTarget = i;
+  document.getElementById('ppnew-cust-modal').style.display = 'flex';
+  const inp = document.getElementById('ppnew-cust-q');
+  inp.value = ''; inp.focus();
+  ppnewCustFilter();
+}
+
+function ppnewCloseCust(){
+  document.getElementById('ppnew-cust-modal').style.display = 'none';
+  _ppnewCustTarget = null;
+}
+
+function ppnewCustFilter(){
+  const q = (document.getElementById('ppnew-cust-q').value||'').trim().toLowerCase();
+  const box = document.getElementById('ppnew-cust-results');
+  let rows = ppnewCustomers;
+  if (q) rows = rows.filter(c => (`${c.cust_name} ${c.biz_no} ${c.owner} ${c.cust_no}`).toLowerCase().includes(q));
+  rows = rows.slice(0, 200);
+  if (!rows.length){ box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">검색 결과 없음</div>'; return; }
+  box.innerHTML = rows.map(c => `
+    <div onclick="ppnewPickCust(${c.cust_seq}, '${esc((c.cust_name||'').replace(/'/g,"\\'"))}')"
+         style="padding:8px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;gap:8px;"
+         onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fff'">
+      <span><b>${esc(c.cust_name)}</b> <span style="color:#9ca3af;font-size:13px;">#${esc(String(c.cust_seq))}</span></span>
+      <span style="color:#6b7280;font-size:14px;">${esc(c.biz_no||'')} ${esc(c.owner?('· '+c.owner):'')}</span>
+    </div>`).join('');
+}
+
+function ppnewPickCust(seq, name){
+  if (_ppnewCustTarget !== null){
+    ppnewRowCust[_ppnewCustTarget] = { seq, name };
+    const inp = document.querySelector(`.ppnew-cust[data-idx="${_ppnewCustTarget}"]`);
+    if (inp) inp.value = name;
+  }
+  ppnewCloseCust();
+}
+
+async function ppnewLoadConfirmed(refresh){
+  const info = document.getElementById('ppnew-search-info');
+  const list = document.getElementById('ppnew-requests-list');
+  info.textContent = refresh ? '영림원 실시간 조회 중... (~15초)' : '불러오는 중...';
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">로딩 중...</div>';
+  ppnewLoadCustomers();
+  try {
+    const r = await fetch(SERVER + '/api/erp/confirmed-requests' + (refresh ? '?refresh=1' : ''));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '조회 실패');
+    ppnewConfirmed = j.rows || [];
+    _sbSetCount('sb-cnt-ppnew', ppnewConfirmed.length);
+    ppnewRenderList();
+    info.textContent = `확정 구매요청 ${ppnewConfirmed.length}건` + (j.from_cache ? ' · 캐시' : ' · 실시간');
+  } catch(e){
+    info.textContent = '오류';
+    list.innerHTML = `<div style="color:#ef4444;padding:16px;">오류: ${esc(e.message)}<br><small>서버(${SERVER}) 연결/라우트 확인</small></div>`;
+  }
+}
+
+// 저장 완료된 구매요청 추적 (중복 작성 방지, 새로고침에도 유지)
+let ppnewSaved = new Set(JSON.parse(localStorage.getItem('ppnewSavedReqs') || '[]'));
+
+function _ppnewKey(r){ return `${r.po_req_no||''}-${r.po_req_serl||''}`; }
+
+function _ppnewMarkSaved(keys){
+  keys.forEach(k => ppnewSaved.add(k));
+  localStorage.setItem('ppnewSavedReqs', JSON.stringify([...ppnewSaved]));
+}
+
+function ppnewRenderList(){
+  const q = (document.getElementById('ppnew-pjt-search').value || '').trim().toLowerCase();
+  const list = document.getElementById('ppnew-requests-list');
+  let rows = q ? ppnewConfirmed.filter(r => (`${r.pjt_name||''} ${r.po_req_no||''} ${r.item_name||''}`).toLowerCase().includes(q)) : ppnewConfirmed.slice();
+  // 정렬: 무조건 요청번호(=날짜) 최신순 내림차순
+  rows.sort((a,b)=> String(b.po_req_no||'').localeCompare(String(a.po_req_no||'')));
+  window._ppnewList = rows;
+  if (!rows.length){ list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">표시할 확정 구매요청이 없습니다</div>'; return; }
+  list.innerHTML = `
+    <table class="acc-table">
+      <thead><tr>
+        <th style="width:40px;"><input type="checkbox" id="ppnew-checkall" onclick="ppnewToggleAll(this.checked)"></th>
+        <th>상태</th><th>요청번호</th><th>프로젝트</th><th>품목</th><th class="num">수량</th><th>단위</th><th>납기</th><th>거래처</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map((r,i)=>{
+          const done = ppnewSaved.has(_ppnewKey(r));
+          return `<tr style="${done?'opacity:.55;background:#f8fafc;':''}">
+          <td>${done ? '' : `<input type="checkbox" class="ppnew-cb" data-idx="${i}" onchange="ppnewUpdateSelection()">`}</td>
+          <td>${done ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:10px;font-size:13px;font-weight:700;">✅ 품의완료</span>' : '<span style="color:#9ca3af;font-size:13px;">대기</span>'}</td>
+          <td style="font-family:monospace;font-size:14px;">${esc(r.po_req_no||'-')}-${esc(String(r.po_req_serl||''))}</td>
+          <td>${esc(r.pjt_name||'-')}</td>
+          <td>${esc(r.item_name||'-')}</td>
+          <td class="num">${r.qty||0}</td>
+          <td>${esc(r.unit_name||'EA')}</td>
+          <td style="font-size:14px;">${esc(r.delv_date||'-')}</td>
+          <td style="font-size:14px;color:#6b7280;">${esc(r.cust_name||'')}</td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table>`;
+}
+
+function ppnewToggleAll(checked){
+  document.querySelectorAll('.ppnew-cb').forEach(cb=>cb.checked=checked);
+  ppnewUpdateSelection();
+}
+
+function ppnewUpdateSelection(){
+  const cbs = document.querySelectorAll('.ppnew-cb:checked');
+  ppnewSelected = Array.from(cbs).map(cb => window._ppnewList[parseInt(cb.dataset.idx)]);
+  ppnewRenderSelected();
+}
+
+function ppnewRenderSelected(){
+  const cont = document.getElementById('ppnew-selected-items');
+  const saveSection = document.getElementById('ppnew-save-section');
+  if (!ppnewSelected.length){
+    cont.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">위에서 구매요청을 선택해주세요</div>';
+    saveSection.style.display = 'none';
+    return;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('ppnew-appro-date').value = today;
+  // 각 행의 거래처 기본값 = 구매요청의 거래처
+  ppnewSelected.forEach((r,i)=>{ if (r.cust_seq) ppnewRowCust[i] = { seq: r.cust_seq, name: r.cust_name||'' }; });
+  cont.innerHTML = `
+    <table class="acc-table">
+      <thead><tr>
+        <th>프로젝트</th><th>품목</th><th class="num">수량</th><th>단위</th>
+        <th class="num">단가</th><th>구매거래처</th><th>납기일</th><th class="num">합계</th>
+      </tr></thead>
+      <tbody>
+        ${ppnewSelected.map((r,i)=>`<tr>
+          <td>${esc(r.pjt_name||'-')}</td>
+          <td>${esc(r.item_name||'-')}<br><small style="color:#6b7280;">${esc(r.spec||'')}</small></td>
+          <td class="num">${r.qty||0}</td>
+          <td>${esc(r.unit_name||'EA')}</td>
+          <td><input type="number" class="ppnew-price" data-idx="${i}" placeholder="0" oninput="ppnewUpdateTotal(${i})" style="width:100px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:4px;text-align:right;"></td>
+          <td>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input type="text" class="ppnew-cust" data-idx="${i}" value="${esc(r.cust_name||'')}" readonly placeholder="거래처 선택" style="width:140px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;">
+              <button type="button" onclick="ppnewOpenCust(${i})" style="padding:4px 8px;border:1px solid #0f4c81;border-radius:4px;background:#fff;color:#0f4c81;cursor:pointer;">🔍</button>
+            </div>
+          </td>
+          <td><input type="date" class="ppnew-delv" data-idx="${i}" value="${_ppnewYmdToInput(r.delv_date)||today}" style="padding:4px;border:1px solid #e5e7eb;border-radius:4px;"></td>
+          <td class="num" id="ppnew-amt-${i}">0</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;padding:10px;background:#ecfdf5;border-radius:8px;font-size:14px;color:#065f46;">
+      💡 거래처 🔍 버튼으로 구매거래처 DB를 검색(거래처명·사업자번호)해 선택하면 CustSeq가 자동 매칭됩니다. 비우면 구매요청의 거래처를 사용합니다.
+    </div>`;
+  saveSection.style.display = 'block';
+}
+
+function ppnewUpdateTotal(i){
+  const price = parseFloat(document.querySelector(`.ppnew-price[data-idx="${i}"]`).value)||0;
+  const qty = ppnewSelected[i].qty||0;
+  const amt = price*qty, vat = Math.floor(amt*0.1);
+  document.getElementById(`ppnew-amt-${i}`).textContent = (amt+vat).toLocaleString()+'원';
+}
+
+function ppnewReset(){
+  ppnewSelected = [];
+  ppnewRowCust = {};
+  document.querySelectorAll('.ppnew-cb').forEach(cb=>cb.checked=false);
+  const ca = document.getElementById('ppnew-checkall'); if (ca) ca.checked=false;
+  ppnewRenderSelected();
+  const rd = document.getElementById('ppnew-save-result'); if (rd) rd.innerHTML='';
+}
+
+async function ppnewSave(){
+  if (!ppnewSelected.length){ alert('선택된 품목이 없습니다'); return; }
+  const resultDiv = document.getElementById('ppnew-save-result');
+  const items = ppnewSelected.map((r,i)=>{
+    const price = parseFloat(document.querySelector(`.ppnew-price[data-idx="${i}"]`).value)||0;
+    const picked = ppnewRowCust[i] || {};
+    const custSeq = picked.seq || r.cust_seq || 0;
+    const custName = picked.name || r.cust_name || '';
+    const delv = (document.querySelector(`.ppnew-delv[data-idx="${i}"]`).value||'').replace(/-/g,'');
+    return {
+      po_req_seq: r.po_req_seq||0, po_req_no: r.po_req_no,
+      pjt_seq: r.pjt_seq||0, pjt_name: r.pjt_name, pjt_no: r.pjt_no,
+      item_seq: r.item_seq||0, item_name: r.item_name, item_no: r.item_no, spec: r.spec||'',
+      unit_seq: r.unit_seq||0, unit_name: r.unit_name||'EA',
+      qty: r.qty||1, price,
+      cust_seq: custSeq, cust_name: custName || r.cust_name || '',
+      delv_date: delv,
+      wh_seq: r.wh_seq||1, wh_name: r.wh_name||'본사',
+    };
+  });
+  // ── 필수항목 검증 ──
+  const apprDate = document.getElementById('ppnew-appro-date').value;
+  const errs = [];
+  if (!apprDate) errs.push('• 품의일자를 선택하세요');
+  items.forEach((it, i) => {
+    const n = i + 1;
+    if (!it.po_req_seq) errs.push(`• ${n}행: POReqSeq 누락 — 「↻ 새로고침」 후 다시 선택`);
+    if (!it.price || it.price <= 0) errs.push(`• ${n}행(${it.item_name||'품목'}): 단가 입력 필요`);
+    if (!it.cust_seq) errs.push(`• ${n}행(${it.item_name||'품목'}): 구매거래처 선택 필요`);
+    if (!it.delv_date || it.delv_date.length !== 8) errs.push(`• ${n}행(${it.item_name||'품목'}): 납기일 입력 필요`);
+  });
+  if (errs.length){
+    resultDiv.innerHTML = `<div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;">
+      ⚠️ <b>저장 불가 — 필수항목을 확인하세요</b><br><div style="margin-top:6px;line-height:1.8;">${errs.map(esc).join('<br>')}</div></div>`;
+    alert('필수항목이 비어 있습니다:\n\n' + errs.map(e=>e.replace(/^• /,'')).join('\n'));
+    return;
+  }
+
+  const payload = {
+    appro_req_date: apprDate.replace(/-/g,''),
+    dept_seq: parseInt(document.getElementById('ppnew-dept-seq').value) || 3,
+    dept_name: document.getElementById('ppnew-dept').value || '경영전략본부',
+    emp_seq: parseInt(document.getElementById('ppnew-emp-seq').value) || 49,
+    emp_name: document.getElementById('ppnew-emp').value || '성백훈',
+    remark: document.getElementById('ppnew-remark').value || '',
+    items,
+  };
+  resultDiv.innerHTML = '<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">⏳ 영림원에 저장 중... 상단 배너로 진행상황 확인. 다른 화면 이동 가능.</div>';
+  const savedKeys = ppnewSelected.map(r => _ppnewKey(r));
+  bgSave('구매품의', '/api/erp/save_purchase_proposal', payload, (data, err) => {
+    if (err){ resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(err.message)}</div>`; return; }
+    if (data.success){
+      _ppnewMarkSaved(savedKeys);
+      resultDiv.innerHTML = `<div style="padding:16px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ 저장 완료! 품의번호: <b>${esc(data.appro_req_no||'-')}</b><br><small>해당 구매요청은 「✅ 품의완료」로 표시됩니다.</small></div>`;
+      ppnewReset();
+      ppnewRenderList();
+    } else {
+      resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 저장 실패 (ErrorSeq=${esc(String(data.error_seq??''))}): ${esc(data.message||data.error||'알 수 없는 오류')}</div>`;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// 발주 신규작성 (작성 상태 품의 → 영림원 발주 자동 생성)
+// ════════════════════════════════════════════════════════
+let ponewDrafts = [];
+let ponewSelected = null;  // 선택된 품의 1건
+let ponewDone = new Set(JSON.parse(localStorage.getItem('ponewDoneProposals') || '[]'));
+
+async function ponewLoadDrafts(refresh){
+  const list = document.getElementById('ponew-list');
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 작성 품의 조회 중... (영림원 로그인 포함 ~15초)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/draft-proposals' + (refresh?'?refresh=1':''));
+    const data = await res.json();
+    if (data.ok){
+      ponewDrafts = data.rows || [];
+      _sbSetCount('sb-cnt-ponew', ponewDrafts.length);
+      document.getElementById('ponew-search-info').textContent =
+        `총 ${ponewDrafts.length}건${data.from_cache?' (캐시)':' (실시간)'}`;
+      ponewRenderList();
+    } else {
+      list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(data.error||'')}</div>`;
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+
+function ponewRenderList(){
+  const list = document.getElementById('ponew-list');
+  const kw = (document.getElementById('ponew-search').value||'').trim().toLowerCase();
+  let rows = ponewDrafts;
+  if (kw){
+    rows = rows.filter(r => [r.proposal_no, r.pjt_name, r.item_name, r.item_no, r.cust_name]
+      .some(v => (v||'').toLowerCase().includes(kw)));
+  }
+  // 정렬: 무조건 품의번호 최신순(내림차순), 최신이 맨 위
+  rows = rows.slice().sort((a,b)=> String(b.proposal_no||'').localeCompare(String(a.proposal_no||'')));
+  if (!rows.length){
+    list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">발주 가능한 작성 품의가 없습니다</div>';
+    return;
+  }
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:14px;"><thead><tr style="background:#f8fafc;text-align:left;">'
+    + '<th style="padding:8px;">선택</th><th style="padding:8px;">품의번호</th><th style="padding:8px;">프로젝트</th>'
+    + '<th style="padding:8px;">품목</th><th style="padding:8px;">거래처</th><th style="padding:8px;text-align:right;">수량</th>'
+    + '<th style="padding:8px;text-align:right;">단가</th><th style="padding:8px;">담당자</th></tr></thead><tbody>';
+  rows.forEach((r)=>{
+    const done = ponewDone.has(r.proposal_no);
+    const checked = (ponewSelected && ponewSelected.proposal_no === r.proposal_no) ? 'checked' : '';
+    html += `<tr style="border-bottom:1px solid #f1f5f9;${done?'opacity:.45;':''}">`
+      + `<td style="padding:8px;">${done?'<span style="color:#16a34a;font-weight:700;">✅발주완료</span>'
+          : `<input type="radio" name="ponew-pick" ${checked} onchange="ponewSelect('${esc(r.proposal_no)}')">`}</td>`
+      + `<td style="padding:8px;font-weight:600;">${esc(r.proposal_no)}</td>`
+      + `<td style="padding:8px;">${esc(r.pjt_name||'-')}</td>`
+      + `<td style="padding:8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.item_name)}">${esc(r.item_name||'-')}</td>`
+      + `<td style="padding:8px;">${esc(r.cust_name||'-')}</td>`
+      + `<td style="padding:8px;text-align:right;">${(r.qty||0).toLocaleString()}</td>`
+      + `<td style="padding:8px;text-align:right;">${(r.price||0).toLocaleString()}</td>`
+      + `<td style="padding:8px;">${esc(r.emp_name||'-')}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  list.innerHTML = html;
+}
+
+function _ponewYmdToInput(s){ s=(s||'').replace(/-/g,''); return s.length===8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : ''; }
+
+function ponewSelect(proposalNo){
+  ponewSelected = ponewDrafts.find(r => r.proposal_no === proposalNo) || null;
+  const exec = document.getElementById('ponew-exec-section');
+  const save = document.getElementById('ponew-save-section');
+  const sel = document.getElementById('ponew-selected');
+  if (!ponewSelected){ exec.style.display='none'; save.style.display='none'; return; }
+  exec.style.display = '';
+  save.style.display = '';
+  const r = ponewSelected;
+  sel.innerHTML = `
+    <table class="acc-table">
+      <thead><tr>
+        <th>품의번호</th><th>프로젝트</th><th>품목</th>
+        <th class="num" style="width:90px;">수량</th><th style="width:60px;">단위</th>
+        <th class="num" style="width:120px;">단가</th><th>거래처</th><th style="width:150px;">납기일</th><th class="num" style="width:120px;">합계</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-family:monospace;font-size:14px;">${esc(r.proposal_no)}</td>
+          <td>${esc(r.pjt_name||'-')}</td>
+          <td>${esc(r.item_name||'-')}</td>
+          <td class="num"><input type="number" id="ponew-qty" value="${r.qty||0}" oninput="ponewCalc()" style="width:80px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;text-align:right;"></td>
+          <td>EA</td>
+          <td class="num"><input type="number" id="ponew-price" value="${r.price||0}" oninput="ponewCalc()" style="width:110px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;text-align:right;"></td>
+          <td style="font-size:14px;color:#6b7280;">${esc(r.cust_name||'-')}</td>
+          <td><input type="date" id="ponew-delv" value="${_ponewYmdToInput(r.delv_date)}" style="padding:6px;border:1px solid #e5e7eb;border-radius:6px;"></td>
+          <td class="num" id="ponew-sum">${((r.qty||0)*(r.price||0)).toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:14px;color:#6b7280;">💡 수량·단가·납기·담당자를 확인하세요. 현재 발주는 품의에 확정된 값으로 등록됩니다.</div>`;
+  // 발주담당자 = 품의담당자 기본값
+  if (r.emp_name){ document.getElementById('ponew-emp').value = r.emp_name; }
+  // 발주일자 = 오늘
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('ponew-po-date').value = today;
+  document.getElementById('ponew-save-result').innerHTML='';
+}
+
+function ponewCalc(){
+  const q = parseFloat(document.getElementById('ponew-qty').value)||0;
+  const p = parseFloat(document.getElementById('ponew-price').value)||0;
+  const el = document.getElementById('ponew-sum');
+  if (el) el.textContent = (q*p).toLocaleString();
+}
+
+// ── 발주담당자 검색 (ppnew 패턴 재사용) ──
+
+function ponewOpenEmp(){
+  document.getElementById('ponew-emp-modal').style.display = 'flex';
+  const inp = document.getElementById('ponew-emp-q');
+  inp.value = (document.getElementById('ponew-emp').value||'').trim();
+  inp.focus(); inp.select();
+}
+
+function ponewCloseEmp(){ document.getElementById('ponew-emp-modal').style.display = 'none'; }
+
+async function ponewEmpSearch(){
+  const q = (document.getElementById('ponew-emp-q').value||'').trim();
+  const box = document.getElementById('ponew-emp-results');
+  box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">검색 중... (영림원 조회 ~10초)</div>';
+  try {
+    const r = await fetch(SERVER + '/api/erp/employees?q=' + encodeURIComponent(q));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '조회 실패');
+    const rows = j.rows || [];
+    if (!rows.length){ box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">결과 없음</div>'; return; }
+    box.innerHTML = rows.map(e => `
+      <div onclick='ponewPickEmp(${JSON.stringify(e).replace(/'/g,"&#39;")})'
+           style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;"
+           onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fff'">
+        <span><b>${esc(e.emp_name)}</b> <span style="color:#9ca3af;font-size:13px;">#${esc(String(e.emp_seq))} ${esc(e.emp_id||'')}</span></span>
+        <span style="color:#6b7280;font-size:14px;">${esc(e.dept_name||'')} ${esc(e.pos_name||'')}</span>
+      </div>`).join('');
+  } catch(err){
+    box.innerHTML = `<div style="padding:16px;color:#ef4444;">오류: ${esc(err.message)}</div>`;
+  }
+}
+
+function ponewPickEmp(e){
+  document.getElementById('ponew-emp').value = e.emp_name||'';
+  document.getElementById('ponew-emp-seq').value = e.emp_seq||'';
+  if (e.dept_seq){ document.getElementById('ponew-dept-seq').value = e.dept_seq; }
+  if (e.dept_name){ document.getElementById('ponew-dept').value = e.dept_name; }
+  ponewCloseEmp();
+}
+
+function ponewReset(){
+  ponewSelected = null;
+  document.getElementById('ponew-exec-section').style.display='none';
+  document.getElementById('ponew-save-section').style.display='none';
+  document.getElementById('ponew-save-result').innerHTML='';
+  document.querySelectorAll('input[name="ponew-pick"]').forEach(r=>r.checked=false);
+}
+
+async function ponewSave(){
+  if (!ponewSelected){ alert('발주할 품의를 선택하세요'); return; }
+  const resultDiv = document.getElementById('ponew-save-result');
+  const no = ponewSelected.po_no || ponewSelected.proposal_no;
+  const qty = parseFloat((document.getElementById('ponew-qty')||{}).value)||ponewSelected.qty||0;
+  const price = parseFloat((document.getElementById('ponew-price')||{}).value)||ponewSelected.price||0;
+  const delv = ((document.getElementById('ponew-delv')||{}).value||'').replace(/-/g,'');
+  const poDate = ((document.getElementById('ponew-po-date')||{}).value||'').replace(/-/g,'');
+  const payload = {
+    proposal_no: no, po_date: poDate,
+    dept_seq: parseInt(document.getElementById('ponew-dept-seq').value)||3,
+    dept_name: document.getElementById('ponew-dept').value||'경영전략본부',
+    emp_seq: parseInt(document.getElementById('ponew-emp-seq').value)||49,
+    emp_name: document.getElementById('ponew-emp').value||'',
+    remark: document.getElementById('ponew-remark').value||'',
+    items: [{ qty, price, delv_date: delv }],
+  };
+  resultDiv.innerHTML = '<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">⏳ 영림원에 발주 등록 중... 상단 배너로 진행상황 확인. 다른 화면 이동 가능.</div>';
+  bgSave('발주(' + no + ')', '/api/erp/save_purchase_order', payload, (data, err) => {
+    if (err){ resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(err.message)}</div>`; return; }
+    if (data.success){
+      ponewDone.add(no);
+      localStorage.setItem('ponewDoneProposals', JSON.stringify([...ponewDone]));
+      resultDiv.innerHTML = `<div style="padding:16px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ 발주 완료! 발주번호: <b>${esc(data.po_no||'(등록됨)')}</b></div>`;
+      ponewReset(); ponewRenderList();
+    } else {
+      resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 발주 실패: ${esc(data.message||'알 수 없는 오류')}</div>`;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// 전역 백그라운드 저장 (다른 화면 나가도 진행 + 상단 배너)
+// ════════════════════════════════════════════════════════
+// 전역 작업 큐 (저장류 동시작업 진행상황 — 우측 상단 위젯)
+// ════════════════════════════════════════════════════════
+let _jobs = [];           // {id, label, status:'running'|'done'|'fail', msg, t0, t1}
+let _jobSeq = 0;
+let _jobPanelOpen = false;
+
+function _jobAdd(label){
+  const id = ++_jobSeq;
+  _jobs.unshift({ id, label, status:'running', msg:'', t0: Date.now(), t1:0 });
+  if (_jobs.length > 30) _jobs = _jobs.slice(0, 30);
+  _jobRender();
+  return id;
+}
+
+function _jobUpdate(id, status, msg){
+  const j = _jobs.find(x => x.id === id);
+  if (!j) return;
+  j.status = status; j.msg = msg || '';
+  if (status !== 'running') j.t1 = Date.now();
+  _jobRender();
+  // 완료/실패 시 패널 닫혀있으면 잠깐 배지 강조
+  if (status !== 'running' && !_jobPanelOpen){
+    const badge = document.getElementById('jobq-badge');
+    if (badge){ badge.style.transform = 'scale(1.25)'; setTimeout(()=>{ if(badge) badge.style.transform='scale(1)'; }, 300); }
+  }
+}
+
+function _jobToggle(){
+  _jobPanelOpen = !_jobPanelOpen;
+  _jobRender();
+}
+
+function _jobClearDone(){
+  _jobs = _jobs.filter(j => j.status === 'running');
+  _jobRender();
+}
+
+function _jobRender(){
+  const running = _jobs.filter(j => j.status==='running').length;
+  const done = _jobs.filter(j => j.status==='done').length;
+  const fail = _jobs.filter(j => j.status==='fail').length;
+  const wrap = document.getElementById('jobq-wrap');
+  if (!wrap) return;
+  // 작업 하나도 없으면 숨김
+  if (_jobs.length === 0){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const badge = document.getElementById('jobq-badge');
+  const spin = running > 0 ? '<span class="jobq-spin">↻</span> ' : '';
+  let label = '';
+  if (running > 0) label = `${spin}진행중 ${running}`;
+  else label = `✅ 완료 ${done}` + (fail? ` · ❌ ${fail}`:'');
+  if (badge) badge.innerHTML = label;
+  badge.style.background = running>0 ? '#7c3aed' : (fail? '#dc2626' : '#16a34a');
+  // 패널
+  const panel = document.getElementById('jobq-panel');
+  if (!panel) return;
+  panel.style.display = _jobPanelOpen ? 'block' : 'none';
+  if (!_jobPanelOpen) return;
+  const icon = s => s==='running'?'⏳':(s==='done'?'✅':'❌');
+  const dur = j => j.t1 ? ((j.t1-j.t0)/1000).toFixed(1)+'초' : ((Date.now()-j.t0)/1000).toFixed(0)+'초~';
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e5e7eb;">
+      <b style="font-size:13px;color:#334155;">작업 큐</b>
+      <button onclick="_jobClearDone()" style="border:none;background:#f1f5f9;color:#64748b;font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer;">완료 지우기</button>
+    </div>
+    <div style="max-height:340px;overflow:auto;">
+      ${_jobs.map(j => `
+        <div style="display:flex;gap:8px;padding:9px 12px;border-bottom:1px solid #f1f5f9;align-items:flex-start;">
+          <span style="font-size:15px;line-height:1.3;">${icon(j.status)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:#1e293b;">${esc(j.label)}</div>
+            <div style="font-size:11px;color:${j.status==='fail'?'#dc2626':'#94a3b8'};margin-top:1px;word-break:break-all;">${esc(j.msg||'')} <span style="color:#cbd5e1;">· ${dur(j)}</span></div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+// 진행중 작업 있으면 1초마다 경과시간 갱신
+setInterval(()=>{ if(_jobPanelOpen && _jobs.some(j=>j.status==='running')) _jobRender(); }, 1000);
+
+// 기존 배너 호환 (혹시 다른 곳에서 부를 때 대비, 큐로 흡수)
+let _saveJobs = 0;
+
+function _showSaveBanner(text){ /* 큐 시스템으로 대체됨 */ }
+
+function _hideSaveBanner(){ /* 큐 시스템으로 대체됨 */ }
+
+async function bgSave(label, url, payload, onDone){
+  const jid = _jobAdd(label);
+  try {
+    const res = await fetch(SERVER + url, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (onDone) onDone(data, null);
+    if (data && data.success){
+      _jobUpdate(jid, 'done', (data.po_no||data.delv_no||data.voucher_no||data.message||'완료'));
+    } else {
+      _jobUpdate(jid, 'fail', (data && data.message) || '저장 실패');
+    }
+  } catch(e){
+    if (onDone) onDone(null, e);
+    _jobUpdate(jid, 'fail', e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// 납품확인 신규작성 (작성 발주 → 영림원 납품 자동 생성)
+// ════════════════════════════════════════════════════════
+let dvnewDrafts = [];
+let dvnewSelected = null;
+let dvnewDone = new Set(JSON.parse(localStorage.getItem('dvnewDoneOrders') || '[]'));
+
+async function dvnewLoadDrafts(refresh){
+  const list = document.getElementById('dvnew-list');
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 작성 발주 조회 중... (영림원 로그인 포함 ~20초)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/draft-orders' + (refresh?'?refresh=1':''));
+    const data = await res.json();
+    if (data.ok){
+      dvnewDrafts = data.rows || [];
+      _sbSetCount('sb-cnt-dvnew', dvnewDrafts.length);
+      document.getElementById('dvnew-search-info').textContent =
+        `총 ${dvnewDrafts.length}건${data.from_cache?' (캐시)':' (실시간)'}`;
+      dvnewRenderList();
+    } else {
+      list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(data.error||'')}</div>`;
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+
+function dvnewRenderList(){
+  const list = document.getElementById('dvnew-list');
+  const kw = (document.getElementById('dvnew-search').value||'').trim().toLowerCase();
+  let rows = dvnewDrafts;
+  if (kw){
+    rows = rows.filter(r => [r.po_no, r.item_name, r.cust_name].some(v => (v||'').toLowerCase().includes(kw)));
+  }
+  // 정렬: 무조건 발주번호 최신순(내림차순), 최신이 맨 위
+  rows = rows.slice().sort((a,b)=> String(b.po_no||'').localeCompare(String(a.po_no||'')));
+  if (!rows.length){
+    list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">납품 가능한 작성 발주가 없습니다</div>';
+    return;
+  }
+  let html = '<table class="acc-table"><thead><tr>'
+    + '<th style="width:40px;">선택</th><th>발주번호</th><th>품목</th><th>거래처</th>'
+    + '<th class="num">수량</th><th>발주일</th><th>담당자</th></tr></thead><tbody>';
+  rows.forEach((r)=>{
+    const done = dvnewDone.has(r.po_no);
+    const checked = (dvnewSelected && dvnewSelected.po_no === r.po_no) ? 'checked' : '';
+    html += `<tr style="${done?'opacity:.45;':''}">`
+      + `<td>${done?'<span style="color:#16a34a;font-weight:700;">✅납품</span>'
+          : `<input type="radio" name="dvnew-pick" ${checked} onchange="dvnewSelect('${esc(r.po_no)}')">`}</td>`
+      + `<td style="font-family:monospace;font-size:14px;">${esc(r.po_no)}</td>`
+      + `<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.item_name)}">${esc(r.item_name||'-')}</td>`
+      + `<td>${esc(r.cust_name||'-')}</td>`
+      + `<td class="num">${(r.qty||0).toLocaleString()}</td>`
+      + `<td style="font-size:14px;">${esc(r.po_date||'-')}</td>`
+      + `<td>${esc(r.emp_name||'-')}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  list.innerHTML = html;
+}
+
+function dvnewSelect(poNo){
+  dvnewSelected = dvnewDrafts.find(r => r.po_no === poNo) || null;
+  const exec = document.getElementById('dvnew-exec-section');
+  const save = document.getElementById('dvnew-save-section');
+  const sel = document.getElementById('dvnew-selected');
+  if (!dvnewSelected){ exec.style.display='none'; save.style.display='none'; return; }
+  exec.style.display=''; save.style.display='';
+  const r = dvnewSelected;
+  sel.innerHTML = `
+    <table class="acc-table">
+      <thead><tr><th>발주번호</th><th>품목</th><th>거래처</th>
+        <th class="num" style="width:100px;">납품수량</th><th>발주일</th></tr></thead>
+      <tbody><tr>
+        <td style="font-family:monospace;font-size:14px;">${esc(r.po_no)}</td>
+        <td>${esc(r.item_name||'-')}</td>
+        <td style="font-size:14px;color:#6b7280;">${esc(r.cust_name||'-')}</td>
+        <td class="num"><input type="number" id="dvnew-qty" value="${r.qty||0}" style="width:90px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;text-align:right;"></td>
+        <td style="font-size:14px;">${esc(r.po_date||'-')}</td>
+      </tr></tbody>
+    </table>
+    <div style="margin-top:8px;font-size:14px;color:#6b7280;">💡 납품수량을 확인하세요. 현재 납품은 발주 확정 값으로 등록됩니다.</div>`;
+  if (r.emp_name){ document.getElementById('dvnew-emp').value = r.emp_name; }
+  document.getElementById('dvnew-delv-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('dvnew-save-result').innerHTML='';
+}
+
+function dvnewOpenEmp(){
+  document.getElementById('dvnew-emp-modal').style.display='flex';
+  const inp = document.getElementById('dvnew-emp-q');
+  inp.value = (document.getElementById('dvnew-emp').value||'').trim();
+  inp.focus(); inp.select();
+}
+
+function dvnewCloseEmp(){ document.getElementById('dvnew-emp-modal').style.display='none'; }
+
+async function dvnewEmpSearch(){
+  const q = (document.getElementById('dvnew-emp-q').value||'').trim();
+  const box = document.getElementById('dvnew-emp-results');
+  box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">검색 중... (영림원 조회 ~10초)</div>';
+  try {
+    const r = await fetch(SERVER + '/api/erp/employees?q=' + encodeURIComponent(q));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error||'조회 실패');
+    const rows = j.rows||[];
+    if (!rows.length){ box.innerHTML = '<div style="padding:16px;color:#9ca3af;text-align:center;">결과 없음</div>'; return; }
+    box.innerHTML = rows.map(e => `
+      <div onclick='dvnewPickEmp(${JSON.stringify(e).replace(/'/g,"&#39;")})'
+           style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;"
+           onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fff'">
+        <span><b>${esc(e.emp_name)}</b> <span style="color:#9ca3af;font-size:13px;">#${esc(String(e.emp_seq))}</span></span>
+        <span style="color:#6b7280;font-size:14px;">${esc(e.dept_name||'')} ${esc(e.pos_name||'')}</span>
+      </div>`).join('');
+  } catch(err){
+    box.innerHTML = `<div style="padding:16px;color:#ef4444;">오류: ${esc(err.message)}</div>`;
+  }
+}
+
+function dvnewPickEmp(e){
+  document.getElementById('dvnew-emp').value = e.emp_name||'';
+  document.getElementById('dvnew-emp-seq').value = e.emp_seq||'';
+  if (e.dept_seq){ document.getElementById('dvnew-dept-seq').value = e.dept_seq; }
+  if (e.dept_name){ document.getElementById('dvnew-dept').value = e.dept_name; }
+  dvnewCloseEmp();
+}
+
+function dvnewReset(){
+  dvnewSelected = null;
+  document.getElementById('dvnew-exec-section').style.display='none';
+  document.getElementById('dvnew-save-section').style.display='none';
+  document.getElementById('dvnew-save-result').innerHTML='';
+  document.querySelectorAll('input[name="dvnew-pick"]').forEach(r=>r.checked=false);
+}
+
+function dvnewSave(){
+  if (!dvnewSelected){ alert('납품할 발주를 선택하세요'); return; }
+  const no = dvnewSelected.po_no;
+  const qty = parseFloat((document.getElementById('dvnew-qty')||{}).value)||dvnewSelected.qty||0;
+  const delvDate = ((document.getElementById('dvnew-delv-date')||{}).value||'').replace(/-/g,'');
+  const payload = {
+    po_no: no, delv_date: delvDate,
+    dept_seq: parseInt(document.getElementById('dvnew-dept-seq').value)||3,
+    dept_name: document.getElementById('dvnew-dept').value||'경영전략본부',
+    emp_seq: parseInt(document.getElementById('dvnew-emp-seq').value)||49,
+    emp_name: document.getElementById('dvnew-emp').value||'',
+    remark: document.getElementById('dvnew-remark').value||'',
+    items: [{ qty }],
+  };
+  const resultDiv = document.getElementById('dvnew-save-result');
+  resultDiv.innerHTML = '<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">⏳ 영림원에 납품 등록 중... 상단 배너로 진행상황 확인. 다른 화면 이동 가능.</div>';
+  bgSave('납품(' + no + ')', '/api/erp/save_delivery', payload, (data, err) => {
+    if (err){ resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(err.message)}</div>`; return; }
+    if (data.success){
+      dvnewDone.add(no);
+      localStorage.setItem('dvnewDoneOrders', JSON.stringify([...dvnewDone]));
+      resultDiv.innerHTML = `<div style="padding:16px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ 납품 완료! 납품번호: <b>${esc(data.delv_no||'(등록됨)')}</b></div>`;
+      dvnewReset(); dvnewRenderList();
+    } else {
+      resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 납품 실패: ${esc(data.message||'알 수 없는 오류')}</div>`;
+    }
+  });
+}
+
+// ── ERP 신규작성 목록 사전 로딩 (로그인 후 백그라운드, 탭 누르면 이미 떠있음) ──
+
+function preloadErpDrafts(){
+  // 비동기 실행 (await 안 함 - 로그인 흐름 막지 않음). 캐시 우선이라 서버가 빠르게 응답.
+  try{ if(typeof ppnewLoadConfirmed==='function') ppnewLoadConfirmed(false); }catch(e){}
+  setTimeout(()=>{ try{ if(typeof ponewLoadDrafts==='function') ponewLoadDrafts(false); }catch(e){} }, 1000);
+  setTimeout(()=>{ try{ if(typeof dvnewLoadDrafts==='function') dvnewLoadDrafts(false); }catch(e){} }, 2000);
+  setTimeout(()=>{ try{ if(typeof ivnewLoadList==='function') ivnewLoadList(false); }catch(e){} }, 3000);
+  setTimeout(()=>{ try{ if(typeof vchLoadList==='function') vchLoadList(false); }catch(e){} }, 4000);
+  setTimeout(()=>{ try{ if(typeof actLoad==='function') actLoad(false); }catch(e){} }, 5500);
+}
+
+// ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// 전표작성 AI 파싱 엔진 (구매대시보드에서 이식)
+// 로컬파싱(세금계산서) → OpenAI → Copilot · PDF미리보기
+// ════════════════════════════════════════════════════════
+
+// PDF 미리보기 줌 (renderFilePreview 의존성)
+window._previewZoom = window._previewZoom || {};
+
+function _previewZoomApply(containerId) {
+  const wrap = document.getElementById(containerId + "-zoom-wrap");
+  if(!wrap) return;
+  const z = window._previewZoom[containerId] || 1;
+  wrap.style.transform = `scale(${z})`;
+  wrap.style.transformOrigin = "0 0";
+  const indicator = document.getElementById(containerId + "-zoom-level");
+  if(indicator) indicator.textContent = Math.round(z*100) + "%";
+}
+
+function previewZoomIn(containerId) {
+  const cur = window._previewZoom[containerId] || 1;
+  window._previewZoom[containerId] = Math.min(5, cur * 1.25);
+  _previewZoomApply(containerId);
+}
+
+function previewZoomOut(containerId) {
+  const cur = window._previewZoom[containerId] || 1;
+  window._previewZoom[containerId] = Math.max(0.3, cur / 1.25);
+  _previewZoomApply(containerId);
+}
+
+function previewZoomReset(containerId) {
+  window._previewZoom[containerId] = 1;
+  _previewZoomApply(containerId);
+}
+
+function previewToggleExpand(containerId) {
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.classList.toggle("expanded");
+  const btn = document.getElementById(containerId + "-expand-btn");
+  if(btn) btn.textContent = el.classList.contains("expanded") ? "⤢ 축소" : "⤡ 확장";
+}
+
+
+// --- pdfToBase64 + 파싱엔진 (3375-3576) ---
+
+async function pdfToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// 공용 헬퍼: AI 응답에서 JSON 추출 (재사용)
+
+function _purchaseExtractJson(text) {
+  if(typeof extractJsonFromAIResponse === "function") {
+    return extractJsonFromAIResponse(text);
+  }
+  // 폴백 - 직접 파싱
+  try {
+    let t = (text||"").trim();
+    t = t.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/, "");
+    const m = t.match(/\{[\s\S]*\}/);
+    if(m) return JSON.parse(m[0]);
+    return JSON.parse(t);
+  } catch(e) {
+    console.error("JSON 파싱 실패:", e, text);
+    return null;
+  }
+}
+
+// 공용 헬퍼: Copilot 또는 OpenAI로 PDF 분석
+// 우선순위: Copilot (기본, 회사 라이선스) → OpenAI (백업, GPT-4o vision)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🤖 AI 호출 - 비용 효율 최적화
+// 우선순위: Gemini Flash (무료) → OpenAI gpt-4o-mini (저렴) → Copilot (회사)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 🎯 사용 가능한 가장 빠른 AI 엔진 자동 선택
+// 우선순위: Gemini (무료 + 빠름) > OpenAI (저렴 + 빠름) > Copilot (회사 + 느림)
+
+function _purchaseBestEngine() {
+  if(localStorage.getItem("gemini_key")) return "gemini";
+  if(localStorage.getItem("oai_key")) return "openai";
+  return "copilot";
+}
+
+async function _purchaseCallAI(base64, prompt, engine) {
+  // PDF 텍스트 추출 (모든 엔진 공통, 빠르게)
+  let pdfText = "";
+  if(typeof extractPdfText === "function") {
+    try { pdfText = await extractPdfText(base64); } catch(_){}
+  }
+  const hasText = pdfText && pdfText.length > 30 && !pdfText.includes("추출 실패");
+  
+  // ⚡ Gemini 1.5 Flash (무료, 가장 빠름)
+  if(engine === "gemini") {
+    const key = localStorage.getItem("gemini_key") || "";
+    if(!key) throw new Error("Gemini API Key 없음. localStorage에 'gemini_key'로 저장하세요.\n무료 키 발급: https://aistudio.google.com/apikey");
+    
+    if(hasText) {
+      // 🚀 텍스트 모드 - 매우 빠름 (3-5초)
+      const fullPrompt = `${prompt}\n\n아래는 PDF에서 추출한 텍스트입니다. 이 내용만 보고 JSON을 추출하세요:\n\n${pdfText.substring(0, 8000)}`;
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json" }
+        }),
+      });
+      if(!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error("Gemini 오류: " + (e.error?.message || res.status));
+      }
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      return _purchaseExtractJson(text);
+    } else {
+      // 이미지 모드 (텍스트 추출 실패한 PDF용)
+      if(typeof pdfToImageBase64 !== "function") throw new Error("이미지 PDF 처리 함수 없음");
+      const imgBase64 = await pdfToImageBase64(base64);
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { text: prompt },
+            { inline_data: { mime_type: "image/png", data: imgBase64 } }
+          ]}],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json" }
+        }),
+      });
+      if(!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error("Gemini Vision 오류: " + (e.error?.message || res.status));
+      }
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      return _purchaseExtractJson(text);
+    }
+  }
+  
+  // 💰 OpenAI gpt-4o-mini (저렴, 빠름)
+  if(engine === "openai") {
+    const key = localStorage.getItem("oai_key") || "";
+    if(!key) throw new Error("OpenAI API Key 없음. localStorage에 'oai_key'로 저장하세요.");
+    
+    if(hasText) {
+      // 🚀 텍스트 모드 - gpt-4o-mini로 변경 (10배 빠르고 30배 저렴)
+      const fullPrompt = `${prompt}\n\n아래는 PDF에서 추출한 텍스트입니다. 이 내용만 보고 JSON을 추출하세요:\n\n${pdfText.substring(0, 8000)}`;
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",   // 🆕 mini 사용 (30배 저렴)
+          messages: [{ role: "user", content: fullPrompt }],
+          response_format: { type: "json_object" },
+          temperature: 0.1,
+          max_tokens: 8000,       // 33품목 JSON 다 들어가게
+        })
+      });
+      if(!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error("OpenAI 오류: " + (e.error?.message || res.status));
+      }
+      const data = await res.json();
+      return _purchaseExtractJson(data.choices?.[0]?.message?.content || "");
+    } else {
+      // 이미지 모드 (텍스트 추출 실패한 PDF용)
+      if(typeof pdfToImageBase64 !== "function") throw new Error("이미지 PDF 처리 함수 없음");
+      const imgBase64 = await pdfToImageBase64(base64);
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",   // 🆕 mini도 vision 지원
+          messages: [{ role: "user", content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: `data:image/png;base64,${imgBase64}` } }
+          ]}],
+          response_format: { type: "json_object" },
+          max_tokens: 8000,
+        })
+      });
+      if(!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error("OpenAI Vision 오류: " + (e.error?.message || res.status));
+      }
+      const data = await res.json();
+      return _purchaseExtractJson(data.choices?.[0]?.message?.content || "");
+    }
+  }
+  
+  // 🏢 기본 Copilot (회사 M365 라이선스, 가장 느림 - 최후 폴백)
+  if(!hasText) {
+    // 텍스트 추출 실패 → Gemini 또는 OpenAI로 자동 폴백
+    const geminiKey = localStorage.getItem("gemini_key") || "";
+    const oaiKey = localStorage.getItem("oai_key") || "";
+    if(geminiKey) {
+      console.log("⚠️ Copilot: 이미지 PDF 추정 → Gemini Vision으로 폴백");
+      return await _purchaseCallAI(base64, prompt, "gemini");
+    }
+    if(oaiKey) {
+      console.log("⚠️ Copilot: 이미지 PDF 추정 → OpenAI Vision으로 폴백");
+      return await _purchaseCallAI(base64, prompt, "openai");
+    }
+    throw new Error("Copilot이 이 PDF에서 텍스트를 추출하지 못했습니다 (이미지 PDF).\n해결: Gemini 또는 OpenAI API Key 등록");
+  }
+  
+  // Copilot 호출
+  if(typeof getToken !== "function") throw new Error("Microsoft Graph 토큰 없음 (로그인 필요)");
+  const t = await getToken();
+  const convRes = await fetch("https://graph.microsoft.com/beta/copilot/conversations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+    body: "{}",
+  });
+  if(!convRes.ok) {
+    const e = await convRes.text().catch(()=>"");
+    throw new Error("Copilot 연결 실패 (M365 Copilot 라이선스 필요)\n" + e.substring(0,200));
+  }
+  const { id: convId } = await convRes.json();
+  
+  const fullPrompt = `${prompt}\n\n아래는 PDF에서 추출한 텍스트입니다. 이 내용만 보고 JSON을 추출하세요:\n\n${pdfText.substring(0, 6000)}`;
+  
+  const chatRes = await fetch(`https://graph.microsoft.com/beta/copilot/conversations/${convId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+    body: JSON.stringify({
+      message: { text: fullPrompt },
+      locationHint: { timeZone: "Asia/Seoul" }
+    }),
+  });
+  if(!chatRes.ok) {
+    const e = await chatRes.text().catch(()=>"");
+    throw new Error("Copilot 응답 실패: " + e.substring(0,200));
+  }
+  const chatData = await chatRes.json();
+  const msgs = chatData.messages || [];
+  let text = "";
+  for(let i = msgs.length - 1; i >= 0; i--) {
+    if(msgs[i].text) { text = msgs[i].text; break; }
+  }
+  if(!text) text = chatData.text || chatData.message?.text || "";
+  return _purchaseExtractJson(text);
+}
+
+// --- 세금계산서 로컬파싱 parseENJETTAXTextLocally (4703-4978) ---
+
+function parseENJETTAXTextLocally(pdfText) {
+  if(!pdfText) return null;
+  console.log("🧾 세금계산서 로컬 파싱 시작 - 텍스트 길이:", pdfText.length);
+  console.log("🧾 텍스트 샘플 (첫 1500자):\n", pdfText.substring(0, 1500));
+  
+  // 🆕 PDF 텍스트 전처리: 글자 사이 공백 제거 (한국어 PDF에서 흔함)
+  // 예: "2 0 2 6 0 5 1 2 - 4 1 0 0 0 0 9 6" → "20260512-41000096"
+  // 예: "전 자 세 금 계 산 서" → "전자세금계산서"
+  // 단일 문자(한글/영문/숫자) 사이의 공백만 제거
+  let normText = pdfText;
+  // 🆕 콤마 주변 공백 먼저 제거 - "3 , 0 0 0 , 0 0 0" → "3,000,000"
+  // 이 단계를 먼저 해야 다음 단계에서 "12 3,000,000"이 합쳐지지 않음
+  for(let i = 0; i < 10; i++) {
+    normText = normText.replace(/(\d)\s*,\s*(\d)/g, "$1,$2");
+  }
+  // 콤마 안에서도 글자 사이 공백 제거 - "3 , 0 0 0" → "3,000"
+  // 콤마 숫자 패턴 안의 공백을 제거하기 위해 반복
+  for(let i = 0; i < 15; i++) {
+    const prev = normText;
+    normText = normText.replace(/(\d,\d{0,2})\s+(\d{1,3})/g, "$1$2");
+    if(prev === normText) break;
+  }
+  // 숫자 사이 공백 제거 - 단, 콤마 숫자 직전엔 공백 유지 (다른 컬럼 구분)
+  //   "20260512" 같은 연속 숫자는 합치되, "12 3,000,000"은 분리 유지
+  for(let i = 0; i < 10; i++) {
+    const prev = normText;
+    // (\d)\s(\d) 단, 다음 토큰이 콤마 숫자가 아닌 경우만 (즉 \d 다음에 \d+,가 없어야)
+    normText = normText.replace(/(\d)\s(\d)(?!\d{0,2},)/g, "$1$2");
+    if(prev === normText) break;
+  }
+  // 하이픈 주변 공백 제거
+  normText = normText.replace(/(\d)\s*-\s*(\d)/g, "$1-$2");
+  // 한글 1글자 사이 공백 제거 (반복)
+  for(let i = 0; i < 10; i++) {
+    const prev = normText;
+    normText = normText.replace(/([가-힣])\s([가-힣])/g, "$1$2");
+    if(prev === normText) break;
+  }
+  // 영문 알파벳 사이 공백 제거
+  for(let i = 0; i < 10; i++) {
+    const prev = normText;
+    normText = normText.replace(/([A-Za-z])\s([A-Za-z])/g, "$1$2");
+    if(prev === normText) break;
+  }
+  // 한글-숫자 공백 제거
+  for(let i = 0; i < 5; i++) {
+    normText = normText.replace(/(\d)\s([가-힣])/g, "$1$2");
+    normText = normText.replace(/([가-힣])\s(\d)/g, "$1$2");
+  }
+  // 괄호 주변 공백 제거
+  normText = normText.replace(/\(\s*([가-힣A-Za-z0-9\-,.\s]+?)\s*\)/g, "($1)");
+  normText = normText.replace(/\(\s+/g, "(").replace(/\s+\)/g, ")");
+  // 연속된 큰 숫자 분리 - 콤마 숫자가 안전망으로 붙은 경우
+  normText = normText.replace(/(\d{1,3}(?:,\d{3})+)(\d{1,3}(?:,\d{3})+)/g, "$1 $2");
+  
+  console.log("🧾 전처리 후 텍스트 샘플:\n", normText.substring(0, 1500));
+  
+  // 시그니처: "전자세금계산서" 또는 "세금계산서" 단독
+  const isTaxInvoice = /전자세금계산서|세금계산서/.test(normText);
+  if(!isTaxInvoice) {
+    console.log("🧾 세금계산서 시그니처 미발견 - AI에 위임");
+    return null;
+  }
+  console.log("🧾 시그니처 확인 OK");
+  
+  // 이후 모든 작업에 normText 사용
+  pdfText = normText;
+  
+  const result = {
+    vendor: "",        // 거래처(공급자) 상호
+    taxNo: "",         // 승인번호
+    taxDate: "",       // 작성일자
+    bizNo: "",         // 공급자 사업자번호
+    items: "",         // 품목 요약
+    supplyAmount: 0,   // 공급가액
+    vatAmount: 0,      // 세액 (VAT)
+    totalAmount: 0,    // 합계금액
+    unpaidAmount: 0,   // 외상미수금
+    eTaxType: "전자",
+    _engine: "local",
+  };
+  
+  // ── 1) 승인번호 - 줄바꿈 허용 ──
+  // 예: "승인번호 20260512-41000096-36232975" or "승인번호\n20260512-41000096-36232975"
+  // 32자리 형식: YYYYMMDD-XXXXXXXX-XXXXXXXX
+  const taxNoPatterns = [
+    /승인번호[\s\S]{0,30}?(\d{8}-\d{8}-\d{8})/,
+    /(\d{8}-\d{8}-\d{8})/,  // 단독 패턴
+  ];
+  for(const pat of taxNoPatterns) {
+    const m = pdfText.match(pat);
+    if(m) {
+      result.taxNo = m[1].trim();
+      // 작성일자 추출: 승인번호 앞 8자리 YYYYMMDD
+      const datePart = result.taxNo.match(/^(\d{4})(\d{2})(\d{2})/);
+      if(datePart) result.taxDate = `${datePart[1]}-${datePart[2]}-${datePart[3]}`;
+      console.log(`🧾 승인번호 추출: ${result.taxNo}`);
+      break;
+    }
+  }
+  
+  // ── 2) 작성일자 - 별도 명시된 경우 우선 ──
+  // 다양한 형식: "2026-05-12", "2026.05.12", "2026 05 12", "2026년05월12일"
+  const taxDatePatterns = [
+    /작성일자[\s\S]{0,30}?(\d{4}[-./]\d{1,2}[-./]\d{1,2})/,
+    /작성일자[\s\S]{0,30}?(\d{4})\s+(\d{1,2})\s+(\d{1,2})/,
+    /작성일자[\s\S]{0,30}?(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+  ];
+  for(const pat of taxDatePatterns) {
+    const m = pdfText.match(pat);
+    if(m) {
+      if(m[2] && m[3]) {
+        // 분리된 경우 YYYY-MM-DD 조합
+        result.taxDate = `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+      } else {
+        result.taxDate = m[1].replace(/[./]/g, "-").replace(/-(\d)(?=-|$)/g, "-0$1");
+      }
+      console.log(`🧾 작성일자: ${result.taxDate}`);
+      break;
+    }
+  }
+  
+  // ── 3) 공급자(거래처) 정보 추출 ──
+  // 공급자는 왼쪽, 공급받는자(우리)는 오른쪽
+  // PDF 텍스트에선 둘이 섞여 나옴. "공급자"/"공급받는자" 마커로 분리
+  // 패턴: "등록번호 195-87-00901" (공급자) → 첫 번째 등록번호가 공급자
+  const bizNoMatches = [...pdfText.matchAll(/(\d{3}-\d{2}-\d{5})/g)];
+  if(bizNoMatches.length > 0) {
+    // 첫 번째 사업자번호 = 공급자
+    result.bizNo = bizNoMatches[0][1];
+  }
+  
+  // 상호 (법인명) - 공급자 쪽 추출
+  // 패턴: "라이트컨버전코리아 주식회사" / "(주)..." / "...주식회사" / "..㈜"
+  // 공급받는자 측에 "엔젯/ENJET"이 나오므로 그 앞 회사명이 공급자
+  const enjetIdx = pdfText.search(/엔젯|ENJET/i);
+  let vendorSearchArea = enjetIdx > 0 ? pdfText.substring(0, enjetIdx) : pdfText;
+  
+  const vendorPatterns = [
+    // "상호라이트컨버전코리아주식..." - "상호" 키워드 뒤 + "주식회사" 또는 "주식"으로 끝남
+    /상호([가-힣A-Za-z][가-힣A-Za-z0-9]+?)(?:주식회사|주식|㈜|\(주\))/,
+    // 공백 없이 붙은 "...주식회사" - 회사 이름 추출
+    /([가-힣A-Za-z][가-힣A-Za-z0-9]{2,})(?:주식회사|㈜|\(주\))/,
+    // "㈜..." / "(주)..."
+    /(?:㈜|\(주\))([가-힣A-Za-z][가-힣A-Za-z0-9\s]{2,})/,
+  ];
+  for(const pat of vendorPatterns) {
+    const m = vendorSearchArea.match(pat);
+    if(m) {
+      // 핵심 회사명 부분 (그룹 1) + "주식회사" 붙이기
+      let name = m[1].trim();
+      if(name.length < 2) continue;
+      if(/엔젯|ENJET/i.test(name)) continue;  // 엔젯 제외
+      // "라이트컨버전코리아" → "라이트컨버전코리아 주식회사"
+      result.vendor = name + " 주식회사";
+      console.log(`🧾 거래처: ${result.vendor}`);
+      break;
+    }
+  }
+  
+  // ── 4) 금액 추출 ──
+  // 양식 고정: "작성일자 공급가액 세액 수정사유 비고" 헤더 다음 줄에
+  //  "YYYY-MM-DD 3,000,000 300,000 ..." 형식으로 나타남
+  
+  // 공급가액: "공급가액" 키워드 옆에 콤마 있는 4자리 이상 숫자 (날짜 4자리 제외 위해 콤마 필수)
+  const supplyMatch = pdfText.match(/공급가액[\s\S]{0,200}?(\d{1,3}(?:,\d{3})+)/);
+  if(supplyMatch) {
+    result.supplyAmount = Number(supplyMatch[1].replace(/,/g, "")) || 0;
+    console.log(`🧾 공급가액: ${result.supplyAmount.toLocaleString()}`);
+  }
+  
+  // 세액 (VAT): 공급가액 추출 후 그 뒤에서 또 다른 콤마 숫자
+  // "3,000,000 300,000" 형식 - 공급가 다음 두 번째 콤마 숫자
+  if(result.supplyAmount > 0) {
+    const supplyStr = result.supplyAmount.toLocaleString();
+    // 공급가액 등장 이후의 텍스트에서 첫 번째 다른 콤마 숫자 = VAT
+    const afterSupplyIdx = pdfText.indexOf(supplyStr);
+    if(afterSupplyIdx >= 0) {
+      const after = pdfText.substring(afterSupplyIdx + supplyStr.length, afterSupplyIdx + supplyStr.length + 100);
+      const vatMatch = after.match(/(\d{1,3}(?:,\d{3})+)/);
+      if(vatMatch) {
+        const vatCand = Number(vatMatch[1].replace(/,/g, ""));
+        // 합리적 VAT 범위: 공급가의 5~15%
+        if(vatCand >= result.supplyAmount * 0.05 && vatCand <= result.supplyAmount * 0.15) {
+          result.vatAmount = vatCand;
+          console.log(`🧾 세액(VAT): ${result.vatAmount.toLocaleString()}`);
+        }
+      }
+    }
+  }
+  
+  // VAT 못 찾았으면 "세액" 키워드 옆 (단 합리적 범위)
+  if(result.vatAmount === 0) {
+    const vatMatch2 = pdfText.match(/세\s*액[\s\S]{0,200}?(\d{1,3}(?:,\d{3})+)/);
+    if(vatMatch2) {
+      const v = Number(vatMatch2[1].replace(/,/g, ""));
+      if(result.supplyAmount === 0 || (v <= result.supplyAmount * 0.15)) {
+        result.vatAmount = v;
+        console.log(`🧾 세액(VAT 백업): ${result.vatAmount.toLocaleString()}`);
+      }
+    }
+  }
+  
+  // 합계금액: "합계금액" 키워드 옆 콤마 숫자
+  const totalMatch = pdfText.match(/합계금액[\s\S]{0,300}?(\d{1,3}(?:,\d{3})+)/);
+  if(totalMatch) {
+    result.totalAmount = Number(totalMatch[1].replace(/,/g, "")) || 0;
+    console.log(`🧾 합계금액: ${result.totalAmount.toLocaleString()}`);
+  }
+  
+  // 외상미수금: "외상미수금" 키워드 옆 (다음 줄에 있을 수 있음)
+  const unpaidMatch = pdfText.match(/외상미수금[\s\S]{0,300}?(\d{1,3}(?:,\d{3})+)/);
+  if(unpaidMatch) {
+    result.unpaidAmount = Number(unpaidMatch[1].replace(/,/g, "")) || 0;
+    console.log(`🧾 외상미수금: ${result.unpaidAmount.toLocaleString()}`);
+  }
+  
+  // ── 5) 검증 및 보정 ──
+  // 공급가 + 세액 = 합계금액 (오차 ±1원)
+  if(result.supplyAmount > 0 && result.vatAmount > 0) {
+    const calcTotal = result.supplyAmount + result.vatAmount;
+    if(Math.abs(calcTotal - result.totalAmount) > 1) {
+      // 합계 안 맞으면 공급가+세액으로 보정
+      console.log(`🧾 합계 불일치 (${result.totalAmount} → ${calcTotal}) - 보정`);
+      result.totalAmount = calcTotal;
+    }
+  }
+  // 외상미수금이 없으면 합계와 동일
+  if(result.unpaidAmount === 0) result.unpaidAmount = result.totalAmount;
+  // VAT가 없으면 공급가의 10%
+  if(result.vatAmount === 0 && result.supplyAmount > 0) {
+    result.vatAmount = Math.round(result.supplyAmount * 0.1);
+    result.totalAmount = result.supplyAmount + result.vatAmount;
+  }
+  
+  // ── 6) 품목 요약 ──
+  // PDF 표 안의 첫 품목명 추출 (보통 영문 + 한글 혼합)
+  // "Service and inspection for CARBIDE CB5" 같은 패턴
+  // 표 안: 월 일 품목 규격 수량 단가 ...
+  // 품목명은 보통 알파벳/숫자/한글 혼합 + 길이 10~100자
+  const itemPatterns = [
+    // 영문 시작: "Service and inspection..."
+    /\b([A-Z][a-zA-Z][a-zA-Z\s\-/]{8,}[A-Za-z\d])/,
+    // 품목/Description 다음 줄
+    /(?:품목|Description)[\s\S]{0,30}?\n([^\n]{5,80})/,
+  ];
+  for(const pat of itemPatterns) {
+    const m = pdfText.match(pat);
+    if(m && m[1] && !/세금계산서|승인번호|공급자|받는자|작성일|합계|외상/.test(m[1])) {
+      result.items = m[1].trim().substring(0, 100);
+      break;
+    }
+  }
+  
+  console.log(`🧾 세금계산서 로컬 파싱 완료:`, {
+    vendor: result.vendor,
+    taxNo: result.taxNo,
+    taxDate: result.taxDate,
+    bizNo: result.bizNo,
+    supply: result.supplyAmount,
+    vat: result.vatAmount,
+    total: result.totalAmount,
+    unpaid: result.unpaidAmount,
+  });
+  
+  // 최소 검증: 승인번호 OR 공급가 OR vendor 중 하나라도 있으면 유효 (사용자가 나머지 직접 입력 가능)
+  if(!result.taxNo && result.supplyAmount === 0 && !result.vendor) {
+    console.log("🧾 모든 정보 누락 - AI에 위임");
+    return null;
+  }
+  
+  if(!result.taxNo) console.warn("🧾 승인번호 추출 실패 (사용자 직접 입력 필요)");
+  if(result.supplyAmount === 0) console.warn("🧾 공급가액 추출 실패 (사용자 직접 입력 필요)");
+  
+  return result;
+}
+
+// --- pdfToImageBase64 (30687-30707) ---
+
+async function pdfToImageBase64(pdfBase64) {
+  // PDF 첫 페이지를 PNG로 변환 (PDF.js + Canvas)
+  if(!window.pdfjsLib) {
+    await new Promise((res,rej)=>{
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const arr = new Uint8Array(atob(pdfBase64).split("").map(c=>c.charCodeAt(0)));
+  const pdf = await window.pdfjsLib.getDocument({data:arr}).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({scale: 2.0}); // 고해상도
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
+  // PNG base64 반환
+  return canvas.toDataURL("image/png").split(",")[1];
+}
+
+// --- renderFilePreview (30767-30995) ---
+
+async function renderFilePreview(file, containerId) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  if(!file) {
+    container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13px;padding:30px;text-align:center;min-height:500px">
+      <div style="font-size:48px;margin-bottom:12px;opacity:0.5">📄</div>
+      <div style="font-weight:700;color:#475569;font-size:14px;margin-bottom:6px">PDF 미리보기 영역</div>
+      <div style="color:#94a3b8;font-size:12px">우측에서 PDF를 업로드하면<br>여기에 페이지가 표시됩니다.</div>
+    </div>`;
+    return;
+  }
+
+  // 줌 상태 초기화
+  window._previewZoom[containerId] = 1;
+
+  // 로딩 표시
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--t3);font-size:13px">
+    <div class="spr" style="margin-right:8px"></div>미리보기 로딩 중...
+  </div>`;
+
+  try {
+    const fname = (file.name||"").toLowerCase();
+    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fname) || (file.type||"").startsWith("image/");
+    const isPdf = /\.pdf$/i.test(fname) || (file.type||"") === "application/pdf";
+
+    if(!isPdf && !isImage) {
+      container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">
+        <div style="font-size:32px;margin-bottom:8px">📎</div>
+        <div style="font-weight:700">${file.name}</div>
+        <div style="margin-top:6px;font-size:11px">PDF/이미지가 아니어서 미리보기 불가</div>
+      </div>`;
+      return;
+    }
+
+    // 모바일 감지
+    const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window);
+
+    // 공통: 줌 컨트롤 + 스크롤 영역 + 줌 wrapper
+    // 컨테이너 자체는 스크롤 영역 (overflow:auto)
+    // 내부 zoom-wrap이 transform:scale 받음
+    container.style.position = "relative";
+    container.style.touchAction = "pan-x pan-y"; // 모바일에서 스크롤 허용 (핀치는 우리가 처리)
+    container.innerHTML = `
+      <!-- 줌 컨트롤 바 (PC: hover시 floating / 모바일: 항상 보임) -->
+      <div id="${containerId}-zoom-controls" style="position:sticky;top:8px;z-index:10;display:flex;justify-content:flex-end;padding:0 8px;pointer-events:none;opacity:${isMobile?'1':'0'};transition:opacity 0.2s ease;margin-bottom:-${isMobile?40:32}px">
+        <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.97);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:10px;padding:${isMobile?'6px 8px':'4px 6px'};box-shadow:0 3px 12px rgba(0,0,0,.18);pointer-events:auto;font-family:var(--s)">
+          <button onclick="previewZoomOut('${containerId}')" title="축소 (Ctrl+휠↓)" style="border:1px solid var(--border2);background:#fff;color:var(--t);width:${isMobile?34:26}px;height:${isMobile?34:26}px;border-radius:6px;cursor:pointer;font-size:${isMobile?18:14}px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--m)">−</button>
+          <span id="${containerId}-zoom-level" style="font-size:${isMobile?12:11}px;color:var(--p);font-weight:800;min-width:${isMobile?44:38}px;text-align:center;font-family:var(--m)">100%</span>
+          <button onclick="previewZoomIn('${containerId}')" title="확대 (Ctrl+휠↑)" style="border:1px solid var(--border2);background:#fff;color:var(--t);width:${isMobile?34:26}px;height:${isMobile?34:26}px;border-radius:6px;cursor:pointer;font-size:${isMobile?18:14}px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--m)">+</button>
+          <button onclick="previewZoomReset('${containerId}')" title="100% 복원" style="border:1px solid var(--border2);background:#fff;color:var(--t2);padding:${isMobile?'5px 9px':'3px 7px'};border-radius:6px;cursor:pointer;font-size:${isMobile?12:10}px;font-weight:700;margin-left:3px;font-family:var(--s)">⟳</button>
+          ${isMobile ? `<button id="${containerId}-expand-btn" onclick="previewToggleExpand('${containerId}')" title="미리보기 영역 확장/축소" style="border:1px solid var(--p);background:var(--pd);color:var(--p);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;margin-left:3px;font-family:var(--s)">⤡ 확장</button>` : ''}
+        </div>
+      </div>
+      <!-- 파일명 표시 (상단 작게) -->
+      <div style="padding:4px 10px;background:rgba(248,250,252,.9);backdrop-filter:blur(4px);border-bottom:1px solid var(--border);font-size:11px;color:var(--t3);font-weight:700;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:6px">
+        <span style="max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${file.name.replace(/"/g,"&quot;")}">📄 ${file.name}</span>
+        <span style="margin-left:auto;color:var(--p);font-size:10px;font-weight:700;background:var(--pd);padding:2px 7px;border-radius:8px;white-space:nowrap">${isMobile?'💡 두 손가락으로 확대/축소':'💡 Ctrl + 휠 = 확대/축소'}</span>
+      </div>
+      <!-- 줌 wrap (transform:scale 적용) -->
+      <div id="${containerId}-zoom-wrap" style="padding:8px;transform-origin:0 0;width:fit-content;min-width:100%"></div>
+    `;
+
+    // PC: hover 시 줌 컨트롤 fade in (모바일은 항상 보임)
+    const zoomControls = document.getElementById(containerId + "-zoom-controls");
+    if(!isMobile) {
+      container.addEventListener("mouseenter", () => {
+        if(zoomControls) zoomControls.style.opacity = "1";
+      });
+      container.addEventListener("mouseleave", () => {
+        if(zoomControls) zoomControls.style.opacity = "0";
+      });
+    }
+
+    const zoomWrap = document.getElementById(containerId + "-zoom-wrap");
+
+    if(isImage) {
+      // 이미지 미리보기
+      const url = URL.createObjectURL(file);
+      zoomWrap.innerHTML = `<img src="${url}" style="max-width:100%;height:auto;border:1px solid var(--border);border-radius:6px;display:block">`;
+    } else {
+      // PDF 미리보기 (모든 페이지)
+      if(!window.pdfjsLib) {
+        await new Promise((res,rej)=>{
+          const s=document.createElement("script");
+          s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload=res; s.onerror=rej; document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({data: new Uint8Array(arrayBuffer)}).promise;
+      const numPages = pdf.numPages;
+
+      // 페이지 카운트 표시 (헤더에 추가)
+      const header = container.querySelector('div[style*="sticky"]');
+      if(header) {
+        const fileSpan = header.querySelector('span');
+        if(fileSpan && numPages > 1) fileSpan.innerHTML = `📄 ${file.name} <span style="color:var(--p);margin-left:4px">(${numPages}p)</span>`;
+      }
+
+      // 페이지마다 캔버스로 렌더 (최대 10페이지)
+      const MAX_PAGES = Math.min(numPages, 10);
+      for(let p=1; p<=MAX_PAGES; p++) {
+        const page = await pdf.getPage(p);
+        // 컨테이너 너비에 맞춰 스케일 (PDF.js 자체 해상도)
+        const containerWidth = container.clientWidth - 24;
+        const v0 = page.getViewport({scale: 1.0});
+        const scale = Math.min(2.5, Math.max(1.0, (containerWidth / v0.width) * 1.5));  // 고해상도로 렌더 (transform zoom 안 흐릿하게)
+        const viewport = page.getViewport({scale});
+
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        // CSS 크기는 컨테이너 너비에 맞춤 (PDF.js 자체 해상도 ≠ CSS 크기)
+        const displayWidth = Math.min(containerWidth, v0.width * 1.5);
+        canvas.style.cssText = `width:${displayWidth}px;height:auto;display:block;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.1)`;
+
+        // 페이지 라벨
+        if(numPages > 1) {
+          const lbl = document.createElement("div");
+          lbl.style.cssText = "font-size:10px;color:var(--t3);text-align:center;margin:6px 0 3px;font-weight:700";
+          lbl.textContent = `— ${p} / ${numPages} —`;
+          zoomWrap.appendChild(lbl);
+        }
+        zoomWrap.appendChild(canvas);
+        await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
+      }
+
+      if(numPages > MAX_PAGES) {
+        const more = document.createElement("div");
+        more.style.cssText = "padding:10px;text-align:center;color:var(--t3);font-size:11px;background:var(--bg3);border-radius:6px;margin-top:6px";
+        more.textContent = `+ ${numPages - MAX_PAGES}페이지 더 있음 (미리보기 생략)`;
+        zoomWrap.appendChild(more);
+      }
+    }
+
+    // ━━ 휠 이벤트 ━━
+    // 기본 휠 = 일반 스크롤 (긴 PDF 페이지 이동)
+    // Ctrl + 휠 = 줌 (확대/축소)
+    container.onwheel = (e) => {
+      if(e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd + 휠 = 줌
+        e.preventDefault();
+        const cur = window._previewZoom[containerId] || 1;
+        const delta = e.deltaY < 0 ? 1.1 : 1/1.1;
+        const next = Math.max(0.3, Math.min(5, cur * delta));
+        window._previewZoom[containerId] = next;
+        _previewZoomApply(containerId);
+      }
+      // Ctrl 없으면 일반 스크롤 (기본 동작 유지)
+    };
+
+    // ━━ 드래그로 이동 (마우스 클릭한 채로 끌어서) ━━
+    // 1배여도 PDF가 길면 세로 스크롤 가능
+    let isDragging = false;
+    let startX, startY, scrollLeft, scrollTop;
+    container.onmousedown = (e) => {
+      // 버튼이나 input은 드래그 안 함
+      if(e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
+      isDragging = true;
+      container.style.cursor = "grabbing";
+      startX = e.pageX - container.offsetLeft;
+      startY = e.pageY - container.offsetTop;
+      scrollLeft = container.scrollLeft;
+      scrollTop = container.scrollTop;
+      e.preventDefault();
+    };
+    container.onmouseleave = container.onmouseup = () => {
+      isDragging = false;
+      container.style.cursor = "";
+    };
+    container.onmousemove = (e) => {
+      if(!isDragging) return;
+      e.preventDefault();
+      const x = e.pageX - container.offsetLeft;
+      const y = e.pageY - container.offsetTop;
+      const walkX = (x - startX);
+      const walkY = (y - startY);
+      container.scrollLeft = scrollLeft - walkX;
+      container.scrollTop = scrollTop - walkY;
+    };
+    // 평소 커서 = grab (드래그 가능 시각화)
+    container.style.cursor = "grab";
+
+    // ━━ 터치 핀치 줌 (모바일) ━━
+    let touchStartDistance = 0;
+    let touchStartZoom = 1;
+    container.ontouchstart = (e) => {
+      if(e.touches.length === 2) {
+        // 두 손가락 - 핀치 줌 시작
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDistance = Math.hypot(dx, dy);
+        touchStartZoom = window._previewZoom[containerId] || 1;
+        e.preventDefault();
+      }
+    };
+    container.ontouchmove = (e) => {
+      if(e.touches.length === 2 && touchStartDistance > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const scale = dist / touchStartDistance;
+        const next = Math.max(0.3, Math.min(5, touchStartZoom * scale));
+        window._previewZoom[containerId] = next;
+        _previewZoomApply(containerId);
+        e.preventDefault();
+      }
+      // 한 손가락은 기본 스크롤 동작 유지
+    };
+    container.ontouchend = (e) => {
+      if(e.touches.length < 2) {
+        touchStartDistance = 0;
+      }
+    };
+
+    // 줌 적용
+    _previewZoomApply(containerId);
+
+  } catch(e) {
+    console.error("미리보기 실패:", e);
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--r);font-size:13px">
+      <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+      <div style="font-weight:700">미리보기 실패</div>
+      <div style="margin-top:6px;font-size:11px">${e.message||""}</div>
+    </div>`;
+  }
+}
+
+// --- extractPdfText (32175-32235) ---
+
+async function extractPdfText(base64) {
+  try {
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+    const arr=new Uint8Array(atob(base64).split("").map(c=>c.charCodeAt(0)));
+    const pdf=await window.pdfjsLib.getDocument({data:arr}).promise;
+    
+    // 🚀 y좌표 기반 라인 그룹핑 - 페이지가 잘려도 안 잃어버림
+    let text = "";
+    for(let p = 1; p <= pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const c = await page.getTextContent();
+      
+      // 각 텍스트 항목의 좌표 추출
+      // item.transform = [scaleX, skewY, skewX, scaleY, x, y]
+      const items = c.items.map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: Math.round(it.transform[5]),  // y좌표 (소수점 제거로 같은 라인 그룹핑)
+        width: it.width || 0,
+      }));
+      
+      // y 좌표로 그룹핑 (PDF는 위→아래로 가면서 y 값이 줄어듦)
+      const lineMap = new Map();
+      items.forEach(it => {
+        // 같은 라인으로 간주하는 y 오차 허용 (3px)
+        let foundY = null;
+        for(const ly of lineMap.keys()) {
+          if(Math.abs(ly - it.y) <= 3) { foundY = ly; break; }
+        }
+        const key = foundY !== null ? foundY : it.y;
+        if(!lineMap.has(key)) lineMap.set(key, []);
+        lineMap.get(key).push(it);
+      });
+      
+      // y 큰 순(위에서 아래로) 정렬
+      const sortedYs = Array.from(lineMap.keys()).sort((a,b) => b - a);
+      
+      // 페이지 시작 마커 추가 (디버깅 + 라인 파싱이 헤더 다시 안 찾게)
+      text += `\n=== PAGE ${p}/${pdf.numPages} ===\n`;
+      
+      // 각 라인 → x 좌표 순으로 정렬해서 출력
+      for(const y of sortedYs) {
+        const lineItems = lineMap.get(y).sort((a,b) => a.x - b.x);
+        const lineText = lineItems.map(it => it.str).join(" ").replace(/\s+/g, " ").trim();
+        if(lineText) text += lineText + "\n";
+      }
+    }
+    
+    console.log(`📄 PDF ${pdf.numPages}페이지, 총 ${text.length}자 추출 (y좌표 라인 그룹핑)`);
+    // 🆕 디버그용 - 콘솔에서 window._pdfDebugText로 확인 가능
+    window._pdfDebugText = text;
+    console.log("💡 전체 PDF 텍스트 보려면 콘솔에서: window._pdfDebugText  (또는 console.log(window._pdfDebugText))");
+    return text;
+  } catch(e){
+    console.warn("PDF 추출 에러:", e);
+    return "(PDF 텍스트 추출 실패)";
+  }
+}
+
+
+// 전표작성 (미처리 입고정산 → 영림원 분개전표 생성 → 전자결재 회계전표 상신)
+// ════════════════════════════════════════════════════════
+const APPROVAL_URL = "https://bhseong77.github.io/enjet-approval/";
+
+// ⚡ 작성류 전체 빠른 새로고침 (5개 병렬 동시 조회 → 끝나면 모든 탭 갱신)
+let _vchRefreshing = false;
+
+async function refreshAllDraftsParallel(btn){
+  if (_vchRefreshing) { return; }
+  _vchRefreshing = true;
+  const orig = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = '⚡ 동시 조회 중... (~1-2분)'; }
+  // 모든 새로고침 버튼 비활성화 표시
+  document.querySelectorAll('.vch-fast-refresh').forEach(b => { b.disabled = true; });
+  try {
+    const res = await fetch(SERVER + '/api/erp/refresh-drafts-all', { method:'POST' });
+    const data = await res.json();
+    if (data.ok){
+      // 병렬 조회로 서버 캐시가 갱신됨 → 각 탭 함수를 캐시(빠름)에서 다시 그림
+      const reloaders = [
+        ['ppnewLoadConfirmed', false],
+        ['ponewLoadDrafts', false],
+        ['dvnewLoadDrafts', false],
+        ['ivnewLoadList', false],
+        ['vchLoadList', false],
+      ];
+      for (const [fn, arg] of reloaders){
+        try { if (typeof window[fn] === 'function') await window[fn](arg); } catch(e){ console.warn(fn, e); }
+      }
+      const summary = Object.entries(data.results||{}).map(([k,v]) => `${k}:${v.ok?v.count+'건/'+v.sec+'초':'실패'}`).join(' · ');
+      console.log('⚡ 병렬 새로고침 완료:', summary);
+      if (btn){ btn.textContent = '✅ 완료'; setTimeout(()=>{ btn.textContent = orig; }, 1500); }
+    } else if (data.busy){
+      alert('이미 새로고침이 진행 중입니다. 잠시 후 다시 시도하세요.');
+      if (btn) btn.textContent = orig;
+    } else {
+      alert('새로고침 실패: ' + (data.msg||''));
+      if (btn) btn.textContent = orig;
+    }
+  } catch(e){
+    alert('새로고침 호출 실패: ' + e.message);
+    if (btn) btn.textContent = orig;
+  } finally {
+    _vchRefreshing = false;
+    document.querySelectorAll('.vch-fast-refresh').forEach(b => { b.disabled = false; });
+    if (btn) btn.disabled = false;
+  }
+}
+
+const VCH_TAX_SP_FOLDER = "💰 재무·회계/04.세금계산서";  // 06.BackOffice 사이트 내 경로
+
+// 세금계산서 PDF를 04.세금계산서 폴더에 업로드 (파일명: 입고번호-전표번호-프로젝트코드-담당자.pdf)
+
+async function vchUploadTaxPdf(file, filename){
+  const token = await spGetToken();
+  const driveId = await spGetDriveId();
+  if (!token || !driveId) return { ok:false, error:"SharePoint 토큰/드라이브 없음" };
+  const buf = await file.arrayBuffer();
+  const encPath = `${VCH_TAX_SP_FOLDER}/${filename}`.split('/').map(encodeURIComponent).join('/');
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encPath}:/content`;
+  try {
+    const r = await fetch(url, {
+      method:'PUT',
+      headers: { Authorization:"Bearer "+token, "Content-Type":"application/pdf" },
+      body: buf
+    });
+    if (!r.ok){ const t = await r.text(); return { ok:false, error:`HTTP ${r.status}: ${t.slice(0,150)}` }; }
+    const j = await r.json();
+    return { ok:true, webUrl: j.webUrl || "", name: j.name || filename };
+  } catch(e){ return { ok:false, error:e.message }; }
+}
+let vchList = [];
+
+async function vchLoadList(refresh){
+  const list = document.getElementById('vch-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 미처리 입고정산 조회 중... (영림원 로그인 포함 ~20초)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/settlements' + (refresh?'?refresh=1':''));
+    const data = await res.json();
+    if (data.ok){
+      vchList = data.rows || [];
+      _sbSetCount('sb-cnt-vch', vchList.length);
+      // 부서 필터 옵션 채우기
+      const depts = [...new Set(vchList.map(r=>r.dept_name).filter(Boolean))].sort();
+      const sel = document.getElementById('vch-f-dept');
+      if (sel) sel.innerHTML = '<option value="">전체 부서</option>' + depts.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+      vchRenderList();
+    } else {
+      list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(data.error||'')}</div>`;
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+
+function vchClearFilter(){
+  ['vch-f-text','vch-f-from','vch-f-to'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  const sel=document.getElementById('vch-f-dept'); if(sel) sel.value='';
+  vchRenderList();
+}
+
+function vchRenderList(){
+  const list = document.getElementById('vch-list');
+  if (!list) return;
+  const kw = (document.getElementById('vch-f-text')?.value||'').trim().toLowerCase();
+  const dept = document.getElementById('vch-f-dept')?.value||'';
+  const from = document.getElementById('vch-f-from')?.value||'';
+  const to = document.getElementById('vch-f-to')?.value||'';
+  let rows = vchList.slice();
+  if (kw)   rows = rows.filter(r => [r.delv_no, r.pjt_no, r.pjt_name, r.cust_name, r.emp_name].some(v => (v||'').toString().toLowerCase().includes(kw)));
+  if (dept) rows = rows.filter(r => (r.dept_name||'')===dept);
+  if (from) rows = rows.filter(r => (r.delv_date||'') >= from);
+  if (to)   rows = rows.filter(r => (r.delv_date||'') <= to);
+  rows.sort((a,b)=> String(b.delv_no||'').localeCompare(String(a.delv_no||'')));
+  const info = document.getElementById('vch-info');
+  if (info) info.textContent = `표시 ${rows.length}건 / 전체 ${vchList.length}건`;
+  if (!rows.length){
+    list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">조건에 맞는 미처리 입고정산이 없습니다</div>';
+    return;
+  }
+  let html = '<table class="acc-table"><thead><tr>'
+    + '<th>입고번호</th><th>입고일</th><th>부서</th><th>거래처</th><th>프로젝트</th>'
+    + '<th class="num">금액계</th><th>담당자</th><th style="width:150px;">전표</th></tr></thead><tbody>';
+  rows.forEach((r)=>{
+    const amt = Number(String(r.amount_total||'').replace(/,/g,''))||0;
+    html += `<tr>
+      <td>${esc(r.delv_no||'')}</td>
+      <td>${esc(r.delv_date||'')}</td>
+      <td>${esc(r.dept_name||'')}</td>
+      <td>${esc((r.cust_name||'').toString())}</td>
+      <td>${esc((r.pjt_no||'').toString())}</td>
+      <td class="num">${amt.toLocaleString()}</td>
+      <td>${esc(r.emp_name||'')}</td>
+      <td><button class="acc-period-btn today" style="padding:5px 10px;font-size:12px;" onclick="vchMakeVoucher('${esc(r.delv_no||'')}', this)">📝 전표생성→결재</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  list.innerHTML = html;
+}
+
+let _vchCurrent = null;        // 현재 모달의 입고정산 row
+let _vchSavedNo = null;        // 저장 완료된 전표번호 (중복 저장 방지)
+let _vchSaving = false;
+let _vchParseFile = null;      // 첨부 세금계산서 PDF
+
+function vchMakeVoucher(settleNo, btn){
+  // 행 클릭 → 전표작성 모달 오픈 (회계일/거래일 입력 + 세금계산서 첨부 + AI파싱 + 미리보기)
+  const row = vchList.find(r => r.delv_no === settleNo);
+  if (!row) { alert('입고정산 정보를 찾을 수 없습니다'); return; }
+  _vchCurrent = row;
+  _vchParseFile = null;
+  _vchSavedNo = null;
+  _vchSaving = false;
+  // 입력칸 재활성화 + 버튼 원상복구
+  ['vchm-accdate','vchm-txdate','vchm-taxno','vchm-bizno','vchm-vendorname','vchm-supply','vchm-vat','vchm-total']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.disabled = false; });
+  ['vchm-btn-save','vchm-btn-saveapprove','vchm-btn-parse'].forEach(id => { const el=document.getElementById(id); if(el){ el.style.display=''; el.disabled=false; el.style.opacity=1; } });
+  { const a=document.getElementById('vchm-btn-approve'); if(a) a.style.display='none'; }
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('vchm-settle').textContent = row.delv_no || '';
+  document.getElementById('vchm-vendor').textContent = (row.cust_name||'') + ' · ' + (row.pjt_no||'') + ' · ' + (Number(String(row.amount_total||'').replace(/,/g,''))||0).toLocaleString() + '원';
+  document.getElementById('vchm-accdate').value = today;
+  document.getElementById('vchm-txdate').value = today;
+  document.getElementById('vchm-supply').value = '';
+  document.getElementById('vchm-vat').value = '';
+  document.getElementById('vchm-total').value = '';
+  document.getElementById('vchm-taxno').value = '';
+  document.getElementById('vchm-vendorname').value = row.cust_name || '';
+  document.getElementById('vchm-bizno').value = row.biz_no || '';
+  document.getElementById('vchm-preview').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:400px;color:#9ca3af;font-size:13px;text-align:center;padding:30px;"><div style="font-size:42px;margin-bottom:10px;opacity:.5;">📄</div><div style="font-weight:700;color:#475569;margin-bottom:4px;">세금계산서 PDF를 끌어다 놓으세요</div><div>또는 우측 상단 [📎 PDF 첨부] 클릭</div></div>';
+  document.getElementById('vchm-parseinfo').textContent = '';
+  document.getElementById('vchm-result').innerHTML = '';
+  document.getElementById('vchModalOverlay').style.display = 'flex';
+  vchSetupDnD();
+}
+
+// 미리보기 영역 드래그앤드롭 설정 (1회만)
+let _vchDnDReady = false;
+
+function vchSetupDnD(){
+  if (_vchDnDReady) return;
+  const pane = document.getElementById('vchm-preview');
+  if (!pane) return;
+  const stop = e => { e.preventDefault(); e.stopPropagation(); };
+  ['dragenter','dragover'].forEach(ev => pane.addEventListener(ev, e => {
+    stop(e); pane.style.outline = '3px dashed #00b4d8'; pane.style.outlineOffset = '-6px';
+  }));
+  ['dragleave','drop'].forEach(ev => pane.addEventListener(ev, e => {
+    stop(e); pane.style.outline = 'none';
+  }));
+  pane.addEventListener('drop', async e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) await vchHandleFile(f);
+  });
+  _vchDnDReady = true;
+}
+
+function vchCloseModal(){
+  const ov = document.getElementById('vchModalOverlay');
+  if (ov) ov.style.display = 'none';
+  _vchCurrent = null; _vchParseFile = null;
+}
+
+async function vchOnFile(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  await vchHandleFile(file);
+}
+
+// 파일 객체 직접 처리 (input change + 드래그앤드롭 공용)
+
+async function vchHandleFile(file){
+  if (!file) return;
+  const isPdf = /\.pdf$/i.test(file.name||'') || (file.type||'')==='application/pdf';
+  const isImg = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(file.name||'') || (file.type||'').startsWith('image/');
+  if (!isPdf && !isImg) { alert('PDF 또는 이미지 파일만 첨부할 수 있습니다'); return; }
+  _vchParseFile = file;
+  try {
+    if (typeof renderFilePreview === 'function') await renderFilePreview(file, 'vchm-preview');
+  } catch(e){ console.warn('미리보기 실패:', e); }
+  await vchParseInvoice();
+}
+
+async function vchParseInvoice(){
+  if (!_vchParseFile) { alert('먼저 세금계산서 PDF를 첨부하세요'); return; }
+  const info = document.getElementById('vchm-parseinfo');
+  info.textContent = '⏳ 파싱 중... (로컬 우선)';
+  try {
+    const base64 = await pdfToBase64(_vchParseFile);
+    let parsed = null, via = '';
+    try {
+      const pdfText = (typeof extractPdfText === 'function') ? await extractPdfText(base64) : '';
+      if (pdfText && pdfText.length > 30) {
+        const local = parseENJETTAXTextLocally(pdfText);
+        if (local && (local.supplyAmount || local.totalAmount)) { parsed = local; via = '로컬'; }
+      }
+    } catch(e){ console.warn('로컬 파싱 실패:', e); }
+    if (!parsed || !(parsed.supplyAmount || parsed.totalAmount)) {
+      const prompt = '이 매입 세금계산서 PDF에서 다음 항목을 JSON으로 추출해줘. 반드시 JSON만 출력:\n{"taxNo":"승인번호","vendor":"공급자 회사명","bizNo":"공급자 사업자번호(000-00-00000)","taxDate":"작성일 YYYY-MM-DD","supplyAmount":공급가액숫자,"vatAmount":세액숫자,"totalAmount":합계금액숫자,"eTaxType":"전자"}';
+      const ai = await _purchaseCallAI(base64, prompt, _purchaseBestEngine());
+      if (ai) { parsed = { ...(parsed||{}), ...ai }; via = via ? via + '+AI' : 'AI'; }
+    }
+    if (!parsed) throw new Error('파싱 결과 없음');
+    const setIf = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null && v !== '') el.value = v; };
+    setIf('vchm-taxno', parsed.taxNo || parsed.taxInvoiceNo);
+    setIf('vchm-vendorname', parsed.vendor);
+    setIf('vchm-bizno', parsed.bizNo || parsed.bizno);
+    setIf('vchm-txdate', parsed.taxDate);
+    setIf('vchm-supply', parsed.supplyAmount);
+    setIf('vchm-vat', parsed.vatAmount);
+    setIf('vchm-total', parsed.totalAmount);
+    info.textContent = '✅ 파싱 완료 (' + via + ') · 공급가 ' + (Number(parsed.supplyAmount)||0).toLocaleString() + ' / 세액 ' + (Number(parsed.vatAmount)||0).toLocaleString();
+  } catch(e){
+    info.textContent = '⚠️ 파싱 실패: ' + e.message;
+    console.error(e);
+  }
+}
+
+async function vchSubmitVoucher(doApproval){
+  if (!_vchCurrent) return;
+  if (_vchSaving) return;                 // 처리 중 중복 클릭 방지
+  if (_vchSavedNo){                       // 이미 저장됨 → 저장 재실행 막고 상신만
+    if (doApproval){ vchCloseModal(); vchOpenApproval(_vchSavedNo); }
+    return;
+  }
+  const accDate = document.getElementById('vchm-accdate').value;
+  const txDate = document.getElementById('vchm-txdate').value;
+  if (!accDate) { alert('회계일을 입력하세요'); return; }
+  _vchSaving = true;
+  const _jid = _jobAdd('전표생성 ' + _vchCurrent.delv_no);
+  const bSave = document.getElementById('vchm-btn-save');
+  const bSA = document.getElementById('vchm-btn-saveapprove');
+  if (bSave){ bSave.disabled = true; bSave.style.opacity = .5; }
+  if (bSA){ bSA.disabled = true; bSA.style.opacity = .5; }
+  const out = document.getElementById('vchm-result');
+  out.innerHTML = '<div style="padding:12px;color:#6b7280;">⏳ 영림원 분개전표 생성 중... (로그인 포함 ~30초)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/make_voucher', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ settle_no: _vchCurrent.delv_no, acc_date: accDate, trade_date: txDate })
+    });
+    const data = await res.json();
+    if (data.success && data.voucher_no){
+      const vno = data.voucher_no;
+      _vchSavedNo = vno;
+      // 첨부 세금계산서 PDF를 04.세금계산서 폴더에 업로드 (입고번호-전표번호-프로젝트코드-담당자.pdf)
+      const _cur = _vchCurrent;
+      let _upMsg = '';
+      if (_vchParseFile && _cur){
+        const clean = s => String(s||'').replace(/[\\/:*?"<>|]/g,'').trim();
+        const fname = `${clean(_cur.delv_no)}-${clean(vno)}-${clean(_cur.pjt_no)}-${clean(_cur.emp_name)}.pdf`;
+        out.innerHTML = '<div style="padding:12px;color:#6b7280;">📤 세금계산서 업로드 중... (' + esc(fname) + ')</div>';
+        try {
+          const up = await vchUploadTaxPdf(_vchParseFile, fname);
+          _upMsg = up.ok ? `<br>📎 세금계산서 저장됨: ${esc(fname)}` : `<br>⚠️ 세금계산서 업로드 실패: ${esc(up.error||'')}`;
+        } catch(e){ _upMsg = `<br>⚠️ 세금계산서 업로드 예외: ${esc(e.message)}`; }
+      }
+      out.innerHTML = '<div style="padding:12px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ 영림원 전표 생성 완료: <b>' + esc(vno) + '</b>' + _upMsg + '<br><span style="font-size:12px;color:#047857;">이제 [결재상신]만 진행하면 됩니다.</span></div>';
+      vchList = vchList.filter(r => r.delv_no !== (_cur && _cur.delv_no));
+      _sbSetCount('sb-cnt-vch', vchList.length);
+      vchRenderList();
+      // 저장 완료 → 폼/저장버튼 잠그고 [결재상신]만 노출
+      vchLockAfterSave();
+      _jobUpdate(_jid, 'done', '전표번호 ' + vno);
+      if (doApproval){ vchCloseModal(); vchOpenApproval(vno); }
+    } else {
+      out.innerHTML = '<div style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 전표 생성 실패: ' + esc(data.message||'알 수 없음') + '</div>';
+      _jobUpdate(_jid, 'fail', data.message||'전표 생성 실패');
+      if (bSave){ bSave.disabled = false; bSave.style.opacity = 1; }
+      if (bSA){ bSA.disabled = false; bSA.style.opacity = 1; }
+    }
+  } catch(e){
+    out.innerHTML = '<div style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ' + esc(e.message) + '</div>';
+    _jobUpdate(_jid, 'fail', e.message);
+    if (bSave){ bSave.disabled = false; bSave.style.opacity = 1; }
+    if (bSA){ bSA.disabled = false; bSA.style.opacity = 1; }
+  } finally {
+    _vchSaving = false;
+  }
+}
+
+// 저장 완료 후: 입력칸/저장버튼 잠그고 [결재상신]만 표시
+
+function vchLockAfterSave(){
+  ['vchm-accdate','vchm-txdate','vchm-taxno','vchm-bizno','vchm-vendorname','vchm-supply','vchm-vat','vchm-total']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.disabled = true; });
+  const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
+  const show = id => { const el=document.getElementById(id); if(el) el.style.display=''; };
+  hide('vchm-btn-save'); hide('vchm-btn-saveapprove'); hide('vchm-btn-parse');
+  show('vchm-btn-approve');
+}
+
+// 저장된 전표를 전자결재로 상신
+
+function vchApproveOnly(){
+  if (!_vchSavedNo) return;
+  vchCloseModal();
+  vchOpenApproval(_vchSavedNo);
+}
+
+function vchOpenApproval(voucherNo){
+  // 전자결재를 iframe 모달로 ERP 대시보드 안에 띄움 (embed 모드 = 같은 세션, 로그인 그대로)
+  const overlay = document.getElementById('vchApprovalOverlay');
+  const frame = document.getElementById('vchApprovalFrame');
+  if (!overlay || !frame) return;
+  frame.src = `${APPROVAL_URL}?voucher=${encodeURIComponent(voucherNo)}&embed=1`;
+  overlay.style.display = 'flex';
+}
+
+function vchCloseApproval(){
+  const overlay = document.getElementById('vchApprovalOverlay');
+  const frame = document.getElementById('vchApprovalFrame');
+  if (overlay) overlay.style.display = 'none';
+  if (frame) frame.src = 'about:blank';
+}
+// 전자결재 iframe에서 모달 닫힘/상신완료 알림 받으면 오버레이 닫기
+window.addEventListener('message', (e)=>{
+  if (e.data && e.data.type === 'erp-voucher-modal-closed') vchCloseApproval();
+});
+
+
+const IV_SP_FOLDER = "💰 재무·회계/03.전표/매입(구매)";  // 06.BackOffice 사이트 내 경로
+let ivnewList = [];
+let ivnewDone = new Set(JSON.parse(localStorage.getItem('ivnewDoneDeliveries') || '[]'));
+
+// SharePoint에 PDF(base64) 업로드 → 매입(구매) 폴더
+
+async function ivUploadPdfToSP(filename, b64){
+  const token = await spGetToken();
+  const driveId = await spGetDriveId();
+  if (!token || !driveId) return { ok:false, error:"SharePoint 토큰/드라이브 없음" };
+  // base64 → 바이너리
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  const encPath = `${IV_SP_FOLDER}/${filename}`.split('/').map(encodeURIComponent).join('/');
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encPath}:/content`;
+  try {
+    const r = await fetch(url, {
+      method:'PUT',
+      headers: { Authorization:"Bearer "+token, "Content-Type":"application/pdf" },
+      body: bytes
+    });
+    if (!r.ok){
+      const t = await r.text();
+      return { ok:false, error:`HTTP ${r.status}: ${t.slice(0,150)}` };
+    }
+    const j = await r.json();
+    return { ok:true, webUrl: j.webUrl || "" };
+  } catch(e){
+    return { ok:false, error:e.message };
+  }
+}
+
+async function ivnewLoadList(refresh){
+  const list = document.getElementById('ivnew-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 입고완료 납품 조회 중... (영림원 로그인 포함 ~20초)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/done-deliveries' + (refresh?'?refresh=1':''));
+    const data = await res.json();
+    if (data.ok){
+      ivnewList = data.rows || [];
+      _sbSetCount('sb-cnt-ivnew', ivnewList.length);
+      document.getElementById('ivnew-search-info').textContent =
+        `총 ${ivnewList.length}건${data.from_cache?' (캐시)':' (실시간)'}`;
+      ivnewRenderList();
+    } else {
+      list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(data.error||'')}</div>`;
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+
+function ivnewRenderList(){
+  const list = document.getElementById('ivnew-list');
+  const kw = (document.getElementById('ivnew-search').value||'').trim().toLowerCase();
+  let rows = ivnewList;
+  if (kw){
+    rows = rows.filter(r => [r.delv_no, r.pjt_no, r.pjt_name, r.cust_name].some(v => (v||'').toLowerCase().includes(kw)));
+  }
+  // 정렬: 무조건 납품번호 최신순(내림차순), 최신이 맨 위
+  rows = rows.slice().sort((a,b)=> String(b.delv_no||'').localeCompare(String(a.delv_no||'')));
+  if (!rows.length){
+    list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">전표 발행할 입고완료 납품이 없습니다</div>';
+    return;
+  }
+  let html = '<table class="acc-table"><thead><tr>'
+    + '<th>납품번호</th><th>프로젝트</th><th>거래처</th><th class="num">수량</th>'
+    + '<th class="num">금액</th><th>납품일</th><th>담당자</th><th style="width:120px;">전표</th></tr></thead><tbody>';
+  rows.forEach((r)=>{
+    const done = ivnewDone.has(r.delv_no);
+    html += `<tr>`
+      + `<td style="font-family:monospace;font-size:13px;">${esc(r.delv_no)}</td>`
+      + `<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.pjt_name)}">${esc(r.pjt_no||'-')}</td>`
+      + `<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.cust_name||'-')}</td>`
+      + `<td class="num">${(r.qty||0).toLocaleString()}</td>`
+      + `<td class="num">${(r.amount||0).toLocaleString()}</td>`
+      + `<td style="font-size:13px;">${esc(r.delv_date||'-')}</td>`
+      + `<td>${esc(r.emp_name||'-')}</td>`
+      + `<td>${done
+          ? '<span style="color:#16a34a;font-weight:700;">✅ 발행완료</span>'
+          : `<button onclick="ivnewIssue('${esc(r.delv_no)}')" style="padding:6px 12px;border:none;border-radius:6px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;font-size:13px;">📄 발행</button>`}</td>`
+      + `</tr>`;
+  });
+  html += '</tbody></table>';
+  list.innerHTML = html;
+}
+
+// 전표 발행: 서버에서 PDF base64 받아 → SharePoint 업로드 (PC저장은 서버가 처리)
+
+function ivnewIssue(delvNo){
+  const section = document.getElementById('ivnew-result-section');
+  const resultDiv = document.getElementById('ivnew-result');
+  section.style.display = '';
+  resultDiv.innerHTML = `<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">⏳ ${esc(delvNo)} 전표 발행 중... 상단 배너로 진행상황 확인. 다른 화면 이동 가능.</div>`;
+  bgSave('전표('+delvNo+')', '/api/erp/save_invoice', { delv_no: delvNo }, async (data, err) => {
+    if (err){
+      resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(err.message)}</div>`;
+      return;
+    }
+    if (!data || !data.success){
+      resultDiv.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 전표 생성 실패: ${esc((data&&data.message)||'알 수 없는 오류')}</div>`;
+      return;
+    }
+    // 서버가 PC 로컬 저장 완료 + base64 반환 → SharePoint 업로드
+    const fname = data.filename || (delvNo + '.pdf');
+    resultDiv.innerHTML = `<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">📤 ${esc(fname)} SharePoint 업로드 중...</div>`;
+    let spMsg = '';
+    if (data.pdf_b64){
+      const up = await ivUploadPdfToSP(fname, data.pdf_b64);
+      spMsg = up.ok
+        ? `✅ SharePoint 매입(구매) 폴더 업로드 완료${up.webUrl?` (<a href="${esc(up.webUrl)}" target="_blank">열기</a>)`:''}`
+        : `⚠️ SharePoint 업로드 실패: ${esc(up.error)} (PC에는 저장됨)`;
+    } else {
+      spMsg = '⚠️ PDF 데이터 없음 (PC에만 저장됨)';
+    }
+    ivnewDone.add(delvNo);
+    localStorage.setItem('ivnewDoneDeliveries', JSON.stringify([...ivnewDone]));
+    resultDiv.innerHTML = `<div style="padding:16px;background:#d1fae5;border-radius:8px;color:#065f46;">
+      ✅ <b>${esc(delvNo)}</b> 전표 발행 완료!<br>
+      📄 파일명: <b>${esc(fname)}</b> (${((data.bytes||0)/1024).toFixed(1)} KB)<br>
+      💾 PC 저장: ${esc(data.local_path||'(실패)')}<br>
+      ${spMsg}
+    </div>`;
+    ivnewRenderList();
+  });
+}
+
+
+// ════════════════════════════════════════════════════════
+// 구매활동 (프로젝트별 4단계 그룹, 아코디언)
+// ════════════════════════════════════════════════════════
+let actGroups = [];
+let actExpanded = new Set();
+
+// 사이드탭 배지에 건수 표시
+
+function _sbSetCount(id, n){
+  const el = document.getElementById(id);
+  if (el) el.textContent = (n>0 ? String(n) : '0');
+}
+
+async function actBuildLocalIdx(){
+  window._actLocalIdx = {};
+  const _b = pc => (window._actLocalIdx[pc] = window._actLocalIdx[pc] || {reqDone:[],proposals:[],orders:[],receipts:[]});
+  try {
+    const pr = (await idbGet('cache_pr'))?.data || [];   // 구매요청
+    const pp = (await idbGet('cache_pp'))?.data || [];   // 구매품의
+    const po = (await idbGet('cache_po'))?.data || [];   // 발주
+    const rc = (await idbGet('cache_rc'))?.data || [];   // 입고정산
+    // 구매요청: 완료(확정)된 품목만 — 미확정은 결재상신 전/발주요청만이라 구매와 무관
+    for (const r of pr){
+      const pc = String(r.project_code||'').trim(); if(!pc) continue;
+      if (String(r.status||'').trim() !== '완료') continue;
+      _b(pc).reqDone.push(r);
+    }
+    for (const r of pp){
+      const pc = String(r.project_code||'').trim(); if(!pc) continue;
+      _b(pc).proposals.push(r);
+    }
+    for (const r of po){
+      const pc = String(r.project_code||'').trim(); if(!pc) continue;
+      _b(pc).orders.push(r);
+    }
+    for (const r of rc){
+      const pc = String(r.project_code||'').trim(); if(!pc) continue;
+      _b(pc).receipts.push(r);
+    }
+  } catch(e){ console.warn('actBuildLocalIdx', e); }
+}
+// 프로젝트 진행률: 확정 구매요청 → 품의 → 발주 → 입고정산 (입고 완료 기준)
+
+function _actProgress(pjtNo){
+  const idx = (window._actLocalIdx && window._actLocalIdx[pjtNo]) || {};
+  const reqDone = (idx.reqDone||[]).length;       // 확정(완료) 구매요청 품목
+  const ppCount = (idx.proposals||[]).length;     // 품의 품목
+  const orders = idx.orders||[], receipts = idx.receipts||[];
+  const poNos = new Set();                          // 발주: 발주캐시 ∪ 입고 po_no
+  orders.forEach(o=>{ const n=String(o.po_no||'').trim(); if(n) poNos.add(n); });
+  receipts.forEach(r=>{ const n=String(r.po_no||'').trim(); if(n) poNos.add(n); });
+  const poCount = poNos.size;                       // 발주 건수(번호 기준)
+  const poItems = orders.length;                    // 발주 품목수
+  const rcCount = receipts.length;                  // 입고정산 품목
+  // 진행률 = 입고 품목 / 확정 요청 품목 (확정요청 없으면 입고기준)
+  let pct;
+  if (reqDone > 0) pct = Math.min(100, Math.round(rcCount / reqDone * 100));
+  else pct = rcCount > 0 ? 100 : 0;
+  return { reqDone, ppCount, poCount, poItems, rcCount, pct, hasBase: reqDone>0 };
+}
+
+function _actLocal(pjtNo){
+  const loc = (window._actLocalIdx && window._actLocalIdx[pjtNo]) || {orders:[],receipts:[]};
+  // 발주번호 = 발주캐시 + 입고정산의 po_no 합집합 (po 캐시 누락 대비: 입고에 발주번호가 들어있음)
+  const poNos = new Set();
+  loc.orders.forEach(o=>{ const n=String(o.po_no||'').trim(); if(n) poNos.add(n); });
+  loc.receipts.forEach(r=>{ const n=String(r.po_no||'').trim(); if(n) poNos.add(n); });
+  const rcAmt = loc.receipts.reduce((s,r)=>s+(+r.tot_dom_amt||+r.dom_amt||0),0);
+  return { orders: loc.orders, receipts: loc.receipts, poNos, poCount: poNos.size, rcCount: loc.receipts.length, rcAmt };
+}
+
+function _actLocalTables(pjtNo){
+  const L = _actLocal(pjtNo);
+  if (!L.orders.length && !L.receipts.length) return '';
+  let h = '<div style="margin-top:6px;padding-top:10px;border-top:1px dashed #cbd5e1;"><div style="font-size:12px;font-weight:800;color:#0f4c81;margin-bottom:8px;">🗄️ 로컬 ERP 실측 (발주/입고정산 캐시 직접 매칭)</div>';
+  // 발주 (발주캐시 + 입고정산 po_no 합집합 — po 캐시 누락 대비)
+  {
+    const byNo = {};
+    // 발주 캐시
+    L.orders.forEach(o=>{ const k=String(o.po_no||'-').trim(); if(!k||k==='-')return; (byNo[k]=byNo[k]||{po_no:k,vendor:'',status:'',amt:0,items:0,src:'발주'}); byNo[k].vendor=byNo[k].vendor||o.vendor||o.cust_name||''; byNo[k].status=byNo[k].status||o.status||''; byNo[k].amt+=(+o.amount||+o.tot_dom_amt||0); byNo[k].items++; });
+    // 입고정산에서 발주번호 보완 (캐시에 없던 발주)
+    L.receipts.forEach(r=>{ const k=String(r.po_no||'').trim(); if(!k)return; if(!byNo[k]){ byNo[k]={po_no:k,vendor:r.cust_name||'',status:'입고확인',amt:0,items:0,src:'입고'}; } if(byNo[k].src==='입고'){ byNo[k].amt+=(+r.tot_dom_amt||+r.dom_amt||0); byNo[k].items++; if(!byNo[k].vendor)byNo[k].vendor=r.cust_name||''; } });
+    const list = Object.values(byNo).sort((a,b)=>String(b.po_no).localeCompare(String(a.po_no)));
+    if (list.length){
+      h += `<div style="font-weight:700;font-size:12.5px;color:#374151;margin:6px 0 4px;">🧾 발주 <span style="color:#6b7280;font-weight:400;">${list.length}건</span></div>`;
+      h += '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;"><thead><tr style="background:#f3f4f6;"><th style="padding:6px 8px;text-align:left;color:#6b7280;">발주번호</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">거래처</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">상태</th><th style="padding:6px 8px;text-align:right;color:#6b7280;">품목</th><th style="padding:6px 8px;text-align:right;color:#6b7280;">금액</th></tr></thead><tbody>';
+      list.forEach(o=>{ h += `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;font-family:monospace;">${esc(o.po_no)}</td><td style="padding:6px 8px;">${esc(o.vendor)}</td><td style="padding:6px 8px;">${esc(o.status||'-')}${o.src==='입고'?' <span style="color:#0891b2;font-size:10px;">(입고확인)</span>':''}</td><td style="padding:6px 8px;text-align:right;">${o.items}</td><td style="padding:6px 8px;text-align:right;">${(o.amt||0).toLocaleString()}원</td></tr>`; });
+      h += '</tbody></table>';
+    }
+  }
+  // 입고정산
+  if (L.receipts.length){
+    const rows = L.receipts.slice().sort((a,b)=>String(b.delv_in_no||'').localeCompare(String(a.delv_in_no||'')));
+    h += `<div style="font-weight:700;font-size:12.5px;color:#374151;margin:10px 0 4px;">📥 입고정산 <span style="color:#6b7280;font-weight:400;">${rows.length}건 · 합계 ${(L.rcAmt||0).toLocaleString()}원</span></div>`;
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;"><thead><tr style="background:#f3f4f6;"><th style="padding:6px 8px;text-align:left;color:#6b7280;">입고번호</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">입고일</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">품명</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">거래처</th><th style="padding:6px 8px;text-align:left;color:#6b7280;">발주번호</th><th style="padding:6px 8px;text-align:right;color:#6b7280;">합계</th></tr></thead><tbody>';
+    rows.slice(0,50).forEach(r=>{ h += `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 8px;font-family:monospace;">${esc(r.delv_in_no||'-')}</td><td style="padding:6px 8px;">${esc(fmtDate?fmtDate(r.delv_in_date):r.delv_in_date||'-')}</td><td style="padding:6px 8px;">${esc((r.item_name||'-')).slice(0,24)}</td><td style="padding:6px 8px;">${esc(r.cust_name||'-')}</td><td style="padding:6px 8px;font-family:monospace;">${esc(r.po_no||'-')}</td><td style="padding:6px 8px;text-align:right;">${((+r.tot_dom_amt||+r.dom_amt||0)).toLocaleString()}원</td></tr>`; });
+    if (rows.length>50) h += `<tr><td colspan="6" style="padding:6px 8px;color:#9ca3af;text-align:center;">…외 ${rows.length-50}건</td></tr>`;
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+  return h;
+}
+
+async function actLoad(refresh){
+  const list = document.getElementById('act-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px;">⏳ 구매활동 조회 중... 영림원에서 발주·납품·요청을 모으는 중이에요 (1~2분 소요)</div>';
+  try {
+    const res = await fetch(SERVER + '/api/erp/activity' + (refresh?'?refresh=1':''));
+    const data = await res.json();
+    if (data.ok){
+      actGroups = data.groups || [];
+      try { await actBuildLocalIdx(); } catch(e){ console.warn('로컬 인덱스 실패', e); }
+      _sbSetCount('sb-cnt-activity', actGroups.length);
+      document.getElementById('act-info').textContent =
+        `총 ${actGroups.length}개 프로젝트${data.from_cache?' (캐시)':' (실시간)'}${data.stale?' ⚠️이전 데이터':''}`;
+      actRender();
+    } else {
+      list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(data.error||'')}</div>`;
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+
+function _actStatusBadges(statusObj){
+  // {작성:2, 완료:7} → "작성2 완료7"
+  if (!statusObj) return '';
+  const parts = Object.entries(statusObj)
+    .filter(([k,v]) => k && k!=='-' && v>0)
+    .map(([k,v]) => `${esc(k)}${v}`);
+  return parts.length ? `<span style="color:#6b7280;font-size:12px;">(${parts.join(' / ')})</span>` : '';
+}
+
+function _actStageChip(label, total, statusObj, color){
+  const badge = _actStatusBadges(statusObj);
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:14px;background:${color}15;border:1px solid ${color}40;margin-right:6px;white-space:nowrap;">
+    <b style="color:${color};">${esc(label)}</b>
+    <span style="font-weight:700;">${total}</span> ${badge}</span>`;
+}
+
+function actRender(){
+  const list = document.getElementById('act-list');
+  const kw = (document.getElementById('act-search').value||'').trim().toLowerCase();
+  let rows = actGroups;
+  if (kw){
+    rows = rows.filter(g => [g.pjt_no, g.pjt_name].some(v => (v||'').toLowerCase().includes(kw)));
+  }
+  // 정렬: 프로젝트번호의 뒷자리(연도+일련번호) 최신순
+  // 예: BP26004 → 26004 비교. BP/BM은 접두 떼고 숫자부 비교.
+  const _projKey = (g) => {
+    // BP26004-001 → "26004-001" 같은 뒷부분
+    const m = String(g.pjt_no||'').match(/^[A-Za-z]+(.+)$/);
+    return m ? m[1] : String(g.pjt_no||'');
+  };
+  const _sortLatest = (arr) => arr.slice().sort((a,b)=>
+    String(_projKey(b)).localeCompare(String(_projKey(a))));
+
+  // BP / BM / 기타 분류 (섞지 않음)
+  const bp = _sortLatest(rows.filter(g => /^BP/i.test(g.pjt_no||'')));
+  const bm = _sortLatest(rows.filter(g => /^BM/i.test(g.pjt_no||'')));
+  const etc = _sortLatest(rows.filter(g => !/^B[PM]/i.test(g.pjt_no||'')));
+
+  if (!rows.length){
+    list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;">표시할 프로젝트가 없습니다</div>';
+    return;
+  }
+
+  const _sectionHeader = (title, count, color) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid ${color};">
+       <span style="font-size:15px;font-weight:800;color:${color};">${title}</span>
+       <span style="font-size:12px;color:#6b7280;">${count}개 프로젝트</span></div>`;
+
+  let html = '';
+  if (bp.length){ html += _sectionHeader('💰 매출 프로젝트 (BP)', bp.length, '#0f4c81'); bp.forEach(g => html += _actCard(g)); }
+  if (bm.length){ html += _sectionHeader('💰 매출 프로젝트 (BM)', bm.length, '#0891b2'); bm.forEach(g => html += _actCard(g)); }
+  if (etc.length){ html += _sectionHeader('📦 일반 프로젝트', etc.length, '#6b7280'); etc.forEach(g => html += _actCard(g)); }
+  list.innerHTML = html;
+}
+
+function _actCard(g){
+    const open = actExpanded.has(g.pjt_no);
+    const _P = _actProgress(g.pjt_no);              // 확정요청→품의→발주→입고
+    const reqValid = _P.reqDone;                    // 확정(완료) 구매요청 품목 = 분모
+    const reqDone = _P.rcCount;                      // 입고 품목 = 진행
+    const pct = _P.pct;
+    // 선발주: 요청이 0건인데 발주/납품이 있는 경우
+    const isPreorder = (g.req_total||0) === 0 && ((g.po_total||0) > 0 || (g.delv_total||0) > 0);
+    // 경고
+    const warns = [];
+    if (g.warn_order_missing) warns.push(`⚠️ 발주대기 ${g.req_pending}`);
+    if (g.warn_delv_pending) warns.push(`🔴 납품대기 ${g.po_pending}`);
+    const warnHtml = warns.length
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">` +
+        warns.map(w=>`<span style="font-size:11px;font-weight:700;color:${w[0]==='🔴'?'#dc2626':'#d97706'};background:${w[0]==='🔴'?'#fef2f2':'#fffbeb'};padding:2px 8px;border-radius:10px;">${w}</span>`).join('') +
+        `</div>` : '';
+    const barColor = pct>=90?'#16a34a':pct>=50?'#0891b2':'#f59e0b';
+    const borderColor = isPreorder ? '#dc2626' : (warns.length?'#fcd34d':'#e5e7eb');
+
+    let html = `<div style="border:1px solid ${borderColor};border-radius:10px;margin-bottom:10px;overflow:hidden;">`;
+    html += `<div onclick="actToggle('${esc(g.pjt_no)}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:${open?'#f0f9ff':'#fff'};flex-wrap:wrap;">`
+      + `<span style="font-size:14px;color:#0f4c81;transition:transform .15s;transform:rotate(${open?90:0}deg);">▶</span>`
+      + `<div style="min-width:170px;">`
+      + `<div style="font-weight:800;color:#0f4c81;font-family:monospace;display:flex;align-items:center;gap:6px;">${esc(g.pjt_no)}`
+      + (isPreorder ? `<span class="badge-preorder">선발주</span>` : '')
+      + `</div>`
+      + `<div style="font-size:12px;color:#6b7280;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(g.pjt_name)}">${esc(g.pjt_name||'')}</div>`
+      + (g.first_req_no?`<div style="font-size:11px;color:#9ca3af;">대표요청 ${esc(g.first_req_no)}</div>`:'')
+      + warnHtml
+      + `</div>`
+      + `<div style="min-width:140px;">`
+      + `<div style="font-size:11px;color:#6b7280;margin-bottom:3px;">입고진행 ${_P.rcCount}/${_P.reqDone||'?'} 품목 <span style="color:#94a3b8;">(확정요청 기준)</span></div>`
+      + `<div style="height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;"></div></div>`
+      + `<div style="font-size:11px;color:${barColor};font-weight:700;text-align:right;">${pct}%</div>`
+      + `</div>`
+      + `<div style="flex:1;display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end;">`
+      + _actStageChip('요청', g.req_total, g.req_status, '#0891b2')
+      + _actStageChip('발주', g.po_total, g.po_status, '#7c3aed')
+      + _actStageChip('납품', g.delv_total, g.delv_status, '#16a34a')
+      + `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:14px;background:#f59e0b15;border:1px solid #f59e0b40;white-space:nowrap;"><b style="color:#f59e0b;">전표</b> <span style="font-weight:700;">${g.invoice_total}</span></span>`
+      + `</div></div>`;
+    // 로컬 ERP 실측 요약 (서버 집계 누락 보완)
+    const _L = _actLocal(g.pjt_no);
+    if (_P.reqDone || _L.poCount || _L.rcCount){
+      const stage = (lbl, n, col) => `<span style="display:inline-flex;align-items:center;gap:4px;"><b style="color:${col};">${lbl}</b><b style="color:#1a202c;">${n}</b></span>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 16px;background:#f8fafc;border-top:1px dashed #e2e8f0;font-size:12px;">`
+        + `<span style="font-weight:700;color:#0f4c81;">🗄️ 실측 추적</span>`
+        + stage('확정요청', _P.reqDone, '#0891b2') + '<span style="color:#cbd5e1;">→</span>'
+        + stage('품의', _P.ppCount, '#7c3aed') + '<span style="color:#cbd5e1;">→</span>'
+        + stage('발주', _P.poCount, '#d95f00') + '<span style="color:#cbd5e1;">→</span>'
+        + stage('입고', _P.rcCount, '#16a34a')
+        + `<span style="color:#16a34a;font-weight:700;margin-left:4px;">${(_L.rcAmt||0).toLocaleString()}원</span>`
+        + (_P.reqDone===0 && _P.rcCount>0 ? `<span style="color:#d97706;font-size:11px;">⚠️ 확정 구매요청 없음(선발주/직접발주)</span>` : '')
+        + `</div>`;
+    }
+    if (open){
+      html += `<div style="padding:12px 16px;background:#fafafa;border-top:1px solid #f1f5f9;">`;
+      html += _actDetailTable('📋 구매요청', g.requests, ['no','status','date','dept','emp','item'], ['요청번호','상태','요청일','요청부서','요청자','품목'], ['완료']);
+      html += _actDetailTable('🧾 발주', g.orders, ['no','status','date','cust','emp','proposal_no'], ['발주번호','상태','발주일','거래처','담당자','품의번호'], ['완료']);
+      html += _actDetailTable('📦 납품', g.delvs, ['no','status','date','cust','emp'], ['납품번호','상태','납품일','거래처','담당자'], ['입고완료']);
+      html += _actLocalTables(g.pjt_no);
+      html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
+}
+
+function _actDetailTable(title, items, keys, headers, okStatuses){
+  if (!items || !items.length){
+    return `<div style="margin-bottom:10px;"><div style="font-weight:700;font-size:13px;color:#374151;margin-bottom:4px;">${title} <span style="color:#9ca3af;font-weight:400;">(없음)</span></div></div>`;
+  }
+  const okSet = new Set(okStatuses || []);
+  // 정상(okStatuses)에 없으면 문제. 단 '중단'은 문제 아님(취소 처리).
+  const isProblem = (it) => {
+    const s = String(it.status||'').trim();
+    if (s === '중단') return false;
+    return !okSet.has(s);
+  };
+  // 문제 행을 위로 + 각 그룹 내 번호 최신순
+  const rows = items.slice().sort((a,b)=>{
+    const pa = isProblem(a)?0:1, pb = isProblem(b)?0:1;
+    if (pa !== pb) return pa - pb;  // 문제 먼저
+    return String(b.no||'').localeCompare(String(a.no||''));
+  });
+  const probCount = rows.filter(isProblem).length;
+  let h = `<div style="margin-bottom:12px;">`
+    + `<div style="font-weight:700;font-size:13px;color:#374151;margin-bottom:6px;">${title} <span style="color:#6b7280;font-weight:400;">${items.length}건</span>`
+    + (probCount?` <span style="color:#dc2626;font-weight:700;">⚠️ 미진행 ${probCount}</span>`:'')
+    + `</div>`
+    + `<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;">`
+    + `<thead><tr style="background:#f3f4f6;">`;
+  headers.forEach(hd => h += `<th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600;">${esc(hd)}</th>`);
+  h += `</tr></thead><tbody>`;
+  rows.forEach(it => {
+    const prob = isProblem(it);
+    const stopped = String(it.status||'').trim()==='중단';
+    h += `<tr style="border-top:1px solid #f1f5f9;${prob?'background:#fffbeb;':stopped?'opacity:.5;':''}">`;
+    keys.forEach(k => {
+      let v = it[k]; if (v===null||v===undefined) v='';
+      v = String(v).trim();
+      const mono = (k==='no'||k==='proposal_no') ? 'font-family:monospace;' : '';
+      if (k==='status'){
+        const hl = prob
+          ? 'background:#fde047;color:#854d0e;font-weight:700;padding:2px 7px;border-radius:4px;'
+          : stopped
+          ? 'color:#9ca3af;'
+          : 'color:#16a34a;font-weight:600;';
+        const disp = v || '(미입고)';
+        h += `<td style="padding:6px 8px;"><span style="${hl}">${esc(disp)}</span></td>`;
+      } else {
+        h += `<td style="padding:6px 8px;${mono}max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(v)}">${esc(v)}</td>`;
+      }
+    });
+    h += `</tr>`;
+  });
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+function actToggle(pjtNo){
+  if (actExpanded.has(pjtNo)) actExpanded.delete(pjtNo);
+  else actExpanded.add(pjtNo);
+  actRender();
+}
+
+/* ===== PDF 이중 업로드: 06.BackOffice + TIC-Mail/100.ERP (폴더 자동생성, 파일명 동일) ===== */
+async function _pDualUploadPdf(rel06, relTic, bytes){
+  const token = await graphToken();
+  const out = { ok:false, backoffice:null, tic:null, webUrl:"", name:"" };
+  // 1) 06.BackOffice (기존)
+  try{
+    const d06 = await sp06Drive();
+    const enc = rel06.split('/').map(encodeURIComponent).join('/');
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${d06}/root:/${enc}:/content`,
+      {method:'PUT',headers:{Authorization:"Bearer "+token,"Content-Type":"application/pdf"},body:bytes});
+    if(r.ok){ const j=await r.json(); out.backoffice={ok:true,webUrl:j.webUrl,name:j.name}; out.webUrl=j.webUrl||out.webUrl; out.name=j.name||out.name; }
+    else out.backoffice={ok:false,error:`HTTP ${r.status}`};
+  }catch(e){ out.backoffice={ok:false,error:e.message}; }
+  // 2) TIC-Mail/100.ERP (경로 PUT → 폴더 자동생성)
+  try{
+    const dTic = await spDrive();
+    const enc = relTic.split('/').map(encodeURIComponent).join('/');
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${dTic}/root:/${enc}:/content`,
+      {method:'PUT',headers:{Authorization:"Bearer "+token,"Content-Type":"application/pdf"},body:bytes});
+    if(r.ok){ const j=await r.json(); out.tic={ok:true,webUrl:j.webUrl,name:j.name}; if(!out.webUrl)out.webUrl=j.webUrl||""; if(!out.name)out.name=j.name||""; }
+    else out.tic={ok:false,error:`HTTP ${r.status}`};
+  }catch(e){ out.tic={ok:false,error:e.message}; }
+  out.ok = !!((out.backoffice&&out.backoffice.ok) || (out.tic&&out.tic.ok));
+  return out;
+}
+// 세금계산서 PDF → 04.세금계산서 (06.BackOffice + 100.ERP)
+async function vchUploadTaxPdf(file, filename){
+  const buf = await file.arrayBuffer();
+  const res = await _pDualUploadPdf(`💰 재무·회계/04.세금계산서/${filename}`, `100.ERP/04.세금계산서/${filename}`, buf);
+  if(!res.ok) return { ok:false, error:((res.backoffice&&res.backoffice.error)||'')+' / '+((res.tic&&res.tic.error)||'') };
+  return { ok:true, webUrl:res.webUrl, name:res.name||filename, backoffice:res.backoffice, tic:res.tic };
+}
+// 구매납품전표 PDF(base64) → 03.전표/매입(구매) (06.BackOffice + 100.ERP)
+async function ivUploadPdfToSP(filename, b64){
+  const bin=atob(b64); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const res = await _pDualUploadPdf(`💰 재무·회계/03.전표/매입(구매)/${filename}`, `100.ERP/03.전표/매입(구매)/${filename}`, bytes);
+  if(!res.ok) return { ok:false, error:((res.backoffice&&res.backoffice.error)||'')+' / '+((res.tic&&res.tic.error)||'') };
+  return { ok:true, webUrl:res.webUrl, name:res.name||filename, backoffice:res.backoffice, tic:res.tic };
+}
+
+/* ===== STEP1 목록 프로젝트 필터 (설정 탭 프로젝트만) ===== */
+function pInProj(row){
+  if(!row) return false;
+  const set = (typeof pProjects!=='undefined'? pProjects:[]).map(p=>String(p).toUpperCase());
+  if(!set.length) return true;
+  const cands = [row.project_code,row.pjt_no,row.PJTNo,row.projectCode,row.project_no,row.pjtNo];
+  return cands.some(v => v && set.includes(String(v).trim().toUpperCase()));
+}
+{ const _o=ppnewLoadConfirmed; ppnewLoadConfirmed=async function(r){ await _o(r); try{ ppnewConfirmed=(ppnewConfirmed||[]).filter(pInProj); ppnewRenderList(); }catch(e){console.warn('필터 pp',e);} }; }
+{ const _o=ponewLoadDrafts;    ponewLoadDrafts=async function(r){ await _o(r); try{ ponewDrafts=(ponewDrafts||[]).filter(pInProj); ponewRenderList(); }catch(e){console.warn('필터 po',e);} }; }
+{ const _o=dvnewLoadDrafts;    dvnewLoadDrafts=async function(r){ await _o(r); try{ dvnewDrafts=(dvnewDrafts||[]).filter(pInProj); dvnewRenderList(); }catch(e){console.warn('필터 dv',e);} }; }
+{ const _o=ivnewLoadList;      ivnewLoadList=async function(r){ await _o(r); try{ ivnewList=(ivnewList||[]).filter(pInProj); ivnewRenderList(); }catch(e){console.warn('필터 iv',e);} }; }
+{ const _o=vchLoadList;        vchLoadList=async function(r){ await _o(r); try{ vchList=(vchList||[]).filter(pInProj); vchRenderList(); }catch(e){console.warn('필터 vch',e);} }; }
+
+/* ===== 작성 페이지 최초 진입 시 STEP1 자동 로드 (캐시 우선=빠름) ===== */
+let _pWriteInited = {};
+function pWriteInit(name){
+  const loaders = { pp_new:'ppnewLoadConfirmed', po_new:'ponewLoadDrafts', dv_new:'dvnewLoadDrafts', iv_new:'ivnewLoadList', vch:'vchLoadList' };
+  if(name==='pp_new' && typeof ppnewApplyLoginUser==='function'){ try{ ppnewApplyLoginUser(); }catch(e){} }
+  if(_pWriteInited[name]) return;
+  _pWriteInited[name] = true;
+  const fn = loaders[name];
+  try{ if(typeof window[fn]==='function') window[fn](false); }catch(e){ console.warn('pWriteInit',name,e); }
+}
+
 </script>
+<div id="jobq-wrap" style="display:none;position:fixed;top:14px;right:18px;z-index:1000001;font-family:inherit;">
+  <button id="jobq-badge" onclick="_jobToggle()" style="border:none;color:#fff;background:#7c3aed;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);transition:transform .2s;">진행중 0</button>
+  <div id="jobq-panel" style="display:none;position:absolute;top:42px;right:0;width:320px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);border:1px solid #e5e7eb;overflow:hidden;"></div>
+</div>
 </body>
 </html>
