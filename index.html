@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v75</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v76</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -4779,6 +4779,11 @@ function startApp(){
   }catch(e){}
   if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
   showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
+  // 딥링크: ?tab=spec / schedule / contacts / doc-tech 등 → 해당 탭 바로 열기 (팀즈 채널 게시용)
+  try{
+    const _tab=new URLSearchParams(location.search).get('tab');
+    if(_tab && _tab!=='mail'){ setTimeout(()=>{ try{ showPage(_tab); }catch(e){} }, 60); }
+  }catch(e){}
   resolveServerEndpoint().finally(()=>{ checkHealth(); loadList(); preloadContacts(); });
   actLogLoad();
 }
