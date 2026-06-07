@@ -1,0 +1,2485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>ENJET 메일 대시보드</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a6fd4'/%3E%3Cstop offset='1' stop-color='%230f4c81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3EEN%3C/text%3E%3C/svg%3E">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+<script src="https://res.cdn.office.net/teams-js/2.24.0/js/MicrosoftTeams.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
+<style>
+:root{
+  --bg:#f4f6fa; --bg2:#fff; --bg3:#f8f9fc;
+  --p:#1a6fd4; --pd:#e6f0fc; --p2:#0f4c81;
+  --t1:#1a202c; --t2:#4a5568; --t3:#9ca3af;
+  --border:#e5e7eb; --border2:#d1d5db;
+  --g:#10b981; --gd:#d1fae5;
+  --r:#dc2626; --rd:#fee2e2;
+  --y:#d97706; --yd:#fef3c7;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow2:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06);
+  --shadow3:0 10px 15px rgba(0,0,0,0.08),0 4px 6px rgba(0,0,0,0.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
+body{display:flex;flex-direction:column;height:100vh}
+.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0}
+.hdr::before{content:"";position:absolute;top:-50%;right:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%)}
+.hdr-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1;flex-wrap:wrap}
+.hdr-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.hdr-sub{font-size:12.5px;opacity:.85;margin-top:1px}
+.spacer{flex:1}
+.hdr-sync{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:5px 11px;border-radius:6px;font-size:13px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#9ca3af}
+.hdr-sync.on .sync-dot{background:#4ade80;box-shadow:0 0 6px #4ade80;animation:pulse 2s infinite}
+.hdr-sync.off .sync-dot{background:#f87171;box-shadow:0 0 6px #f87171}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-hdr{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:7px 13px;border-radius:6px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600}
+.btn-hdr:hover{background:rgba(255,255,255,0.25)}
+.btn-hdr.primary{background:#fff;color:var(--p2);font-weight:700;border-color:#fff}
+.btn-chat-back{background:rgba(255,255,255,0.92);color:var(--p2);border:none;padding:9px 13px;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.btn-chat-back:hover{background:#fff}
+.btn-chat-back:active{transform:scale(.96)}
+.toolbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.folders{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px}
+.folders button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:13.5px;font-weight:600;padding:7px 16px;border-radius:6px;cursor:pointer;transition:.12s}
+.folders button.active{background:var(--p);color:#fff;box-shadow:var(--shadow)}
+.search{flex:1;min-width:170px;position:relative}
+.search input{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.search input:focus{outline:none;border-color:var(--p);background:#fff}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3)}
+.count{font-size:12.5px;color:var(--t2);white-space:nowrap;font-weight:600}
+.main{flex:1;display:flex;gap:14px;padding:14px 18px;min-height:0}
+.list,.reader{background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:auto}
+.list{width:400px;flex-shrink:0;padding:0}
+.reader{flex:1;display:flex;flex-direction:column}
+.mobile-back{display:none}
+.mailrow{padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:.1s;border-left:3px solid transparent}
+.mailrow:hover{background:var(--bg3)}
+.mailrow.sel{background:var(--pd);border-left-color:var(--p)}
+.mr-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mr-from{font-weight:700;font-size:13.5px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68%}
+.mr-date{font-size:11.5px;color:var(--t3);white-space:nowrap}
+.mr-subj{font-size:13px;color:var(--t2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mr-clip{color:var(--y);font-size:11px;margin-left:5px}
+.mr-cnt{display:inline-block;background:var(--p);color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px}
+.mr-label{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle}
+.mr-label.co{background:var(--gd);color:#065f46}
+.mr-label.cat{background:#fef3c7;color:#92400e}
+.sel-all{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.sel-all input{width:15px;height:15px;cursor:pointer}
+.btn.danger{background:var(--r);color:#fff;border-color:var(--r)}
+.btn.danger:hover{background:#b91c1c}
+.mr-chk{width:15px;height:15px;margin-right:8px;cursor:pointer;flex-shrink:0;vertical-align:middle}
+.mailrow .mr-row{display:flex;align-items:flex-start}
+.mailrow .mr-body{flex:1;min-width:0}
+.mr-caret{color:var(--t3);font-size:11px;margin-left:6px;transition:.15s}
+.grp.open .mr-caret{transform:rotate(90deg)}
+.grp-children{display:none;background:var(--bg3)}
+.grp.open .grp-children{display:block}
+.grp-child{padding:10px 16px 10px 32px;border-bottom:1px solid var(--border);cursor:pointer;border-left:3px solid transparent}
+.grp-child:hover{background:var(--pd)}
+.grp-child.sel{background:var(--pd);border-left-color:var(--p)}
+.gc-subj{font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-date{font-size:11px;color:var(--t3);margin-top:2px}
+.rd-empty{margin:auto;text-align:center;color:var(--t3);padding:40px}
+.rd-empty .big{font-size:46px;margin-bottom:10px;opacity:.5}
+.rd-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.rd-subj{font-weight:800;font-size:18px;line-height:1.4;margin:0 0 12px;color:var(--t1)}
+.rd-meta{font-size:12.5px;color:var(--t2);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.rd-meta b{color:var(--t1);font-weight:600;white-space:nowrap}
+.rd-actions{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border)}
+.btn{font-family:inherit;font-size:13px;border:1px solid var(--border);background:#fff;color:var(--t1);padding:7px 13px;border-radius:8px;cursor:pointer;transition:.12s;font-weight:600}
+.btn:hover{background:var(--bg3);border-color:var(--border2)}
+.btn.primary{background:var(--p);color:#fff;border-color:var(--p)}
+.btn.primary:hover{background:var(--p2)}
+.btn:active{transform:translateY(1px)}
+.btn.sm{font-size:12.5px;padding:6px 11px}
+.rd-att-box{border-bottom:1px solid var(--border)}
+.rd-att-toggle{padding:11px 24px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:700;color:var(--p);background:var(--bg3)}
+.rd-att-toggle:hover{background:var(--pd)}
+.rd-att-caret{transition:transform .15s;font-size:11px}
+.rd-att-box.open .rd-att-caret{transform:rotate(180deg)}
+.rd-att-box .rd-atts{display:none;border-bottom:none}
+.rd-att-box.open .rd-atts{display:flex}
+.rd-atts{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px}
+.att{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 11px;color:var(--t1);font-weight:600;cursor:pointer}
+.att:hover{border-color:var(--p);background:var(--pd)}
+.rd-body{flex:1;min-height:0}
+.rd-body pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.75;margin:0;padding:22px 24px;color:var(--t1)}
+.rd-body iframe{width:100%;height:100%;border:0;background:#fff}
+.empty,.err{padding:40px;text-align:center;color:var(--t2);font-size:13.5px}
+.err{color:var(--r)}
+.spin{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:sp .7s linear infinite;margin:34px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.skel{padding:13px 16px;border-bottom:1px solid var(--border)}
+.skel div{height:10px;background:linear-gradient(90deg,#eef1f6,#f6f8fb,#eef1f6);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:4px;margin:5px 0}
+@keyframes sh{to{background-position:-200% 0}}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal.on{display:flex}
+.mbox{background:#fff;border-radius:14px;padding:0;width:100%;max-width:460px;box-shadow:var(--shadow3);overflow:hidden}
+.mbox-h{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:16px 22px;font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+.mbox-h .x{background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px}
+.mbox-b{padding:20px 22px}
+.mbox-b p{margin:0 0 14px;font-size:12.5px;color:var(--t2)}
+.mbox label{font-size:12px;font-weight:700;color:var(--t2);display:block;margin:12px 0 5px}
+.mbox input[type=text],.mbox textarea{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.mbox input:focus,.mbox textarea:focus{outline:none;border-color:var(--p);background:#fff}
+.mbox textarea{resize:vertical;line-height:1.6}
+.mbox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.cbox{max-width:640px}
+.cfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cfiles .chip{font-size:12px;background:var(--pd);border:1px solid #c7ddf7;border-radius:7px;padding:4px 9px;display:inline-flex;gap:6px;align-items:center;color:var(--p2)}
+.cfiles .chip b{font-weight:600}
+.cfiles .chip span{cursor:pointer;color:var(--r);font-weight:700}
+.cmsg{font-size:12.5px;margin-top:10px;min-height:18px;font-weight:600}
+@media(max-width:860px){.main{flex-direction:column}.list{width:100%;max-height:38vh}.reader{min-height:46vh}}
+/* 로그인 게이트 */
+#gate{position:fixed;inset:0;z-index:2000;background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+#gate.hide{display:none}
+.gate-card{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px 36px;width:100%;max-width:380px;text-align:center}
+.gate-logo{font-size:44px;margin-bottom:10px}
+.gate-card h1{font-size:21px;font-weight:800;margin:0 0 4px;color:var(--t1)}
+.gate-card p{font-size:13px;color:var(--t2);margin:0 0 26px}
+.gate-btn{width:100%;background:var(--p);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+.gate-btn:hover{background:var(--p2)}
+.gate-btn:disabled{opacity:.6;cursor:default}
+.gate-ms{width:18px;height:18px}
+.gate-err{color:var(--r);font-size:12.5px;margin-top:14px;min-height:16px}
+.gate-foot{font-size:11.5px;color:var(--t3);margin-top:20px}
+/* 상위 탭바 */
+.topnav{background:#fff;border-bottom:1px solid var(--border);padding:0 18px;display:flex;gap:2px;flex-shrink:0;overflow-x:auto}
+.topnav button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:600;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.12s}
+.topnav button:hover{color:var(--p)}
+.topnav button.active{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+.nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
+tr.new-contact{background:#fffbeb}
+tr.new-contact:hover{background:#fef3c7}
+.new-tag{display:inline-block;font-size:10px;font-weight:800;color:#92400e;background:#fde68a;border-radius:8px;padding:1px 7px;margin-left:6px}
+/* 페이지 전환 */
+.page{flex:1;display:none;flex-direction:column;min-height:0}
+.page.on{display:flex}
+/* 주소록/문서 공통 패널 */
+.panel{flex:1;display:flex;flex-direction:column;padding:14px 18px;min-height:0}
+.panel-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.panel-bar h2{font-size:16px;font-weight:800;margin:0}
+.tbl-wrap{flex:1;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+table.grid{width:100%;border-collapse:collapse;font-size:13px}
+table.grid th{position:sticky;top:0;background:var(--bg3);text-align:left;padding:10px 12px;font-weight:700;color:var(--t2);border-bottom:2px solid var(--border);white-space:nowrap;font-size:12px}
+table.grid td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle}
+table.grid tr:hover{background:var(--bg3)}
+table.grid input,table.grid select{width:100%;font-family:inherit;font-size:13px;padding:5px 7px;border:1px solid transparent;border-radius:6px;background:transparent}
+table.grid input:focus,table.grid select:focus{outline:none;border-color:var(--p);background:#fff}
+table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(--border)}
+.cat-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--pd);color:var(--p2)}
+.row-del{cursor:pointer;color:var(--t3);font-weight:700;border:none;background:none;font-size:14px}
+.row-mail{cursor:pointer;color:var(--p);border:none;background:none;font-size:15px;margin-right:4px}
+.row-mail:hover{color:var(--p2)}
+.row-del:hover{color:var(--r)}
+/* 문서 탭: 고객사/분류 트리 + 파일 */
+.doc-layout{flex:1;display:flex;gap:14px;min-height:0}
+.doc-tree{width:230px;flex-shrink:0;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:8px}
+.doc-files{flex:1;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.tree-item{padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--t2);display:flex;justify-content:space-between;align-items:center}
+.tree-item:hover{background:var(--bg3)}
+.tree-item.active{background:var(--pd);color:var(--p2);font-weight:700}
+.tree-item.sub{padding-left:24px;font-size:12.5px}
+.filerow{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer}
+.filerow:hover{background:var(--bg3)}
+.filerow .fn{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filerow .fm{font-size:11.5px;color:var(--t3)}
+/* 이송 모달 select */
+.mbox select{width:100%;font-family:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.mbox select:focus{outline:none;border-color:var(--p);background:#fff}
+.att.movable{position:relative}
+.att-actions{display:flex;gap:5px;margin-left:4px}
+.att-mini{font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600;color:var(--p2)}
+.att-mini:hover{background:var(--pd)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:600;z-index:3000;box-shadow:var(--shadow3);opacity:0;transition:.2s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.ok{background:var(--g)} .toast.bad{background:var(--r)}
+/* 일괄 이송 모달 */
+.mbox.wide{max-width:860px}
+.move-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.move-tbl th{background:var(--bg3);text-align:left;padding:7px 8px;font-weight:700;color:var(--t2);font-size:11.5px;border-bottom:2px solid var(--border);white-space:nowrap}
+.move-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.move-tbl select,.move-tbl input{width:100%;font-family:inherit;font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.move-tbl select:focus,.move-tbl input:focus{outline:none;border-color:var(--p)}
+.move-tbl .fname{font-weight:600;color:var(--t1);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.move-tbl .badge-lg{font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:8px;padding:1px 6px;margin-left:4px}
+.move-tbl .st{font-size:11px;white-space:nowrap}
+.move-chk{width:16px;height:16px}
+.move-scroll{max-height:50vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
+/* ── 통합일정관리 ── */
+.sch-wrap{flex:1;overflow:auto;padding:16px 20px 30px}
+.sch-subtabs{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.sch-subtab{font-family:inherit;font-size:13px;font-weight:700;padding:9px 16px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:7px;transition:.14s}
+.sch-subtab .tag{width:9px;height:9px;border-radius:50%;background:#cbd5e1}
+.sch-subtab.trial.active{border-color:#1FA89B;color:#0f766e;background:#f0fdfa}
+.sch-subtab.trial.active .tag{background:#1FA89B}
+.sch-subtab.demo.active{border-color:#534AB7;color:#4338ca;background:#f5f3ff}
+.sch-subtab.demo.active .tag{background:#534AB7}
+.sch-today{font-size:12px;font-weight:700;color:var(--t2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px}
+.sch-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:860px){.sch-stats{grid-template-columns:repeat(2,1fr)}}
+.sch-stat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.sch-stat .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+.sch-stat .k{font-size:11.5px;color:var(--t3);font-weight:700}
+.sch-stat .v{font-size:21px;font-weight:800;color:var(--t1);margin:2px 0}
+.sch-stat .d{font-size:11px;color:var(--t3);font-weight:500}
+.sch-panel{background:#fff;border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;margin-bottom:16px}
+.sch-panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.sch-panel-h h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:9px;margin:0}
+.sch-accent{width:5px;height:17px;border-radius:3px;display:inline-block}
+.sch-tools{display:flex;gap:8px;align-items:center}
+.sch-save{font-size:11px;color:var(--g);font-weight:700;opacity:0;transition:.3s}
+.sch-save.show{opacity:1}
+.sch-gantt-wrap{padding:16px 18px 22px;overflow-x:auto}
+.sch-gantt{min-width:760px}
+.sch-axis{display:flex;position:relative;height:24px;margin-left:var(--lw);border-bottom:1px solid var(--border)}
+.sch-month{flex:1;font-size:11px;font-weight:800;color:var(--p2);text-align:left;padding-left:6px;border-left:1px solid var(--border)}
+.sch-row{display:flex;align-items:center;height:34px;position:relative}
+.sch-row:nth-child(even) .sch-track{background:var(--bg3)}
+.sch-label{width:var(--lw);flex:0 0 var(--lw);font-size:12px;font-weight:600;padding-right:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1)}
+.sch-label .ph{font-size:9px;font-weight:800;color:#fff;padding:1px 6px;border-radius:5px;margin-right:6px}
+.sch-track{position:relative;flex:1;height:100%;border-left:1px solid var(--border)}
+.sch-grid{position:absolute;inset:0;pointer-events:none}
+.sch-grid span{position:absolute;top:0;bottom:0;border-left:1px solid #eef1f7}
+.sch-bar{position:absolute;top:7px;height:19px;border-radius:6px;box-shadow:0 2px 6px -2px rgba(0,0,0,.3);display:flex;align-items:center;padding:0 7px;font-size:9.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden}
+.sch-bar.ongoing-ext{opacity:.45;border-radius:0 6px 6px 0;box-shadow:none}
+.sch-ms{position:absolute;top:6px;width:20px;height:20px;transform:translateX(-10px) rotate(45deg);border-radius:4px;box-shadow:0 2px 6px -2px rgba(0,0,0,.4)}
+.sch-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--r);z-index:5;pointer-events:none}
+.sch-today-flag{position:absolute;top:0;background:var(--r);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap;transform:translateX(-50%);z-index:6;pointer-events:none}
+.sch-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.sch-tbl thead th{background:var(--p2);color:#fff;font-weight:700;font-size:11.5px;padding:9px 8px;text-align:left;white-space:nowrap}
+.sch-tbl thead th.c{text-align:center}
+.sch-tbl tbody td{padding:0;border-bottom:1px solid var(--border);vertical-align:middle}
+.sch-tbl tbody td .cell{padding:8px 9px;outline:none;min-height:34px;display:flex;align-items:center}
+.sch-tbl tbody td.c .cell{justify-content:center}
+.sch-tbl tbody td .cell:focus{background:#eef5ff;box-shadow:inset 0 0 0 2px var(--p)}
+.sch-tbl tbody tr.emph td{background:#fffbeb}
+.sch-tbl tbody tr.emph td .cell{font-weight:700}
+.sch-tbl .row-ph{font-size:9px;font-weight:800;color:#fff;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.sch-rowact{display:flex;gap:5px;justify-content:center;align-items:center}
+.sch-iconbtn{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:#fff;cursor:pointer;display:grid;place-items:center;font-size:13px;position:relative}
+.sch-iconbtn:hover{background:var(--bg3)}
+.sch-iconbtn .cnt{position:absolute;top:-6px;right:-6px;background:var(--y);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:grid;place-items:center;padding:0 3px}
+.sch-star{color:var(--y)}
+.sch-tbl tr.crow td{padding:0;background:var(--bg3)}
+.sch-cbox{padding:12px 16px 14px;border-left:4px solid var(--y)}
+.sch-cbox h4{font-size:12px;font-weight:800;color:var(--p2);margin:0 0 8px;display:flex;align-items:center;gap:7px}
+.sch-clist{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+.sch-cmt{background:#fff;border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:12px}
+.sch-cmt .meta{font-size:10px;color:var(--t3);font-weight:700;margin-bottom:2px;display:flex;justify-content:space-between;gap:10px}
+.sch-cmt .meta .del{color:var(--r);cursor:pointer}
+.sch-cadd{display:flex;gap:7px;flex-wrap:wrap}
+.sch-cadd input,.sch-cadd textarea{font-family:inherit;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;outline:none}
+.sch-cadd input{width:120px} .sch-cadd textarea{flex:1;min-width:180px;resize:vertical;min-height:34px}
+.sch-cempty{color:var(--t3);font-size:11.5px;font-style:italic}
+.sch-legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 18px 16px;font-size:11px;color:var(--t3);font-weight:600;align-items:center}
+.sch-legend .it{display:flex;align-items:center;gap:6px}
+.sch-legend .sw{width:14px;height:10px;border-radius:3px}
+.sch-note{background:var(--p2);color:#fff;font-size:12px;font-weight:600;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sch-note b{font-weight:800}
+/* 문서 분석 목록 */
+.doc-analysis{flex:1;display:flex;flex-direction:column;min-height:0}
+.doc-an-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.doc-an-bar input,.doc-an-bar select{font-family:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.doc-an-bar input.search{width:160px}
+.an-tbl-wrap{flex:1;overflow:auto}
+.an-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.an-tbl th{position:sticky;top:0;background:var(--p2);color:#fff;font-weight:700;font-size:11px;padding:8px 7px;text-align:left;white-space:nowrap;z-index:2}
+.an-tbl th.c{text-align:center}.an-tbl th.r{text-align:right}
+.an-tbl td{padding:6px 7px;border-bottom:1px solid var(--border);vertical-align:top}
+.an-tbl td.c{text-align:center}.an-tbl td.r{text-align:right}
+.an-tbl tr:hover{background:var(--bg3)}
+.an-tbl .file-link{color:var(--p);cursor:pointer;font-weight:600;text-decoration:underline}
+.an-tbl .item{max-width:200px}
+.an-tbl input.memo{width:100%;font-family:inherit;font-size:12px;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:transparent}
+.an-tbl input.memo:hover{border-color:var(--border);background:#fff}
+.an-tbl input.memo:focus{outline:none;border-color:var(--p);background:#fff}
+.an-co{display:inline-block;font-size:11px;font-weight:700;color:#065f46;background:var(--gd);border-radius:8px;padding:1px 7px}
+.an-empty{padding:40px;text-align:center;color:var(--t3)}
+.an-pending{font-size:11px;color:var(--y);font-weight:700}
+/* 파일 관리 공통 */
+.doc-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.doc-search{width:170px;font-family:inherit;font-size:12.5px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.doc-search:focus{outline:none;border-color:var(--p);background:#fff}
+.filerow .fr-act{display:flex;gap:4px;margin-left:auto;opacity:0;transition:.12s}
+.filerow:hover .fr-act{opacity:1}
+.fr-btn{width:24px;height:24px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:11px;display:grid;place-items:center}
+.fr-btn:hover{background:var(--pd)}
+.fr-btn.del:hover{background:#fee2e2;border-color:var(--r)}
+.an-actcell{white-space:nowrap}
+.an-mini{font-size:11px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer;margin-left:3px}
+.an-mini:hover{background:var(--pd)}
+.an-mini.del:hover{background:#fee2e2;border-color:var(--r)}
+.tree-file{padding:4px 10px 4px 26px;font-size:11.5px;color:var(--t2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:6px}
+.tree-file:hover{background:var(--pd);color:var(--p)}
+/* 파일탐색기 트리 */
+.ftree{padding:6px 4px;font-size:12.5px;user-select:none}
+.ft-node{}
+.ft-row{display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:7px;cursor:pointer;white-space:nowrap;overflow:hidden}
+.ft-row:hover{background:var(--bg3)}
+.ft-row.sel{background:var(--pd);color:var(--p);font-weight:700}
+.ft-row.file{color:var(--t2);font-size:11.5px}
+.ft-row.file:hover{background:var(--pd)}
+.ft-caret{width:14px;text-align:center;color:var(--t3);font-size:10px;flex-shrink:0;transition:transform .12s}
+.ft-caret.open{transform:rotate(90deg)}
+.ft-ico{flex-shrink:0}
+.ft-name{overflow:hidden;text-overflow:ellipsis}
+.ft-children{margin-left:14px;border-left:1px solid var(--border);padding-left:2px}
+.ft-tools{padding:6px;display:flex;gap:6px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.ctxmenu{position:fixed;z-index:99999;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:5px;min-width:150px;display:none}
+.ctxmenu.on{display:block}
+.ctxmenu .ci{padding:8px 12px;font-size:12.5px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--t1)}
+.ctxmenu .ci:hover{background:var(--pd)}
+.ctxmenu .ci.del:hover{background:#fee2e2;color:var(--r)}
+.ctxmenu .sep{height:1px;background:var(--border);margin:4px 0}
+/* ══════ 모바일 최적화 (640px 이하 — PC 디자인 영향 없음) ══════ */
+@media(max-width:640px){
+  .hdr{padding:10px 12px 12px}
+  .hdr-title{font-size:16px}
+  .hdr-sub{font-size:11px}
+  .hdr-row{gap:8px}
+  .btn-hdr{padding:6px 9px;font-size:12px}
+  .btn-chat-back{padding:7px 10px;font-size:12.5px}
+  .hdr-sync{padding:4px 8px;font-size:11px}
+  .topnav{padding:0 8px;gap:0}
+  .topnav button{padding:11px 11px;font-size:13px;white-space:nowrap}
+  .toolbar{padding:8px 12px;gap:8px}
+  .folders{width:100%;justify-content:center}
+  .folders button{flex:1;padding:9px 8px;font-size:13px}
+  .search{min-width:0;width:100%;order:3}
+  .count{order:2}
+  .main{flex-direction:column;padding:0;gap:0;position:relative}
+  /* 기본(목록 보기): 목록만 전체화면, 본문 숨김 */
+  .list{width:100%;max-height:none;border-radius:0;border:none}
+  .reader{display:none}
+  /* 메일 선택 시: 본문만 전체화면, 목록·툴바 숨김 */
+  .main.reading .list{display:none}
+  .main.reading .reader{display:block;width:100%;min-height:calc(100vh - 60px)}
+  body.reading-mail .toolbar{display:none}
+  .mobile-back{display:flex;align-items:center;gap:6px;padding:14px 16px;background:var(--p);color:#fff;border-bottom:none;font-size:15px;font-weight:800;cursor:pointer;position:sticky;top:0;z-index:10}
+  .mailrow{padding:13px 14px}
+  .mr-subj{font-size:14px}
+  /* 메일 본문 제목·헤더 여백 축소 (모바일) */
+  .rd-subj{font-size:15px!important;line-height:1.3!important;margin:0 0 8px!important;font-weight:700!important}
+  .rd-head{padding:13px 16px}
+  .rd-meta{font-size:12px;gap:3px 10px}
+  .rd-actions{padding:10px 12px;gap:6px;flex-wrap:wrap}
+  .rd-actions .btn{padding:8px 10px;font-size:12.5px}
+  .rd-body pre{padding:16px 16px;font-size:13.5px;line-height:1.7}
+  /* 본문 전체 펼침 — 내부 스크롤 없이 페이지 전체가 스크롤 */
+  .reader{overflow:visible!important}
+  .rd-body{flex:none!important;min-height:0}
+  .rd-body iframe{height:auto;min-height:300px}
+  .doc-layout{flex-direction:column;gap:10px}
+  .doc-tree{width:100%!important;max-width:none!important;max-height:38vh}
+  .doc-files,.doc-analysis{width:100%;min-height:40vh}
+  .doc-an-bar{flex-wrap:wrap}
+  .doc-an-bar input.search,.doc-search{width:100%}
+  .an-tbl{font-size:11.5px;min-width:680px}
+  .an-tbl th,.an-tbl td{padding:7px 7px;white-space:nowrap}
+  .an-tbl .item{max-width:none;white-space:normal;min-width:130px}
+  .an-tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .sch-wrap{padding:10px 12px 24px}
+  .sch-stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .sch-subtabs{flex-wrap:wrap}
+  .sch-panel-h{padding:11px 13px}
+  .sch-tbl{font-size:11.5px;min-width:640px}
+  .sch-tbl th,.sch-tbl td{white-space:nowrap;padding:7px 6px}
+  /* 모든 데이터 테이블: 가로 스크롤 + 한 글자씩 끊김 방지 */
+  .doc-analysis,.doc-files,.sch-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{font-size:11.5px}
+  table td,table th{white-space:nowrap}
+  /* 주소록/명세 테이블 컨테이너 가로 스크롤 */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .grid{min-width:760px}
+  .grid th,.grid td{white-space:nowrap}
+  .mbox{max-width:96vw;margin:0 8px;max-height:90vh;display:flex;flex-direction:column}
+  .mbox-b{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .cbox{max-width:96vw}
+  .cbox #cBody{rows:6}
+  .cbox textarea{min-height:120px}
+  /* 모달 하단 버튼 줄: 잘 보이게 여백 */
+  .mbox .row{position:sticky;bottom:0;background:#fff;padding-top:10px;margin-top:4px}
+  .ft-row{padding:9px 8px}
+  .ft-children{margin-left:10px}
+  .ctxmenu .ci{padding:11px 14px;font-size:13.5px}
+  .btn{padding:9px 13px}
+  .btn.sm{padding:7px 11px}
+}
+@media(max-width:400px){
+  .topnav button{font-size:12px;padding:10px 8px}
+  .hdr-title{font-size:15px}
+  .an-tbl{font-size:11px}
+}
+
+/* 관리자 설정 */
+.adm-wrap{max-width:720px;margin:0 auto;padding:20px 22px 40px}
+.adm-head h2{font-size:19px;font-weight:800;margin:0 0 4px;color:var(--t1)}
+.adm-sub{font-size:12.5px;color:var(--t3);margin-bottom:18px}
+.adm-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.adm-card-h{font-size:14px;font-weight:700;color:var(--p);margin-bottom:12px}
+.adm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.adm-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.adm-row.col{flex-direction:column;align-items:stretch;gap:5px}
+.adm-lbl{font-size:13px;color:var(--t2);min-width:110px;font-weight:600}
+.adm-row input[type=text],.adm-row input[type=time],.adm-wrap textarea{flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)}
+.adm-wrap textarea{width:100%;resize:vertical;line-height:1.6}
+.adm-toggle{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;color:var(--t1)}
+.adm-toggle input{width:18px;height:18px;cursor:pointer}
+.adm-hint{font-size:11.5px;color:var(--t3);margin-top:7px}
+.adm-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.adm-saved{text-align:right;font-size:12px;color:var(--g);margin-top:8px;min-height:16px}
+@media(max-width:640px){.adm-wrap{padding:14px 14px 30px}.adm-grid{grid-template-columns:1fr}.adm-lbl{min-width:90px}}
+
+.adm-ch-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.adm-ch-name{flex:1;min-width:120px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;background:var(--bg);color:var(--t1)}
+.adm-ch-del{background:none;border:none;cursor:pointer;font-size:16px;color:var(--t3);padding:4px 8px;border-radius:6px}
+.adm-ch-del:hover{background:#fee2e2;color:var(--r)}
+.adm-ch{border-left:3px solid var(--p)}
+.adm-wf{background:#fafbfc;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:6px}
+.adm-wf .adm-row{margin-bottom:9px}
+.adm-wf .adm-lbl{min-width:130px;font-size:12.5px}
+.btn.sm{padding:6px 12px;font-size:12.5px}
+.ta-wrap{max-width:1000px;margin:0 auto;padding:18px 20px 40px}
+.ta-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.ta-head h2{font-size:18px;font-weight:800;margin:0 0 3px;color:var(--t1)}
+.ta-sub{font-size:12px;color:var(--t3)}
+.ta-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ta-table th{text-align:left;padding:10px 12px;background:var(--bg);color:var(--t2);font-weight:700;font-size:12px;border-bottom:1px solid var(--border)}
+.ta-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ta-table tr:last-child td{border-bottom:none}
+.ta-table tr:hover td{background:var(--bg)}
+.ta-name{font-weight:600;color:var(--t1);word-break:break-all}
+@media(max-width:640px){.ta-wrap{padding:12px}.ta-table th:nth-child(4),.ta-table td:nth-child(4),.ta-table th:nth-child(5),.ta-table td:nth-child(5){display:none}}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">📧</div>
+    <h1>ENJET 메일 대시보드</h1>
+    <p>회사 Microsoft 계정으로 로그인하세요</p>
+    <button class="gate-btn" id="gateBtn" onclick="doLogin()">
+      <svg class="gate-ms" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#7fba00" d="M12 0h11v11H12z"/><path fill="#00a4ef" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>
+      Microsoft 계정으로 로그인
+    </button>
+    <div class="gate-err" id="gateErr"></div>
+    <div class="gate-foot">enjet.co.kr 계정만 접근 가능</div>
+  </div>
+</div>
+<div class="hdr">
+  <div class="hdr-row">
+    <div>
+      <div class="hdr-title">📧 ENJET 메일 대시보드</div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v28</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
+    <button class="btn-chat-back" onclick="backToTeamsChat()">← 채팅으로</button>
+    <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
+    <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
+    <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
+    <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
+    <button class="btn-hdr" onclick="logout()">로그아웃</button>
+  </div>
+</div>
+<div class="topnav">
+  <button id="nav-mail" class="active" onclick="showPage('mail')">📧 메일</button>
+  <button id="nav-contacts" onclick="showPage('contacts')">👥 주소록<span class="nav-badge" id="newBadge" style="display:none">0</span></button>
+  <button id="nav-doc-quote" onclick="showPage('doc-quote')">📄 견적서</button>
+  <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
+  <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
+  <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
+  <button id="nav-tattach" onclick="showPage('tattach')">📎 팀즈첨부파일정리</button>
+  <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
+</div>
+
+<!-- 메일 페이지 -->
+<div class="page on" id="page-mail">
+<div class="toolbar">
+  <div class="folders">
+    <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
+    <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
+    <button class="btn sm primary" onclick="openCompose('new')" style="margin-left:6px">✏ 메일쓰기</button>
+  </div>
+  <div class="search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="renderList()">
+  </div>
+  <span class="count" id="count"></span>
+  <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
+  <button class="btn sm danger" id="delBtn" onclick="deleteSelected()" style="display:none">🗑 삭제 <span id="delCnt"></span></button>
+</div>
+<div class="main">
+  <div class="list" id="list"></div>
+  <div class="reader" id="reader"><div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div></div>
+</div>
+</div>
+
+<!-- 주소록 페이지 -->
+<div class="page" id="page-contacts">
+  <div class="panel">
+    <div class="panel-bar">
+      <h2>👥 주소록</h2>
+      <span class="count" id="contactCount"></span>
+      <div class="spacer"></div>
+      <input id="contactSearch" type="text" placeholder="검색" style="width:180px;font-family:inherit;font-size:13.5px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)" oninput="renderContacts()">
+      <button class="btn" onclick="scanContactsFromMail()">📥 빠른수집</button>
+      <button class="btn" onclick="scanContactsCopilot()">✨ Copilot 수집</button>
+      <button class="btn" onclick="addContactRow()">+ 추가</button>
+      <button class="btn primary" onclick="saveContacts()">💾 저장</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="grid" id="contactGrid"><thead><tr>
+        <th style="width:130px">이름</th><th style="width:200px">이메일</th>
+        <th style="width:150px">회사</th><th style="width:130px">연락처</th>
+        <th style="width:120px">카테고리</th><th style="width:160px">메모</th><th style="width:64px"></th>
+      </tr></thead><tbody id="contactBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- 문서 페이지 4개 (공통 템플릿) -->
+<div class="page" id="page-doc-quote"><div class="panel" id="panel-doc-quote"></div></div>
+<div class="page" id="page-doc-invoice"><div class="panel" id="panel-doc-invoice"></div></div>
+<div class="page" id="page-doc-tax"><div class="panel" id="panel-doc-tax"></div></div>
+<div class="page" id="page-doc-tech"><div class="panel" id="panel-doc-tech"></div></div>
+
+<!-- 팀즈첨부파일정리 페이지 -->
+<div class="page" id="page-tattach">
+  <div class="ta-wrap">
+    <div class="ta-head">
+      <div>
+        <h2>📎 팀즈 첨부파일 정리</h2>
+        <div class="ta-sub" id="taSub">T Project 채팅에 올라온 첨부파일</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="taSearch" placeholder="파일명·작성자 검색" oninput="taRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <button class="btn" onclick="taLoad()">↻ 새로고침</button>
+      </div>
+    </div>
+    <div id="taList"></div>
+  </div>
+</div>
+
+<!-- 문서함 이동 모달 -->
+<div class="modal" id="taMoveModal">
+  <div class="mbox" style="max-width:460px">
+    <div class="mbox-h"><span>📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-b">
+      <div id="taMoveFile" style="font-size:13px;color:var(--t2);margin-bottom:14px;word-break:break-all"></div>
+      <div class="adm-row col" style="margin-bottom:10px"><span class="adm-lbl">분류</span>
+        <select id="taMoveDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <option value="doc-tech">📚 기술자료</option>
+          <option value="doc-quote">📄 견적서</option>
+          <option value="doc-invoice">📋 거래명세서</option>
+          <option value="doc-tax">🧾 세금계산서</option>
+        </select>
+      </div>
+      <div class="adm-row col"><span class="adm-lbl">하위 폴더(선택)</span><input type="text" id="taMoveFolder" placeholder="예: 한국화낙 (비우면 루트)"></div>
+      <div class="row" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="$('taMoveModal').classList.remove('on')">취소</button>
+        <button class="btn primary" onclick="taDoMove()">📁 복사</button>
+      </div>
+      <div id="taMoveMsg" style="font-size:12px;margin-top:10px;text-align:right"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 통합일정관리 페이지 -->
+<div class="page" id="page-schedule">
+  <div class="sch-wrap">
+    <div class="sch-subtabs">
+      <div class="sch-subtab trial active" data-v="trial" onclick="schSwitch('trial')"><span class="tag"></span>Trial 일정관리</div>
+      <div class="sch-subtab demo" data-v="demo" onclick="schSwitch('demo')"><span class="tag"></span>Demo 일정관리</div>
+      <div style="flex:1"></div>
+      <span class="sch-today" id="schToday">—</span>
+    </div>
+    <div class="sch-stats" id="schStats"></div>
+    <div class="sch-panel">
+      <div class="sch-panel-h">
+        <h2><span class="sch-accent" id="schGanttAccent"></span><span id="schGanttTitle"></span> · Gantt</h2>
+        <div class="sch-tools">
+          <span class="sch-save" id="schSaveInd">✓ 저장됨</span>
+          <button class="btn sm" onclick="schReload()">↻ 새로고침</button>
+        </div>
+      </div>
+      <div class="sch-gantt-wrap"><div class="sch-gantt" id="schGantt"></div></div>
+      <div class="sch-legend" id="schLegend"></div>
+    </div>
+    <div class="sch-panel">
+      <div class="sch-panel-h">
+        <h2><span class="sch-accent" id="schTblAccent"></span>작업 상세 · 편집 가능</h2>
+        <div class="sch-tools">
+          <button class="btn sm" onclick="schAddRow()">+ 작업 추가</button>
+          <button class="btn sm primary" onclick="schSave(true)">💾 SharePoint 저장</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table id="schTbl" class="sch-tbl"></table></div>
+      <div class="sch-note"><b>💡 사용법</b> 셀 클릭해 수정 · 날짜(MM/DD) 수정 시 간트 자동 반영 · 💬 댓글 · [💾 SharePoint 저장]으로 모두에게 공유</div>
+    </div>
+  </div>
+</div>
+<div class="page" id="page-admin">
+  <div class="adm-wrap">
+    <div class="adm-head">
+      <h2>⚙️ 관리자 설정 — Teams 자동요약 채널</h2>
+      <div class="adm-sub">채널별로 자동요약 시간·환영메시지·on/off를 관리합니다. 저장하면 서버가 읽어 자동 반영됩니다.</div>
+    </div>
+    <div class="adm-card">
+      <div class="adm-card-h">🔔 전체 자동요약</div>
+      <label class="adm-toggle"><input type="checkbox" id="adm_master"> <span>전체 자동요약 사용 (끄면 모든 채널 중지)</span></label>
+    </div>
+    <div id="adm_channels"></div>
+    <div class="adm-actions">
+      <button class="btn" onclick="admAddChannel()">＋ 채널 추가</button>
+      <button class="btn" onclick="admLoad()">↻ 다시 불러오기</button>
+      <button class="btn primary" onclick="admSave()">💾 전체 저장</button>
+    </div>
+    <div class="adm-saved" id="adm_saved"></div>
+  </div>
+</div>
+<div class="modal" id="settings">
+  <div class="mbox">
+    <div class="mbox-h"><span>⚙ 서버 주소</span><button class="x" onclick="closeSettings()">✕</button></div>
+    <div class="mbox-b">
+      <p>서버 주소(cloudflare 터널)는 <b>SharePoint에서 자동으로 갱신</b>됩니다. 재부팅으로 주소가 바뀌어도 자동 추적해요. 수동 입력도 가능합니다.</p>
+      <label>서버 URL</label>
+      <input id="srvInput" type="text" placeholder="https://xxxx.trycloudflare.com">
+      <div class="row"><button class="btn" onclick="refreshEndpoint()">🔄 자동 갱신</button><button class="btn" onclick="closeSettings()">취소</button><button class="btn primary" onclick="saveSettings()">저장</button></div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="compose">
+  <div class="mbox cbox">
+    <div class="mbox-h"><span id="cTitle">새 메일</span><button class="x" onclick="closeCompose()">✕</button></div>
+    <div class="mbox-b">
+      <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span> <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cTo')">📇 주소록</button></label>
+      <input id="cTo" type="text" placeholder="someone@enjet.co.kr, ...">
+      <label>참조 (CC) <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cCc')">📇 주소록</button></label>
+      <input id="cCc" type="text" placeholder="(선택)">
+      <label>제목</label>
+      <input id="cSubj" type="text">
+      <label>내용</label>
+      <textarea id="cBody" rows="11"></textarea>
+      <label>첨부파일</label>
+      <input id="cFiles" type="file" multiple onchange="onFiles()">
+      <div id="cFileList" class="cfiles"></div>
+      <div id="cMsg" class="cmsg"></div>
+      <div class="row"><button class="btn" onclick="closeCompose()">취소</button><button class="btn primary" id="cSend" onclick="sendMail()">✉ 보내기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 주소록에서 받는사람 선택 모달 -->
+<div class="modal" id="ctPickModal">
+  <div class="mbox" style="max-width:520px">
+    <div class="mbox-h"><span>📇 주소록에서 선택</span><button class="x" onclick="closeContactPicker()">✕</button></div>
+    <div class="mbox-b">
+      <input id="ctPickSearch" type="text" placeholder="🔍 이름·회사·이메일 검색" oninput="renderContactPicker()" style="margin-bottom:8px">
+      <div id="ctPickList" style="max-height:48vh;overflow:auto;border:1px solid var(--border);border-radius:10px"></div>
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="closeContactPicker()">취소</button><button class="btn primary" onclick="applyContactPicker()">✓ 선택 추가 (<span id="ctPickN">0</span>)</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 첨부 → 문서함 일괄 이송 모달 -->
+<div class="modal" id="moveModal">
+  <div class="mbox wide">
+    <div class="mbox-h"><span>📁 문서함으로 이송</span><button class="x" onclick="closeMove()">✕</button></div>
+    <div class="mbox-b">
+      <p>첨부별로 <b>문서종류·고객사·분류</b>를 확인/수정 후, 체크한 항목을 한 번에 저장합니다. (자동 추측됨 — 수정 가능)</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0">공통 고객사</label>
+        <input id="moveCommonCust" type="text" style="width:160px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="전체 적용">
+        <button class="btn sm" onclick="applyCommonCust()">전체 적용</button>
+        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0 0 0 8px">기준 날짜</label>
+        <input id="moveCommonDate" type="text" style="width:120px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="move-scroll">
+        <table class="move-tbl"><thead><tr>
+          <th style="width:30px"><input type="checkbox" class="move-chk" id="moveAll" checked onchange="toggleAllMove(this.checked)"></th>
+          <th>파일명</th><th style="width:130px">문서종류</th><th style="width:130px">고객사</th>
+          <th style="width:100px">분류</th><th style="width:110px">날짜</th><th style="width:70px">상태</th>
+        </tr></thead><tbody id="moveBody"></tbody></table>
+      </div>
+      <div id="moveMsg" class="cmsg"></div>
+      <div class="row"><button class="btn" onclick="closeMove()">닫기</button><button class="btn primary" id="moveBtn" onclick="doMoveAll()">💾 선택 항목 저장</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 파일 이동 모달 -->
+<div class="modal" id="fileMoveModal">
+  <div class="mbox">
+    <div class="mbox-h"><span>📂 파일 이동</span><button class="x" onclick="$('fileMoveModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-b">
+      <p id="fmvName" style="font-weight:700;color:var(--t1)"></p>
+      <label>고객사</label>
+      <input id="fmvCust" type="text" placeholder="예: 한국화낙">
+      <label>분류</label>
+      <select id="fmvCat"><option value="가공">가공</option><option value="구매품">구매품</option><option value="로봇">로봇</option><option value="공압품">공압품</option><option value="물류">물류</option><option value="기타">기타</option></select>
+      <label>날짜 (폴더, 선택)</label>
+      <input id="fmvDate" type="text" placeholder="YYYY-MM-DD (비우면 생략)">
+      <div id="fmvMsg" class="cmsg"></div>
+      <div class="row"><button class="btn" onclick="$('fileMoveModal').classList.remove('on')">취소</button><button class="btn primary" id="fmvBtn" onclick="doFileMove()">이동</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<!-- 환영 메시지 편집+미리보기 모달 -->
+<div class="modal" id="admPrevModal">
+  <div class="mbox" style="max-width:920px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+    <div class="mbox-h"><span>👋 환영 메시지 편집</span><button class="x" onclick="admPreviewClose()">✕</button></div>
+    <div class="mbox-b" id="admPrevBody" style="overflow-y:auto;display:flex;gap:16px;flex-wrap:wrap">
+      <div id="admPrevFields" style="flex:1;min-width:280px"></div>
+      <div style="flex:1;min-width:280px">
+        <div style="font-size:12px;color:var(--t3);margin-bottom:6px;font-weight:600">실시간 미리보기</div>
+        <iframe id="admPrevFrame" style="width:100%;border:1px solid var(--border);background:#f4f6fa;border-radius:8px;min-height:400px" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+    <div class="row" style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="admPreviewClose()">닫기</button>
+      <button class="btn primary" onclick="admPrevSave()">💾 저장</button>
+    </div>
+  </div>
+</div>
+<!-- 파일탐색기 우클릭 메뉴 -->
+<div class="ctxmenu" id="ftCtx">
+  <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
+  <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
+  <div class="ci" onclick="ftAct('rename')">✏ 이름 변경</div>
+  <div class="sep"></div>
+  <div class="ci del" onclick="ftAct('delete')">🗑 삭제</div>
+</div>
+<input type="file" id="ftUpload" style="display:none" multiple onchange="ftUploadFiles(this.files)">
+<script>
+const SERVER_KEY='enjet_server_url';
+const DEFAULT_SERVER='https://jonathan-ivory-draw-take.trycloudflare.com';
+let SERVER=(localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'');
+let FOLDER='inbox', MAILS=[], SELECTED=null;
+const $=id=>document.getElementById(id);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ── MS 회사계정 로그인 (Azure AD, ERP 대시보드와 동일 앱) ──
+const MSAL_CLIENT_ID="76793776-3330-496f-97f1-9f0c034f3f07";
+const MSAL_TENANT_ID="58b310e1-9278-47ab-8e49-792728818c9e";
+let _msalApp=null,_account=null,_inTeams=false,_teamsReady=false;
+const BASE_URL=location.href.split("?")[0].split("#")[0];
+function msalApp(){if(!_msalApp){_msalApp=new msal.PublicClientApplication({auth:{clientId:MSAL_CLIENT_ID,authority:"https://login.microsoftonline.com/"+MSAL_TENANT_ID,redirectUri:BASE_URL},cache:{cacheLocation:"localStorage"}});}return _msalApp;}
+
+// Teams 환경인지 초기화 시도
+let _teamsCtx=null;
+async function initTeams(){
+  try{
+    if(!window.microsoftTeams) return false;
+    await microsoftTeams.app.initialize();
+    _teamsReady=true;
+    const ctx=await microsoftTeams.app.getContext();
+    _inTeams=!!ctx;
+    _teamsCtx=ctx;
+    // Teams 안이면 '채팅으로' 버튼 표시
+    if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; }
+    return true;
+  }catch(e){ return false; }
+}
+// Teams 채팅으로 돌아가기
+async function backToTeamsChat(){
+  const T=window.microsoftTeams;
+  // Teams 네이티브 뒤로가기 우선 (가장 안정적)
+  try{ if(T){ await T.app.initialize(); if(T.pages?.backStack?.navigateBack){ await T.pages.backStack.navigateBack(); return; } } }catch(e){}
+  // 브라우저/시스템 뒤로가기
+  history.back();
+}
+
+// ───── 인증 팝업 모드 (?auth=1) : Teams가 이 페이지를 팝업으로 띄움 ─────
+async function runAuthPopup(){
+  try{
+    if(window.microsoftTeams){ try{ await microsoftTeams.app.initialize(); }catch(e){} }
+    sessionStorage.setItem('_authPopup','1'); // redirect 후 돌아와도 팝업임을 기억
+    const app=msalApp(); await app.initialize();
+    const rr=await app.handleRedirectPromise();
+    if(rr&&rr.account){
+      sessionStorage.removeItem('_authPopup');
+      const payload=JSON.stringify({username:rr.account.username,name:rr.account.name});
+      try{ microsoftTeams.authentication.notifySuccess(payload); return; }catch(e){}
+      if(window.opener){ window.opener.postMessage({_authResult:JSON.parse(payload)}, BASE_URL); }
+      document.body.innerHTML='<p style="padding:30px;font-family:sans-serif;text-align:center">✅ 로그인 완료. 이 창은 닫아도 됩니다.</p>';
+      return;
+    }
+    // 아직 로그인 안됨 → redirect 시작 (redirectUri는 bare, 등록된 SPA URI 사용)
+    await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+  }catch(e){
+    try{ microsoftTeams.authentication.notifyFailure(String(e.message||e)); }catch(_){ document.body.innerHTML='<p style="padding:20px;font-family:sans-serif">로그인 오류: '+(e.message||e)+'</p>'; }
+  }
+}
+
+async function _checkAcct(acct){
+  const upn=(acct.username||"").toLowerCase();
+  if(!upn.endsWith("@enjet.co.kr")){
+    $('gateErr').textContent="enjet.co.kr 회사계정만 접근할 수 있습니다.";
+    const b=$('gateBtn'); if(b) b.disabled=false;
+    return false;
+  }
+  _account=acct; $('gate').classList.add('hide'); startApp(); return true;
+}
+
+async function doLogin(){
+  const btn=$('gateBtn'),err=$('gateErr'); btn.disabled=true; err.textContent='';
+  try{
+    const app=msalApp(); await app.initialize();
+    let acct=app.getAllAccounts()[0];
+    if(acct){ if(await _checkAcct(acct)) return; }
+
+    if(_inTeams){
+      // ★ Teams: 전용 인증 팝업 사용 (iframe 안에서 유일하게 동작)
+      microsoftTeams.authentication.authenticate({
+        url: BASE_URL+"?auth=1",
+        width: 600, height: 535
+      }).then(async (result)=>{
+        // 팝업에서 로그인 완료 → MSAL 캐시(localStorage)에 토큰 있음
+        const app2=msalApp(); await app2.initialize();
+        let a=app2.getAllAccounts()[0];
+        if(!a && result){ try{ const o=JSON.parse(result); a=app2.getAllAccounts().find(x=>x.username===o.username)||app2.getAllAccounts()[0]; }catch(_){} }
+        if(a){ await _checkAcct(a); } else { err.textContent="로그인 정보를 가져오지 못했습니다. 다시 시도해주세요."; btn.disabled=false; }
+      }).catch((e)=>{ err.textContent="로그인 취소/실패: "+e; btn.disabled=false; });
+      return;
+    }
+
+    if(isMobileEnv()){
+      await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+    }else{
+      const r=await app.loginPopup({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+      await _checkAcct(r.account);
+    }
+  }catch(e){ err.textContent="로그인 실패: "+(e.message||e); btn.disabled=false; }
+}
+
+function isMobileEnv(){
+  const ua=navigator.userAgent||'';
+  return /Android|iPhone|iPad|iPod|Mobile|wv/i.test(ua) || window.innerWidth<700;
+}
+
+async function tryAutoLogin(){
+  try{
+    await initTeams(); // Teams 여부 먼저 확인
+    const app=msalApp(); await app.initialize();
+    const rr=await app.handleRedirectPromise();
+    if(rr&&rr.account){ await _checkAcct(rr.account); return true; }
+    const acct=app.getAllAccounts()[0];
+    if(acct&&(acct.username||"").toLowerCase().endsWith("@enjet.co.kr")){ _account=acct; $('gate').classList.add('hide'); startApp(); return true; }
+  }catch(e){}
+  return false;
+}
+function logout(){
+  try{
+    if(_inTeams){ msalApp().logoutRedirect({account:_account,postLogoutRedirectUri:BASE_URL}); }
+    else if(isMobileEnv()){ msalApp().logoutRedirect({account:_account}); }
+    else { msalApp().logoutPopup({account:_account}); }
+  }catch(e){location.reload();}
+}
+function myName(){ try{ return (_account && (_account.name || (_account.username||'').split('@')[0])) || '익명'; }catch(e){ return '익명'; } }
+
+// ── Graph(SharePoint) 토큰 + 헬퍼 ──
+const SP_SITE_PATH="enjetco.sharepoint.com:/sites/TIC-Mail";
+let _spDriveId=null;
+async function graphToken(){
+  const app=msalApp(); await app.initialize();
+  const acct=app.getAllAccounts()[0]; if(!acct) throw new Error("로그인 필요");
+  const scopes=["Sites.ReadWrite.All","Files.ReadWrite.All"];
+  try{ const r=await app.acquireTokenSilent({scopes,account:acct}); return r.accessToken; }
+  catch(e){
+    if(isMobileEnv()){ await app.acquireTokenRedirect({scopes,account:acct}); throw new Error("권한 재요청 중…"); }
+    const r=await app.acquireTokenPopup({scopes}); return r.accessToken;
+  }
+}
+async function spDrive(){
+  if(_spDriveId) return _spDriveId;
+  const t=await graphToken();
+  const r1=await fetch(`https://graph.microsoft.com/v1.0/sites/${SP_SITE_PATH}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r1.ok) throw new Error("사이트 조회 실패 "+r1.status);
+  const sid=(await r1.json()).id;
+  const r2=await fetch(`https://graph.microsoft.com/v1.0/sites/${sid}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r2.ok) throw new Error("드라이브 조회 실패");
+  _spDriveId=(await r2.json()).id; return _spDriveId;
+}
+function encPath(p){ return p.split("/").map(encodeURIComponent).join("/"); }
+async function spGetJson(path){
+  try{
+    const t=await graphToken(); const d=await spDrive();
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,{headers:{Authorization:"Bearer "+t}});
+    if(!r.ok) return null; return await r.json();
+  }catch(e){ return null; }
+}
+async function spPutJson(path,obj){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(obj,null,2)});
+  if(!r.ok) throw new Error("저장 실패 "+r.status); return await r.json();
+}
+async function spPutFile(path,bytes,contentType){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":contentType||"application/octet-stream"},body:bytes});
+  if(!r.ok) throw new Error("업로드 실패 "+r.status); return await r.json();
+}
+async function spList(path){
+  try{
+    const t=await graphToken(); const d=await spDrive();
+    const url=path?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/children`
+                   :`https://graph.microsoft.com/v1.0/drives/${d}/root/children`;
+    const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+    if(!r.ok) return []; return (await r.json()).value||[];
+  }catch(e){ return []; }
+}
+function toast(msg,kind){ const t=$('toast'); t.textContent=msg; t.className='toast show '+(kind||''); setTimeout(()=>t.className='toast',2600); }
+
+// ── Graph 파일 조작 (업로드/이름변경/이동/삭제/폴더) ──
+async function spUploadFile(path,bytes,contentType){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":contentType||"application/octet-stream"},body:bytes});
+  if(!r.ok) throw new Error("업로드 실패 "+r.status); return await r.json();
+}
+async function spEnsureFolder(path){
+  // path의 각 단계 폴더를 순차 생성(있으면 무시)
+  const t=await graphToken(); const d=await spDrive();
+  const parts=path.split("/").filter(Boolean); let cur="";
+  for(const seg of parts){
+    const parent=cur; cur=cur?`${cur}/${seg}`:seg;
+    const url=parent?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(parent)}:/children`
+                    :`https://graph.microsoft.com/v1.0/drives/${d}/root/children`;
+    await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},
+      body:JSON.stringify({name:seg,folder:{},"@microsoft.graph.conflictBehavior":"fail"})}).catch(()=>{});
+  }
+}
+async function spRenameItem(itemId,newName){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,
+    {method:"PATCH",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({name:newName})});
+  if(!r.ok) throw new Error("이름변경 실패 "+r.status); return await r.json();
+}
+async function spMoveItem(itemId,newParentPath){
+  const t=await graphToken(); const d=await spDrive();
+  // 대상 폴더 id 조회
+  const pr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(newParentPath)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!pr.ok){ await spEnsureFolder(newParentPath); }
+  const pr2=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(newParentPath)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!pr2.ok) throw new Error("대상 폴더 확인 실패");
+  const pid=(await pr2.json()).id;
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,
+    {method:"PATCH",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({parentReference:{id:pid}})});
+  if(!r.ok) throw new Error("이동 실패 "+r.status); return await r.json();
+}
+async function spDeleteItem(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}});
+  if(!r.ok && r.status!==204) throw new Error("삭제 실패 "+r.status); return true;
+}
+
+// ── 페이지 전환 ──
+let curPage='mail';
+function showPage(p){
+  curPage=p;
+  // 관리자설정은 baekhoon만
+  if(p==='admin'){
+    const upn=(_account&&(_account.username||'')).toLowerCase();
+    if(upn!=='baekhoon@enjet.co.kr'){ toast('관리자 전용입니다','bad'); return; }
+  }
+  document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail');
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.topnav button').forEach(el=>el.classList.remove('active'));
+  $('page-'+p).classList.add('on');
+  $('nav-'+p)?.classList.add('active');
+  if(p==='contacts'){ loadContacts(); }
+  else if(p.startsWith('doc-')){ renderDocPage(p); }
+  else if(p==='schedule'){ schInit(); }
+  else if(p==='tattach'){ taLoad(); }
+  else if(p==='admin'){ admLoad(); }
+}
+
+// ── 주소록 ──
+const CONTACTS_PATH="01.연락처/contacts.json";
+const CATEGORIES=["가공","구매품","로봇","공압품","물류","기타"];
+let CONTACTS=[];
+async function loadContacts(){
+  $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">불러오는 중…</td></tr>`;
+  const data=await spGetJson(CONTACTS_PATH);
+  const saved=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]);
+  // 미저장 신규는 보존하면서 병합 (저장본 우선, 신규는 중복 아닌 것만 유지)
+  const savedEmails=new Set(saved.map(c=>(c.email||'').toLowerCase()));
+  const keepNew=CONTACTS.filter(c=>c.isNew && !savedEmails.has((c.email||'').toLowerCase()));
+  CONTACTS=[...keepNew, ...saved];
+  renderContacts();
+}
+function newCount(){ return CONTACTS.filter(c=>c.isNew).length; }
+function updateNewBadge(){
+  const n=newCount(); const b=$('newBadge');
+  if(b){ b.textContent=n; b.style.display=n?'inline-block':'none'; }
+}
+function renderContacts(){
+  const q=($('contactSearch').value||'').trim().toLowerCase();
+  // 신규를 맨 위로
+  let rows=CONTACTS.map((c,i)=>({c,i})).sort((a,b)=>(b.c.isNew?1:0)-(a.c.isNew?1:0));
+  if(q) rows=rows.filter(({c})=>JSON.stringify(c).toLowerCase().includes(q));
+  const nc=newCount();
+  $('contactCount').textContent=`${CONTACTS.length}명`+(nc?` · 신규 ${nc}`:'');
+  updateNewBadge();
+  if(!rows.length){ $('contactBody').innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--t3)">연락처가 없습니다 · [✨ Copilot 수집] 또는 [+추가]</td></tr>`; return; }
+  $('contactBody').innerHTML=rows.map(({c,i})=>`<tr class="${c.isNew?'new-contact':''}">
+    <td><input value="${esc(c.name||'')}" onchange="editContact(${i},'name',this.value)">${c.isNew?'<span class="new-tag">신규</span>':''}</td>
+    <td><input value="${esc(c.email||'')}" onchange="editContact(${i},'email',this.value)"></td>
+    <td><input value="${esc(c.company||'')}" onchange="editContact(${i},'company',this.value)"></td>
+    <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
+    <td><select onchange="editContact(${i},'category',this.value)">${['',...CATEGORIES].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}</select></td>
+    <td><input value="${esc(c.memo||'')}" onchange="editContact(${i},'memo',this.value)"></td>
+    <td style="white-space:nowrap"><button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
+  </tr>`).join('');
+}
+// 주소록에서 메일쓰기: 받는사람 채워서 열기
+function composeTo(email,name){
+  if(!email){ toast('이메일이 없는 연락처입니다','bad'); return; }
+  openCompose('new');
+  $('cTo').value=email;
+  $('cCc').value=''; $('cSubj').value=''; $('cBody').value='';
+}
+function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
+function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",phone:"",category:"",memo:""}); renderContacts(); }
+function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
+async function saveContacts(){
+  try{
+    // 저장하면 신규 플래그 제거 (확정) — SharePoint엔 isNew 없이 저장
+    CONTACTS.forEach(c=>{ delete c.isNew; });
+    await spPutJson(CONTACTS_PATH, CONTACTS);
+    toast("주소록 저장 완료","ok");
+    renderContacts(); updateNewBadge();
+    if(MAILS.length) renderList();
+  }
+  catch(e){ toast("저장 실패: "+e.message,"bad"); }
+}
+// 받은편지함 보낸사람 중 외부(비-enjet) 자동 수집
+async function scanContactsFromMail(){
+  toast("받은편지함에서 수집 중…");
+  try{
+    const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=200`);
+    const d=await r.json();
+    if(!d.ok){ toast("메일 조회 실패","bad"); return; }
+    const existing=new Set(CONTACTS.map(c=>(c.email||'').toLowerCase()));
+    let added=0;
+    for(const m of (d.mails||[])){
+      const from=(m.from&&m.from[0])?m.from[0]:null;
+      if(!from||!from.email) continue;
+      const em=from.email.toLowerCase();
+      if(em.endsWith("@enjet.co.kr")) continue;      // 내부 제외
+      if(existing.has(em)) continue;
+      existing.add(em);
+      const company=guessCompany(from.email, from.name);
+      CONTACTS.push({name:from.name||"", email:from.email, company, phone:"", category:"", memo:"빠른수집", isNew:true});
+      added++;
+    }
+    renderContacts(); updateNewBadge();
+    toast(added?`${added}명 신규 추가됨 (💾 저장 눌러 확정)`:"새 연락처 없음","ok");
+  }catch(e){ toast("수집 오류: "+e.message,"bad"); }
+}
+// ════════ 관리자 설정 (T프로젝트 자동요약) ════════
+const ADMIN_PATH="admin-settings.json"; // SharePoint TIC-Mail 루트
+function admDefaultChannel(){
+  return {
+    id: 'ch_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+    name: '새 채널',
+    sourceChatId: '', sourceLink: '',
+    targetChatId: '', targetLink: '', targetTeamId: '',
+    enabled: true,
+    schedule: {morning:"08:00", noon:"12:30", evening:"16:30", night:"20:00"},
+    welcome: '',
+    welcomeOn: false
+  };
+}
+// 기존 단일설정 → 채널배열로 마이그레이션
+const ADMIN_SEED_TPROJECT={
+  id:'tproject', name:'T프로젝트',
+  sourceChatId:'19:ba85fc9a0d73428e8440ee872caef504@thread.v2', sourceLink:'',
+  targetChatId:'19:YyDR9agQlAOKiB26UUd_caBtpxsBfGLUrjziPvoNPAg1@thread.tacv2',
+  targetLink:'https://teams.microsoft.com/l/channel/19%3AYyDR9agQlAOKiB26UUd_caBtpxsBfGLUrjziPvoNPAg1%40thread.tacv2/01.%ED%86%B5%ED%95%A9%EA%B4%80%EB%A6%AC?groupId=8457d8bf-1dd8-4e24-ad22-250816cc7d6d&tenantId=58b310e1-9278-47ab-8e49-792728818c9e',
+  targetTeamId:'8457d8bf-1dd8-4e24-ad22-250816cc7d6d',
+  enabled:true, schedule:{morning:"08:00",noon:"12:30",evening:"16:30",night:"20:00"},
+  welcomeOn:true,
+  welcomeFields:{
+    title:'👋 T Project 방에 오신 것을 환영합니다',
+    code:'BG26002',
+    scheduleUrl:'https://enjetco-my.sharepoint.com/:x:/g/personal/baekhoon_enjet_co_kr/IQAl5nToyCWFRYdQ_bZsZVWRARgbWUtYsEimzEv92bH1qyw?e=hsYEjp',
+    purchase:'엑셀파일 (파일명 하승수 작성예정)',
+    mailUrl:'https://bhseong77.github.io/mail/',
+    docUrl:'https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx',
+    acctMail:'enjet_ed@enjet.co.kr', acctPw:'20260604', officePw:'260604', wifiPw:'',
+    security:'고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기',
+    summaryNote:'받은메일 · 보낸메일을 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b>'
+  }
+};
+let ADMIN_CFG={master:true, channels:[]};
+
+async function admLoad(){
+  const sv=$('adm_saved'); if(sv) sv.textContent='불러오는 중…';
+  let cfg=null;
+  try{ cfg=await spGetJson(ADMIN_PATH); }catch(e){}
+  if(cfg && Array.isArray(cfg.channels)){
+    // 채널 배열 — 구필드(chatId) 있으면 source/target로 보정
+    const chs=cfg.channels.map(c=>{
+      if(!c.sourceChatId && c.chatId){ c.sourceChatId=c.chatId; c.targetChatId=c.targetChatId||c.chatId; }
+      if(!c.sourceLink && c.chatLink){ c.sourceLink=c.chatLink; c.targetLink=c.targetLink||c.chatLink; }
+      return c;
+    });
+    ADMIN_CFG={master: cfg.master!==false, channels: chs};
+  }else if(cfg && (cfg.chatId)){
+    // 아주 옛버전(단일) → 채널 1개로 변환
+    ADMIN_CFG={master: cfg.enabled!==false, channels:[{
+      id:'tproject', name:'T프로젝트',
+      sourceChatId:cfg.chatId, sourceLink:cfg.chatLink||'',
+      targetChatId:cfg.chatId, targetLink:cfg.chatLink||'',
+      enabled:cfg.enabled!==false, schedule:cfg.schedule||ADMIN_SEED_TPROJECT.schedule,
+      welcome:cfg.welcome||'', welcomeOn:!!cfg.welcomeOn
+    }]};
+  }else{
+    // 최초 — T프로젝트 시드
+    ADMIN_CFG={master:true, channels:[JSON.parse(JSON.stringify(ADMIN_SEED_TPROJECT))]};
+  }
+  $('adm_master').checked=ADMIN_CFG.master;
+  // welcomeFields가 있는 채널은 welcome HTML을 필드로부터 최신화
+  ADMIN_CFG.channels.forEach(c=>{ if(c.welcomeFields){ c.welcome=admBuildWelcome(c.welcomeFields); } });
+  admRenderChannels();
+  if(sv) sv.textContent='';
+}
+function admRenderChannels(){
+  const box=$('adm_channels'); if(!box) return;
+  if(!ADMIN_CFG.channels.length){ box.innerHTML='<div class="adm-card" style="text-align:center;color:var(--t3)">채널이 없습니다. [＋ 채널 추가]를 누르세요.</div>'; return; }
+  box.innerHTML=ADMIN_CFG.channels.map((c,i)=>{
+    const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',wifiPw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+    return `
+    <div class="adm-card adm-ch">
+      <div class="adm-ch-head">
+        <input class="adm-ch-name" value="${esc(c.name||'')}" placeholder="채널 이름" onchange="admEdit(${i},'name',this.value)">
+        <label class="adm-toggle"><input type="checkbox" ${c.enabled?'checked':''} onchange="admEdit(${i},'enabled',this.checked)"> <span>요약 사용</span></label>
+        <button class="adm-ch-del" onclick="admDelChannel(${i})" title="채널 삭제">🗑</button>
+      </div>
+      <div class="adm-card-h" style="margin-top:4px">📥 요약할 채팅 (소스)</div>
+      <div class="adm-row col"><span class="adm-lbl">소스 채팅 링크</span><input type="text" value="${esc(c.sourceLink||'')}" placeholder="요약 대상 채팅방 링크 https://teams.microsoft.com/l/..." onchange="admEdit(${i},'sourceLink',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">소스 채팅 ID</span><input type="text" value="${esc(c.sourceChatId||c.chatId||'')}" placeholder="19:xxxxx@thread.v2 (읽어올 대화)" onchange="admEdit(${i},'sourceChatId',this.value)"></div>
+      <div class="adm-card-h" style="margin-top:12px">📤 요약 보여줄 채널 (타겟)</div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 채널 링크</span><input type="text" value="${esc(c.targetLink||'')}" placeholder="요약을 올릴 채널/채팅 링크" onchange="admEdit(${i},'targetLink',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 채널 ID</span><input type="text" value="${esc(c.targetChatId||'')}" placeholder="19:xxxxx@thread.tacv2 (채널) 또는 @thread.v2 (채팅)" onchange="admEdit(${i},'targetChatId',this.value)"></div>
+      <div class="adm-row col"><span class="adm-lbl">타겟 팀 ID</span><input type="text" value="${esc(c.targetTeamId||'')}" placeholder="팀 채널이면 groupId (채팅이면 비움)" onchange="admEdit(${i},'targetTeamId',this.value)"></div>
+      <div class="adm-hint">소스 채팅의 대화를 요약해서 타겟에 올립니다. 타겟이 <b>팀 채널</b>이면 팀 ID(groupId)도 입력하세요.</div>
+      <div class="adm-card-h" style="margin-top:12px">⏰ 자동요약 시간</div>
+      <div class="adm-grid">
+        <label class="adm-row"><span class="adm-lbl">🌅 오전</span><input type="time" value="${c.schedule?.morning||''}" onchange="admEditSched(${i},'morning',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">☀️ 정오</span><input type="time" value="${c.schedule?.noon||''}" onchange="admEditSched(${i},'noon',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">🌆 오후</span><input type="time" value="${c.schedule?.evening||''}" onchange="admEditSched(${i},'evening',this.value)"></label>
+        <label class="adm-row"><span class="adm-lbl">🌙 야간</span><input type="time" value="${c.schedule?.night||''}" onchange="admEditSched(${i},'night',this.value)"></label>
+      </div>
+      <div class="adm-hint">비워두면 그 시간대 요약 안 함</div>
+      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지 (항목만 채우면 카드 자동 생성)</div>
+      <div class="adm-wf">
+        <label class="adm-row col"><span class="adm-lbl">제목</span><input type="text" value="${esc(wf.title)}" onchange="admWF(${i},'title',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">프로젝트 코드</span><input type="text" value="${esc(wf.code)}" onchange="admWF(${i},'code',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📅 일정표 링크</span><input type="text" value="${esc(wf.scheduleUrl)}" placeholder="https://..." onchange="admWF(${i},'scheduleUrl',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">🛒 구매요청 안내</span><input type="text" value="${esc(wf.purchase)}" onchange="admWF(${i},'purchase',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📧 메일 대시보드 링크</span><input type="text" value="${esc(wf.mailUrl)}" placeholder="https://..." onchange="admWF(${i},'mailUrl',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📁 문서함 링크</span><input type="text" value="${esc(wf.docUrl)}" placeholder="https://..." onchange="admWF(${i},'docUrl',this.value)"></label>
+        <div class="adm-grid">
+          <label class="adm-row col"><span class="adm-lbl">계정 이메일</span><input type="text" value="${esc(wf.acctMail)}" onchange="admWF(${i},'acctMail',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">계정 비번</span><input type="text" value="${esc(wf.acctPw)}" onchange="admWF(${i},'acctPw',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">오피스 PW</span><input type="text" value="${esc(wf.officePw)}" onchange="admWF(${i},'officePw',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">4층 WiFi 비번</span><input type="text" value="${esc(wf.wifiPw)}" onchange="admWF(${i},'wifiPw',this.value)"></label>
+        </div>
+        <label class="adm-row col"><span class="adm-lbl">🔒 보안 문구</span><input type="text" value="${esc(wf.security)}" onchange="admWF(${i},'security',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">🤖 요약 안내</span><input type="text" value="${esc(wf.summaryNote)}" onchange="admWF(${i},'summaryNote',this.value)"></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label class="adm-toggle" style="flex:1;min-width:120px"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
+        <button class="btn sm" onclick="admPreview(${i})">👁 미리보기</button>
+        <button class="btn sm" onclick="admToggleSource(${i})">&lt;/&gt; HTML 직접편집</button>
+      </div>
+      <textarea id="admSrc-${i}" rows="6" style="display:none;font-family:monospace;font-size:11px;margin-top:8px" onchange="admEdit(${i},'welcome',this.value)">${esc(c.welcome||'')}</textarea>
+    </div>`;
+  }).join('');
+}
+// 환영 메시지 필드 → HTML 카드 생성
+function admBuildWelcome(wf){
+  const link=(url,txt)=>url?`<a href="${url}" style="color:#1a6fd4;font-weight:600;">${txt} →</a>`:txt;
+  let rows='';
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;width:110px;vertical-align:top;">📅 전체 일정표</td><td style="padding:6px 0;">${link(wf.scheduleUrl,'일정표 열기')}</td></tr>`;
+  if(wf.purchase) rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">🛒 구매요청</td><td style="padding:6px 0;">${wf.purchase}</td></tr>`;
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📧 메일·업무</td><td style="padding:6px 0;">${link(wf.mailUrl,'메일 대시보드 열기')}<br><span style="color:#9ca3af;font-size:12px;">쓰기/받기/주소록/견적서/기술자료</span></td></tr>`;
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📁 문서저장</td><td style="padding:6px 0;">${link(wf.docUrl,'문서함 열기')}</td></tr>`;
+  return `<div style="font-family:Segoe UI,sans-serif;max-width:560px;">`+
+    `<div style="background:#7c3aed;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:17px;font-weight:bold;">${wf.title||'환영합니다'}</div>`+
+    `<div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;">`+
+    (wf.code?`<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">${wf.code}</span></div>`:'')+
+    `<table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;">${rows}</table>`+
+    (wf.acctMail||wf.acctPw||wf.officePw||wf.wifiPw?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>${wf.acctMail||''}</b> / pw <b>${wf.acctPw||''}</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span>${wf.officePw?`<br>4층 오피스 PW: <b>${wf.officePw}</b>`:''}${wf.wifiPw?`<br>📶 4층 WiFi 비번: <b>${wf.wifiPw}</b>`:''}</div>`:'')+
+    (wf.security?`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>${wf.security}</div>`:'')+
+    (wf.summaryNote?`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>${wf.summaryNote}</div>`:'')+
+    `</div></div>`;
+}
+function admWF(i,key,val){
+  const c=ADMIN_CFG.channels[i]; if(!c) return;
+  c.welcomeFields=c.welcomeFields||{};
+  c.welcomeFields[key]=val;
+  c.welcome=admBuildWelcome(c.welcomeFields); // 필드→HTML 자동 갱신
+}
+function admToggleSource(i){
+  const t=$('admSrc-'+i); if(t) t.style.display = t.style.display==='none' ? 'block' : 'none';
+}
+function admEditSched(i,key,val){ if(ADMIN_CFG.channels[i]){ ADMIN_CFG.channels[i].schedule=ADMIN_CFG.channels[i].schedule||{}; ADMIN_CFG.channels[i].schedule[key]=val; } }
+let _admPrevIdx=-1;
+function admPreview(i){
+  const c=ADMIN_CFG.channels[i]; if(!c) return;
+  _admPrevIdx=i;
+  const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',wifiPw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+  const F=[
+    ['title','제목'],['code','프로젝트 코드'],['scheduleUrl','📅 일정표 링크'],
+    ['purchase','🛒 구매요청 안내'],['mailUrl','📧 메일 대시보드 링크'],['docUrl','📁 문서함 링크'],
+    ['acctMail','계정 이메일'],['acctPw','계정 비번'],['officePw','오피스 PW'],['wifiPw','4층 WiFi 비번'],
+    ['security','🔒 보안 문구'],['summaryNote','🤖 요약 안내']
+  ];
+  $('admPrevFields').innerHTML=F.map(([k,label])=>
+    `<label class="adm-row col" style="margin-bottom:9px"><span class="adm-lbl">${label}</span><input type="text" value="${esc(wf[k]||'')}" oninput="admPrevEdit('${k}',this.value)"></label>`
+  ).join('');
+  admPrevRefresh();
+  $('admPrevModal').classList.add('on');
+}
+function admPrevEdit(key,val){
+  const c=ADMIN_CFG.channels[_admPrevIdx]; if(!c) return;
+  c.welcomeFields=c.welcomeFields||{};
+  c.welcomeFields[key]=val;
+  c.welcome=admBuildWelcome(c.welcomeFields);
+  admPrevRefresh();
+}
+function admPrevRefresh(){
+  const c=ADMIN_CFG.channels[_admPrevIdx]; if(!c) return;
+  const html=c.welcome||'<i style="color:#999">(내용 없음)</i>';
+  const ifr=$('admPrevFrame'); if(!ifr) return;
+  ifr.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:14px;background:#f4f6fa">'+html+'</body></html>';
+  ifr.onload=function(){ try{ const h=ifr.contentDocument.body.scrollHeight; ifr.style.height=(h+30)+'px'; }catch(e){ ifr.style.height='480px'; } };
+}
+async function admPrevSave(){
+  await admSave();          // 전체 저장
+  admRenderChannels();      // 본문 카드도 갱신
+  admPreviewClose();
+}
+function admPreviewClose(){ $('admPrevModal').classList.remove('on'); }
+function admAddChannel(){ ADMIN_CFG.channels.push(admDefaultChannel()); admRenderChannels(); }
+function admDelChannel(i){ const c=ADMIN_CFG.channels[i]; if(!confirm(`"${c?.name||'채널'}" 삭제할까요?`)) return; ADMIN_CFG.channels.splice(i,1); admRenderChannels(); }
+async function admSave(){
+  const sv=$('adm_saved');
+  ADMIN_CFG.master=$('adm_master').checked;
+  const out={ master:ADMIN_CFG.master, channels:ADMIN_CFG.channels, _updatedAt:new Date().toISOString(), _updatedBy:myName() };
+  try{
+    await spPutJson(ADMIN_PATH, out);
+    if(sv){ sv.textContent='✅ 저장됨 · 서버가 다음 주기에 반영합니다'; setTimeout(()=>{if(sv)sv.textContent='';},5000); }
+    toast('관리자 설정 저장됨','ok');
+  }catch(e){ if(sv) sv.textContent='저장 실패: '+e.message; toast('저장 실패','bad'); }
+}
+
+function guessCompany(email,name){
+  email=(email||"").toLowerCase().trim();
+  const nm=(name||"").trim();
+  if(Array.isArray(CONTACTS)){
+    // 1순위: 이메일 완전 일치
+    if(email){
+      const c=CONTACTS.find(x=>x&&(x.email||"").toLowerCase().trim()===email);
+      if(c&&c.company) return c.company;
+    }
+    // 2순위: 이름 완전 일치
+    if(nm){
+      const c=CONTACTS.find(x=>x&&(x.name||"").trim()===nm && x.company);
+      if(c&&c.company) return c.company;
+    }
+    // 3순위: 이름 부분 일치 (메일이름이 주소록이름 포함 또는 반대)
+    if(nm){
+      const c=CONTACTS.find(x=>{
+        if(!x||!x.company||!x.name) return false;
+        const xn=x.name.trim();
+        return xn && (nm.includes(xn) || xn.includes(nm));
+      });
+      if(c&&c.company) return c.company;
+    }
+    // 4순위: 이메일 로컬파트(@ 앞) 일치
+    if(email){
+      const local=email.split("@")[0];
+      const c=CONTACTS.find(x=>x&&(x.email||"").toLowerCase().split("@")[0]===local && x.company);
+      if(c&&c.company) return c.company;
+    }
+  }
+  // 5순위: 도메인에서 추측 (일반메일 제외)
+  const dom=(email.split("@")[1]||"").toLowerCase();
+  const generic=["gmail.com","naver.com","daum.net","hanmail.net","kakao.com","nate.com","outlook.com","hotmail.com","yahoo.com"];
+  if(!dom||generic.includes(dom)) return "";
+  return dom.split(".")[0];
+}
+
+// ── Copilot 호출 (graph beta, 2-step) ──
+async function callCopilot(prompt){
+  const t=await graphToken();
+  const cr=await fetch("https://graph.microsoft.com/beta/copilot/conversations",
+    {method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:"{}"});
+  if(!cr.ok){const e=await cr.text().catch(()=> ""); throw new Error("Copilot 연결 실패(라이선스 필요): "+e.slice(0,160));}
+  const {id:cid}=await cr.json();
+  const ch=await fetch(`https://graph.microsoft.com/beta/copilot/conversations/${cid}/chat`,
+    {method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},
+     body:JSON.stringify({message:{text:prompt},locationHint:{timeZone:"Asia/Seoul"}})});
+  if(!ch.ok){const e=await ch.text().catch(()=> ""); throw new Error("Copilot 응답 실패: "+e.slice(0,160));}
+  const cd=await ch.json();
+  const msgs=cd.messages||[];
+  let text=""; for(let i=msgs.length-1;i>=0;i--){if(msgs[i].text){text=msgs[i].text;break;}}
+  if(!text) text=cd.text||cd.message?.text||"";
+  return text;
+}
+function extractJsonArray(text){
+  if(!text) return null;
+  let t=text.replace(/```json|```/g,"").trim();
+  const s=t.indexOf("["), e=t.lastIndexOf("]");
+  if(s>=0&&e>s) t=t.slice(s,e+1);
+  try{ return JSON.parse(t); }catch(_){ return null; }
+}
+// Copilot로 메일 본문·서명 분석해서 연락처 추출
+let _autoScanRunning=false, _autoScanned=false;
+function scanContactsCopilot(){ return _scanCopilot(false); }
+// 메일 로드 시 자동 백그라운드 스캔 (1회)
+async function autoScanOnLoad(){
+  if(_autoScanned||_autoScanRunning) return;
+  _autoScanned=true;
+  // 토큰/권한 준비됐을 때만 (조용히 실패 허용)
+  try{ await _scanCopilot(true); }catch(e){}
+}
+async function _scanCopilot(silent){
+  if(_autoScanRunning) return;
+  _autoScanRunning=true;
+  if(!silent) toast("Copilot 분석 준비 중…");
+  try{
+    const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=120`);
+    const d=await r.json();
+    if(!d.ok){ if(!silent) toast("메일 조회 실패","bad"); return; }
+    const existing=new Set(CONTACTS.map(c=>(c.email||'').toLowerCase()));
+    const targets=[]; const seen=new Set();
+    for(const m of (d.mails||[])){
+      const f=(m.from&&m.from[0])?m.from[0]:null;
+      if(!f||!f.email) continue;
+      const em=f.email.toLowerCase();
+      if(em.endsWith("@enjet.co.kr")) continue;
+      if(existing.has(em)||seen.has(em)) continue;
+      seen.add(em);
+      targets.push({uid:m.uid, email:f.email, name:f.name||"", subject:m.subject||""});
+    }
+    if(!targets.length){ if(!silent) toast("새 외부 연락처 없음","ok"); return; }
+    if(!silent) toast(`${targets.length}명 본문 분석 중… (다소 시간 걸림)`);
+    let added=0, done=0;
+    for(const tg of targets.slice(0,25)){
+      done++;
+      let body="", bodyHtml="";
+      try{
+        const br=await fetch(`${SERVER}/api/mail/body?folder=inbox&uid=${encodeURIComponent(tg.uid)}`);
+        const bd=await br.json();
+        bodyHtml=(bd.bodyHtml||"").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/\s+/g," ").trim();
+        body=(bd.body||"").replace(/\s+/g," ").trim();
+      }catch(_){}
+      const content=((body+" \n "+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
+      const prompt=`너는 비즈니스 이메일에서 '보낸사람의 명함 정보'를 추출하는 도우미야. 아래 이메일의 본문과 서명(signature)을 분석해서, 보낸사람 본인의 연락처를 JSON 객체 하나로만 답해. 설명·마크다운 없이 순수 JSON만 출력해.
+
+추출 규칙:
+- name: 보낸사람 이름 (서명의 사람 이름. 직급/주임/대리 등은 빼고 이름만)
+- company: 회사명 (서명 맨 위 회사명. "(주)","㈜","주식회사" 같은 표기는 유지해도 됨)
+- phone: 휴대폰 번호 우선(Mobile/010), 없으면 대표 전화(TEL)
+- category: 반드시 다음 중 하나 [가공, 구매품, 로봇, 공압품, 물류, 기타]. 회사·부서·본문 내용으로 업종 추정. (예: "로봇영업","컨트롤러"→로봇 / "CNC","밀링"→가공 / "실린더","밸브"→공압품 / "운송","포장"→물류). 애매하면 기타.
+- 값을 못 찾으면 빈 문자열 "".
+
+예시 출력: {"name":"홍길동","company":"한국화낙(주)","phone":"010-1234-5678","category":"로봇"}
+
+[보낸사람 이메일] ${tg.email}
+[헤더 이름] ${tg.name}
+[제목] ${tg.subject}
+[본문+서명]
+${content}`;
+      let info=null;
+      try{
+        const txt=await callCopilot(prompt);
+        let t=txt.replace(/```json|```/g,"").trim();
+        const s=t.indexOf("{"), e=t.lastIndexOf("}");
+        if(s>=0&&e>s) t=t.slice(s,e+1);
+        info=JSON.parse(t);
+      }catch(_){ info=null; }
+      const company=(info&&info.company)?info.company:guessCompany(tg.email,tg.name);
+      let cat=(info&&info.category)||"";
+      if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((company||"")+" "+(tg.subject||""));
+      CONTACTS.push({
+        name:(info&&info.name)||tg.name||"",
+        email:tg.email,
+        company:company||"",
+        phone:(info&&info.phone)||"",
+        category:cat||"",
+        memo:"Copilot 자동수집",
+        isNew:true
+      });
+      existing.add(tg.email.toLowerCase());
+      added++;
+      await new Promise(r=>setTimeout(r,400));
+      // 주소록 탭 보고 있으면 진행상황 갱신, 아니면 배지만
+      if(curPage==='contacts'){ if(done%5===0){ renderContacts(); if(!silent) toast(`분석 중… ${done}/${Math.min(targets.length,25)}`); } }
+      updateNewBadge();
+    }
+    if(curPage==='contacts') renderContacts();
+    updateNewBadge();
+    if(!silent) toast(`${added}명 신규 추가됨 · [💾 저장] 눌러 확정`,"ok");
+    else if(added) toast(`주소록 신규 ${added}명 (주소록 탭에서 확인)`,"ok");
+  }catch(e){ if(!silent) toast("Copilot 수집 오류: "+e.message,"bad"); }
+  finally{ _autoScanRunning=false; }
+}
+
+// ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
+const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
+const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
+// ════════ 팀즈 첨부파일 정리 ════════
+const TA_PATH="teams_attachments.json";
+let TA_DATA=null;
+async function taLoad(){
+  $('taList').innerHTML='<div class="an-empty">불러오는 중…</div>';
+  TA_DATA=await spGetJson(TA_PATH);
+  if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
+  const n=(TA_DATA.items||[]).length;
+  const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
+  $('taSub').textContent=`T Project 채팅 첨부파일 · ${n}건 · 수집 ${upd}`;
+  taRender();
+}
+function taIcon(name){
+  const e=(name||'').split('.').pop().toLowerCase();
+  if(['pdf'].includes(e)) return '📕';
+  if(['xls','xlsx','csv'].includes(e)) return '📊';
+  if(['doc','docx'].includes(e)) return '📘';
+  if(['ppt','pptx'].includes(e)) return '📙';
+  if(['png','jpg','jpeg','gif','bmp','webp'].includes(e)) return '🖼';
+  if(['zip','7z','rar'].includes(e)) return '🗜';
+  if(['dwg','step','stp','igs','iges','sldprt','sldasm'].includes(e)) return '📐';
+  return '📄';
+}
+function taFmtSize(b){ if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(0)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+function taRender(){
+  if(!TA_DATA) return;
+  const q=($('taSearch').value||'').toLowerCase().trim();
+  let items=TA_DATA.items||[];
+  if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.author||'').toLowerCase().includes(q));
+  if(!items.length){ $('taList').innerHTML='<div class="an-empty">검색 결과 없음</div>'; return; }
+  $('taList').innerHTML=`<table class="ta-table"><thead><tr>
+    <th style="width:42px"></th><th>파일명</th><th style="width:110px">작성자</th><th style="width:140px">작성일시</th><th style="width:70px">크기</th><th style="width:160px">작업</th>
+    </tr></thead><tbody>${items.map((it,idx)=>{
+      const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+      const realIdx=(TA_DATA.items||[]).indexOf(it);
+      return `<tr>
+        <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
+        <td class="ta-name">${esc(it.name||'(이름없음)')}</td>
+        <td>${esc(it.author||'?')}</td>
+        <td style="color:var(--t3);font-size:12px">${dt}</td>
+        <td style="color:var(--t3);font-size:12px">${taFmtSize(it.size)}</td>
+        <td><div style="display:flex;gap:6px">
+          <button class="btn sm" onclick="taOpen(${realIdx})" title="열기/미리보기">👁</button>
+          <button class="btn sm primary" onclick="taMove(${realIdx})" title="문서함으로 복사">📁 이동</button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+function taOpen(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  const url=it.webUrl||it.downloadUrl||it.contentUrl;
+  if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
+}
+let _taMoveIdx=-1;
+function taMove(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  _taMoveIdx=idx;
+  $('taMoveFile').textContent='📄 '+(it.name||'');
+  $('taMoveFolder').value='';
+  $('taMoveMsg').textContent='';
+  $('taMoveModal').classList.add('on');
+}
+async function taDoMove(){
+  const it=(TA_DATA.items||[])[_taMoveIdx]; if(!it) return;
+  const destTab=$('taMoveDest').value;
+  const root=DOC_MAP[destTab];
+  const folder=($('taMoveFolder').value||'').trim();
+  const destPath=(root + (folder?'/'+folder:'') + '/' + it.name);
+  const msg=$('taMoveMsg');
+  msg.style.color='var(--t3)'; msg.textContent='복사 중…';
+  try{
+    // 1) 원본 파일 다운로드 (downloadUrl 우선, 없으면 driveId/itemId)
+    const t=await graphToken();
+    let dlUrl=it.downloadUrl;
+    if(!dlUrl && it.driveId && it.itemId){
+      const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${it.driveId}/items/${it.itemId}`,{headers:{Authorization:"Bearer "+t}});
+      if(r0.ok) dlUrl=(await r0.json())["@microsoft.graph.downloadUrl"];
+    }
+    if(!dlUrl) throw new Error("다운로드 링크 없음");
+    const fr=await fetch(dlUrl);
+    if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
+    const bytes=await fr.arrayBuffer();
+    // 2) 폴더 보장 + 업로드
+    if(folder) await spEnsureFolder(root+'/'+folder);
+    await spUploadFile(destPath, bytes, it.mime||'application/octet-stream');
+    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+'로 복사됨';
+    toast('문서함으로 복사 완료','ok');
+    setTimeout(()=>$('taMoveModal').classList.remove('on'),1200);
+  }catch(e){
+    msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
+  }
+}
+const DOC_ANALYZE=['doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
+let docState={};
+let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,validUntil,memo,fileName,url,date}}
+let AN_FILTER={}; // page -> {customer, q}
+
+// ════════ 파일탐색기 트리 (5개 탭 공용) ════════
+let FT_OPEN={}, FT_SEL={}, FT_CHILDREN={};
+let _ftCtxTarget=null;
+function ftKey(p,path){ return p+'|'+path; }
+async function ftLoadChildren(p,path){
+  const root=DOC_MAP[p];
+  const full=path?`${root}/${path}`:root;
+  const items=await spList(full);
+  FT_CHILDREN[ftKey(p,path)]=items;
+  return items;
+}
+async function renderFileTree(p){
+  const cont=$('tree-'+p);
+  if(FT_SEL[p]===undefined) FT_SEL[p]='';
+  await ftLoadChildren(p,'');
+  cont.innerHTML=`<div class="ft-tools">
+      <button class="btn sm" onclick="ftNewFolder('${p}', FT_SEL['${p}']||'')">📁 새 폴더</button>
+      <button class="btn sm" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
+    </div>
+    <div id="ftsel-${p}" style="padding:4px 10px;font-size:11px;color:var(--t3)"></div>
+    <div class="ftree" id="ftree-${p}"></div>`;
+  await ftRenderNodes(p);
+}
+function ftUpdateSelLabel(p){
+  const el=$('ftsel-'+p); if(!el) return;
+  const sel=FT_SEL[p]||'';
+  el.innerHTML = sel ? `📍 선택: <b style="color:var(--p)">${esc(sel)}</b> (새 폴더·업로드는 여기로)` : `📍 선택: 루트 (폴더를 클릭해 선택하세요)`;
+}
+async function ftRenderNodes(p){
+  const box=$('ftree-'+p);
+  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
+  html+=await ftNodeHtml(p,'',0);
+  box.innerHTML=html;
+  ftUpdateSelLabel(p);
+}
+async function ftNodeHtml(p,path,depth){
+  const items=FT_CHILDREN[ftKey(p,path)]||await ftLoadChildren(p,path);
+  const folders=items.filter(x=>x.folder && x.name!=='_analysis.json');
+  const files=items.filter(x=>x.file && x.name!=='_analysis.json');
+  let html='<div class="ft-children">';
+  for(const f of folders){
+    const childPath=path?`${path}/${f.name}`:f.name;
+    const open=FT_OPEN[ftKey(p,childPath)];
+    const sel=FT_SEL[p]===childPath?'sel':'';
+    html+=`<div class="ft-node"><div class="ft-row ${sel}" onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath)}',true,'${f.id}','${esc(f.name)}')"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+    if(open) html+=await ftNodeHtml(p,childPath,depth+1);
+    html+=`</div>`;
+  }
+  for(const f of files){
+    html+=`<div class="ft-row file" onclick="window.open('${esc(f.webUrl||'#')}','_blank')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">📄</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span></div>`;
+  }
+  html+='</div>';
+  return html;
+}
+async function ftToggle(p,path){
+  const k=ftKey(p,path);
+  FT_OPEN[k]=!FT_OPEN[k];
+  FT_SEL[p]=path;
+  if(FT_OPEN[k]) await ftLoadChildren(p,path);
+  await ftRenderNodes(p);
+  if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
+}
+function ftSelect(p,path){ FT_SEL[p]=path; ftRenderNodes(p); if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
+function ftMenu(e,p,path,isFolder,itemId,name){
+  e.preventDefault(); e.stopPropagation();
+  _ftCtxTarget={page:p,path,isFolder,itemId,name};
+  const m=$('ftCtx');
+  m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
+  m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+  m.classList.add('on');
+}
+document.addEventListener('click',()=>{ $('ftCtx')?.classList.remove('on'); });
+async function ftAct(action){
+  const t=_ftCtxTarget; if(!t) return;
+  $('ftCtx').classList.remove('on');
+  const p=t.page;
+  if(action==='newfolder'){ await ftNewFolder(p, t.path); }
+  else if(action==='upload'){ ftUploadTo(p,t.path); }
+  else if(action==='rename'){
+    if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
+    const nn=prompt('새 이름:', t.name);
+    if(!nn||nn===t.name) return;
+    try{ await spRenameItem(t.itemId,nn); toast('이름 변경됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    catch(ex){ toast('실패: '+ex.message,'bad'); }
+  }else if(action==='delete'){
+    if(!t.itemId){ toast('루트는 삭제 불가','bad'); return; }
+    if(!confirm(`"${t.name}" 삭제할까요? (SharePoint 영구삭제)`)) return;
+    try{ await spDeleteItem(t.itemId); toast('삭제됨','ok'); FT_CHILDREN={}; renderFileTree(p); }
+    catch(ex){ toast('실패: '+ex.message,'bad'); }
+  }
+}
+async function ftNewFolder(p,parentPath){
+  const name=prompt(parentPath?`'${parentPath}' 안에 만들 새 폴더 이름:`:'새 폴더(업체) 이름:','');
+  if(!name) return;
+  const clean=name.trim().replace(/[\\/:*?"<>|]/g,'_');
+  const full=parentPath?`${DOC_MAP[p]}/${parentPath}/${clean}`:`${DOC_MAP[p]}/${clean}`;
+  try{
+    await spEnsureFolder(full);
+    toast('폴더 생성됨','ok');
+    FT_CHILDREN={};
+    if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
+    await renderFileTree(p);
+  }catch(ex){ toast('폴더 생성 실패: '+ex.message,'bad'); }
+}
+let _ftUploadCtx=null;
+function ftUploadTo(p,dir){ _ftUploadCtx={page:p,dir:dir||''}; $('ftUpload').value=''; $('ftUpload').click(); }
+async function ftUploadFiles(files){
+  if(!files||!files.length||!_ftUploadCtx) return;
+  const {page,dir}=_ftUploadCtx;
+  const root=DOC_MAP[page];
+  if(!dir){ if(!confirm('루트에 바로 업로드합니다. (먼저 업체 폴더를 선택하는 걸 권장) 계속할까요?')) return; }
+  toast(`${files.length}개 업로드 중…`);
+  let ok=0;
+  for(const f of files){
+    try{
+      const path=dir?`${root}/${dir}/${f.name}`:`${root}/${f.name}`;
+      const buf=await f.arrayBuffer();
+      await spUploadFile(path,new Blob([buf]),f.type||'application/octet-stream');
+      ok++;
+    }catch(ex){ console.warn('업로드 실패',f.name,ex.message); }
+  }
+  toast(`${ok}개 업로드 완료${DOC_ANALYZE.includes(page)?' · [✨ 미분석 분석]으로 분석':''}`,'ok');
+  FT_CHILDREN={};
+  if(dir) FT_OPEN[ftKey(page,dir)]=true;
+  renderFileTree(page);
+}
+
+
+async function renderDocPage(p){
+  if(!DOC_ANALYZE.includes(p)) return renderDocTree(p); // 기술자료는 기존 트리
+  const root=DOC_MAP[p]; const panel=$('panel-'+p);
+  panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]} · 분석 목록</h2><div class="spacer"></div>
+      <button class="btn" onclick="anAnalyze('${p}')">✨ 미분석 분석</button>
+      <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
+    <div class="doc-layout">
+      <div class="doc-tree" id="tree-${p}"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+      <div class="doc-analysis" id="an-${p}">
+        <div class="doc-an-bar">
+          <input class="search" id="anq-${p}" placeholder="🔍 회사·품목 검색" oninput="anRender('${p}')">
+          <span class="spacer" style="flex:1"></span>
+          <span id="ancount-${p}" style="font-size:12px;color:var(--t3)"></span>
+        </div>
+        <div class="an-tbl-wrap" id="antbl-${p}"><div class="an-empty">고객사를 선택하거나 [✨ 미분석 분석]을 누르세요</div></div>
+      </div>
+    </div>`;
+  // 분석 캐시 로드
+  AN_DATA[p]=(await spGetJson(`${root}/_analysis.json`))||{};
+  AN_FILTER[p]={customer:'',q:''};
+  FT_SEL[p]='';
+  // 파일탐색기 트리 (폴더 생성/업로드/이름변경/삭제 — 우클릭)
+  await renderFileTree(p);
+  anRender(p);
+}
+function anPickCustomer(p,customer,el){
+  document.querySelectorAll(`#tree-${p} .tree-item`).forEach(x=>x.classList.remove('active'));
+  if(el) el.classList.add('active');
+  AN_FILTER[p].customer=customer;
+  anRender(p);
+}
+function anRender(p){
+  const data=AN_DATA[p]||{};
+  const q=($('anq-'+p)?.value||'').trim().toLowerCase();
+  const cust=AN_FILTER[p]?.customer||'';
+  let rows=Object.entries(data).map(([fid,d])=>({fid,...d}));
+  if(cust) rows=rows.filter(r=>(r.customer||'')===cust || (r.folder||'').startsWith(cust));
+  if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+  // 최신순
+  rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  $('ancount-'+p).textContent=`${rows.length}건`;
+  const wrap=$('antbl-'+p);
+  if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
+  let h=`<table class="an-tbl"><thead><tr>
+    <th>회사명</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
+    <th class="c">납기</th><th class="c">유효기한</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
+    const rowspan=items.length;
+    items.forEach((it,ix)=>{
+      h+=`<tr>`;
+      if(ix===0){
+        h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
+      }
+      h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
+      if(ix===0){
+        h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
+           `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.validUntil||'')}" onchange="anField('${p}','${r.fid}','validUntil',this.value)"></td>`+
+           `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
+           `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+           `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
+      }
+      h+=`</tr>`;
+    });
+  }
+  h+=`</tbody></table>`;
+  wrap.innerHTML=h;
+}
+function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
+async function anMemo(p,fid,val){ return anField(p,fid,'memo',val); }
+async function anField(p,fid,key,val){
+  if(AN_DATA[p]&&AN_DATA[p][fid]){
+    AN_DATA[p][fid][key]=val;
+    try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast('저장됨','ok'); }catch(e){ toast('저장 실패','bad'); }
+  }
+}
+// 수동 업로드 (현재 선택된 고객사 폴더로, 없으면 _미분류)
+async function anUpload(p,files){
+  if(!files||!files.length) return;
+  const root=DOC_MAP[p];
+  const cust=(AN_FILTER[p]?.customer)||'_미분류';
+  const date=new Date().toISOString().slice(0,10);
+  toast(`${files.length}개 업로드 중…`);
+  let ok=0;
+  for(const f of files){
+    try{
+      const path=`${root}/${cust}/${f.name}`;
+      const buf=await f.arrayBuffer();
+      await spUploadFile(path, new Blob([buf]), f.type||'application/octet-stream');
+      ok++;
+    }catch(e){ console.warn('업로드 실패',f.name,e.message); }
+  }
+  toast(`${ok}개 업로드 완료 · [✨ 미분석 분석]으로 분석`,'ok');
+  renderDocPage(p);
+}
+let _anCtx=null;
+function anRename(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  const nn=prompt('새 파일 이름:', r.fileName||'');
+  if(!nn||nn===r.fileName) return;
+  spRenameItem(fid,nn).then(()=>{ r.fileName=nn; spPutJson(`${DOC_MAP[p]}/_analysis.json`,AN_DATA[p]); anRender(p); toast('이름 변경됨','ok'); }).catch(e=>toast('실패: '+e.message,'bad'));
+}
+function anMove(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  _anCtx={mode:'an',p,fid};
+  $('fmvName').textContent='📄 '+(r.fileName||'');
+  $('fmvCust').value=r.customer||r.company||'';
+  $('fmvDate').value=r.date||'';
+  $('fmvMsg').textContent='';
+  $('fileMoveModal').classList.add('on');
+}
+async function anDelete(p,fid){
+  const r=AN_DATA[p][fid]; if(!r) return;
+  if(!confirm(`"${r.fileName}" 파일을 삭제할까요? (SharePoint에서 영구 삭제)`)) return;
+  try{ await spDeleteItem(fid); delete AN_DATA[p][fid]; await spPutJson(`${DOC_MAP[p]}/_analysis.json`,AN_DATA[p]); anRender(p); toast('삭제됨','ok'); }
+  catch(e){ toast('삭제 실패: '+e.message,'bad'); }
+}
+async function doFileMove(){
+  if(!_anCtx) return;
+  const {p,fid}=_anCtx;
+  const root=DOC_MAP[p];
+  const cust=($('fmvCust').value||'_미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
+  const cat=$('fmvCat').value;
+  const date=($('fmvDate').value||'').trim();
+  const dest=date?`${root}/${cust}/${cat}/${date}`:`${root}/${cust}/${cat}`;
+  $('fmvMsg').style.color='var(--t2)'; $('fmvMsg').textContent='이동 중…';
+  try{
+    await spEnsureFolder(dest);
+    await spMoveItem(fid,dest);
+    if(_anCtx.mode==='an'&&AN_DATA[p]&&AN_DATA[p][fid]){ AN_DATA[p][fid].customer=cust; AN_DATA[p][fid].folder=dest.replace(root+'/',''); await spPutJson(`${root}/_analysis.json`,AN_DATA[p]); }
+    $('fileMoveModal').classList.remove('on');
+    toast('이동 완료','ok'); renderDocPage(p);
+  }catch(e){ $('fmvMsg').style.color='var(--r)'; $('fmvMsg').textContent='실패: '+e.message; }
+}
+// 미분석 문서를 Copilot으로 분석
+// 브라우저에서 직접 파일 텍스트 추출 (PDF=pdf.js, 엑셀=SheetJS) — 서버/터널 불필요
+async function extractTextBrowser(f){
+  // Graph로 직접 다운로드 (downloadUrl 또는 items/{id}/content)
+  let blob=null;
+  try{
+    if(f.url){ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); }
+  }catch(_){}
+  if(!blob){ // downloadUrl 만료 시 Graph content로 폴백
+    const t=await graphToken(); const d=await spDrive();
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok) blob=await r.blob();
+  }
+  if(!blob) throw new Error("다운로드 실패");
+  const name=(f.name||'').toLowerCase();
+  if(name.endsWith('.pdf')){
+    if(!window.pdfjsLib) throw new Error("pdf.js 미로드");
+    const buf=await blob.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let text=''; const n=Math.min(pdf.numPages,10);
+    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); text+=tc.items.map(x=>x.str).join(' ')+'\n'; }
+    return text.slice(0,8000);
+  }
+  if(/\.(xlsx|xls|xlsm)$/.test(name)){
+    if(!window.XLSX) throw new Error("SheetJS 미로드");
+    const buf=await blob.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    let text='';
+    wb.SheetNames.slice(0,3).forEach(sn=>{ text+=`[시트:${sn}]\n`+XLSX.utils.sheet_to_csv(wb.Sheets[sn]).slice(0,3000)+'\n'; });
+    return text.slice(0,8000);
+  }
+  return '';
+}
+async function anAnalyze(p){
+  const root=DOC_MAP[p];
+  toast('문서 목록 확인 중…');
+  const files=[];
+  async function walk(path,customer){
+    const items=await spList(path);
+    for(const it of items){
+      if(it.folder) await walk(`${path}/${it.name}`, customer||it.name);
+      else if(it.file && /\.(pdf|xlsx|xls|xlsm)$/i.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||'',customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10),webUrl:it.webUrl});
+    }
+  }
+  await walk(root,'');
+  AN_DATA[p]=AN_DATA[p]||{};
+  const pending=files.filter(f=>!AN_DATA[p][f.id]);
+  if(!pending.length){ toast('새로 분석할 문서 없음','ok'); anRender(p); return; }
+  toast(`${pending.length}개 분석 중… (시간 걸림)`);
+  let done=0;
+  for(const f of pending){
+    done++;
+    try{
+      // 1) 브라우저에서 직접 텍스트 추출 (서버 안 거침)
+      let text='';
+      try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
+      // 2) Copilot 분석
+      const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"발행 회사명","delivery":"납기/납품기일","validUntil":"견적 유효기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 2개월", "2026-07-30"). 문서에 "납기","납품","delivery","D/T","리드타임" 등으로 표기됨.
+- validUntil(유효기간): 이 견적서가 유효한 기한 (예: "발행일로부터 30일", "견적 유효기간 1개월"). 문서에 "유효기간","견적유효","valid until" 등으로 표기됨.
+- 두 항목을 혼동하지 말 것. 납기는 '물건 받는 시점', 유효기간은 '견적이 살아있는 기한'이다.
+- 여러 품목이면 items 배열에 모두. 없는 값은 빈 문자열.
+- 회사명은 발행처(공급자) 기준.
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+      let info=null;
+      try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+      AN_DATA[p][f.id]={
+        company:(info&&info.company)||f.customer||'',
+        items:(info&&info.items)||[],
+        delivery:(info&&info.delivery)||'',
+        validUntil:(info&&info.validUntil)||'',
+        memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+      };
+      if(done%3===0){ anRender(p); toast(`분석 중… ${done}/${pending.length}`); }
+    }catch(e){ console.warn('분석 실패',f.name,e.message); }
+    await new Promise(r=>setTimeout(r,400));
+  }
+  try{ await spPutJson(`${root}/_analysis.json`, AN_DATA[p]); }catch(e){}
+  anRender(p);
+  renderDocPage(p); // 트리에 새 파일명 반영
+  toast(`${pending.length}개 분석 완료 · SharePoint 캐시 저장됨`,'ok');
+}
+
+// 기존 트리 방식 (기술자료 탭)
+async function renderDocTree(p){
+  const root=DOC_MAP[p]; const panel=$('panel-'+p);
+  panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]}</h2><div class="spacer"></div>
+      <input class="doc-search" id="treeq-${p}" placeholder="🔍 파일 검색" oninput="treeSearch('${p}')">
+      <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
+    <div class="doc-layout">
+      <div class="doc-tree" id="tree-${p}" style="flex:1;max-width:none"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+      <div class="doc-files" id="files-${p}" style="display:none"></div>
+    </div>`;
+  FT_SEL[p]='';
+  await renderFileTree(p);
+}
+// 트리 탭 전역 검색 (모든 폴더 재귀)
+async function treeSearch(p){
+  const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
+  if(!q){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">📁</div>고객사·분류를 선택하세요</div>`; return; }
+  const root=DOC_MAP[p];
+  $('files-'+p).innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
+  const hits=[];
+  async function walk(path){const items=await spList(path);for(const it of items){if(it.folder)await walk(`${path}/${it.name}`);else if(it.file&&it.name.toLowerCase().includes(q))hits.push({...it,_folder:path.replace(root+'/','')});}}
+  await walk(root);
+  if(!hits.length){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">🔍</div>"${esc(q)}" 검색 결과 없음</div>`; return; }
+  $('files-'+p).innerHTML=hits.map(f=>treeFileRow(p,f,f._folder)).join('');
+}
+function treeUpload(p,files){
+  if(!files||!files.length) return;
+  const cust=(treeCurCustomer[p])||'_미분류';
+  (async()=>{
+    const root=DOC_MAP[p]; toast(`${files.length}개 업로드 중…`); let ok=0;
+    for(const f of files){ try{ const buf=await f.arrayBuffer(); await spUploadFile(`${root}/${cust}/${f.name}`,new Blob([buf]),f.type); ok++; }catch(e){} }
+    toast(`${ok}개 업로드 완료`,'ok'); renderDocPage(p);
+  })();
+}
+function treeFileRow(p,f,folder){
+  const dt=(f.lastModifiedDateTime||'').slice(0,10);const kb=f.size?Math.round(f.size/1024):0;
+  return `<div class="filerow"><span style="font-size:16px">📄</span><span class="fn" onclick="window.open('${esc(f.webUrl||'#')}','_blank')">${esc(f.name)}</span><span class="fm">${esc(folder||'')} · ${dt} · ${kb}KB</span><span class="fr-act"><button class="fr-btn" title="이름변경" onclick="treeRename('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">✏</button><button class="fr-btn" title="이동" onclick="treeMove('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button><button class="fr-btn del" title="삭제" onclick="treeDelete('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">🗑</button></span></div>`;
+}
+function treeRename(p,fid,name){const nn=prompt('새 이름:',name);if(!nn||nn===name)return;spRenameItem(fid,nn).then(()=>{toast('이름 변경됨','ok');renderDocPage(p);}).catch(e=>toast('실패: '+e.message,'bad'));}
+function treeMove(p,fid,name){_anCtx={mode:'tree',p,fid};$('fmvName').textContent='📄 '+name;$('fmvCust').value=treeCurCustomer[p]||'';$('fmvDate').value='';$('fmvMsg').textContent='';$('fileMoveModal').classList.add('on');}
+async function treeDelete(p,fid,name){if(!confirm(`"${name}" 삭제할까요? (SharePoint 영구삭제)`))return;try{await spDeleteItem(fid);toast('삭제됨','ok');renderDocPage(p);}catch(e){toast('삭제 실패: '+e.message,'bad');}}
+let treeCurCustomer={};
+async function openDocCustomer(p,root,customer,el){
+  document.querySelectorAll(`#tree-${p} .tree-item`).forEach(x=>x.classList.remove('active'));
+  if(el) el.classList.add('active');
+  treeCurCustomer[p]=customer;
+  const sub=await spList(`${root}/${customer}`);
+  const cats=sub.filter(x=>x.folder);
+  const files=sub.filter(x=>x.file);
+  const fp=$('files-'+p);
+  let html='';
+  if(cats.length){
+    html+=cats.map(c=>`<div class="filerow" onclick="openDocCat('${p}','${esc(root)}','${esc(customer)}','${esc(c.name)}')"><span style="font-size:16px">📁</span><span class="fn">${esc(c.name)}</span><span class="fm">분류</span></div>`).join('');
+  }
+  html+=files.map(f=>treeFileRow(p,f,customer)).join('');
+  fp.innerHTML=html||`<div class="rd-empty"><div class="big">📂</div>비어 있습니다</div>`;
+}
+async function openDocCat(p,root,customer,cat){
+  treeCurCustomer[p]=customer;
+  const files=(await spList(`${root}/${customer}/${cat}`)).filter(x=>x.file);
+  const sub=(await spList(`${root}/${customer}/${cat}`)).filter(x=>x.folder);
+  let html=`<div class="filerow" onclick="openDocCustomer('${p}','${esc(root)}','${esc(customer)}')"><span>⬅</span><span class="fn">뒤로</span></div>`;
+  if(sub.length) html+=sub.map(s=>`<div class="filerow" onclick="openDocDate('${p}','${esc(root)}','${esc(customer)}','${esc(cat)}','${esc(s.name)}')"><span style="font-size:16px">📅</span><span class="fn">${esc(s.name)}</span></div>`).join('');
+  html+=files.map(f=>treeFileRow(p,f,`${customer}/${cat}`)).join('');
+  $('files-'+p).innerHTML=html;
+}
+async function openDocDate(p,root,customer,cat,date){
+  treeCurCustomer[p]=customer;
+  const files=(await spList(`${root}/${customer}/${cat}/${date}`)).filter(x=>x.file);
+  let html=`<div class="filerow" onclick="openDocCat('${p}','${esc(root)}','${esc(customer)}','${esc(cat)}')"><span>⬅</span><span class="fn">뒤로</span></div>`;
+  html+=files.map(f=>treeFileRow(p,f,`${customer}/${cat}/${date}`)).join('');
+  $('files-'+p).innerHTML=html;
+}
+
+// ── 첨부 → 문서함 일괄 이송 ──
+let CUR_BODY=null, CUR_MAIL=null, MOVE_ROWS=[];
+function guessCustomerFromSubject(subj,m){
+  // 보낸이(상대 회사)가 고객사. 받는이/우리(엔젯)는 제외.
+  const from=(m&&m.from&&m.from[0])?m.from[0].email:'';
+  const fromName=(m&&m.from&&m.from[0])?(m.from[0].name||''):'';
+  // ① 주소록에 등록된 보낸이의 회사명 우선
+  const c=CONTACTS.find(x=>(x.email||'').toLowerCase()===(from||'').toLowerCase());
+  if(c&&c.company) return c.company;
+  // ② 보낸이 이름에 회사 느낌이 있으면 (예: "한국화낙 정현재")
+  const nm=(fromName||'').replace(/주식회사|㈜|\(주\)/g,'').trim();
+  // ③ 제목 대괄호 — 단, 우리 회사명(엔젯/ENJET)은 제외
+  const brs=[...(subj||'').matchAll(/[\[\(]([^\]\)]+)[\]\)]/g)].map(x=>x[1].replace(/주식회사|㈜|\(주\)/g,'').trim());
+  for(const b of brs){ if(b && !/엔젯|enjet/i.test(b)) return b; }
+  // ④ 도메인 추측 (gmail 등 제외, 보낸이가 외부일 때)
+  if(from && !from.toLowerCase().endsWith('@enjet.co.kr')){
+    const g=guessCompany(from, fromName);
+    if(g) return g;
+  }
+  return '';
+}
+function guessCategory(text){
+  const t=(text||'').toLowerCase();
+  if(/로봇|robot|컨트롤러|controller|mate|arc|fanuc|화낙/.test(t)) return '로봇';
+  if(/가공|machining|cnc|밀링|선반|dxf|x_t|step|3d|2d|도면/.test(t)) return '가공';
+  if(/공압|pneumat|실린더|밸브|valve/.test(t)) return '공압품';
+  if(/물류|logist|운송|배송|포장/.test(t)) return '물류';
+  if(/구매|purchas|부품|part/.test(t)) return '구매품';
+  return '기타';
+}
+function guessDocType(name,subj){
+  const low=((name||'')+' '+(subj||'')).toLowerCase();
+  if(/견적|quot|estimate/.test(low)) return '02.견적서';
+  if(/명세|거래명세|invoice|delivery/.test(low)) return '03.거래명세서';
+  if(/세금|계산서|tax/.test(low)) return '04.세금계산서';
+  return '05.기술자료'; // 도면(DXF/X_T 등)·기타 기본
+}
+const DOCTYPES=[['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
+function openMove(){
+  if(!CUR_BODY||!CUR_MAIL){ toast('메일을 먼저 여세요','bad'); return; }
+  const m=CUR_MAIL, subj=m.subject||'';
+  const cust=guessCustomerFromSubject(subj,m);
+  const date=(m.dateRaw||'').slice(0,10) || new Date().toISOString().slice(0,10);
+  $('moveCommonCust').value=cust;
+  $('moveCommonDate').value=date;
+  // 일반첨부 + 대용량첨부 모두 행으로
+  MOVE_ROWS=[];
+  for(const a of (CUR_BODY.attachments||[])){
+    MOVE_ROWS.push({kind:'normal', uid:m.uid, idx:a.idx, name:a.name,
+      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+  }
+  for(const a of (CUR_BODY.largeAttachments||[])){
+    MOVE_ROWS.push({kind:'large', url:a.url, name:a.name,
+      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+  }
+  renderMoveRows();
+  $('moveMsg').textContent='';
+  $('moveModal').classList.add('on');
+}
+function renderMoveRows(){
+  $('moveBody').innerHTML=MOVE_ROWS.map((r,i)=>`<tr>
+    <td><input type="checkbox" class="move-chk" ${r.checked?'checked':''} onchange="MOVE_ROWS[${i}].checked=this.checked"></td>
+    <td class="fname" title="${esc(r.name)}">${r.kind==='large'?'🔗':'📎'} ${esc(r.name)}</td>
+    <td><select onchange="MOVE_ROWS[${i}].docType=this.value">${DOCTYPES.map(([v,t])=>`<option value="${v}" ${r.docType===v?'selected':''}>${t}</option>`).join('')}</select></td>
+    <td><input value="${esc(r.customer)}" onchange="MOVE_ROWS[${i}].customer=this.value"></td>
+    <td><select onchange="MOVE_ROWS[${i}].category=this.value">${CATEGORIES.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></td>
+    <td><input value="${esc(r.date)}" onchange="MOVE_ROWS[${i}].date=this.value"></td>
+    <td class="st" id="movest-${i}">${r.status||''}</td>
+  </tr>`).join('');
+}
+function toggleAllMove(on){ MOVE_ROWS.forEach(r=>r.checked=on); renderMoveRows(); $('moveAll').checked=on; }
+function applyCommonCust(){ const c=$('moveCommonCust').value; MOVE_ROWS.forEach(r=>r.customer=c); renderMoveRows(); }
+function closeMove(){ $('moveModal').classList.remove('on'); }
+async function doMoveAll(){
+  const targets=MOVE_ROWS.map((r,i)=>({r,i})).filter(x=>x.r.checked);
+  if(!targets.length){ toast('선택된 첨부 없음','bad'); return; }
+  const btn=$('moveBtn'); btn.disabled=true;
+  $('moveMsg').style.color='var(--t2)'; $('moveMsg').textContent=`⏳ ${targets.length}개 저장 중…`;
+  let ok=0, fail=0;
+  for(const {r,i} of targets){
+    const cell=$('movest-'+i); if(cell){cell.textContent='⏳';}
+    try{
+      let blob;
+      if(r.kind==='normal'){
+        const ar=await fetch(`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(r.uid)}&idx=${r.idx}`);
+        if(!ar.ok) throw new Error('첨부 다운로드 실패');
+        blob=await ar.blob();
+      }else{
+        // 대용량: 서버 프록시로 외부 URL 받기
+        const pr=await fetch(`${SERVER}/api/mail/fetch-url?url=${encodeURIComponent(r.url)}&name=${encodeURIComponent(r.name)}`);
+        if(!pr.ok) throw new Error('대용량 다운로드 실패');
+        blob=await pr.blob();
+      }
+      const cust=(r.customer||'미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
+      const cat=r.category||'기타';
+      const date=(r.date||new Date().toISOString().slice(0,10)).trim();
+      const safeName=(r.name||'file').replace(/[\\/:*?"<>|]/g,'_');
+      const path=`${r.docType}/${cust}/${cat}/${date}/${safeName}`;
+      await spPutFile(path, blob, blob.type||'application/octet-stream');
+      r.status='✅'; if(cell)cell.textContent='✅'; ok++;
+    }catch(e){ r.status='❌'; if(cell)cell.textContent='❌'; fail++; }
+  }
+  $('moveMsg').style.color=fail?'var(--y)':'var(--g)';
+  $('moveMsg').textContent=`완료: 성공 ${ok} / 실패 ${fail}`;
+  toast(`이송 완료 (성공 ${ok}${fail?`, 실패 ${fail}`:''})`, fail?'bad':'ok');
+  btn.disabled=false;
+}
+
+function fromName(a){if(!a||!a.length)return '(보낸사람 없음)';return a[0].name||a[0].email||'';}
+function addrLine(a){if(!a||!a.length)return '-';return a.map(x=>x.name?`${esc(x.name)} <${esc(x.email)}>`:esc(x.email)).join(', ');}
+function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('on');}
+function closeSettings(){$('settings').classList.remove('on');}
+function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
+async function refreshEndpoint(){ toast('SharePoint에서 서버 주소 확인 중…'); await resolveServerEndpoint(); $('srvInput').value=SERVER; toast('서버 주소: '+SERVER,'ok'); checkHealth(); loadList(); }
+async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
+async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();if(DEEPLINK_UID){const tgt=DEEPLINK_UID;DEEPLINK_UID=null;const exists=MAILS.find(x=>String(x.uid)===String(tgt));if(exists){openMail(exists.uid);}else{openMail(tgt);}}setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
+function senderKey(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();return e||fromName(m.from).toLowerCase();}
+function contactFor(m){const e=(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
+function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
+let OPEN_GROUPS={};
+function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
+function renderList(){
+  const q=$('q').value.trim().toLowerCase();
+  let rows=MAILS;
+  if(q){rows=MAILS.filter(m=>(m.subject||'').toLowerCase().includes(q)||fromName(m.from).toLowerCase().includes(q)||(m.from&&m.from[0]&&m.from[0].email||'').toLowerCase().includes(q));}
+  updateCount(rows.length);
+  if(!rows.length){$('list').innerHTML='<div class="empty">메일이 없습니다</div>';return;}
+  // 보낸사람 기준 그룹핑 (입력 순서 = 최신순 유지)
+  const groups=new Map();
+  for(const m of rows){const k=senderKey(m);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);}
+  let html='';
+  for(const [k,arr] of groups){
+    const head=arr[0]; // 가장 최신(목록이 최신순)
+    const open=OPEN_GROUPS[k]?' open':'';
+    const multi=arr.length>1;
+    const sel=(SELECTED===head.uid)?' sel':'';
+    const cnt=multi?`<span class="mr-cnt">${arr.length}</span>`:'';
+    const caret=multi?`<span class="mr-caret">▶</span>`:'';
+    const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
+    const hck=SELECTED_UIDS.has(String(head.uid))?'checked':'';
+    html+=`<div class="grp${open}" data-k="${esc(k)}">
+      <div class="mailrow${sel}" ${onclick}>
+        <div class="mr-row">
+          <input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
+          <div class="mr-body">
+            <div class="mr-top"><span class="mr-from">${esc(fromName(head.from))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
+            <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
+          </div>
+        </div>
+      </div>`;
+    if(multi){
+      html+=`<div class="grp-children">`+arr.map(m=>{const cs=(SELECTED===m.uid)?' sel':'';const cck=SELECTED_UIDS.has(String(m.uid))?'checked':'';return `<div class="grp-child${cs}" onclick="openMail('${m.uid}')"><div class="mr-row"><input type="checkbox" class="mr-chk" ${cck} onclick="event.stopPropagation();toggleSelect('${m.uid}',this.checked)"><div class="mr-body"><div class="gc-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div><div class="gc-date">${esc(m.date||'')}</div></div></div></div>`;}).join('')+`</div>`;
+    }
+    html+=`</div>`;
+  }
+  $('list').innerHTML=html;
+  updateDelBtn();
+}
+// 그룹 대표 클릭: 카드 토글 + 최신메일 열기
+function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
+
+// ── 메일 선택 삭제 (휴지통 이동) ──
+let SELECTED_UIDS=new Set();
+function toggleSelect(uid,on){ if(on)SELECTED_UIDS.add(String(uid)); else SELECTED_UIDS.delete(String(uid)); updateDelBtn(); }
+function toggleSelectAll(on){
+  SELECTED_UIDS=new Set();
+  if(on){ for(const m of MAILS) SELECTED_UIDS.add(String(m.uid)); }
+  renderList();
+}
+function updateDelBtn(){
+  const n=SELECTED_UIDS.size;
+  const b=$('delBtn'); if(!b)return;
+  b.style.display=n?'inline-flex':'none';
+  $('delCnt').textContent=n?`(${n})`:'';
+  const sa=$('selAll'); if(sa) sa.checked = (n>0 && n===MAILS.length);
+}
+async function deleteSelected(){
+  const uids=[...SELECTED_UIDS];
+  if(!uids.length) return;
+  const where = FOLDER==='inbox'?'받은편지함':'보낸편지함';
+  if(!confirm(`선택한 ${uids.length}개 메일을 휴지통으로 이동할까요?\n(${where} · 복구 가능)`)) return;
+  const b=$('delBtn'); b.disabled=true; const old=b.innerHTML; b.innerHTML='🗑 이동 중…';
+  try{
+    const r=await fetch(`${SERVER}/api/mail/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:FOLDER,uids})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`${d.count}개 휴지통 이동 완료`,'ok');
+      SELECTED_UIDS=new Set();
+      if(SELECTED && uids.includes(String(SELECTED))){ SELECTED=null; renderReaderEmpty(); }
+      loadList();
+    }else{
+      toast('삭제 실패: '+(d.error||''),'bad');
+    }
+  }catch(e){ toast('삭제 오류: '+e.message,'bad'); }
+  b.disabled=false; b.innerHTML=old; updateDelBtn();
+}
+function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
+function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
+async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
+function autoSizeIframe(ifr){
+  try{
+    const doc=ifr.contentDocument||ifr.contentWindow.document;
+    const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300);
+    ifr.style.height=(h+20)+'px';
+  }catch(e){ ifr.style.height='600px'; }
+}
+function renderBody(m,d){
+  CUR_BODY=d; CUR_MAIL=m;
+  const atts=(d.attachments||[]);
+  const large=(d.largeAttachments||[]);
+  const totalAtt=atts.length+large.length;
+  // 첨부 표시 (접기/펼치기 — 기본 접힘, 본문 먼저 보이게)
+  let attHtml='';
+  if(totalAtt){
+    const normal=atts.map(a=>`<span class="att"><span onclick="dlAtt('${m.uid}',${a.idx},'${esc(a.name).replace(/'/g,"\\'")}')">📎 ${esc(a.name)}</span></span>`).join('');
+    const big=large.map(a=>`<span class="att" onclick="window.open('${esc(a.url)}','_blank')">🔗 ${esc(a.name)} <span class="badge-lg">대용량</span></span>`).join('');
+    attHtml=`<div class="rd-att-box">
+      <div class="rd-att-toggle" onclick="this.parentNode.classList.toggle('open')">
+        <span>📎 첨부파일 ${totalAtt}개</span><span class="rd-att-caret">▼</span>
+      </div>
+      <div class="rd-atts">${normal}${big}</div>
+    </div>`;
+  }
+  let bodyHtml;
+  if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}" onload="autoSizeIframe(this)"></iframe></div>`;}
+  else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}
+  const head=$('reader').querySelector('.rd-head').outerHTML;
+  const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
+  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button>${moveBtn}</div>`;
+  $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+attHtml+bodyHtml;
+}
+async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
+let COMPOSE_ATT=[],REPLY_CTX={};
+function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
+async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
+function closeCompose(){$('compose').classList.remove('on');}
+// ── 메일쓰기: 주소록에서 받는사람/참조 선택 ──
+let _ctPickTarget='cTo', _ctPickSel=new Set();
+async function openContactPicker(targetId){
+  _ctPickTarget=targetId; _ctPickSel=new Set();
+  $('ctPickSearch').value='';
+  $('ctPickModal').classList.add('on');
+  if(!CONTACTS||!CONTACTS.length){
+    $('ctPickList').innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+    try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); }catch(e){}
+  }
+  renderContactPicker();
+}
+function closeContactPicker(){ $('ctPickModal').classList.remove('on'); }
+function renderContactPicker(){
+  const q=($('ctPickSearch').value||'').trim().toLowerCase();
+  let list=(CONTACTS||[]).filter(c=>c&&c.email);
+  if(q) list=list.filter(c=>((c.name||'')+(c.company||'')+(c.email||'')).toLowerCase().includes(q));
+  list.sort((a,b)=>(a.name||a.email||'').localeCompare(b.name||b.email||'','ko'));
+  if(!list.length){ $('ctPickList').innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">연락처 없음</div>'; $('ctPickN').textContent='0'; return; }
+  $('ctPickList').innerHTML=list.map(c=>{
+    const on=_ctPickSel.has(c.email);
+    return `<div onclick="toggleCtPick('${esc(c.email)}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;${on?'background:var(--pd)':''}">
+      <span style="width:18px">${on?'✅':'⬜'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${esc(c.name||'(이름없음)')}${c.company?` <span style="font-weight:400;color:var(--t3)">· ${esc(c.company)}</span>`:''}</div>
+        <div style="font-size:11.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis">${esc(c.email)}</div>
+      </div></div>`;
+  }).join('');
+  $('ctPickN').textContent=String(_ctPickSel.size);
+}
+function toggleCtPick(email){ if(_ctPickSel.has(email)) _ctPickSel.delete(email); else _ctPickSel.add(email); renderContactPicker(); }
+function applyContactPicker(){
+  if(!_ctPickSel.size){ closeContactPicker(); return; }
+  const inp=$(_ctPickTarget);
+  const cur=(inp.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  for(const e of _ctPickSel){ if(!cur.includes(e)) cur.push(e); }
+  inp.value=cur.join(', ');
+  closeContactPicker();
+}
+function onFiles(){const files=Array.from($('cFiles').files||[]);COMPOSE_ATT=[];let total=0;const proc=files.map(f=>new Promise(res=>{total+=f.size;const fr=new FileReader();fr.onload=()=>{COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]});res();};fr.onerror=()=>res();fr.readAsDataURL(f);}));Promise.all(proc).then(()=>{if(total>20*1024*1024){$('cMsg').style.color='var(--r)';$('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다';}renderFileChips();});}
+function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
+function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';setTimeout(closeCompose,900);}else{$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+let DEEPLINK_UID=null;
+// ════════ 통합일정관리 ════════
+const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
+const SCH_PATH="01.통합관리/02.일정표/TIC_Schedule_data.json";
+let _schDriveId=null;
+const SCH_COLORS={teal:"#1FA89B",purple:"#534AB7",amber:"#E0921E",green:"#1E9E57",red:"#D6442E",indigo:"#3F3B8C"};
+const SCH_PHC={teal:"#1FA89B",purple:"#534AB7",indigo:"#3F3B8C"};
+const SCH_SEED={
+  trial:[
+    {ph:"트라이얼",phc:"teal",t:"화학용액 공급(핸드캐리)",o:"",s:"2026-06-14",f:"2026-06-14",loc:"한국",note:"핸드캐리 공급 마감",type:"ms",color:"red",emph:true,cm:[]},
+    {ph:"트라이얼",phc:"teal",t:"기존 엔젯 장비 개조",o:"",s:"2026-06-15",f:"2026-06-15",loc:"한국(엔젯)",note:"장비 개조 완료",type:"ms",color:"teal",emph:false,cm:[]},
+    {ph:"트라이얼",phc:"teal",t:"디버깅 · 티칭",o:"",s:"2026-06-17",f:"2026-06-17",loc:"한국(엔젯)",note:"티칭 완료",type:"ms",color:"teal",emph:false,cm:[]},
+    {ph:"트라이얼",phc:"teal",t:"트라이얼 테스트(지속)",o:"",s:"2026-06-17",f:"2026-06-24",loc:"한국(엔젯)",note:"초기 실행 후 계속 진행 →",type:"ongoing",color:"teal",emph:true,cm:[]}
+  ],
+  demo:[
+    {ph:"제작",phc:"purple",t:"기구 설계",o:"",s:"2026-06-10",f:"2026-06-27",loc:"한국",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"전장 설계",o:"",s:"2026-06-10",f:"2026-06-27",loc:"한국",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"1호기 상세설계",o:"",s:"2026-06-18",f:"2026-06-18",loc:"한국",note:"",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"DFM 리뷰",o:"",s:"2026-06-20",f:"2026-06-20",loc:"한국",note:"설계 게이트",type:"ms",color:"amber",emph:true,cm:[]},
+    {ph:"제작",phc:"purple",t:"장납기 구매품: 발주",o:"",s:"2026-06-20",f:"2026-06-20",loc:"한국",note:"발주",type:"ms",color:"green",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"장납기 구매품: 납품",o:"",s:"2026-06-20",f:"2026-07-29",loc:"한국",note:"40일 (크리티컬 패스)",type:"bar",color:"purple",emph:true,cm:[]},
+    {ph:"제작",phc:"purple",t:"가공품: 발주/납품",o:"",s:"2026-06-28",f:"2026-08-12",loc:"한국",note:"1.5개월",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"추가 구매품",o:"",s:"2026-06-28",f:"2026-07-28",loc:"한국",note:"1개월",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"조립 / 배선",o:"",s:"2026-08-14",f:"2026-08-24",loc:"한국",note:"1.5주",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"I/O / 모터 / 티칭",o:"",s:"2026-08-25",f:"2026-08-29",loc:"한국",note:"",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"제작",phc:"purple",t:"드라이런 + FAT",o:"",s:"2026-08-30",f:"2026-09-06",loc:"한국",note:"한국 FAT — 핵심 게이트",type:"bar",color:"amber",emph:true,cm:[]},
+    {ph:"제작",phc:"purple",t:"포장 + 항공운송 + 통관",o:"",s:"2026-09-07",f:"2026-09-20",loc:"한국→현장",note:"2주",type:"bar",color:"purple",emph:false,cm:[]},
+    {ph:"설치",phc:"indigo",t:"현장 도착",o:"",s:"2026-09-20",f:"2026-09-20",loc:"인도/중국",note:"현장 도착",type:"ms",color:"green",emph:false,cm:[]},
+    {ph:"설치",phc:"indigo",t:"현장 설치 + SAT 완료",o:"",s:"2026-09-21",f:"2026-10-20",loc:"인도/중국",note:"SAT — 최종 인수",type:"bar",color:"amber",emph:true,cm:[]}
+  ]
+};
+let SCH_DATA=null, schView="trial", _schLoaded=false;
+const SMS=86400000;
+function schPd(s){if(!s)return null;const p=String(s).split("-");if(p.length===3)return new Date(+p[0],+p[1]-1,+p[2]);return null;}
+function schFmtMD(s){const d=schPd(s);if(!d)return s||"";return String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");}
+function schParseMD(txt,fb){txt=(txt||"").trim();let m=txt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;m=txt.match(/^(\d{1,2})[\/\.](\d{1,2})$/);if(m)return `2026-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`;return fb;}
+function schInc(s,f){const a=schPd(s),b=schPd(f);if(!a||!b)return"";return Math.round((b-a)/SMS)+1;}
+function schToday(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function schShade(hex,p){const n=parseInt(hex.slice(1),16);let r=(n>>16)+p,g=((n>>8)&255)+p,b=(n&255)+p;r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));return"#"+((r<<16)|(g<<8)|b).toString(16).padStart(6,"0");}
+async function schInit(){
+  $('schToday').textContent=(()=>{const t=schToday();return `오늘 ${t.getFullYear()}.${String(t.getMonth()+1).padStart(2,"0")}.${String(t.getDate()).padStart(2,"0")}`;})();
+  if(!_schLoaded){ await schLoad(); _schLoaded=true; } else schRender();
+}
+async function schReload(){ _schLoaded=false; await schInit(); }
+async function schDrive(){
+  if(_schDriveId) return _schDriveId;
+  const t=await graphToken();
+  const r1=await fetch(`https://graph.microsoft.com/v1.0/sites/${SCH_SITE}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r1.ok) throw new Error("TIC 사이트 조회 실패 "+r1.status);
+  const sid=(await r1.json()).id;
+  const r2=await fetch(`https://graph.microsoft.com/v1.0/sites/${sid}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r2.ok) throw new Error("드라이브 조회 실패");
+  _schDriveId=(await r2.json()).id; return _schDriveId;
+}
+async function schLoad(){
+  $('schGantt').innerHTML='<div style="padding:30px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  try{
+    const t=await graphToken(); const d=await schDrive();
+    const enc=SCH_PATH.split("/").map(encodeURIComponent).join("/");
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok){ const j=await r.json(); if(j&&j.trial&&j.demo) SCH_DATA=j; }
+  }catch(e){ console.warn("일정 로드 실패, 기본값:",e.message); }
+  if(!SCH_DATA) SCH_DATA=JSON.parse(JSON.stringify(SCH_SEED));
+  schRender();
+}
+let _schSaveT;
+async function schSave(manual){
+  try{
+    const t=await graphToken(); const d=await schDrive();
+    const enc=SCH_PATH.split("/").map(encodeURIComponent).join("/");
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,
+      {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(SCH_DATA,null,2)});
+    if(!r.ok) throw new Error("저장 실패 "+r.status);
+    const ind=$('schSaveInd'); ind.classList.add('show'); clearTimeout(_schSaveT); _schSaveT=setTimeout(()=>ind.classList.remove('show'),1500);
+    if(manual) toast("일정 SharePoint 저장 완료","ok");
+  }catch(e){ if(manual) toast("저장 실패: "+e.message,"bad"); else console.warn("일정 자동저장 실패:",e.message); }
+}
+function schSwitch(v){schView=v;document.querySelectorAll('.sch-subtab').forEach(s=>s.classList.toggle('active',s.dataset.v===v));schRender();}
+function schAxis(list){let min=null,max=null;list.forEach(t=>{const s=schPd(t.s),f=schPd(t.f);if(s&&(!min||s<min))min=s;if(f&&(!max||f>max))max=f;});if(!min)min=new Date(2026,5,1);if(!max)max=new Date(2026,5,30);const a=new Date(min.getFullYear(),min.getMonth(),1);let b=new Date(max.getFullYear(),max.getMonth()+1,0);const tu=schToday();if(tu>b)b=new Date(tu.getFullYear(),tu.getMonth()+1,0);const a2=(tu<a)?new Date(tu.getFullYear(),tu.getMonth(),1):a;return {a:a2,b};}
+function schPct(d,ax){return ((schPd(d)||ax.a)-ax.a)/((ax.b-ax.a)||1)*100;}
+function schPctDt(dt,ax){return (dt-ax.a)/((ax.b-ax.a)||1)*100;}
+function schMonths(ax){const out=[];let d=new Date(ax.a);while(d<=ax.b){out.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth()+1,1);}return out;}
+function schRender(){
+  if(!SCH_DATA)return;
+  const list=SCH_DATA[schView]; const isT=schView==="trial";
+  const accent=isT?SCH_COLORS.teal:SCH_COLORS.purple;
+  $('schGanttAccent').style.background=accent; $('schTblAccent').style.background=accent;
+  $('schGanttTitle').textContent=isT?"Trial 일정관리":"Demo 일정관리";
+  schStats(list,isT); schGantt(list,accent); schTable(list); schLegend(isT);
+}
+function schStats(list,isT){
+  const real=list.filter(t=>schPd(t.s)&&schPd(t.f));
+  let min=null,max=null;real.forEach(t=>{const s=schPd(t.s),f=schPd(t.f);if(!min||s<min)min=s;if(!max||f>max)max=f;});
+  const span=(min&&max)?Math.round((max-min)/SMS)+1:0;
+  const tu=schToday();const done=real.filter(t=>schPd(t.f)<tu).length;const ongoing=list.some(t=>t.type==="ongoing");
+  let prog=0;if(min&&max){prog=Math.max(0,Math.min(100,Math.round((tu-min)/((max-min)||1)*100)));}
+  const fmt=d=>d?(d.getMonth()+1)+"/"+d.getDate():"—";
+  const cards=isT?[
+    {k:"상태",v:ongoing?"진행/지속":"—",d:"시작 06/14 · 초기 ≈1.5주",c:SCH_COLORS.teal},
+    {k:"기간",v:span+"일",d:fmt(min)+" ~ "+fmt(max)+" (+지속)",c:SCH_COLORS.teal},
+    {k:"작업 수",v:list.length+"개",d:"마일스톤 + 테스트",c:SCH_COLORS.amber},
+    {k:"오늘 진행",v:(tu<min?"시작 전":prog+"%"),d:"완료 "+done+"/"+real.length,c:"#1a6fd4"}
+  ]:[
+    {k:"데모 총 기간",v:span+"일",d:fmt(min)+" → "+fmt(max),c:SCH_COLORS.purple},
+    {k:"제작(한국)",v:"≈3.4개월",d:"06/10 → 09/20 · 103일",c:SCH_COLORS.purple},
+    {k:"설치(현장)",v:"≈1개월",d:"09/21 → 10/20 · 30일",c:SCH_COLORS.indigo},
+    {k:"오늘 진행",v:(tu<min?"시작 전":prog+"%"),d:"완료 "+done+"/"+real.length+" 작업",c:"#1a6fd4"}
+  ];
+  $('schStats').innerHTML=cards.map(c=>`<div class="sch-stat"><div class="bar" style="background:${c.c}"></div><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="d">${c.d}</div></div>`).join("");
+}
+function schGantt(list,accent){
+  const ax=schAxis(list);const ms=schMonths(ax);const lw="200px";
+  let html=`<div style="--lw:${lw};position:relative">`;
+  html+=`<div class="sch-axis">`;
+  ms.forEach(m=>{const w=(new Date(m.getFullYear(),m.getMonth()+1,1)-m)/((ax.b-ax.a))*100;html+=`<div class="sch-month" style="flex:0 0 ${Math.min(100,w)}%">${m.getMonth()+1}월</div>`;});
+  html+=`</div>`;
+  list.forEach(t=>{
+    const col=SCH_COLORS[t.color]||accent;
+    html+=`<div class="sch-row"><div class="sch-label"><span class="ph" style="background:${SCH_PHC[t.phc]||accent}">${esc(t.ph)}</span>${esc(t.t)}</div><div class="sch-track"><div class="sch-grid">`;
+    ms.forEach(m=>{const l=schPctDt(m,ax);if(l>0.5)html+=`<span style="left:${l}%"></span>`;});
+    html+=`</div>`;
+    if(t.type==="ms"){const l=schPct(t.s,ax);html+=`<div class="sch-ms" style="left:${l}%;background:${col}"></div>`;}
+    else{let l=schPct(t.s,ax),r=schPct(t.f,ax);if(r<l+1.5)r=l+1.5;html+=`<div class="sch-bar" style="left:${l}%;width:${r-l}%;background:linear-gradient(135deg,${col},${schShade(col,-18)})">${esc(t.note&&(r-l>14)?t.note:"")}</div>`;if(t.type==="ongoing"){html+=`<div class="sch-bar ongoing-ext" style="left:${r}%;width:${Math.max(0,100-r)}%;background:${col}"></div><div style="position:absolute;right:2px;top:8px;font-size:11px;font-weight:800;color:${col}">→</div>`;}}
+    html+=`</div></div>`;
+  });
+  const tu=schToday();const tl=schPctDt(tu,ax);
+  if(tl>=0&&tl<=100){html+=`<div class="sch-today-flag" style="left:calc(${lw} + (100% - ${lw}) * ${tl/100});">오늘 ${tu.getMonth()+1}/${tu.getDate()}</div><div class="sch-today-line" style="left:calc(${lw} + (100% - ${lw}) * ${tl/100});"></div>`;}
+  html+=`</div>`;
+  $('schGantt').innerHTML=html;
+}
+function schTable(list){
+  const head=`<thead><tr><th>단계</th><th>작업</th><th>담당</th><th class="c">시작</th><th class="c">종료</th><th class="c">일수</th><th>장소</th><th>비고</th><th class="c" style="width:90px">댓글/행</th></tr></thead>`;
+  let body="<tbody>";
+  list.forEach((t,i)=>{
+    const days=t.type==="ms"?((t.s===t.f)?"1":schInc(t.s,t.f)):schInc(t.s,t.f);
+    body+=`<tr class="${t.emph?'emph':''}"><td><div class="cell"><span class="row-ph" style="background:${SCH_PHC[t.phc]||'#888'}">${esc(t.ph)}</span></div></td>
+      <td><div class="cell" contenteditable onblur="schUp(${i},'t',this)">${esc(t.t)}</div></td>
+      <td><div class="cell" contenteditable onblur="schUp(${i},'o',this)">${esc(t.o||"")}</div></td>
+      <td class="c"><div class="cell" contenteditable onblur="schUp(${i},'s',this)">${schFmtMD(t.s)}</div></td>
+      <td class="c"><div class="cell" contenteditable onblur="schUp(${i},'f',this)">${t.type==="ongoing"?"지속":schFmtMD(t.f)}</div></td>
+      <td class="c"><div class="cell" style="color:var(--t3)">${t.type==="ongoing"?"→":days}</div></td>
+      <td><div class="cell" contenteditable onblur="schUp(${i},'loc',this)">${esc(t.loc||"")}</div></td>
+      <td><div class="cell" contenteditable onblur="schUp(${i},'note',this)">${esc(t.note||"")}</div></td>
+      <td><div class="sch-rowact"><button class="sch-iconbtn" onclick="schToggleC(${i})">💬${t.cm&&t.cm.length?`<span class="cnt">${t.cm.length}</span>`:""}</button><button class="sch-iconbtn" onclick="schToggleEmph(${i})">${t.emph?'<span class="sch-star">★</span>':'☆'}</button><button class="sch-iconbtn" onclick="schDelRow(${i})">🗑</button></div></td></tr>`;
+    body+=`<tr class="crow" id="schcrow${i}" style="display:none"><td colspan="9">${schCommentBox(i,t)}</td></tr>`;
+  });
+  body+="</tbody>";
+  $('schTbl').innerHTML=head+body;
+}
+function schCommentBox(i,t){
+  const cl=(t.cm||[]).map((c,ci)=>`<div class="sch-cmt"><div class="meta"><span>${esc(c.by||"익명")} · ${c.at}</span><span class="del" onclick="schDelC(${i},${ci})">삭제</span></div>${esc(c.tx)}</div>`).join("");
+  return `<div class="sch-cbox"><h4>💬 ${esc(t.t)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="schcby${i}" value="${esc(myName())}" placeholder="이름"><textarea id="schctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="schAddC(${i})">등록</button></div></div>`;
+}
+function schLegend(isT){
+  const items=isT?[["Trial 막대",SCH_COLORS.teal],["마감/마일스톤 ◆",SCH_COLORS.red],["지속 →","#A6E3DB"]]:[["제작",SCH_COLORS.purple],["핵심 게이트(FAT/DFM/SAT)",SCH_COLORS.amber],["발주/도착",SCH_COLORS.green],["설치",SCH_COLORS.indigo]];
+  $('schLegend').innerHTML=items.map(it=>`<span class="it"><span class="sw" style="background:${it[1]}"></span>${it[0]}</span>`).join("")+`<span class="it"><span class="sw" style="background:${SCH_COLORS.red}"></span>오늘 표시선</span><span class="it">★ 강조 = 핵심</span>`;
+}
+function schUp(i,k,el){let v=el.innerText.trim();const t=SCH_DATA[schView][i];if(k==="s"||k==="f")v=schParseMD(v,t[k]);t[k]=v;schSave(false);schRender();}
+function schToggleEmph(i){SCH_DATA[schView][i].emph=!SCH_DATA[schView][i].emph;schSave(false);schRender();}
+function schDelRow(i){if(confirm("이 작업을 삭제할까요?")){SCH_DATA[schView].splice(i,1);schSave(false);schRender();}}
+function schAddRow(){const isT=schView==="trial";SCH_DATA[schView].push({ph:isT?"트라이얼":"제작",phc:isT?"teal":"purple",t:"새 작업",o:"",s:"2026-06-15",f:"2026-06-16",loc:"한국",note:"",type:"bar",color:isT?"teal":"purple",emph:false,cm:[]});schSave(false);schRender();}
+function schToggleC(i){const el=$('schcrow'+i);const show=el.style.display==="none";document.querySelectorAll('#schTbl .crow').forEach(r=>r.style.display="none");el.style.display=show?"table-row":"none";if(show)setTimeout(()=>$('schctx'+i)?.focus(),30);}
+function schAddC(i){const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(SCH_DATA[schView][i].cm=SCH_DATA[schView][i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+function schDelC(i,ci){SCH_DATA[schView][i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
+
+
+// 서버 주소를 SharePoint(server.py가 자동 기록)에서 읽어 갱신 — 재부팅으로 터널 주소 바뀌어도 자동 추적
+const SERVER_ENDPOINT_SITE="enjetco.sharepoint.com:/sites/TIC";
+const SERVER_ENDPOINT_PATH="01.통합관리/99.서버/server-endpoint.json";
+let _epDriveId=null;
+async function resolveServerEndpoint(){
+  try{
+    const t=await graphToken();
+    if(!_epDriveId){
+      const r1=await fetch(`https://graph.microsoft.com/v1.0/sites/${SERVER_ENDPOINT_SITE}`,{headers:{Authorization:"Bearer "+t}});
+      if(!r1.ok) throw new Error("site "+r1.status);
+      const sid=(await r1.json()).id;
+      const r2=await fetch(`https://graph.microsoft.com/v1.0/sites/${sid}/drive`,{headers:{Authorization:"Bearer "+t}});
+      if(!r2.ok) throw new Error("drive "+r2.status);
+      _epDriveId=(await r2.json()).id;
+    }
+    const enc=SERVER_ENDPOINT_PATH.split("/").map(encodeURIComponent).join("/");
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${_epDriveId}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.url&&/^https:\/\/[^ ]+/.test(d.url)){
+        SERVER=String(d.url).replace(/\/+$/,'');
+        try{ localStorage.setItem(SERVER_KEY,SERVER); }catch(e){}
+        console.log("🔗 서버 주소 갱신(SharePoint):",SERVER,"· 기록시각",d.updated_at||"");
+        return SERVER;
+      }
+    }
+  }catch(e){ console.warn("서버 주소 조회 실패 → 기존값 사용:",SERVER,e.message); }
+  return SERVER;
+}
+function startApp(){
+  // 안전장치: 로그인 직후 떠있을 수 있는 모든 모달 강제 닫기
+  document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));
+  $('compose')?.classList.remove('on');
+  // 관리자(baekhoon)만 관리자설정 버튼 표시
+  try{
+    const upn=(_account&&(_account.username||'')).toLowerCase();
+    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; }
+  }catch(e){}
+  // Teams 환경이면 '채팅으로' 버튼 표시 (initTeams 못 돈 경우 대비)
+  initTeams().then(()=>{ if(_inTeams){ const b=document.getElementById('backToChatBtn'); if(b) b.style.display='inline-block'; } });
+  // Teams 카드 링크: ?folder=inbox&uid=3 → 해당 메일 자동 열기
+  try{
+    const p=new URLSearchParams(location.search);
+    const f=p.get('folder'), u=p.get('uid');
+    if(u){ DEEPLINK_UID=u; if(f==='sent'||f==='inbox') FOLDER=f; }
+  }catch(e){}
+  if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
+  showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
+  resolveServerEndpoint().finally(()=>{ checkHealth(); loadList(); preloadContacts(); });
+}
+async function preloadContacts(){
+  try{ const data=await spGetJson(CONTACTS_PATH); CONTACTS=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]); if(curPage==='mail') renderList(); }catch(e){}
+}
+setInterval(async ()=>{ if(_account){ try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(!d.ok){await resolveServerEndpoint();} }catch(e){ await resolveServerEndpoint(); } checkHealth(); } },60000);
+// 모달 배경(바깥) 탭하면 닫기 — 모바일 안전장치
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('on'); });
+});
+// ── 진입점: ?auth=1 또는 팝업 redirect 복귀 → 인증 팝업 모드 ──
+if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getItem('_authPopup')==='1'){
+  runAuthPopup();
+}else{
+  tryAutoLogin();
+}
+
+</script>
+</body>
+</html>
