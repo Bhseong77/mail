@@ -836,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v64</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v65</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -1378,6 +1378,37 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="mbox" style="max-width:1100px;width:94vw;max-height:92vh;display:flex;flex-direction:column">
     <div class="mbox-h"><span id="previewTitle">👁 미리보기</span><button class="x" onclick="$('previewModal').classList.remove('on')">✕</button></div>
     <div class="mbox-b" id="previewBody" style="padding:0;overflow:hidden"></div>
+  </div>
+</div>
+
+<!-- 명함 스캔 모달 -->
+<div class="modal" id="cardModal">
+  <div class="mbox" style="max-width:720px;max-height:92vh;display:flex;flex-direction:column">
+    <div class="mbox-h"><span id="cardModalTitle">📇 명함 스캔</span><button class="x" onclick="cardCancelAll()">✕</button></div>
+    <div class="mbox-b" style="overflow-y:auto">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:230px"><img id="cardImg" alt="명함 미리보기" style="width:100%;border:1px solid var(--border);border-radius:10px;background:var(--bg3);max-height:300px;object-fit:contain"></div>
+        <div style="flex:1.1;min-width:230px;display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:12px;color:var(--t2)">이름<input id="cardName" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          <label style="font-size:12px;color:var(--t2)">회사<input id="cardCompany" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          <div style="display:flex;gap:8px">
+            <label style="font-size:12px;color:var(--t2);flex:1">부서<input id="cardDept" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+            <label style="font-size:12px;color:var(--t2);flex:1">직급<input id="cardTitle" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          </div>
+          <label style="font-size:12px;color:var(--t2)">연락처<input id="cardPhone" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          <label style="font-size:12px;color:var(--t2)">이메일<input id="cardEmail" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          <div style="display:flex;gap:8px">
+            <label style="font-size:12px;color:var(--t2);flex:1">카테고리<select id="cardCat" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></select></label>
+            <label style="font-size:12px;color:var(--t2);flex:1.4">메모<input id="cardMemo" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px"></label>
+          </div>
+        </div>
+      </div>
+      <div id="cardMsg" style="font-size:12.5px;margin-top:12px"></div>
+      <div class="row" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="cardSkip()">건너뛰기</button>
+        <button class="btn primary" id="cardSaveBtn" onclick="cardSave()">💾 주소록에 추가</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1987,7 +2018,7 @@ function renderContacts(){
     <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
     <td><select onchange="editContact(${i},'category',this.value)">${['',...CATEGORIES].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}</select></td>
     <td><input value="${esc(c.memo||'')}" onchange="editContact(${i},'memo',this.value)"></td>
-    <td style="white-space:nowrap">${c.cardUrl?`<button class="row-mail" title="명함 보기" onclick="window.open('${esc(c.cardUrl)}','_blank')">📇</button>`:''}<button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
+    <td style="white-space:nowrap">${c.email?`<button class="row-mail" title="Copilot 재수집(부서·직급 포함 다시 파싱)" onclick="reparseContact(${i})">🔄</button>`:''}${c.cardUrl?`<button class="row-mail" title="명함 보기" onclick="window.open('${esc(c.cardUrl)}','_blank')">📇</button>`:''}<button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
   </tr>`).join('');
 }
 // 주소록에서 메일쓰기: 받는사람 채워서 열기
@@ -2299,37 +2330,128 @@ function extractJsonArray(text){
 // Copilot로 메일 본문·서명 분석해서 연락처 추출
 let _autoScanRunning=false, _autoScanned=false;
 function scanContactsCopilot(){ return _scanCopilot(false); }
-// 📇 명함 사진 → 서버(GPT-4o 비전) 파싱 → 주소록 추가 + 원본을 01.연락처에 저장
+// 📇 명함 사진 → 서버(GPT-4o 비전) 파싱 → 모달에서 미리보기·편집 후 저장
 function _fileToB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(new Error('파일 읽기 실패')); r.readAsDataURL(f); }); }
 function _safeFn(s){ return String(s||'').replace(/[~"#%&*:<>?/\\{|}\r\n\t]/g,' ').replace(/\s+/g,' ').trim(); }
-async function scanBusinessCards(files){
+let _cardQueue=[], _cardCur=null, _cardImgUrl=null;
+function scanBusinessCards(files){
   if(!files||!files.length) return;
   $('cardFile').value='';
-  const list=[...files];
-  toast(`명함 ${list.length}장 분석 중…`);
-  let ok=0;
-  for(const f of list){
-    try{
-      const b64=await _fileToB64(f);
-      const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:f.type||'image/jpeg'})});
-      const d=await r.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
-      if(!d.ok||!d.contact){ toast('명함 분석 실패: '+(d.error||f.name),'bad'); continue; }
+  _cardQueue=[...files];
+  _cardNext();
+}
+function _cardCatOptions(sel){ return ['',...CATEGORIES].map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c||'-'}</option>`).join(''); }
+async function _cardNext(){
+  if(!_cardQueue.length){ _cardCur=null; if(_cardImgUrl){URL.revokeObjectURL(_cardImgUrl);_cardImgUrl=null;} return; }
+  const f=_cardQueue.shift();
+  _cardCur={file:f};
+  if(_cardImgUrl) URL.revokeObjectURL(_cardImgUrl);
+  _cardImgUrl=URL.createObjectURL(f);
+  $('cardImg').src=_cardImgUrl;
+  $('cardModalTitle').textContent=`📇 명함 스캔 (남은 ${_cardQueue.length+1}장)`;
+  ['cardName','cardCompany','cardDept','cardTitle','cardPhone','cardEmail','cardMemo'].forEach(id=>{ if($(id)) $(id).value=''; });
+  $('cardCat').innerHTML=_cardCatOptions('');
+  $('cardMsg').style.color='var(--t2)'; $('cardMsg').textContent='🔍 분석 중…';
+  $('cardSaveBtn').disabled=true;
+  $('cardModal').classList.add('on');
+  try{
+    const b64=await _fileToB64(f); _cardCur.b64=b64; _cardCur.mime=f.type||'image/jpeg';
+    const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:_cardCur.mime})});
+    const d=await r.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
+    if(d.ok&&d.contact){
       const c=d.contact;
+      $('cardName').value=c.name||''; $('cardCompany').value=c.company||''; $('cardDept').value=c.dept||'';
+      $('cardTitle').value=c.title||''; $('cardPhone').value=c.phone||''; $('cardEmail').value=c.email||'';
       let cat=c.category; if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((c.company||'')+' '+(c.dept||'')+' '+(c.title||''));
-      const rec={name:c.name||'',email:c.email||'',company:c.company||'',dept:c.dept||'',title:c.title||'',phone:c.phone||'',category:cat||'',memo:'명함스캔',isNew:true};
-      // 원본 이미지 저장: 01.연락처/회사-이름-부서-직급-연락처.ext
-      try{
-        const ext=((f.name.match(/\.([a-zA-Z0-9]+)$/)||[,'jpg'])[1]||'jpg').toLowerCase();
-        const base=[rec.company,rec.name,rec.dept,rec.title,rec.phone].map(_safeFn).filter(Boolean).join('-')||('명함_'+Date.now());
-        const bytes=await f.arrayBuffer();
-        const up=await spUploadFile(`01.연락처/${base}.${ext}`, bytes, f.type||'image/jpeg');
-        if(up&&up.webUrl) rec.cardUrl=up.webUrl;
-      }catch(e){ /* 이미지 저장 실패해도 연락처는 추가 */ }
-      CONTACTS.unshift(rec); ok++;
-    }catch(e){ toast('명함 처리 오류: '+e.message,'bad'); }
-  }
-  renderContacts();
-  if(ok){ toast(`명함 ${ok}장 추가됨 — 확인 후 [💾 저장]`,'ok'); try{ actLog(`📇 명함 스캔 ${ok}건`); }catch(e){} }
+      $('cardCat').innerHTML=_cardCatOptions(cat||''); $('cardMemo').value='명함스캔';
+      $('cardMsg').style.color='var(--g)'; $('cardMsg').textContent='✅ 파싱 완료 — 확인·수정 후 [추가]';
+    }else{
+      $('cardMemo').value='명함스캔';
+      $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='⚠️ 자동 파싱 실패 — 직접 입력 후 [추가] ('+(d.error||'')+')';
+    }
+  }catch(e){ $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='분석 오류 — 직접 입력 가능: '+e.message; }
+  $('cardSaveBtn').disabled=false;
+}
+async function cardSave(){
+  if(!_cardCur) return;
+  const rec={ name:$('cardName').value.trim(), email:$('cardEmail').value.trim(), company:$('cardCompany').value.trim(),
+    dept:$('cardDept').value.trim(), title:$('cardTitle').value.trim(), phone:$('cardPhone').value.trim(),
+    category:$('cardCat').value, memo:$('cardMemo').value.trim()||'명함스캔', isNew:true };
+  if(!rec.name && !rec.company && !rec.email && !rec.phone){ $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='이름/회사/연락처 중 하나는 입력하세요'; return; }
+  $('cardSaveBtn').disabled=true; $('cardMsg').style.color='var(--t2)'; $('cardMsg').textContent='저장 중…';
+  try{
+    const f=_cardCur.file;
+    const ext=((f.name.match(/\.([a-zA-Z0-9]+)$/)||[,'jpg'])[1]||'jpg').toLowerCase();
+    const base=[rec.company,rec.name,rec.dept,rec.title,rec.phone].map(_safeFn).filter(Boolean).join('-')||('명함_'+Date.now());
+    const bytes=await f.arrayBuffer();
+    const up=await spUploadFile(`01.연락처/${base}.${ext}`, bytes, _cardCur.mime||'image/jpeg');
+    if(up&&up.webUrl) rec.cardUrl=up.webUrl;
+  }catch(e){ /* 이미지 저장 실패해도 연락처는 추가 */ }
+  CONTACTS.unshift(rec); renderContacts();
+  try{ actLog('📇 명함 추가: '+(rec.name||rec.company||'')); }catch(e){}
+  toast('명함 추가됨 — [💾 저장]으로 확정','ok');
+  $('cardModal').classList.remove('on'); _cardCur=null;
+  setTimeout(_cardNext, 200);
+}
+function cardSkip(){ $('cardModal').classList.remove('on'); _cardCur=null; setTimeout(_cardNext, 150); }
+function cardCancelAll(){ _cardQueue=[]; _cardCur=null; $('cardModal').classList.remove('on'); if(_cardImgUrl){URL.revokeObjectURL(_cardImgUrl);_cardImgUrl=null;} }
+// 🔄 연락처 1건 Copilot 재수집: 해당 이메일의 최신 메일을 다시 파싱해 갱신
+async function reparseContact(i){
+  const c=CONTACTS[i]; if(!c){ return; }
+  if(!c.email){ toast('이메일이 없는 연락처는 재수집 불가 (메일 본문 기반)','bad'); return; }
+  toast(`${c.name||c.email} 재수집 중…`);
+  try{
+    const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=200`);
+    const d=await r.json();
+    const em=c.email.toLowerCase();
+    const m=(d.mails||[]).find(x=>((x.from&&x.from[0]&&x.from[0].email)||'').toLowerCase()===em);
+    if(!m){ toast('해당 연락처가 보낸 메일을 받은편지함에서 못 찾음','bad'); return; }
+    const br=await fetch(`${SERVER}/api/mail/body?folder=inbox&uid=${encodeURIComponent(m.uid)}`);
+    const bd=await br.json();
+    const bodyHtml=(bd.bodyHtml||'').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    const body=(bd.body||'').replace(/\s+/g,' ').trim();
+    const content=((body+' \n '+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
+    const info=await _copilotParseSignature(c.email, c.name||'', m.subject||'', content);
+    if(!info){ toast('Copilot 파싱 실패','bad'); return; }
+    if(info.name) c.name=info.name;
+    if(info.company) c.company=info.company;
+    if(info.dept) c.dept=info.dept;
+    if(info.title) c.title=info.title;
+    if(info.phone) c.phone=info.phone;
+    if(info.category && CATEGORIES.includes(info.category)) c.category=info.category;
+    c.isNew=true;
+    renderContacts();
+    toast('재수집 완료 — [💾 저장]으로 확정','ok');
+  }catch(e){ toast('재수집 오류: '+e.message,'bad'); }
+}
+// 서명 파싱 공통 (수집/재수집 공용) — 부서·직급 포함
+async function _copilotParseSignature(email, hdrName, subject, content){
+  const prompt=`너는 비즈니스 이메일에서 '보낸사람의 명함 정보'를 추출하는 도우미야. 아래 이메일의 본문과 서명(signature)을 분석해서, 보낸사람 본인의 연락처를 JSON 객체 하나로만 답해. 설명·마크다운 없이 순수 JSON만 출력해.
+
+추출 규칙:
+- name: 보낸사람 이름 (직급/직책 제외, 이름만)
+- company: 회사명 ("(주)","㈜","주식회사" 표기 유지)
+- dept: 부서 (예: 영업부, 기술팀). 없으면 ""
+- title: 직급/직책 (예: 과장, 대리, 부장). 없으면 ""
+- phone: 휴대폰(010) 우선, 없으면 대표 전화(TEL)
+- email: 이메일
+- category: 반드시 [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나. 애매하면 기타.
+- 값을 못 찾으면 빈 문자열 "".
+
+예시: {"name":"홍길동","company":"한국화낙(주)","dept":"영업부","title":"과장","phone":"010-1234-5678","email":"hong@fanuc.co.kr","category":"로봇"}
+
+[보낸사람 이메일] ${email}
+[헤더 이름] ${hdrName}
+[제목] ${subject}
+[본문+서명]
+${content}`;
+  try{
+    const txt=await callCopilot(prompt);
+    let t=txt.replace(/```json|```/g,'').trim();
+    const s=t.indexOf('{'), e=t.lastIndexOf('}');
+    if(s>=0&&e>s) t=t.slice(s,e+1);
+    return JSON.parse(t);
+  }catch(_){ return null; }
 }
 // 메일 로드 시 자동 백그라운드 스캔 (1회)
 async function autoScanOnLoad(){
@@ -2370,30 +2492,7 @@ async function _scanCopilot(silent){
         body=(bd.body||"").replace(/\s+/g," ").trim();
       }catch(_){}
       const content=((body+" \n "+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
-      const prompt=`너는 비즈니스 이메일에서 '보낸사람의 명함 정보'를 추출하는 도우미야. 아래 이메일의 본문과 서명(signature)을 분석해서, 보낸사람 본인의 연락처를 JSON 객체 하나로만 답해. 설명·마크다운 없이 순수 JSON만 출력해.
-
-추출 규칙:
-- name: 보낸사람 이름 (서명의 사람 이름. 직급/주임/대리 등은 빼고 이름만)
-- company: 회사명 (서명 맨 위 회사명. "(주)","㈜","주식회사" 같은 표기는 유지해도 됨)
-- phone: 휴대폰 번호 우선(Mobile/010), 없으면 대표 전화(TEL)
-- category: 반드시 다음 중 하나 [가공, 구매품, 로봇, 공압품, 물류, 기타]. 회사·부서·본문 내용으로 업종 추정. (예: "로봇영업","컨트롤러"→로봇 / "CNC","밀링"→가공 / "실린더","밸브"→공압품 / "운송","포장"→물류). 애매하면 기타.
-- 값을 못 찾으면 빈 문자열 "".
-
-예시 출력: {"name":"홍길동","company":"한국화낙(주)","phone":"010-1234-5678","category":"로봇"}
-
-[보낸사람 이메일] ${tg.email}
-[헤더 이름] ${tg.name}
-[제목] ${tg.subject}
-[본문+서명]
-${content}`;
-      let info=null;
-      try{
-        const txt=await callCopilot(prompt);
-        let t=txt.replace(/```json|```/g,"").trim();
-        const s=t.indexOf("{"), e=t.lastIndexOf("}");
-        if(s>=0&&e>s) t=t.slice(s,e+1);
-        info=JSON.parse(t);
-      }catch(_){ info=null; }
+      const info=await _copilotParseSignature(tg.email, tg.name||"", tg.subject||"", content);
       const company=(info&&info.company)?info.company:guessCompany(tg.email,tg.name);
       let cat=(info&&info.category)||"";
       if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((company||"")+" "+(tg.subject||""));
@@ -2401,6 +2500,8 @@ ${content}`;
         name:(info&&info.name)||tg.name||"",
         email:tg.email,
         company:company||"",
+        dept:(info&&info.dept)||"",
+        title:(info&&info.title)||"",
         phone:(info&&info.phone)||"",
         category:cat||"",
         memo:"Copilot 자동수집",
