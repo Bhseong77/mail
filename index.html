@@ -874,7 +874,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v71</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v72</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -3068,7 +3068,7 @@ function ftUpdateSelLabel(p){
 }
 async function ftRenderNodes(p){
   const box=$('ftree-'+p);
-  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','',this)" onclick="ftSelect('${p}','')" oncontextmenu="ftMenu(event,'${p}','',true,'','루트')"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
+  let html=`<div class="ft-row ${FT_SEL[p]===''?'sel':''}" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','',this)" onclick="ftSelect('${p}','')" data-ftp="${esc(p)}" data-ftpath="" data-ftfolder="1" data-ftname="루트"><span class="ft-caret"></span><span class="ft-ico">🗂️</span><span class="ft-name">전체 (루트)</span></div>`;
   html+=await ftNodeHtml(p,'',0);
   box.innerHTML=html;
   ftUpdateSelLabel(p);
@@ -3085,14 +3085,14 @@ async function ftNodeHtml(p,path,depth){
     html+=`<div class="ft-node"><div class="ft-row ${sel}" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
       ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
-      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath)}',true,'${f.id}','${esc(f.name)}')"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+      onclick="ftToggle('${p}','${esc(childPath)}')" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}',${f.size||0})"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -3159,6 +3159,13 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   m.classList.add('on');
 }
 document.addEventListener('click',()=>{ $('ftCtx')?.classList.remove('on'); });
+// 파일트리 우클릭(위임): 행의 data-* 로 메뉴 표시 — 이름에 특수문자 있어도 안전
+document.addEventListener('contextmenu',function(e){
+  const row = e.target && e.target.closest && e.target.closest('.ft-row[data-ftp]');
+  if(!row) return;                 // 트리 밖 우클릭은 브라우저 기본 메뉴 허용
+  e.preventDefault();
+  ftMenu(e, row.dataset.ftp, row.dataset.ftpath||'', row.dataset.ftfolder==='1', row.dataset.ftid||'', row.dataset.ftname||'', +(row.dataset.ftsize||0));
+});
 async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
