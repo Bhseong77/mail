@@ -248,18 +248,44 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sch-save.show{opacity:1}
 .sch-gantt-wrap{padding:16px 18px 22px;overflow-x:auto}
 .sch-gantt{min-width:760px}
-.sch-secrow{background:linear-gradient(90deg,rgba(83,74,183,.12),transparent);border-left:3px solid var(--p);padding:7px 10px;margin:8px 0 2px;font-size:12px;font-weight:800;color:var(--p);border-radius:0 6px 6px 0}
-.sch-grouprow{display:flex;align-items:center;min-height:26px}
-.sch-grouprow .sch-label{font-size:12px}
-.sch-sdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
-.sch-bar.sub{opacity:.92;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);font-weight:800}
-.sch-bar.done{filter:saturate(.85)}
-.sch-stsel{font-size:11px;padding:3px 4px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--t1);font-family:inherit;cursor:pointer}
-.sch-st-완료{background:rgba(30,158,87,.14);border-color:#1E9E57;color:#1E9E57;font-weight:700}
-.sch-st-지연{background:rgba(214,68,46,.14);border-color:#D6442E;color:#D6442E;font-weight:700}
-.sch-st-진행{background:rgba(26,111,212,.12);border-color:#1a6fd4;color:#1a6fd4;font-weight:700}
-.sch-trsec td{background:rgba(83,74,183,.07);font-weight:800;color:var(--p)}
-.sch-trgrp td{background:var(--bg2);font-weight:700;color:var(--t2)}
+.sch-gantt{min-width:820px}
+.sch-secrow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:linear-gradient(90deg,rgba(83,74,183,.10),rgba(83,74,183,.02) 60%,transparent);border-left:4px solid var(--p);padding:9px 14px;margin:14px 0 6px;border-radius:0 10px 10px 0}
+.sch-secrow .t{font-size:13px;font-weight:800;letter-spacing:-.2px}
+.sch-secrow .c{font-size:11px;font-weight:600;color:var(--t3)}
+.sch-row.grp{height:30px}
+.sch-row.grp .sch-label{font-size:11.5px;font-weight:800;color:var(--t2);letter-spacing:-.2px;padding-left:4px}
+.sch-row.grp .grpdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:8px;vertical-align:middle;opacity:.8}
+.sch-row .sch-label .lt{font-weight:600}
+.sch-sdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle;box-shadow:0 0 0 2px #fff,0 0 4px rgba(0,0,0,.2)}
+.sch-bar.sub{height:14px;top:9px;opacity:.95;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4),0 2px 8px -3px rgba(0,0,0,.4);font-weight:800;border-radius:7px}
+.sch-bar.done{filter:saturate(.7) brightness(.97)}
+.sch-bar.done::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.18) 0 4px,transparent 4px 8px);border-radius:inherit}
+.sch-chk{position:absolute;top:8px;font-size:11px;font-weight:900;color:#137a43;left:-2px}
+.sch-stsel{font-size:11px;padding:4px 6px;border-radius:7px;border:1.4px solid var(--border);background:var(--bg);color:var(--t2);font-family:inherit;font-weight:600;cursor:pointer;transition:.12s}
+.sch-st-완료{background:rgba(30,158,87,.13);border-color:#1E9E57;color:#137a43;font-weight:800}
+.sch-st-지연{background:rgba(214,68,46,.13);border-color:#D6442E;color:#b23420;font-weight:800}
+.sch-st-진행{background:rgba(26,111,212,.12);border-color:#1a6fd4;color:#1a5fb4;font-weight:800}
+.sch-trsec td{background:linear-gradient(90deg,rgba(83,74,183,.10),transparent);padding:0!important}
+.sch-seccell{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 14px;border-left:4px solid var(--p)}
+.sch-seccell .t{font-size:12.5px;font-weight:800;color:var(--p)}
+.sch-seccell .c{font-size:11px;font-weight:600;color:var(--t3)}
+.sch-trgrp td{background:var(--bg3);padding:0!important}
+.sch-grpcell{padding:7px 14px;font-size:11.5px;font-weight:800;color:var(--t2);letter-spacing:-.2px}
+/* 프리미엄 디테일 */
+.sch-axis{height:26px;border-bottom:2px solid var(--border)}
+.sch-month{font-size:11px;font-weight:800;color:var(--t2);padding-left:8px;border-left:1px solid var(--border)}
+.sch-row{height:36px;border-radius:8px;transition:background .12s}
+.sch-row:hover{background:rgba(99,102,241,.05)}
+.sch-row:nth-child(even) .sch-track{background:rgba(148,163,184,.06)}
+.sch-label{width:240px;flex:0 0 240px;font-size:12px}
+.sch-label .ph{font-size:8.5px;letter-spacing:-.2px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.sch-grid span{border-left:1px solid rgba(148,163,184,.18)}
+.sch-bar{top:8px;height:20px;border-radius:7px;box-shadow:0 3px 8px -3px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.25);font-size:10px;letter-spacing:-.2px}
+.sch-ms{top:7px;width:18px;height:18px;transform:translateX(-9px) rotate(45deg);border-radius:5px;box-shadow:0 0 0 3px #fff,0 3px 8px -2px rgba(0,0,0,.45)}
+.sch-today-line{width:2px;background:linear-gradient(var(--r),rgba(214,68,46,.5));box-shadow:0 0 8px rgba(214,68,46,.5)}
+.sch-today-flag{box-shadow:0 3px 8px -2px rgba(214,68,46,.6);letter-spacing:-.2px}
+.sch-tbl thead th{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,var(--p),var(--p2));box-shadow:0 2px 4px rgba(0,0,0,.12)}
+.sch-tbl tbody tr:not(.crow):not(.sch-trsec):not(.sch-trgrp):hover td{background:rgba(99,102,241,.045)}
 .sch-axis{display:flex;position:relative;height:24px;margin-left:var(--lw);border-bottom:1px solid var(--border)}
 .sch-month{flex:1;font-size:11px;font-weight:800;color:var(--p2);text-align:left;padding-left:6px;border-left:1px solid var(--border)}
 .sch-row{display:flex;align-items:center;height:34px;position:relative}
@@ -848,7 +874,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v69</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v70</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -4233,27 +4259,53 @@ async function schLoad(){
   // 2) 없으면 엑셀에서 최초 임포트
   if(!_schValid(SCH_DATA)){
     try{ await schImportExcel(false); }
-    catch(e){ console.warn("엑셀 임포트 실패:",e.message); SCH_DATA={sheets:[]}; }
+    catch(e){ console.warn("엑셀 임포트 실패:",e.message); _schErr=e.message; SCH_DATA={sheets:[]}; }
   }
   if(!schView || !SCH_DATA.sheets.some(s=>s.name===schView)) schView=(SCH_DATA.sheets[0]||{}).name||null;
   schRenderSubtabs(); schRender();
 }
 
+let _schErr="";
 // 엑셀 → 파싱 → (기존 댓글·상태 보존) SCH_DATA 교체
 async function schImportExcel(saveAfter){
-  if(!window.XLSX) throw new Error("SheetJS 미로드");
+  if(!window.XLSX) throw new Error("SheetJS 미로드 (xlsx CDN 차단 여부 확인)");
   const t=await graphToken(); const d=await schDrive();
-  const enc=`${SCH_DIR}/${SCH_XLSX}`.split("/").map(encodeURIComponent).join("/");
-  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
-  if(!r.ok) throw new Error("엑셀 조회 실패 "+r.status+" (파일명·경로 확인)");
-  const buf=await r.arrayBuffer();
+  // 1) 폴더(02.일정표) children 조회 → 파일명 매칭 (인코딩·이름 변형에 강함)
+  const folderEnc=SCH_DIR.split("/").map(encodeURIComponent).join("/");
+  let listUrl=`https://graph.microsoft.com/v1.0/drives/${d}/root:/${folderEnc}:/children?$top=200&$select=id,name,size`;
+  let lr=await fetch(listUrl,{headers:{Authorization:"Bearer "+t}});
+  if(!lr.ok){
+    const tx=await lr.text().catch(()=>"");
+    throw new Error(`폴더 조회 실패 ${lr.status} — 경로 [${SCH_DIR}] (TIC 기본문서함 기준). ${tx.slice(0,120)}`);
+  }
+  const items=((await lr.json()).value)||[];
+  const xls=items.filter(it=>/\.xlsx?$/i.test(it.name));
+  // 정확 일치 → KOR_통합 포함 → 첫 xlsx
+  let item = xls.find(it=>it.name===SCH_XLSX)
+          || xls.find(it=>/통합/.test(it.name))
+          || xls.find(it=>/TIC_Schedule/i.test(it.name))
+          || xls[0];
+  if(!item){
+    const names=items.map(i=>i.name).slice(0,15).join(", ")||"(폴더 비어있음)";
+    throw new Error(`'${SCH_XLSX}' 못 찾음. 폴더 내 파일: ${names}`);
+  }
+  // 2) item 메타에서 downloadUrl 획득 → 인증헤더 없이 blob 다운로드 (302/CORS 회피)
+  const mr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${item.id}`,{headers:{Authorization:"Bearer "+t}});
+  if(!mr.ok) throw new Error(`엑셀 메타 조회 실패 ${mr.status} (${item.name})`);
+  const meta=await mr.json();
+  const dlUrl=meta["@microsoft.graph.downloadUrl"];
+  let buf;
+  if(dlUrl){ const fr=await fetch(dlUrl); if(!fr.ok) throw new Error(`엑셀 다운로드 실패 ${fr.status}`); buf=await fr.arrayBuffer(); }
+  else{ const cr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${item.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(!cr.ok) throw new Error(`엑셀 다운로드 실패 ${cr.status}`); buf=await cr.arrayBuffer(); }
   const wb=XLSX.read(buf,{type:"array"});
   const fresh=schParseWb(wb);
+  if(!fresh.length) throw new Error("엑셀에 시트가 없습니다");
   // 기존 댓글/상태 보존 (시트명::작업명 매칭)
   const keep={};
   if(_schValid(SCH_DATA)) SCH_DATA.sheets.forEach(sh=>sh.tasks.forEach(t2=>{ if(t2.kind==="task"||t2.kind==="subtotal") keep[sh.name+"::"+t2.t]={cm:t2.cm||[],status:t2.status||"",emph:t2.emph}; }));
   fresh.forEach(sh=>sh.tasks.forEach(t2=>{ const k=keep[sh.name+"::"+t2.t]; if(k){ t2.cm=k.cm; t2.status=k.status; if(k.emph!==undefined)t2.emph=k.emph; } }));
-  SCH_DATA={sheets:fresh, importedAt:new Date().toISOString()};
+  SCH_DATA={sheets:fresh, srcFile:item.name, importedAt:new Date().toISOString()};
+  _schErr="";
   if(saveAfter) await schSave(false);
 }
 async function schSyncExcel(){
@@ -4302,7 +4354,7 @@ function schMonths(ax){const out=[];let d=new Date(ax.a);while(d<=ax.b){out.push
 function schRender(){
   if(!SCH_DATA){return;}
   const sh=schCur();
-  if(!sh){ $('schGantt').innerHTML='<div style="padding:30px;text-align:center;color:var(--t3)">시트가 없습니다. [📥 엑셀 동기화]로 마스터 엑셀을 불러오세요.</div>'; $('schStats').innerHTML=''; $('schTbl').innerHTML=''; $('schLegend').innerHTML=''; $('schGanttTitle').textContent=''; return; }
+  if(!sh){ $('schGantt').innerHTML='<div style="padding:34px 24px;text-align:center;color:var(--t3)"><div style="font-size:15px;font-weight:700;color:var(--t2);margin-bottom:8px">📭 표시할 시트가 없습니다</div><div style="margin-bottom:10px">상단 <b>[📥 엑셀 동기화]</b>를 눌러 마스터 엑셀을 불러오세요.</div>'+(_schErr?`<div style="display:inline-block;text-align:left;max-width:560px;background:rgba(214,68,46,.08);border:1px solid rgba(214,68,46,.3);color:#b23420;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5">⚠️ 마지막 오류<br>${esc(_schErr)}</div>`:'')+'</div>'; $('schStats').innerHTML=''; $('schTbl').innerHTML=''; $('schLegend').innerHTML=''; $('schGanttTitle').textContent=''; return; }
   const accent=SCH_COLORS[sh.accent]||SCH_COLORS.purple;
   $('schGanttAccent').style.background=accent; $('schTblAccent').style.background=accent;
   $('schGanttTitle').textContent=sh.name;
@@ -4328,22 +4380,24 @@ function schStats(sh,accent){
   $('schStats').innerHTML=cards.map(c=>`<div class="sch-stat"><div class="bar" style="background:${c.c}"></div><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="d">${esc(c.d)}</div></div>`).join("");
 }
 function _schStatusDot(st){if(st==="완료")return`<span class="sch-sdot" style="background:${SCH_COLORS.green}" title="완료"></span>`;if(st==="지연")return`<span class="sch-sdot" style="background:${SCH_COLORS.red}" title="지연"></span>`;if(st==="진행")return`<span class="sch-sdot" style="background:#1a6fd4" title="진행"></span>`;return"";}
+function _schSec(txt){const s=String(txt||"").replace(/\s+/g," ").trim();const i=s.indexOf("—");if(i<0){const j=s.indexOf("·");if(j<0)return{title:s,cap:""};return{title:s.slice(0,j).trim(),cap:s.slice(j+1).trim()};}return{title:s.slice(0,i).trim(),cap:s.slice(i+1).replace(/^·\s*/,"").trim()};}
 function schGantt(sh,accent){
-  const list=sh.tasks; const ax=schAxis(list);const ms=schMonths(ax);const lw="220px";
+  const list=sh.tasks; const ax=schAxis(list);const ms=schMonths(ax);const lw="240px";
   let html=`<div style="--lw:${lw};position:relative">`;
   html+=`<div class="sch-axis">`;
-  ms.forEach(m=>{const w=(new Date(m.getFullYear(),m.getMonth()+1,1)-m)/((ax.b-ax.a))*100;html+=`<div class="sch-month" style="flex:0 0 ${Math.min(100,w)}%">${m.getMonth()+1}월</div>`;});
+  ms.forEach(m=>{const w=(new Date(m.getFullYear(),m.getMonth()+1,1)-m)/((ax.b-ax.a))*100;html+=`<div class="sch-month" style="flex:0 0 ${Math.min(100,w)}%">${m.getFullYear()}.${String(m.getMonth()+1).padStart(2,"0")}</div>`;});
   html+=`</div>`;
   list.forEach(t=>{
-    if(t.kind==="section"){ html+=`<div class="sch-secrow"><span>${esc(t.t)}</span></div>`; return; }
-    if(t.kind==="group"){ html+=`<div class="sch-grouprow"><div class="sch-label" style="font-weight:800;color:var(--t2)">▸ ${esc(t.t)}</div><div class="sch-track"></div></div>`; return; }
+    if(t.kind==="section"){ const sp=_schSec(t.t); html+=`<div class="sch-secrow" style="border-color:${accent}"><span class="t" style="color:${accent}">${esc(sp.title)}</span>${sp.cap?`<span class="c">${esc(sp.cap)}</span>`:""}</div>`; return; }
+    if(t.kind==="group"){ html+=`<div class="sch-row grp"><div class="sch-label"><span class="grpdot" style="background:${accent}"></span>${esc(t.t)}</div><div class="sch-track"></div></div>`; return; }
     const col=SCH_COLORS[schColorKey(t,accent)]||accent;
     const phc=SCH_COLORS[schPhcKey(t.ph,accent)]||accent;
-    html+=`<div class="sch-row"><div class="sch-label">${_schStatusDot(t.status)}<span class="ph" style="background:${phc}">${esc(t.ph||(t.kind==="subtotal"?"소계":""))}</span>${esc(t.t)}</div><div class="sch-track"><div class="sch-grid">`;
+    html+=`<div class="sch-row"><div class="sch-label">${_schStatusDot(t.status)}<span class="ph" style="background:${phc}">${esc(t.ph||(t.kind==="subtotal"?"소계":""))}</span><span class="lt">${esc(t.t)}</span></div><div class="sch-track"><div class="sch-grid">`;
     ms.forEach(m=>{const l=schPctDt(m,ax);if(l>0.5)html+=`<span style="left:${l}%"></span>`;});
     html+=`</div>`;
     if(t.type==="ms"){const l=schPct(t.s,ax);html+=`<div class="sch-ms" style="left:${l}%;background:${col}" title="${esc(t.note||t.t)}"></div>`;}
-    else{let l=schPct(t.s,ax),r=schPct(t.f,ax);if(r<l+1.5)r=l+1.5;const lab=t.note&&(r-l>14)?t.note:"";html+=`<div class="sch-bar${t.kind==="subtotal"?" sub":""}${t.status==="완료"?" done":""}" style="left:${l}%;width:${r-l}%;background:linear-gradient(135deg,${col},${schShade(col,-18)})" title="${esc(t.t)} (${schFmtMD(t.s)}~${t.type==="ongoing"?"지속":schFmtMD(t.f)})">${esc(lab)}</div>`;if(t.type==="ongoing"){html+=`<div class="sch-bar ongoing-ext" style="left:${r}%;width:${Math.max(0,100-r)}%;background:${col}"></div><div style="position:absolute;right:2px;top:8px;font-size:11px;font-weight:800;color:${col}">→</div>`;}}
+    else{let l=schPct(t.s,ax),r=schPct(t.f,ax);if(r<l+1.5)r=l+1.5;const lab=t.note&&(r-l>13)?t.note:"";html+=`<div class="sch-bar${t.kind==="subtotal"?" sub":""}${t.status==="완료"?" done":""}" style="left:${l}%;width:${r-l}%;background:linear-gradient(135deg,${schShade(col,18)},${schShade(col,-20)})" title="${esc(t.t)} · ${schFmtMD(t.s)}~${t.type==="ongoing"?"지속":schFmtMD(t.f)}">${esc(lab)}</div>`;if(t.type==="ongoing"){html+=`<div class="sch-bar ongoing-ext" style="left:${r}%;width:${Math.max(0,100-r)}%;background:${col}"></div><div style="position:absolute;right:2px;top:9px;font-size:12px;font-weight:800;color:${col}">→</div>`;}}
+    if(t.status==="완료"){html+=`<span class="sch-chk" title="완료">✓</span>`;}
     html+=`</div></div>`;
   });
   const tu=schToday();const tl=schPctDt(tu,ax);
@@ -4360,8 +4414,8 @@ function schTable(sh){
   const head=`<thead><tr><th>단계</th><th>작업</th><th class="c">시작</th><th class="c">종료</th><th class="c">일수</th><th>장소/담당</th><th>비고</th><th class="c" style="width:84px">상태</th><th class="c" style="width:118px">댓글/행</th></tr></thead>`;
   let body="<tbody>";
   list.forEach((t,i)=>{
-    if(t.kind==="section"){ body+=`<tr class="sch-trsec"><td colspan="9"><div class="cell" contenteditable onblur="schUp(${i},'t',this)">■ ${esc(t.t)}</div></td></tr>`; body+=_schCrow(i,t); return; }
-    if(t.kind==="group"){ body+=`<tr class="sch-trgrp"><td></td><td colspan="6"><div class="cell" contenteditable onblur="schUp(${i},'t',this)">▸ ${esc(t.t)}</div></td><td></td><td class="c"><div class="sch-rowact">${_schRowBtns(i,t)}</div></td></tr>`; body+=_schCrow(i,t); return; }
+    if(t.kind==="section"){ const sp=_schSec(t.t); body+=`<tr class="sch-trsec"><td colspan="9"><div class="sch-seccell"><span class="t">${esc(sp.title)}</span>${sp.cap?`<span class="c">${esc(sp.cap)}</span>`:""}</div></td></tr>`; body+=_schCrow(i,t); return; }
+    if(t.kind==="group"){ body+=`<tr class="sch-trgrp"><td colspan="8"><div class="sch-grpcell">${esc(t.t)}</div></td><td class="c"><div class="sch-rowact"><button class="sch-iconbtn" title="아래에 행 추가" onclick="schInsertBelow(${i})">➕</button></div></td></tr>`; body+=_schCrow(i,t); return; }
     const days=t.type==="ongoing"?"→":(t.type==="ms"?((t.s===t.f)?"1":schInc(t.s,t.f)):schInc(t.s,t.f));
     body+=`<tr class="${t.emph?'emph':''}"><td><div class="cell"><span class="row-ph" style="background:${SCH_COLORS[schPhcKey(t.ph,sh.accent)]||'#888'}" contenteditable onblur="schUp(${i},'ph',this)">${esc(t.ph)}</span></div></td>
       <td><div class="cell" contenteditable onblur="schUp(${i},'t',this)">${esc(t.t)}</div></td>
