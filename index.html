@@ -447,6 +447,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .adm-ch-del{background:none;border:none;cursor:pointer;font-size:16px;color:var(--t3);padding:4px 8px;border-radius:6px}
 .adm-ch-del:hover{background:#fee2e2;color:var(--r)}
 .adm-ch{border-left:3px solid var(--p)}
+.adm-wf{background:#fafbfc;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:6px}
+.adm-wf .adm-row{margin-bottom:9px}
+.adm-wf .adm-lbl{min-width:130px;font-size:12.5px}
+.btn.sm{padding:6px 12px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -467,7 +471,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v23</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v25</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -682,11 +686,21 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 
 <div class="toast" id="toast"></div>
-<!-- 환영 메시지 미리보기 모달 -->
+<!-- 환영 메시지 편집+미리보기 모달 -->
 <div class="modal" id="admPrevModal">
-  <div class="mbox" style="max-width:600px;max-height:90vh;display:flex;flex-direction:column">
-    <div class="mbox-h"><span>👁 환영 메시지 미리보기</span><button class="x" onclick="admPreviewClose()">✕</button></div>
-    <div class="mbox-b" id="admPrevBody" style="overflow-y:auto"></div>
+  <div class="mbox" style="max-width:920px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+    <div class="mbox-h"><span>👋 환영 메시지 편집</span><button class="x" onclick="admPreviewClose()">✕</button></div>
+    <div class="mbox-b" id="admPrevBody" style="overflow-y:auto;display:flex;gap:16px;flex-wrap:wrap">
+      <div id="admPrevFields" style="flex:1;min-width:280px"></div>
+      <div style="flex:1;min-width:280px">
+        <div style="font-size:12px;color:var(--t3);margin-bottom:6px;font-weight:600">실시간 미리보기</div>
+        <iframe id="admPrevFrame" style="width:100%;border:1px solid var(--border);background:#f4f6fa;border-radius:8px;min-height:400px" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+    <div class="row" style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="admPreviewClose()">닫기</button>
+      <button class="btn primary" onclick="admPrevSave()">💾 저장</button>
+    </div>
   </div>
 </div>
 <!-- 파일탐색기 우클릭 메뉴 -->
@@ -1046,7 +1060,18 @@ const ADMIN_SEED_TPROJECT={
   targetLink:'https://teams.microsoft.com/l/channel/19%3AYyDR9agQlAOKiB26UUd_caBtpxsBfGLUrjziPvoNPAg1%40thread.tacv2/01.%ED%86%B5%ED%95%A9%EA%B4%80%EB%A6%AC?groupId=8457d8bf-1dd8-4e24-ad22-250816cc7d6d&tenantId=58b310e1-9278-47ab-8e49-792728818c9e',
   targetTeamId:'8457d8bf-1dd8-4e24-ad22-250816cc7d6d',
   enabled:true, schedule:{morning:"08:00",noon:"12:30",evening:"16:30",night:"20:00"},
-  welcome:`<div style="font-family:Segoe UI,sans-serif;max-width:560px;"><div style="background:#7c3aed;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:17px;font-weight:bold;">👋 T Project 방에 오신 것을 환영합니다</div><div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;"><div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Trial Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">BG26002</span></div><table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;"><tr><td style="padding:6px 0;color:#6b7280;width:110px;vertical-align:top;">📅 전체 일정표</td><td style="padding:6px 0;"><a href="https://enjetco-my.sharepoint.com/:x:/g/personal/baekhoon_enjet_co_kr/IQAl5nToyCWFRYdQ_bZsZVWRARgbWUtYsEimzEv92bH1qyw?e=hsYEjp" style="color:#1a6fd4;font-weight:600;">일정표 열기 →</a></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">🛒 구매요청</td><td style="padding:6px 0;">엑셀파일 (파일명 하승수 작성예정)</td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📧 메일·업무</td><td style="padding:6px 0;"><a href="https://bhseong77.github.io/mail/" style="color:#1a6fd4;font-weight:600;">메일 대시보드 열기 →</a><br><span style="color:#9ca3af;font-size:12px;">쓰기/받기/주소록/견적서/기술자료</span></td></tr><tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📁 문서저장</td><td style="padding:6px 0;"><a href="https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx" style="color:#1a6fd4;font-weight:600;">문서함 열기 →</a></td></tr></table><div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>enjet_ed@enjet.co.kr</b> / pw <b>20260604</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span><br>4층 오피스 PW: <b>260604</b></div><div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기</div><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>받은메일 · 보낸메일을 이 방에 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b></div></div></div>`, welcomeOn:true
+  welcomeOn:true,
+  welcomeFields:{
+    title:'👋 T Project 방에 오신 것을 환영합니다',
+    code:'BG26002',
+    scheduleUrl:'https://enjetco-my.sharepoint.com/:x:/g/personal/baekhoon_enjet_co_kr/IQAl5nToyCWFRYdQ_bZsZVWRARgbWUtYsEimzEv92bH1qyw?e=hsYEjp',
+    purchase:'엑셀파일 (파일명 하승수 작성예정)',
+    mailUrl:'https://bhseong77.github.io/mail/',
+    docUrl:'https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx',
+    acctMail:'enjet_ed@enjet.co.kr', acctPw:'20260604', officePw:'260604',
+    security:'고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기',
+    summaryNote:'받은메일 · 보낸메일을 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b>'
+  }
 };
 let ADMIN_CFG={master:true, channels:[]};
 
@@ -1076,13 +1101,17 @@ async function admLoad(){
     ADMIN_CFG={master:true, channels:[JSON.parse(JSON.stringify(ADMIN_SEED_TPROJECT))]};
   }
   $('adm_master').checked=ADMIN_CFG.master;
+  // welcomeFields가 있는 채널은 welcome HTML을 필드로부터 최신화
+  ADMIN_CFG.channels.forEach(c=>{ if(c.welcomeFields){ c.welcome=admBuildWelcome(c.welcomeFields); } });
   admRenderChannels();
   if(sv) sv.textContent='';
 }
 function admRenderChannels(){
   const box=$('adm_channels'); if(!box) return;
   if(!ADMIN_CFG.channels.length){ box.innerHTML='<div class="adm-card" style="text-align:center;color:var(--t3)">채널이 없습니다. [＋ 채널 추가]를 누르세요.</div>'; return; }
-  box.innerHTML=ADMIN_CFG.channels.map((c,i)=>`
+  box.innerHTML=ADMIN_CFG.channels.map((c,i)=>{
+    const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+    return `
     <div class="adm-card adm-ch">
       <div class="adm-ch-head">
         <input class="adm-ch-name" value="${esc(c.name||'')}" placeholder="채널 이름" onchange="admEdit(${i},'name',this.value)">
@@ -1105,25 +1134,94 @@ function admRenderChannels(){
         <label class="adm-row"><span class="adm-lbl">🌙 야간</span><input type="time" value="${c.schedule?.night||''}" onchange="admEditSched(${i},'night',this.value)"></label>
       </div>
       <div class="adm-hint">비워두면 그 시간대 요약 안 함</div>
-      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지 (HTML)</div>
-      <textarea rows="5" placeholder="새 멤버 입장 시 보낼 HTML 메시지" onchange="admEdit(${i},'welcome',this.value)" style="font-family:monospace;font-size:12px">${esc(c.welcome||'')}</textarea>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <label class="adm-toggle" style="flex:1"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
-        <button class="btn sm" onclick="admPreview(${i})">👁 미리보기</button>
+      <div class="adm-card-h" style="margin-top:12px">👋 환영 메시지 (항목만 채우면 카드 자동 생성)</div>
+      <div class="adm-wf">
+        <label class="adm-row col"><span class="adm-lbl">제목</span><input type="text" value="${esc(wf.title)}" onchange="admWF(${i},'title',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">프로젝트 코드</span><input type="text" value="${esc(wf.code)}" onchange="admWF(${i},'code',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📅 일정표 링크</span><input type="text" value="${esc(wf.scheduleUrl)}" placeholder="https://..." onchange="admWF(${i},'scheduleUrl',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">🛒 구매요청 안내</span><input type="text" value="${esc(wf.purchase)}" onchange="admWF(${i},'purchase',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📧 메일 대시보드 링크</span><input type="text" value="${esc(wf.mailUrl)}" placeholder="https://..." onchange="admWF(${i},'mailUrl',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">📁 문서함 링크</span><input type="text" value="${esc(wf.docUrl)}" placeholder="https://..." onchange="admWF(${i},'docUrl',this.value)"></label>
+        <div class="adm-grid">
+          <label class="adm-row col"><span class="adm-lbl">계정 이메일</span><input type="text" value="${esc(wf.acctMail)}" onchange="admWF(${i},'acctMail',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">계정 비번</span><input type="text" value="${esc(wf.acctPw)}" onchange="admWF(${i},'acctPw',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">오피스 PW</span><input type="text" value="${esc(wf.officePw)}" onchange="admWF(${i},'officePw',this.value)"></label>
+        </div>
+        <label class="adm-row col"><span class="adm-lbl">🔒 보안 문구</span><input type="text" value="${esc(wf.security)}" onchange="admWF(${i},'security',this.value)"></label>
+        <label class="adm-row col"><span class="adm-lbl">🤖 요약 안내</span><input type="text" value="${esc(wf.summaryNote)}" onchange="admWF(${i},'summaryNote',this.value)"></label>
       </div>
-    </div>`).join('');
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label class="adm-toggle" style="flex:1;min-width:120px"><input type="checkbox" ${c.welcomeOn?'checked':''} onchange="admEdit(${i},'welcomeOn',this.checked)"> <span>환영 메시지 사용</span></label>
+        <button class="btn sm" onclick="admPreview(${i})">👁 미리보기</button>
+        <button class="btn sm" onclick="admToggleSource(${i})">&lt;/&gt; HTML 직접편집</button>
+      </div>
+      <textarea id="admSrc-${i}" rows="6" style="display:none;font-family:monospace;font-size:11px;margin-top:8px" onchange="admEdit(${i},'welcome',this.value)">${esc(c.welcome||'')}</textarea>
+    </div>`;
+  }).join('');
 }
-function admEdit(i,key,val){ if(ADMIN_CFG.channels[i]) ADMIN_CFG.channels[i][key]=val; }
+// 환영 메시지 필드 → HTML 카드 생성
+function admBuildWelcome(wf){
+  const link=(url,txt)=>url?`<a href="${url}" style="color:#1a6fd4;font-weight:600;">${txt} →</a>`:txt;
+  let rows='';
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;width:110px;vertical-align:top;">📅 전체 일정표</td><td style="padding:6px 0;">${link(wf.scheduleUrl,'일정표 열기')}</td></tr>`;
+  if(wf.purchase) rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">🛒 구매요청</td><td style="padding:6px 0;">${wf.purchase}</td></tr>`;
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📧 메일·업무</td><td style="padding:6px 0;">${link(wf.mailUrl,'메일 대시보드 열기')}<br><span style="color:#9ca3af;font-size:12px;">쓰기/받기/주소록/견적서/기술자료</span></td></tr>`;
+  rows+=`<tr><td style="padding:6px 0;color:#6b7280;vertical-align:top;">📁 문서저장</td><td style="padding:6px 0;">${link(wf.docUrl,'문서함 열기')}</td></tr>`;
+  return `<div style="font-family:Segoe UI,sans-serif;max-width:560px;">`+
+    `<div style="background:#7c3aed;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:17px;font-weight:bold;">${wf.title||'환영합니다'}</div>`+
+    `<div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;">`+
+    (wf.code?`<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">${wf.code}</span></div>`:'')+
+    `<table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;">${rows}</table>`+
+    (wf.acctMail||wf.acctPw||wf.officePw?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>${wf.acctMail||''}</b> / pw <b>${wf.acctPw||''}</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span>${wf.officePw?`<br>4층 오피스 PW: <b>${wf.officePw}</b>`:''}</div>`:'')+
+    (wf.security?`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>${wf.security}</div>`:'')+
+    (wf.summaryNote?`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>${wf.summaryNote}</div>`:'')+
+    `</div></div>`;
+}
+function admWF(i,key,val){
+  const c=ADMIN_CFG.channels[i]; if(!c) return;
+  c.welcomeFields=c.welcomeFields||{};
+  c.welcomeFields[key]=val;
+  c.welcome=admBuildWelcome(c.welcomeFields); // 필드→HTML 자동 갱신
+}
+function admToggleSource(i){
+  const t=$('admSrc-'+i); if(t) t.style.display = t.style.display==='none' ? 'block' : 'none';
+}
 function admEditSched(i,key,val){ if(ADMIN_CFG.channels[i]){ ADMIN_CFG.channels[i].schedule=ADMIN_CFG.channels[i].schedule||{}; ADMIN_CFG.channels[i].schedule[key]=val; } }
+let _admPrevIdx=-1;
 function admPreview(i){
   const c=ADMIN_CFG.channels[i]; if(!c) return;
-  const html=c.welcome||'<i style="color:#999">(내용 없음)</i>';
-  // iframe srcdoc으로 안전하게 렌더링
-  $('admPrevBody').innerHTML='<iframe id="admPrevFrame" style="width:100%;border:0;background:#f4f6fa;border-radius:8px" sandbox="allow-same-origin"></iframe>';
-  const ifr=$('admPrevFrame');
-  ifr.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:14px;background:#f4f6fa">'+html+'</body></html>';
-  ifr.onload=function(){ try{ const h=ifr.contentDocument.body.scrollHeight; ifr.style.height=(h+30)+'px'; }catch(e){ ifr.style.height='500px'; } };
+  _admPrevIdx=i;
+  const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+  const F=[
+    ['title','제목'],['code','프로젝트 코드'],['scheduleUrl','📅 일정표 링크'],
+    ['purchase','🛒 구매요청 안내'],['mailUrl','📧 메일 대시보드 링크'],['docUrl','📁 문서함 링크'],
+    ['acctMail','계정 이메일'],['acctPw','계정 비번'],['officePw','오피스 PW'],
+    ['security','🔒 보안 문구'],['summaryNote','🤖 요약 안내']
+  ];
+  $('admPrevFields').innerHTML=F.map(([k,label])=>
+    `<label class="adm-row col" style="margin-bottom:9px"><span class="adm-lbl">${label}</span><input type="text" value="${esc(wf[k]||'')}" oninput="admPrevEdit('${k}',this.value)"></label>`
+  ).join('');
+  admPrevRefresh();
   $('admPrevModal').classList.add('on');
+}
+function admPrevEdit(key,val){
+  const c=ADMIN_CFG.channels[_admPrevIdx]; if(!c) return;
+  c.welcomeFields=c.welcomeFields||{};
+  c.welcomeFields[key]=val;
+  c.welcome=admBuildWelcome(c.welcomeFields);
+  admPrevRefresh();
+}
+function admPrevRefresh(){
+  const c=ADMIN_CFG.channels[_admPrevIdx]; if(!c) return;
+  const html=c.welcome||'<i style="color:#999">(내용 없음)</i>';
+  const ifr=$('admPrevFrame'); if(!ifr) return;
+  ifr.srcdoc='<html><head><meta charset="utf-8"></head><body style="margin:14px;background:#f4f6fa">'+html+'</body></html>';
+  ifr.onload=function(){ try{ const h=ifr.contentDocument.body.scrollHeight; ifr.style.height=(h+30)+'px'; }catch(e){ ifr.style.height='480px'; } };
+}
+async function admPrevSave(){
+  await admSave();          // 전체 저장
+  admRenderChannels();      // 본문 카드도 갱신
+  admPreviewClose();
 }
 function admPreviewClose(){ $('admPrevModal').classList.remove('on'); }
 function admAddChannel(){ ADMIN_CFG.channels.push(admDefaultChannel()); admRenderChannels(); }
