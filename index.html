@@ -836,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v65</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v66</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -898,7 +898,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <button class="btn" onclick="scanContactsFromMail()">📥 빠른수집</button>
       <button class="btn" onclick="scanContactsCopilot()">✨ Copilot 수집</button>
       <button class="btn" onclick="$('cardFile').click()">📇 명함 스캔</button>
-      <input type="file" id="cardFile" accept="image/*" capture="environment" multiple style="display:none" onchange="scanBusinessCards(this.files)">
+      <input type="file" id="cardFile" accept="image/*" multiple style="display:none" onchange="scanBusinessCards(this.files)">
       <button class="btn" onclick="addContactRow()">+ 추가</button>
       <button class="btn primary" onclick="saveContacts()">💾 저장</button>
     </div>
@@ -2336,8 +2336,8 @@ function _safeFn(s){ return String(s||'').replace(/[~"#%&*:<>?/\\{|}\r\n\t]/g,' 
 let _cardQueue=[], _cardCur=null, _cardImgUrl=null;
 function scanBusinessCards(files){
   if(!files||!files.length) return;
-  $('cardFile').value='';
-  _cardQueue=[...files];
+  _cardQueue=[...files];          // 먼저 캡처 (input.value 초기화가 FileList 비우는 브라우저 대비)
+  try{ $('cardFile').value=''; }catch(e){}
   _cardNext();
 }
 function _cardCatOptions(sel){ return ['',...CATEGORIES].map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c||'-'}</option>`).join(''); }
@@ -2345,32 +2345,38 @@ async function _cardNext(){
   if(!_cardQueue.length){ _cardCur=null; if(_cardImgUrl){URL.revokeObjectURL(_cardImgUrl);_cardImgUrl=null;} return; }
   const f=_cardQueue.shift();
   _cardCur={file:f};
-  if(_cardImgUrl) URL.revokeObjectURL(_cardImgUrl);
-  _cardImgUrl=URL.createObjectURL(f);
-  $('cardImg').src=_cardImgUrl;
-  $('cardModalTitle').textContent=`📇 명함 스캔 (남은 ${_cardQueue.length+1}장)`;
-  ['cardName','cardCompany','cardDept','cardTitle','cardPhone','cardEmail','cardMemo'].forEach(id=>{ if($(id)) $(id).value=''; });
-  $('cardCat').innerHTML=_cardCatOptions('');
-  $('cardMsg').style.color='var(--t2)'; $('cardMsg').textContent='🔍 분석 중…';
-  $('cardSaveBtn').disabled=true;
-  $('cardModal').classList.add('on');
+  // 모달 먼저 표시 (이후 단계에서 오류 나도 화면엔 떠 있게)
+  try{
+    if(_cardImgUrl) URL.revokeObjectURL(_cardImgUrl);
+    _cardImgUrl=URL.createObjectURL(f);
+    const img=$('cardImg'); if(img) img.src=_cardImgUrl;
+    const tt=$('cardModalTitle'); if(tt) tt.textContent=`📇 명함 스캔 (남은 ${_cardQueue.length+1}장)`;
+    ['cardName','cardCompany','cardDept','cardTitle','cardPhone','cardEmail','cardMemo'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+    const cat=$('cardCat'); if(cat) cat.innerHTML=_cardCatOptions('');
+    const msg=$('cardMsg'); if(msg){ msg.style.color='var(--t2)'; msg.textContent='🔍 분석 중…'; }
+    const sb=$('cardSaveBtn'); if(sb) sb.disabled=true;
+    const md=$('cardModal'); if(md) md.classList.add('on');
+  }catch(e){ toast('명함 모달 오류: '+e.message,'bad'); return; }
+  // Copilot/GPT 비전 파싱
   try{
     const b64=await _fileToB64(f); _cardCur.b64=b64; _cardCur.mime=f.type||'image/jpeg';
     const r=await fetch(`${SERVER}/api/contacts/parse-card`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_b64:b64,mime:_cardCur.mime})});
     const d=await r.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
     if(d.ok&&d.contact){
       const c=d.contact;
-      $('cardName').value=c.name||''; $('cardCompany').value=c.company||''; $('cardDept').value=c.dept||'';
-      $('cardTitle').value=c.title||''; $('cardPhone').value=c.phone||''; $('cardEmail').value=c.email||'';
+      const set=(id,v)=>{ const el=$(id); if(el) el.value=v||''; };
+      set('cardName',c.name); set('cardCompany',c.company); set('cardDept',c.dept);
+      set('cardTitle',c.title); set('cardPhone',c.phone); set('cardEmail',c.email);
       let cat=c.category; if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((c.company||'')+' '+(c.dept||'')+' '+(c.title||''));
-      $('cardCat').innerHTML=_cardCatOptions(cat||''); $('cardMemo').value='명함스캔';
-      $('cardMsg').style.color='var(--g)'; $('cardMsg').textContent='✅ 파싱 완료 — 확인·수정 후 [추가]';
+      const cs=$('cardCat'); if(cs) cs.innerHTML=_cardCatOptions(cat||'');
+      set('cardMemo','명함스캔');
+      const msg=$('cardMsg'); if(msg){ msg.style.color='var(--g)'; msg.textContent='✅ 파싱 완료 — 확인·수정 후 [추가]'; }
     }else{
-      $('cardMemo').value='명함스캔';
-      $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='⚠️ 자동 파싱 실패 — 직접 입력 후 [추가] ('+(d.error||'')+')';
+      const me=$('cardMemo'); if(me) me.value='명함스캔';
+      const msg=$('cardMsg'); if(msg){ msg.style.color='var(--r)'; msg.textContent='⚠️ 자동 파싱 실패 — 직접 입력 후 [추가] ('+(d.error||'서버 응답 없음')+')'; }
     }
-  }catch(e){ $('cardMsg').style.color='var(--r)'; $('cardMsg').textContent='분석 오류 — 직접 입력 가능: '+e.message; }
-  $('cardSaveBtn').disabled=false;
+  }catch(e){ const msg=$('cardMsg'); if(msg){ msg.style.color='var(--r)'; msg.textContent='분석 오류 — 직접 입력 가능: '+e.message; } }
+  const sb=$('cardSaveBtn'); if(sb) sb.disabled=false;
 }
 async function cardSave(){
   if(!_cardCur) return;
