@@ -451,6 +451,17 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .adm-wf .adm-row{margin-bottom:9px}
 .adm-wf .adm-lbl{min-width:130px;font-size:12.5px}
 .btn.sm{padding:6px 12px;font-size:12.5px}
+.ta-wrap{max-width:1000px;margin:0 auto;padding:18px 20px 40px}
+.ta-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.ta-head h2{font-size:18px;font-weight:800;margin:0 0 3px;color:var(--t1)}
+.ta-sub{font-size:12px;color:var(--t3)}
+.ta-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ta-table th{text-align:left;padding:10px 12px;background:var(--bg);color:var(--t2);font-weight:700;font-size:12px;border-bottom:1px solid var(--border)}
+.ta-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ta-table tr:last-child td{border-bottom:none}
+.ta-table tr:hover td{background:var(--bg)}
+.ta-name{font-weight:600;color:var(--t1);word-break:break-all}
+@media(max-width:640px){.ta-wrap{padding:12px}.ta-table th:nth-child(4),.ta-table td:nth-child(4),.ta-table th:nth-child(5),.ta-table td:nth-child(5){display:none}}
 </style>
 </head>
 <body>
@@ -471,7 +482,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v26</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v27</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -490,6 +501,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
+  <button id="nav-tattach" onclick="showPage('tattach')">📎 팀즈첨부파일정리</button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
 </div>
 
@@ -543,6 +555,47 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div class="page" id="page-doc-invoice"><div class="panel" id="panel-doc-invoice"></div></div>
 <div class="page" id="page-doc-tax"><div class="panel" id="panel-doc-tax"></div></div>
 <div class="page" id="page-doc-tech"><div class="panel" id="panel-doc-tech"></div></div>
+
+<!-- 팀즈첨부파일정리 페이지 -->
+<div class="page" id="page-tattach">
+  <div class="ta-wrap">
+    <div class="ta-head">
+      <div>
+        <h2>📎 팀즈 첨부파일 정리</h2>
+        <div class="ta-sub" id="taSub">T Project 채팅에 올라온 첨부파일</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="taSearch" placeholder="파일명·작성자 검색" oninput="taRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <button class="btn" onclick="taLoad()">↻ 새로고침</button>
+      </div>
+    </div>
+    <div id="taList"></div>
+  </div>
+</div>
+
+<!-- 문서함 이동 모달 -->
+<div class="modal" id="taMoveModal">
+  <div class="mbox" style="max-width:460px">
+    <div class="mbox-h"><span>📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-b">
+      <div id="taMoveFile" style="font-size:13px;color:var(--t2);margin-bottom:14px;word-break:break-all"></div>
+      <div class="adm-row col" style="margin-bottom:10px"><span class="adm-lbl">분류</span>
+        <select id="taMoveDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <option value="doc-tech">📚 기술자료</option>
+          <option value="doc-quote">📄 견적서</option>
+          <option value="doc-invoice">📋 거래명세서</option>
+          <option value="doc-tax">🧾 세금계산서</option>
+        </select>
+      </div>
+      <div class="adm-row col"><span class="adm-lbl">하위 폴더(선택)</span><input type="text" id="taMoveFolder" placeholder="예: 한국화낙 (비우면 루트)"></div>
+      <div class="row" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="$('taMoveModal').classList.remove('on')">취소</button>
+        <button class="btn primary" onclick="taDoMove()">📁 복사</button>
+      </div>
+      <div id="taMoveMsg" style="font-size:12px;margin-top:10px;text-align:right"></div>
+    </div>
+  </div>
+</div>
 
 <!-- 통합일정관리 페이지 -->
 <div class="page" id="page-schedule">
@@ -952,6 +1005,7 @@ function showPage(p){
   if(p==='contacts'){ loadContacts(); }
   else if(p.startsWith('doc-')){ renderDocPage(p); }
   else if(p==='schedule'){ schInit(); }
+  else if(p==='tattach'){ taLoad(); }
   else if(p==='admin'){ admLoad(); }
 }
 
@@ -1395,6 +1449,98 @@ ${content}`;
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
 const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
 const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
+// ════════ 팀즈 첨부파일 정리 ════════
+const TA_PATH="teams_attachments.json";
+let TA_DATA=null;
+async function taLoad(){
+  $('taList').innerHTML='<div class="an-empty">불러오는 중…</div>';
+  TA_DATA=await spGetJson(TA_PATH);
+  if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
+  const n=(TA_DATA.items||[]).length;
+  const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
+  $('taSub').textContent=`T Project 채팅 첨부파일 · ${n}건 · 수집 ${upd}`;
+  taRender();
+}
+function taIcon(name){
+  const e=(name||'').split('.').pop().toLowerCase();
+  if(['pdf'].includes(e)) return '📕';
+  if(['xls','xlsx','csv'].includes(e)) return '📊';
+  if(['doc','docx'].includes(e)) return '📘';
+  if(['ppt','pptx'].includes(e)) return '📙';
+  if(['png','jpg','jpeg','gif','bmp','webp'].includes(e)) return '🖼';
+  if(['zip','7z','rar'].includes(e)) return '🗜';
+  if(['dwg','step','stp','igs','iges','sldprt','sldasm'].includes(e)) return '📐';
+  return '📄';
+}
+function taFmtSize(b){ if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(0)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+function taRender(){
+  if(!TA_DATA) return;
+  const q=($('taSearch').value||'').toLowerCase().trim();
+  let items=TA_DATA.items||[];
+  if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.author||'').toLowerCase().includes(q));
+  if(!items.length){ $('taList').innerHTML='<div class="an-empty">검색 결과 없음</div>'; return; }
+  $('taList').innerHTML=`<table class="ta-table"><thead><tr>
+    <th style="width:42px"></th><th>파일명</th><th style="width:110px">작성자</th><th style="width:140px">작성일시</th><th style="width:70px">크기</th><th style="width:160px">작업</th>
+    </tr></thead><tbody>${items.map((it,idx)=>{
+      const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+      const realIdx=(TA_DATA.items||[]).indexOf(it);
+      return `<tr>
+        <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
+        <td class="ta-name">${esc(it.name||'(이름없음)')}</td>
+        <td>${esc(it.author||'?')}</td>
+        <td style="color:var(--t3);font-size:12px">${dt}</td>
+        <td style="color:var(--t3);font-size:12px">${taFmtSize(it.size)}</td>
+        <td><div style="display:flex;gap:6px">
+          <button class="btn sm" onclick="taOpen(${realIdx})" title="열기/미리보기">👁</button>
+          <button class="btn sm primary" onclick="taMove(${realIdx})" title="문서함으로 복사">📁 이동</button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+function taOpen(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  const url=it.webUrl||it.downloadUrl||it.contentUrl;
+  if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
+}
+let _taMoveIdx=-1;
+function taMove(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  _taMoveIdx=idx;
+  $('taMoveFile').textContent='📄 '+(it.name||'');
+  $('taMoveFolder').value='';
+  $('taMoveMsg').textContent='';
+  $('taMoveModal').classList.add('on');
+}
+async function taDoMove(){
+  const it=(TA_DATA.items||[])[_taMoveIdx]; if(!it) return;
+  const destTab=$('taMoveDest').value;
+  const root=DOC_MAP[destTab];
+  const folder=($('taMoveFolder').value||'').trim();
+  const destPath=(root + (folder?'/'+folder:'') + '/' + it.name);
+  const msg=$('taMoveMsg');
+  msg.style.color='var(--t3)'; msg.textContent='복사 중…';
+  try{
+    // 1) 원본 파일 다운로드 (downloadUrl 우선, 없으면 driveId/itemId)
+    const t=await graphToken();
+    let dlUrl=it.downloadUrl;
+    if(!dlUrl && it.driveId && it.itemId){
+      const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${it.driveId}/items/${it.itemId}`,{headers:{Authorization:"Bearer "+t}});
+      if(r0.ok) dlUrl=(await r0.json())["@microsoft.graph.downloadUrl"];
+    }
+    if(!dlUrl) throw new Error("다운로드 링크 없음");
+    const fr=await fetch(dlUrl);
+    if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
+    const bytes=await fr.arrayBuffer();
+    // 2) 폴더 보장 + 업로드
+    if(folder) await spEnsureFolder(root+'/'+folder);
+    await spUploadFile(destPath, bytes, it.mime||'application/octet-stream');
+    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+'로 복사됨';
+    toast('문서함으로 복사 완료','ok');
+    setTimeout(()=>$('taMoveModal').classList.remove('on'),1200);
+  }catch(e){
+    msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
+  }
+}
 const DOC_ANALYZE=['doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
 let docState={};
 let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,validUntil,memo,fileName,url,date}}
