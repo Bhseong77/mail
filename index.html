@@ -530,7 +530,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v51</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v52</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -2017,7 +2017,7 @@ function maMove(idx){
 
 const DOC_ANALYZE=['doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
 let docState={};
-let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,validUntil,memo,fileName,url,date}}
+let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,payment,warranty,memo,fileName,url,date}}
 let AN_FILTER={}; // page -> {customer, q}
 
 // ════════ 파일탐색기 트리 (5개 탭 공용) ════════
@@ -2250,7 +2250,7 @@ function anRender(p){
   if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
   let h=`<table class="an-tbl"><thead><tr>
     <th>회사명</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
-    <th class="c">납기</th><th class="c">유효기한</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+    <th class="c">납기</th><th class="c">대금지급</th><th class="c">보증기간</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
   for(const r of rows){
     const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
     const rowspan=items.length;
@@ -2262,7 +2262,8 @@ function anRender(p){
       h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
       if(ix===0){
         h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
-           `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.validUntil||'')}" onchange="anField('${p}','${r.fid}','validUntil',this.value)"></td>`+
+           `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.payment||'')}" onchange="anField('${p}','${r.fid}','payment',this.value)"></td>`+
+           `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.warranty||'')}" onchange="anField('${p}','${r.fid}','warranty',this.value)"></td>`+
            `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
            `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
            `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
@@ -2402,10 +2403,11 @@ async function anAnalyze(p){
       try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
       // 2) Copilot 분석
       const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
-{"company":"발행 회사명","delivery":"납기/납품기일","validUntil":"견적 유효기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
-- delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 2개월", "2026-07-30"). 문서에 "납기","납품","delivery","D/T","리드타임" 등으로 표기됨.
-- validUntil(유효기간): 이 견적서가 유효한 기한 (예: "발행일로부터 30일", "견적 유효기간 1개월"). 문서에 "유효기간","견적유효","valid until" 등으로 표기됨.
-- 두 항목을 혼동하지 말 것. 납기는 '물건 받는 시점', 유효기간은 '견적이 살아있는 기한'이다.
+{"company":"발행 회사명","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 1개월", "2026-07-30"). 문서에 "납기","납품기일","납품시기","delivery","D/T","리드타임" 등으로 표기됨.
+- payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금", "납품 후 30일 현금"). 문서에 "대금지불","지급조건","결제조건","payment" 등으로 표기됨.
+- warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상", "1년"). 문서에 "보증","무상","warranty","품질보증" 등으로 표기됨. 특이사항·비고란에 적힌 경우도 찾을 것.
+- 각 항목을 혼동하지 말 것. 유효기간(견적이 살아있는 기한)은 중요하지 않으니 무시한다.
 - 여러 품목이면 items 배열에 모두. 없는 값은 빈 문자열.
 - 회사명은 발행처(공급자) 기준.
 [파일명] ${f.name}
@@ -2417,7 +2419,8 @@ ${text.slice(0,6000)}`;
         company:(info&&info.company)||f.customer||'',
         items:(info&&info.items)||[],
         delivery:(info&&info.delivery)||'',
-        validUntil:(info&&info.validUntil)||'',
+        payment:(info&&info.payment)||'',
+        warranty:(info&&info.warranty)||'',
         memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
       };
       if(done%3===0){ anRender(p); toast(`분석 중… ${done}/${pending.length}`); }
