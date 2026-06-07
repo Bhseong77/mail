@@ -11,7 +11,7 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <script src="https://res.cdn.office.net/teams-js/2.24.0/js/MicrosoftTeams.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
@@ -874,7 +874,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v70</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v71</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -4266,9 +4266,32 @@ async function schLoad(){
 }
 
 let _schErr="";
+// SheetJS 지연 로더 — head 로드 실패 시 여러 CDN 순차 시도
+function _ensureXLSX(){
+  return new Promise((res,rej)=>{
+    if(window.XLSX) return res();
+    const urls=[
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+      "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
+      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+      "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
+    ];
+    let i=0;
+    const next=()=>{
+      if(window.XLSX) return res();
+      if(i>=urls.length) return rej(new Error("SheetJS 로드 실패 — 모든 CDN 차단됨 (cdnjs/unpkg/jsdelivr/sheetjs)"));
+      const s=document.createElement('script');
+      s.src=urls[i++];
+      s.onload=()=>{ window.XLSX?res():next(); };
+      s.onerror=next;
+      document.head.appendChild(s);
+    };
+    next();
+  });
+}
 // 엑셀 → 파싱 → (기존 댓글·상태 보존) SCH_DATA 교체
 async function schImportExcel(saveAfter){
-  if(!window.XLSX) throw new Error("SheetJS 미로드 (xlsx CDN 차단 여부 확인)");
+  await _ensureXLSX();
   const t=await graphToken(); const d=await schDrive();
   // 1) 폴더(02.일정표) children 조회 → 파일명 매칭 (인코딩·이름 변형에 강함)
   const folderEnc=SCH_DIR.split("/").map(encodeURIComponent).join("/");
