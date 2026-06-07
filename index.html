@@ -484,6 +484,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ma-subtabs{display:flex;gap:8px;margin:0 0 14px}
 .ma-subtab{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--t2);font-family:inherit}
 .ma-subtab.active{background:var(--p);color:#fff;border-color:var(--p)}
+.ft-row.file{position:relative}
+.ft-move{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.6}
+.ft-row.file:hover .ft-move{display:inline-block}
+.ft-move:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -504,7 +508,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v39</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v40</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -617,10 +621,18 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
+<!-- 파일 미리보기 모달 -->
+<div class="modal" id="previewModal">
+  <div class="mbox" style="max-width:1100px;width:94vw;max-height:92vh;display:flex;flex-direction:column">
+    <div class="mbox-h"><span id="previewTitle">👁 미리보기</span><button class="x" onclick="$('previewModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-b" id="previewBody" style="padding:0;overflow:hidden"></div>
+  </div>
+</div>
+
 <!-- 문서함 이동 모달 -->
 <div class="modal" id="taMoveModal">
   <div class="mbox" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
-    <div class="mbox-h"><span>📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
+    <div class="mbox-h"><span id="taMoveTitle">📁 문서함으로 복사</span><button class="x" onclick="$('taMoveModal').classList.remove('on')">✕</button></div>
     <div class="mbox-b" style="overflow-y:auto">
       <div id="taMoveFile" style="font-size:13px;color:var(--t2);margin-bottom:14px;word-break:break-all"></div>
       <div class="adm-row col" style="margin-bottom:10px"><span class="adm-lbl">분류</span>
@@ -642,7 +654,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="row" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="$('taMoveModal').classList.remove('on')">취소</button>
-        <button class="btn primary" onclick="taDoMove()">📁 여기에 복사</button>
+        <button class="btn primary" onclick="taDoMove()" id="taMoveBtn">📁 여기에 복사</button>
       </div>
       <div id="taMoveMsg" style="font-size:12px;margin-top:10px;text-align:right"></div>
     </div>
@@ -1011,6 +1023,54 @@ async function spList(path){
   }catch(e){ return []; }
 }
 function toast(msg,kind){ const t=$('toast'); t.textContent=msg; t.className='toast show '+(kind||''); setTimeout(()=>t.className='toast',2600); }
+
+// ── 파일 미리보기 ──
+const PREVIEW_EXT=/\.(pdf|pptx|ppt|xlsx|xls|xlsm|docx|doc|png|jpg|jpeg|gif|bmp|webp|svg)$/i;
+function canPreview(name){ return PREVIEW_EXT.test(name||''); }
+function isImageFile(name){ return /\.(png|jpg|jpeg|gif|bmp|webp|svg)$/i.test(name||''); }
+// SharePoint 아이템 id로 임베드 가능한 미리보기 URL 획득 (Office/PDF 공용)
+async function spPreviewUrl(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/preview`,
+    {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:"{}"});
+  if(!r.ok) throw new Error("preview "+r.status);
+  const j=await r.json();
+  return j.getUrl||j.getURL||null;
+}
+// 다운로드 URL (이미지 직접 표시용)
+async function spDownloadUrl(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("item "+r.status);
+  return (await r.json())["@microsoft.graph.downloadUrl"]||null;
+}
+// 공용 미리보기 모달: itemId(SharePoint) 또는 직접 url 둘 중 하나
+async function previewInModal(opts){
+  // opts: {name, itemId?, directUrl?}
+  const m=$('previewModal'); const body=$('previewBody'); const ttl=$('previewTitle');
+  ttl.textContent='👁 '+(opts.name||'미리보기');
+  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  m.classList.add('on');
+  try{
+    body.innerHTML=await _previewInner(opts);
+  }catch(e){
+    body.innerHTML=`<div style="padding:40px;text-align:center;color:var(--r)">미리보기 실패: ${esc(e.message)}<br><br>새 창에서 열어보세요.</div>`;
+  }
+}
+async function _previewInner(opts){
+  const name=opts.name||'';
+  // 이미지: 직접 표시
+  if(isImageFile(name)){
+    let url=opts.directUrl;
+    if(!url && opts.itemId) url=await spDownloadUrl(opts.itemId);
+    return `<img src="${esc(url)}" style="max-width:100%;max-height:78vh;display:block;margin:0 auto;object-fit:contain">`;
+  }
+  // PDF + Office: SharePoint preview URL (iframe)
+  let pv=opts.directUrl;
+  if(opts.itemId){ try{ pv=await spPreviewUrl(opts.itemId); }catch(e){} }
+  if(pv) return `<iframe src="${esc(pv)}" style="width:100%;height:80vh;border:none" allowfullscreen></iframe>`;
+  throw new Error("미리보기 URL을 만들 수 없습니다");
+}
 
 // ── Graph 파일 조작 (업로드/이름변경/이동/삭제/폴더) ──
 async function spUploadFile(path,bytes,contentType){
@@ -1661,6 +1721,7 @@ async function taUnhide(id){
 }
 function taOpen(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  if(canPreview(it.name) && it.itemId){ previewInModal({name:it.name, itemId:it.itemId}); return; }
   const url=it.webUrl||it.downloadUrl||it.contentUrl;
   if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
 }
@@ -1690,6 +1751,9 @@ function taMove(idx){
   _openMoveModal();
 }
 function _openMoveModal(){
+  const isMove=_moveCtx&&_moveCtx.mode==='move';
+  const tt=$('taMoveTitle'); if(tt) tt.textContent=isMove?'📂 다른 폴더로 이동':'📁 문서함으로 복사';
+  const bt=$('taMoveBtn'); if(bt) bt.textContent=isMove?'📂 여기로 이동':'📁 여기에 복사';
   $('taMoveFile').textContent='📄 '+(_moveCtx?_moveCtx.name:'');
   $('taMoveMsg').textContent='';
   _taFxRel="";
@@ -1745,20 +1809,35 @@ async function taFxNewFolder(){
 async function taDoMove(){
   if(!_moveCtx) return;
   const destTab=$('taMoveDest').value;
-  const destPath=`${taFxFullPath()}/${_moveCtx.name}`;
+  const destFolder=taFxFullPath();
+  const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
-  msg.style.color='var(--t3)'; msg.textContent='복사 중…';
   try{
-    const bytes=await _moveCtx.getBytes();
-    await spUploadFile(destPath, bytes, _moveCtx.mime||'application/octet-stream');
-    const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
+    if(_moveCtx.mode==='move' && _moveCtx.itemId){
+      // 진짜 이동 (Graph PATCH parentReference) — 원본 폴더에서 제거됨
+      msg.style.color='var(--t3)'; msg.textContent='이동 중…';
+      await spMoveItem(_moveCtx.itemId, destFolder);
+      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 이동됨';
+    } else {
+      // 복사 (첨부 → 문서함)
+      msg.style.color='var(--t3)'; msg.textContent='복사 중…';
+      const bytes=await _moveCtx.getBytes();
+      await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, _moveCtx.mime||'application/octet-stream');
+      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
+    }
     if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
-    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
-    toast('문서함으로 복사 완료','ok');
+    toast('완료','ok');
     setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
   }catch(e){
     msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
   }
+}
+// 기술자료 트리 파일 → 다른 폴더로 이동(진짜 이동)
+function ftMoveFile(p,itemId,name){
+  _moveCtx={ name, itemId, mode:'move', onDone: async()=>{ FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); } };
+  // 분류 셀렉트를 현재 탭으로 맞춤
+  const sel=$('taMoveDest'); if(sel) sel.value=p;
+  _openMoveModal();
 }
 // ════════ 이메일 첨부파일 정리 ════════
 const MA_PATH="mail_attachments.json";
@@ -1825,7 +1904,13 @@ function maRender(){
     }).join('')}</tbody></table>`;
 }
 function maDlUrl(it){ return `${SERVER}/api/mail/attachment?folder=${encodeURIComponent(it.folder)}&uid=${encodeURIComponent(it.uid)}&idx=${it.idx}`; }
-function maOpen(idx){ const it=(MA_DATA.items||[])[idx]; if(!it) return; window.open(maDlUrl(it),'_blank'); }
+function maOpen(idx){
+  const it=(MA_DATA.items||[])[idx]; if(!it) return;
+  const url=maDlUrl(it);
+  // 메일 첨부는 서버 경유 URL. 이미지·PDF는 모달 미리보기 가능, Office는 새 창 다운로드.
+  if(isImageFile(it.name) || /\.pdf$/i.test(it.name)){ previewInModal({name:it.name, directUrl:url}); return; }
+  window.open(url,'_blank');
+}
 async function maHide(id){ if(!MA_HIDDEN.includes(id))MA_HIDDEN.push(id); await maSaveHidden(); maLoad(); }
 async function maUnhide(id){ MA_HIDDEN=MA_HIDDEN.filter(x=>x!==id); await maSaveHidden(); maLoad(); }
 function maMove(idx){
@@ -1893,7 +1978,7 @@ async function ftNodeHtml(p,path,depth){
     html+=`</div>`;
   }
   for(const f of files){
-    html+=`<div class="ft-row file" onclick="window.open('${esc(f.webUrl||'#')}','_blank')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">📄</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span></div>`;
+    html+=`<div class="ft-row file" onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftMenu(event,'${p}','${esc(path)}',false,'${f.id}','${esc(f.name)}')"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -2031,7 +2116,7 @@ function anRender(p){
         h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
            `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.validUntil||'')}" onchange="anField('${p}','${r.fid}','validUntil',this.value)"></td>`+
            `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
-           `<td rowspan="${rowspan}"><span class="file-link" onclick="window.open('${esc(r.url||'#')}','_blank')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+           `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')">${esc((r.fileName||'').slice(0,24))}</span></td>`+
            `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
       }
       h+=`</tr>`;
@@ -2041,6 +2126,11 @@ function anRender(p){
   wrap.innerHTML=h;
 }
 function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
+function anPreview(p,fid){
+  const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
+  if(canPreview(d.fileName)){ previewInModal({name:d.fileName, itemId:fid}); }
+  else if(d.url) window.open(d.url,'_blank');
+}
 async function anMemo(p,fid,val){ return anField(p,fid,'memo',val); }
 async function anField(p,fid,key,val){
   if(AN_DATA[p]&&AN_DATA[p][fid]){
@@ -2199,23 +2289,47 @@ async function renderDocTree(p){
       <input class="doc-search" id="treeq-${p}" placeholder="🔍 파일 검색" oninput="treeSearch('${p}')">
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
     <div class="doc-layout">
-      <div class="doc-tree" id="tree-${p}" style="flex:1;max-width:none"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
-      <div class="doc-files" id="files-${p}" style="display:none"></div>
+      <div class="doc-tree" id="tree-${p}" style="width:42%;max-width:560px;flex-shrink:0"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+      <div class="doc-files" id="ftPreview-${p}" style="flex:1;display:flex;align-items:center;justify-content:center">
+        <div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 미리보기됩니다</div>
+      </div>
     </div>`;
   FT_SEL[p]='';
+  _ftPreviewPanel=p;
   await renderFileTree(p);
+}
+let _ftPreviewPanel=null;
+// 기술자료 트리에서 파일 클릭 → 오른쪽 패널 미리보기
+async function ftPreviewFile(p,itemId,name){
+  const box=$('ftPreview-'+p); if(!box) return;
+  box.style.display='block'; box.style.alignItems=''; box.style.justifyContent='';
+  box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  try{
+    if(isImageFile(name)){
+      const url=await spDownloadUrl(itemId);
+      box.innerHTML=`<div style="padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border)">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
+    } else if(canPreview(name)){
+      const pv=await spPreviewUrl(itemId);
+      box.innerHTML=`<div style="padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border)">👁 ${esc(name)} <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="float:right;font-size:12px">새 창</a></div><iframe src="${esc(pv)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
+    } else {
+      box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">📄</div>${esc(name)}<br><br>미리보기를 지원하지 않는 형식입니다.<br><button class="btn sm" style="margin-top:10px" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">다운로드</button></div>`;
+    }
+  }catch(e){
+    box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span></div>`;
+  }
 }
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
   const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
-  if(!q){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">📁</div>고객사·분류를 선택하세요</div>`; return; }
+  const box=$('ftPreview-'+p);
+  if(!q){ box.style.display='flex'; box.innerHTML=`<div class="rd-empty"><div class="big">👁</div>파일을 클릭하면 여기에서 미리보기됩니다</div>`; return; }
   const root=DOC_MAP[p];
-  $('files-'+p).innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
+  box.style.display='block'; box.innerHTML='<div style="padding:20px;color:var(--t3)">검색 중…</div>';
   const hits=[];
   async function walk(path){const items=await spList(path);for(const it of items){if(it.folder)await walk(`${path}/${it.name}`);else if(it.file&&it.name.toLowerCase().includes(q))hits.push({...it,_folder:path.replace(root+'/','')});}}
   await walk(root);
-  if(!hits.length){ $('files-'+p).innerHTML=`<div class="rd-empty"><div class="big">🔍</div>"${esc(q)}" 검색 결과 없음</div>`; return; }
-  $('files-'+p).innerHTML=hits.map(f=>treeFileRow(p,f,f._folder)).join('');
+  if(!hits.length){ box.innerHTML=`<div class="rd-empty"><div class="big">🔍</div>"${esc(q)}" 검색 결과 없음</div>`; return; }
+  box.innerHTML='<div style="padding:8px">'+hits.map(f=>treeFileRow(p,f,f._folder)).join('')+'</div>';
 }
 function treeUpload(p,files){
   if(!files||!files.length) return;
