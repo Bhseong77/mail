@@ -96,6 +96,10 @@ body{display:flex;flex-direction:column;height:100vh}
 .rd-subj{font-weight:800;font-size:18px;line-height:1.4;margin:0 0 12px;color:var(--t1)}
 .rd-meta{font-size:12.5px;color:var(--t2);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
 .rd-meta b{color:var(--t1);font-weight:600;white-space:nowrap}
+.rd-fwd{margin:10px 0 4px;padding:10px 14px;background:var(--yd);border:1px solid #fde68a;border-radius:9px}
+.rd-fwd-h{font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:6px}
+.rd-fwd .rd-meta{color:#78350f}
+.rd-fwd .rd-meta b{color:#78350f}
 .rd-actions{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border)}
 .btn{font-family:inherit;font-size:13px;border:1px solid var(--border);background:#fff;color:var(--t1);padding:7px 13px;border-radius:8px;cursor:pointer;transition:.12s;font-weight:600}
 .btn:hover{background:var(--bg3);border-color:var(--border2)}
@@ -832,7 +836,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v61</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v62</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -3630,6 +3634,28 @@ async function doMoveAll(){
 }
 
 function fromName(a){if(!a||!a.length)return '(보낸사람 없음)';return a[0].name||a[0].email||'';}
+// 본문에 인용/포워딩된 '원본 메일'의 발신·수신 정보를 추출 (휴리스틱)
+function extractFwdInfo(text){
+  if(!text) return null;
+  const lines=String(text).split(/\r?\n/).slice(0,120);
+  const grab=(labels)=>{
+    for(const ln of lines){
+      const s=ln.replace(/^[\s>*•·\-–—]+/,'').trim();
+      for(const lab of labels){
+        const m=s.match(new RegExp('^(?:'+lab+')\\s*[:：]\\s*(.+)$','i'));
+        if(m && m[1] && m[1].trim()) return m[1].trim().slice(0,200);
+      }
+    }
+    return '';
+  };
+  const from=grab(['보낸\\s*사람','발신인','발신자','발신','보낸이','From']);
+  const to  =grab(['받는\\s*사람','받은\\s*사람','수신인','수신처','수신','받는이','To']);
+  const cc  =grab(['참조','Cc']);
+  const subj=grab(['제목','Subject']);
+  const date=grab(['보낸\\s*날짜','받은\\s*날짜','날짜','Sent','Date']);
+  if(!from && !to) return null;     // 발신·수신 중 하나도 없으면 표시 안 함
+  return {from,to,cc,subj,date};
+}
 function addrLine(a){if(!a||!a.length)return '-';return a.map(x=>x.name?`${esc(x.name)} <${esc(x.email)}>`:esc(x.email)).join(', ');}
 function openSettings(){$('srvInput').value=SERVER;$('settings').classList.add('on');}
 function closeSettings(){$('settings').classList.remove('on');}
@@ -3749,9 +3775,20 @@ function renderBody(m,d){
   if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin" srcdoc="${safe}" onload="autoSizeIframe(this)"></iframe></div>`;}
   else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}
   const head=$('reader').querySelector('.rd-head').outerHTML;
+  // 본문에 포함된 '원본 메일'(포워딩/인용) 발신·수신 정보 추출
+  let fwdHtml='';
+  try{
+    let _txt=d.body||'';
+    if(!_txt && d.bodyHtml){ _txt=String(d.bodyHtml).replace(/<\s*br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|tr)>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
+    const fwd=extractFwdInfo(_txt);
+    if(fwd){
+      const row=(l,v)=>v?`<b>${l}</b><span>${esc(v)}</span>`:'';
+      fwdHtml=`<div class="rd-fwd"><div class="rd-fwd-h">📨 본문에 포함된 원본 메일</div><div class="rd-meta">${row('발신',fwd.from)}${row('수신',fwd.to)}${row('참조',fwd.cc)}${row('제목',fwd.subj)}${row('날짜',fwd.date)}</div></div>`;
+    }
+  }catch(e){}
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
   const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button>${moveBtn}</div>`;
-  $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+attHtml+bodyHtml;
+  $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+fwdHtml+attHtml+bodyHtml;
 }
 async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
 function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
