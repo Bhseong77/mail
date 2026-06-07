@@ -509,7 +509,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v42</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v43</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -1077,14 +1077,28 @@ function officeEmbedUrl(webUrl, edit){
 }
 async function previewInModal(opts){
   // opts: {name, itemId?, driveId?, directUrl?, docPath?}
-  _previewOpts=opts; _previewEdit=isOfficeFile(opts.name||'');  // Office는 기본 편집모드
+  _previewOpts=opts;
   const m=$('previewModal'); const ttl=$('previewTitle');
-  ttl.innerHTML='👁 '+esc(opts.name||'미리보기')+(isOfficeFile(opts.name||'')?` <button class="btn sm" style="margin-left:10px" onclick="previewToggleEdit()" id="pvToggle">${_previewEdit?'👁 보기모드':'✏ 편집모드'}</button>`:'');
+  let editBtn='';
+  if(isOfficeFile(opts.name||'')){
+    editBtn=` <button class="btn sm" style="margin-left:10px" onclick="previewOpenEdit()">✏ 편집 (새 창)</button>`;
+  }
+  ttl.innerHTML='👁 '+esc(opts.name||'미리보기')+editBtn;
   m.classList.add('on');
   await _renderPreview();
 }
-let _previewOpts=null, _previewEdit=false;
-function previewToggleEdit(){ _previewEdit=!_previewEdit; const b=$('pvToggle'); if(b)b.textContent=_previewEdit?'👁 보기모드':'✏ 편집모드'; _renderPreview(); }
+let _previewOpts=null;
+// Office 편집은 새 창에서 (SharePoint가 외부 iframe 임베드를 차단하므로)
+async function previewOpenEdit(){
+  const o=_previewOpts; if(!o) return;
+  let webUrl=null;
+  try{
+    if(o.docPath) webUrl=await spWebUrlByPath(o.docPath);
+    if(!webUrl && o.itemId) webUrl=await spWebUrlById(o.itemId, o.driveId);
+  }catch(e){}
+  if(webUrl) window.open(officeEmbedUrl(webUrl, true),'_blank');
+  else toast('편집 링크를 찾을 수 없습니다','bad');
+}
 async function _renderPreview(){
   const body=$('previewBody');
   body.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
@@ -1100,16 +1114,7 @@ async function _previewInner(opts){
     if(!url && opts.itemId) url=await spDownloadUrl(opts.itemId, opts.driveId);
     return `<img src="${esc(url)}" style="max-width:100%;max-height:78vh;display:block;margin:0 auto;object-fit:contain">`;
   }
-  // Office 파일: webUrl 기반 편집/보기 임베드 (공동작업·자동저장)
-  if(isOfficeFile(name)){
-    let webUrl=null;
-    if(opts.docPath){ try{ webUrl=await spWebUrlByPath(opts.docPath); }catch(e){} }
-    if(!webUrl && opts.itemId){ try{ webUrl=await spWebUrlById(opts.itemId, opts.driveId); }catch(e){} }
-    const emb=officeEmbedUrl(webUrl, _previewEdit);
-    if(emb) return `<iframe src="${esc(emb)}" style="width:100%;height:80vh;border:none" allowfullscreen></iframe>`;
-    // webUrl 없으면 보기전용 preview로 폴백
-  }
-  // PDF (+Office 폴백): preview URL
+  // PDF + Office: /preview 임베드 URL (보기 전용 — iframe 임베드 허용됨)
   let pv=opts.directUrl;
   if(!pv && opts.docPath){ try{ pv=await spPreviewByPath(opts.docPath); }catch(e){} }
   if(!pv && opts.itemId){ try{ pv=await spPreviewUrl(opts.itemId, opts.driveId); }catch(e){} }
@@ -2358,7 +2363,6 @@ async function renderDocTree(p){
 }
 let _ftPreviewPanel=null;
 // 기술자료 트리에서 파일 클릭 → 오른쪽 패널 미리보기
-let _ftEditMode={};
 async function ftPreviewFile(p,itemId,name){
   const box=$('ftPreview-'+p); if(!box) return;
   _ftCur={p,itemId,name};
@@ -2368,19 +2372,13 @@ async function ftPreviewFile(p,itemId,name){
     if(isImageFile(name)){
       const url=await spDownloadUrl(itemId);
       box.innerHTML=`<div class="pv-bar">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
-    } else if(isOfficeFile(name)){
-      const edit=_ftEditMode[itemId]!==false; // 기본 편집모드
-      const webUrl=await spWebUrlById(itemId);
-      const emb=officeEmbedUrl(webUrl, edit);
-      box.innerHTML=`<div class="pv-bar">${edit?'✏':'👁'} ${esc(name)}
-        <span style="float:right">
-          <button class="btn sm" onclick="ftToggleEdit('${p}','${itemId}','${esc(name).replace(/'/g,"\\'")}')">${edit?'👁 보기모드':'✏ 편집모드'}</button>
-          <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="font-size:12px;margin-left:8px">새 창</a>
-        </span></div>
-        <iframe src="${esc(emb)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
     } else if(canPreview(name)){
       const pv=await spPreviewUrl(itemId);
-      box.innerHTML=`<div class="pv-bar">👁 ${esc(name)} <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="float:right;font-size:12px">새 창</a></div><iframe src="${esc(pv)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
+      const editBtn=isOfficeFile(name)?`<button class="btn sm" onclick="ftEditNewWin('${itemId}')">✏ 편집 (새 창)</button>`:'';
+      box.innerHTML=`<div class="pv-bar">👁 ${esc(name)}
+        <span style="float:right">${editBtn}
+          <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="font-size:12px;margin-left:8px">다운로드</a>
+        </span></div><iframe src="${esc(pv)}" style="width:100%;height:calc(100% - 44px);border:none"></iframe>`;
     } else {
       box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">📄</div>${esc(name)}<br><br>미리보기를 지원하지 않는 형식입니다.<br><button class="btn sm" style="margin-top:10px" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">다운로드</button></div>`;
     }
@@ -2389,7 +2387,10 @@ async function ftPreviewFile(p,itemId,name){
   }
 }
 let _ftCur=null;
-function ftToggleEdit(p,itemId,name){ _ftEditMode[itemId]=(_ftEditMode[itemId]===false); ftPreviewFile(p,itemId,name); }
+async function ftEditNewWin(itemId){
+  try{ const w=await spWebUrlById(itemId); if(w) window.open(officeEmbedUrl(w,true),'_blank'); else toast('편집 링크 없음','bad'); }
+  catch(e){ toast('편집 열기 실패: '+e.message,'bad'); }
+}
 // 트리 탭 전역 검색 (모든 폴더 재귀)
 async function treeSearch(p){
   const q=($('treeq-'+p)?.value||'').trim().toLowerCase();
