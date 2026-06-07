@@ -595,7 +595,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v56</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v57</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -743,6 +743,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
         <div class="psb-item dim" data-p="iv_new" onclick="pShowPage('iv_new')">📄 전표발행</div>
         <div class="psb-item dim" data-p="vch" onclick="pShowPage('vch')">🧾 전표작성</div>
       </div>
+      <div class="psb-section">
+        <div class="psb-title">설정</div>
+        <div class="psb-item" data-p="settings" onclick="pShowPage('settings')">⚙️ 프로젝트 설정</div>
+      </div>
     </div>
     <div class="pcontent">
       <div class="pmeta" id="p-meta">불러오는 중…</div>
@@ -774,6 +778,9 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="psub" id="p-dv_new"></div>
       <div class="psub" id="p-iv_new"></div>
       <div class="psub" id="p-vch"></div>
+
+      <!-- 설정 -->
+      <div class="psub" id="p-settings"></div>
     </div>
   </div>
 </div>
@@ -3497,9 +3504,39 @@ if(new URLSearchParams(location.search).get('auth')==='1' || sessionStorage.getI
 /* ════════════════════════════════════════════════════════════════
    구매 페이지 (조회) — 100.ERP/*.json 읽기 · BG26002·BP26009 한정
    ════════════════════════════════════════════════════════════════ */
-const P_PROJECTS = ["BG26002", "BP26009"];      // 대상 프로젝트
+let pProjects = ["BG26002", "BP26009"];        // 기본값 — 100.ERP/config.json 으로 덮어씀
 const P_ERP_FOLDER = "100.ERP";                 // TIC-Mail 사이트 내 폴더
+const P_CONFIG = P_ERP_FOLDER + "/config.json"; // 프로젝트 설정 파일 (대시보드·서버 공용)
 const P_FILES = ["pr","po","pp","rc","mr","iv"];
+let pConfig = { projects: [], updated_at: "", updated_by: "" };
+let pConfigLoaded = false;
+
+// config.json 로드 → pProjects 갱신
+async function pLoadConfig(){
+  try{
+    const j = await spGetJson(P_CONFIG);
+    if(j && Array.isArray(j.projects) && j.projects.length){
+      pConfig = j;
+      // projects: ["BG26002",...] 또는 [{code,label},...] 둘 다 허용
+      pProjects = j.projects.map(p => (typeof p === "string" ? p : (p && p.code) || "").trim().toUpperCase()).filter(Boolean);
+    }
+  }catch(e){ /* 없으면 기본값 사용 */ }
+  pConfigLoaded = true;
+  return pProjects;
+}
+// config.json 저장
+async function pSaveConfig(list){
+  const projects = list.map(p => (typeof p === "string" ? {code:p, label:""} : {code:(p.code||"").trim().toUpperCase(), label:(p.label||"").trim()}))
+                       .filter(p => p.code);
+  // 중복 제거
+  const seen=new Set(); const dedup=[];
+  for(const p of projects){ if(!seen.has(p.code)){ seen.add(p.code); dedup.push(p); } }
+  const payload = { updated_at:new Date().toISOString(), updated_by: (typeof myName==="function"? myName():""), projects: dedup };
+  await spPutJson(P_CONFIG, payload);
+  pConfig = payload;
+  pProjects = dedup.map(p=>p.code);
+  return payload;
+}
 let pData = {};                                  // {pr:[...], po:[...], ...}
 let pLoaded = false;
 let pCur = "overview";
@@ -3518,10 +3555,12 @@ function pPjBadge(code){ const c=String(code||"").toUpperCase();
 
 // ── 데이터 로드 (100.ERP에서) ──
 async function pInit(){
+  if(!pConfigLoaded){ await pLoadConfig(); }
   if(!pLoaded){ await pLoadAll(false); }
   pShowPage(pCur);
 }
 async function pLoadAll(force){
+  if(!pConfigLoaded || force){ await pLoadConfig(); }
   document.getElementById("p-meta").textContent = "100.ERP에서 불러오는 중…";
   let metaTxt = "";
   try{
@@ -3530,14 +3569,14 @@ async function pLoadAll(force){
         const j = await spGetJson(`${P_ERP_FOLDER}/${k}.json`);
         const rows = (j && Array.isArray(j.data)) ? j.data : (Array.isArray(j)? j : []);
         // 안전망: 클라이언트에서도 프로젝트 재필터
-        const filtered = rows.filter(r => P_PROJECTS.map(p=>p.toUpperCase()).includes(pProjCode(r)));
+        const filtered = rows.filter(r => pProjects.map(p=>p.toUpperCase()).includes(pProjCode(r)));
         return [k, filtered, j && j.updated_at];
       }catch(e){ return [k, [], null]; }
     }));
     let upd = "";
     results.forEach(([k,rows,u])=>{ pData[k]=rows; if(u && !upd) upd=u; });
     pLoaded = true;
-    metaTxt = `프로젝트 ${P_PROJECTS.join(" · ")}  |  갱신 ${upd? new Date(upd).toLocaleString("ko-KR"):"-"}  |  100.ERP`;
+    metaTxt = `프로젝트 ${pProjects.join(" · ")}  |  갱신 ${upd? new Date(upd).toLocaleString("ko-KR"):"-"}  |  100.ERP`;
   }catch(e){
     metaTxt = "데이터 로드 실패: " + (e.message||e);
   }
@@ -3554,7 +3593,7 @@ function pUpdateCounts(){
   set("pcnt-rc", pNum((pData.rc||[]).length));
   set("pcnt-mr", pNum((pData.mr||[]).length));
   set("pcnt-iv", pNum((pData.iv||[]).length));
-  set("pcnt-act", String(P_PROJECTS.length));
+  set("pcnt-act", String(pProjects.length));
 }
 
 // ── 사이드 페이지 전환 ──
@@ -3567,6 +3606,7 @@ function pShowPage(name){
 }
 function pRenderCurrent(){
   const n = pCur;
+  if(n==="settings") return pRenderSettings();
   if(n==="overview") return pRenderOverview();
   if(n==="activity") return pRenderActivity();
   if(P_FILES.includes(n)) return pRenderTable(n);
@@ -3635,7 +3675,7 @@ function pRenderTable(key){
   host.innerHTML = `
     <div class="pfilter">
       <strong style="font-size:15px">${cfg.title}</strong>
-      <span class="pcard-cnt">${rows.length}건 · ${P_PROJECTS.join(" / ")}</span>
+      <span class="pcard-cnt">${rows.length}건 · ${pProjects.join(" / ")}</span>
       <span style="flex:1"></span>
       <input id="pq-${key}" placeholder="🔍 품명·번호·거래처 검색" oninput="pFilterTable('${key}')">
       <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button>
@@ -3685,7 +3725,7 @@ function pRenderOverview(){
     rcAmt:(pData.rc||[]).filter(r=>pProjCode(r)===code).reduce((s,r)=>s+(Number(r.tot_dom_amt)||0),0),
     mr:(pData.mr||[]).filter(r=>pProjCode(r)===code).length,
   });
-  const body = P_PROJECTS.map(code=>{ const c=code.toUpperCase(); const s=byCode(c);
+  const body = pProjects.map(code=>{ const c=code.toUpperCase(); const s=byCode(c);
     return `<tr><td>${pPjBadge(c)}</td><td>${s.pr}</td><td>${s.pp}</td><td>${s.po}</td><td>${s.rc}</td><td class="num">${Number(s.rcAmt).toLocaleString()}</td><td>${s.mr}</td></tr>`;
   }).join("");
   tbl.innerHTML = head + "<tbody>" + body + "</tbody>";
@@ -3696,7 +3736,7 @@ function pRenderActivity(){
   const host=document.getElementById("p-act-list");
   const stages=[["pr","구매요청"],["pp","구매품의"],["po","발주"],["rc","입고정산"],["mr","자재출고"]];
   host.innerHTML = `<div class="pmeta">프로젝트별 구매 진행 단계 — 클릭하면 최근 항목이 펼쳐집니다.</div>` +
-    P_PROJECTS.map((code,i)=>{ const c=code.toUpperCase();
+    pProjects.map((code,i)=>{ const c=code.toUpperCase();
       const counts = stages.map(([k])=>({k, n:(pData[k]||[]).filter(r=>pProjCode(r)===c).length}));
       const chips = stages.map(([k,lbl])=>{ const n=counts.find(x=>x.k===k).n;
         return `<span class="pstage ${n>0?'on':''}">${lbl} ${n}</span>`; }).join("");
@@ -3719,9 +3759,83 @@ function pRenderSoon(name){
     <div class="psoon">
       <div style="font-size:17px;font-weight:800;margin-bottom:8px">✏️ ${labels[name]} — 연결 준비 중</div>
       이 작성 기능은 영림원 ERP에 <b>직접 저장</b>되는 단계라(PC 서버 → Playwright → 영림원), 검증된 기존 코드를 그대로 이식해 다음 단계에 붙입니다.<br><br>
-      대상 프로젝트 <b>${P_PROJECTS.join(" · ")}</b> 의 미처리 건만 불러와 작성하도록 구성됩니다.<br>
+      대상 프로젝트 <b>${pProjects.join(" · ")}</b> 의 미처리 건만 불러와 작성하도록 구성됩니다.<br>
       <span style="font-size:12.5px;opacity:.8">※ 조회(구매요청·구매품의·발주현황·입고정산·자재출고·거래명세서)는 지금 바로 사용 가능합니다.</span>
     </div>`;
+}
+
+// ── 프로젝트 설정 ──
+let _pEditList = null;   // 편집 중 임시 목록 [{code,label}]
+function _pCfgList(){
+  // 현재 config 기준 편집 목록 구성
+  const src = (pConfig.projects && pConfig.projects.length)
+    ? pConfig.projects
+    : pProjects.map(c=>({code:c,label:""}));
+  return src.map(p => (typeof p==="string" ? {code:p,label:""} : {code:(p.code||"").toUpperCase(),label:p.label||""}));
+}
+function pRenderSettings(){
+  if(!_pEditList) _pEditList = _pCfgList();
+  const host = document.getElementById("p-settings");
+  const rows = _pEditList.map((p,i)=>`
+    <tr>
+      <td>${pPjBadge(p.code)}</td>
+      <td class="wrap">${pEsc(p.label||"")}</td>
+      <td style="text-align:right"><button class="pbtn" onclick="pCfgRemove(${i})" style="padding:4px 10px;color:var(--r);border-color:#fecaca">삭제</button></td>
+    </tr>`).join("") || `<tr><td colspan="3"><div class="pempty">등록된 프로젝트가 없습니다. 아래에서 추가하세요.</div></td></tr>`;
+  const upd = pConfig.updated_at ? `최종 저장 ${new Date(pConfig.updated_at).toLocaleString("ko-KR")}${pConfig.updated_by? " · "+pEsc(pConfig.updated_by):""}` : "아직 저장된 설정이 없습니다 (기본값 사용 중)";
+  host.innerHTML = `
+    <div class="pfilter">
+      <strong style="font-size:15px">⚙️ 프로젝트 설정</strong>
+      <span class="pcard-cnt">구매 대시보드에서 조회·연동할 프로젝트번호</span>
+    </div>
+    <div class="psoon" style="margin-bottom:16px">
+      여기에 등록한 프로젝트만 구매 대시보드에 표시되고, 서버가 해당 프로젝트의 ERP 데이터를 <b>100.ERP</b>로 내보냅니다.
+      여러 개 등록 가능하며, 저장하면 <b>모든 프로젝트 멤버</b>에게 동일하게 적용됩니다.
+      <span style="font-size:12px;opacity:.8"><br>※ 서버 새벽/주기 동기화 시 새 프로젝트의 데이터가 채워집니다 (즉시 반영하려면 서버에서 한 번 동기화).</span>
+    </div>
+    <div class="pcard">
+      <div class="pcard-h"><span class="pcard-title">등록된 프로젝트</span><span class="sp"></span>
+        <span class="pcard-cnt">${_pEditList.length}개</span></div>
+      <div class="ptbl-wrap"><table class="ptbl">
+        <thead><tr><th>프로젝트번호</th><th>설명(선택)</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="pcfg-code" placeholder="프로젝트번호 (예: BG26002)" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')pCfgAdd()">
+        <input id="pcfg-label" placeholder="설명 (선택)" onkeydown="if(event.key==='Enter')pCfgAdd()">
+        <button class="pbtn" onclick="pCfgAdd()">+ 추가</button>
+        <span style="flex:1"></span>
+        <button class="pbtn" onclick="pCfgReset()">되돌리기</button>
+        <button class="pbtn primary" onclick="pCfgSave()">💾 저장</button>
+      </div>
+      <div id="pcfg-msg" style="padding:0 16px 14px;font-size:13px"></div>
+    </div>
+    <div class="pmeta">${upd}</div>`;
+}
+function pCfgAdd(){
+  const c=(document.getElementById("pcfg-code").value||"").trim().toUpperCase();
+  const l=(document.getElementById("pcfg-label").value||"").trim();
+  if(!c){ document.getElementById("pcfg-msg").innerHTML='<span style="color:var(--r)">프로젝트번호를 입력하세요.</span>'; return; }
+  if(_pEditList.some(p=>p.code===c)){ document.getElementById("pcfg-msg").innerHTML='<span style="color:var(--y)">이미 등록된 프로젝트입니다.</span>'; return; }
+  _pEditList.push({code:c,label:l});
+  pRenderSettings();
+}
+function pCfgRemove(i){ _pEditList.splice(i,1); pRenderSettings(); }
+function pCfgReset(){ _pEditList = _pCfgList(); pRenderSettings(); }
+async function pCfgSave(){
+  const msg=document.getElementById("pcfg-msg");
+  if(!_pEditList.length){ msg.innerHTML='<span style="color:var(--r)">최소 1개 이상 등록해야 합니다.</span>'; return; }
+  msg.innerHTML='<span style="color:var(--t3)">저장 중…</span>';
+  try{
+    await pSaveConfig(_pEditList);
+    msg.innerHTML='<span style="color:#15803d">✅ 저장 완료. 데이터를 다시 불러옵니다…</span>';
+    pLoaded=false; _pEditList=null;
+    await pLoadAll(true);
+    pRenderSettings();
+    if(typeof toast==="function") toast("프로젝트 설정 저장 완료","good");
+  }catch(e){
+    msg.innerHTML='<span style="color:var(--r)">저장 실패: '+pEsc(e.message||e)+'</span>';
+  }
 }
 
 </script>
