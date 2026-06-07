@@ -519,7 +519,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v45</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v46</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -2145,9 +2145,17 @@ async function ftNewFolder(p,parentPath){
   const full=parentPath?`${DOC_MAP[p]}/${parentPath}/${clean}`:`${DOC_MAP[p]}/${clean}`;
   try{
     await spEnsureFolder(full);
-    toast('폴더 생성됨','ok');
+    // 04.프로젝트 바로 아래에 새 프로젝트 폴더를 만들면 표준 하위폴더 자동 생성
+    const PROJECT_SUBS=['01.설계','02.전장','03.제어','04.생산'];
+    if(p==='doc-tech' && (parentPath==='04.프로젝트' || (parentPath||'').endsWith('/04.프로젝트'))){
+      for(const sub of PROJECT_SUBS){ try{ await spEnsureFolder(`${full}/${sub}`); }catch(e){} }
+      toast('프로젝트 폴더 생성 + 표준 하위폴더(설계/전장/제어/생산) 자동 생성','ok');
+    } else {
+      toast('폴더 생성됨','ok');
+    }
     FT_CHILDREN={};
     if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
+    FT_OPEN[ftKey(p, parentPath?`${parentPath}/${clean}`:clean)]=true;  // 만든 폴더 펼침
     await renderFileTree(p);
   }catch(ex){ toast('폴더 생성 실패: '+ex.message,'bad'); }
 }
