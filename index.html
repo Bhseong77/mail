@@ -386,6 +386,16 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .ctxmenu .ci:hover{background:var(--pd)}
 .ctxmenu .ci.del:hover{background:#fee2e2;color:var(--r)}
 .ctxmenu .sep{height:1px;background:var(--border);margin:4px 0}
+/* 설비제작사양서 탭 */
+.nav-ing{display:inline-block;margin-left:5px;font-size:9px;font-weight:800;color:#fff;background:linear-gradient(135deg,#E0921E,#d6442e);border-radius:8px;padding:1px 6px;vertical-align:middle;letter-spacing:.3px}
+.spec-st-확정{background:rgba(30,158,87,.13);border-color:#1E9E57;color:#137a43;font-weight:800}
+.spec-st-확인필요{background:rgba(224,146,30,.15);border-color:#E0921E;color:#b5740f;font-weight:800}
+.spec-st-요청중{background:rgba(26,111,212,.12);border-color:#1a6fd4;color:#1a5fb4;font-weight:800}
+.spec-tbl thead th{background:linear-gradient(180deg,#534AB7,#3F3B8C)!important}
+.spec-final .cell{min-height:32px;color:var(--t1)}
+.spec-final .cell:empty::before{content:attr(data-ph);color:var(--t3);font-style:italic;font-size:11px}
+.spec-final.on{background:rgba(30,158,87,.07)}
+.spec-final.on .cell{box-shadow:inset 0 0 0 1.5px rgba(30,158,87,.4);border-radius:6px;font-weight:600}
 /* ══════ 모바일 최적화 (640px 이하 — PC 디자인 영향 없음) ══════ */
 @media(max-width:640px){
   .hdr{padding:10px 12px 12px}
@@ -874,7 +884,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v72</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v73</span></div>
     </div>
     <div class="spacer"></div>
     <div class="act-log" id="actLog" title="작업 로그 (최근 100개)">
@@ -901,6 +911,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-mattach" onclick="showPage('mattach')">📧 이메일첨부파일정리<span class="nav-cnt" id="maCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
+  <button id="nav-spec" onclick="showPage('spec')">🏭 설비제작사양서<span class="nav-ing">ing</span></button>
 </div>
 
 <!-- 메일 페이지 -->
@@ -1517,6 +1528,33 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     </div>
   </div>
 </div>
+<!-- 설비제작사양서 페이지 -->
+<div class="page" id="page-spec">
+  <div class="sch-wrap">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--t1)" id="specTitle">장비제작사양서</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:2px" id="specSub"></div>
+      </div>
+      <div class="sch-tools">
+        <span class="sch-save" id="specSaveInd">✓ 저장됨</span>
+        <button class="btn sm" onclick="specSyncExcel()">📥 엑셀 동기화</button>
+        <button class="btn sm" onclick="specReload()">↻ 새로고침</button>
+        <button class="btn sm" onclick="specAddSection()">＋ 섹션</button>
+        <button class="btn sm" onclick="specAddRow()">＋ 항목</button>
+        <button class="btn sm primary" onclick="specSave(true)">💾 SharePoint 저장</button>
+      </div>
+    </div>
+    <div class="sch-stats" id="specStats"></div>
+    <div class="sch-panel">
+      <div class="sch-panel-h">
+        <h2><span class="sch-accent" style="background:#534AB7"></span>설비 제작 사양 · 편집 가능</h2>
+      </div>
+      <div style="overflow-x:auto"><table id="specTbl" class="sch-tbl spec-tbl"></table></div>
+      <div class="sch-note"><b>💡 사용법</b> 셀 클릭해 수정 · <b>상태</b>(확정 / 확인필요 / 요청중) 선택 · <b>확정</b> 시 [✅ 확정 사양] 칸에 합의값 입력 · 💬 행별 댓글 · ➕ 행 추가 · 마스터 엑셀이 바뀌면 [📥 엑셀 동기화] (댓글·상태·확정사양 유지)</div>
+    </div>
+  </div>
+</div>
 <div class="page" id="page-perm"><div class="adm-wrap" id="perm-wrap"></div></div>
 <div class="page" id="page-admin">
   <div class="adm-wrap">
@@ -2021,6 +2059,7 @@ function showPage(p){
   if(p==='contacts'){ loadContacts(); }
   else if(p.startsWith('doc-')){ renderDocPage(p); }
   else if(p==='schedule'){ schInit(); }
+  else if(p==='spec'){ specInit(); }
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
   else if(p==='admin'){ admLoad(); }
@@ -3040,7 +3079,7 @@ let AN_FILTER={}; // page -> {customer, q}
 
 // ════════ 파일탐색기 트리 (5개 탭 공용) ════════
 let FT_OPEN={}, FT_SEL={}, FT_CHILDREN={};
-let _ftCtxTarget=null;
+let _ftCtxTarget=null, _ftCtxJustOpened=0;
 function ftKey(p,path){ return p+'|'+path; }
 async function ftLoadChildren(p,path){
   const root=DOC_MAP[p];
@@ -3156,16 +3195,17 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId) ? '' : 'none';
   m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
   m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+  _ftCtxJustOpened=Date.now();
   m.classList.add('on');
 }
-document.addEventListener('click',()=>{ $('ftCtx')?.classList.remove('on'); });
-// 파일트리 우클릭(위임): 행의 data-* 로 메뉴 표시 — 이름에 특수문자 있어도 안전
+document.addEventListener('click',()=>{ if(Date.now()-_ftCtxJustOpened<350) return; $('ftCtx')?.classList.remove('on'); });
+// 파일트리 우클릭(위임·캡처): 행의 data-* 로 메뉴 표시 — 이름에 특수문자 있어도 안전
 document.addEventListener('contextmenu',function(e){
   const row = e.target && e.target.closest && e.target.closest('.ft-row[data-ftp]');
   if(!row) return;                 // 트리 밖 우클릭은 브라우저 기본 메뉴 허용
-  e.preventDefault();
+  e.preventDefault(); e.stopPropagation();
   ftMenu(e, row.dataset.ftp, row.dataset.ftpath||'', row.dataset.ftfolder==='1', row.dataset.ftid||'', row.dataset.ftname||'', +(row.dataset.ftsize||0));
-});
+}, true);
 async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
@@ -4486,6 +4526,165 @@ function schToggleC(i){const el=$('schcrow'+i);if(!el)return;const show=el.style
 function schAddC(i){const sh=schCur();if(!sh||!sh.tasks[i])return;const tx=$('schctx'+i).value.trim();if(!tx)return;const by=$('schcby'+i).value.trim()||myName();const now=new Date();const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;(sh.tasks[i].cm=sh.tasks[i].cm||[]).push({by,tx,at});schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 function schDelC(i,ci){const sh=schCur();if(!sh||!sh.tasks[i])return;sh.tasks[i].cm.splice(ci,1);schSave(false);schRender();setTimeout(()=>schToggleC(i),20);}
 
+
+// ════════ 설비제작사양서 (TIC-Mail · 06.제작사양서/APU) ════════
+const SPEC_DIR="06.제작사양서/APU";
+const SPEC_XLSX="TIC_장비제작사양서.xlsx";
+const SPEC_JSON="TIC_장비제작사양서_data.json";
+let SPEC_DATA=null, _specLoaded=false, _specErr="", _specSaveT;
+const SPEC_ST_COLORS={ "확정":"#1E9E57", "확인필요":"#E0921E", "요청중":"#1a6fd4" };
+function _specMapStatus(v){ const s=String(v||"").trim(); if(/확정/.test(s)) return "확정"; if(/확인/.test(s)) return "확인필요"; return "요청중"; }
+function _specIsSection(A,B,C){ const a=String(A||"").trim(); return a && !String(B||"").trim() && !String(C||"").trim() && /^\d+\./.test(a); }
+function specParseWb(wb){
+  const sn=wb.SheetNames[0];
+  const ws=wb.Sheets[sn];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""});
+  const title=String((rows[0]&&rows[0][0])||"장비제작사양서").trim();
+  const subtitle=String((rows[1]&&rows[1][0])||"").trim();
+  const meta=String((rows[1]&&rows[1][1])||"").trim();
+  const out=[];
+  rows.forEach((r,ri)=>{
+    if(ri<=1) return;                                   // 제목·부제
+    const A=String(r[0]==null?"":r[0]).replace(/\s+/g," ").trim();
+    const B=String(r[1]==null?"":r[1]).replace(/\s+/g," ").trim();
+    const C=String(r[2]==null?"":r[2]).trim();
+    const D=String(r[3]==null?"":r[3]).trim();
+    const E=String(r[4]==null?"":r[4]).trim();
+    const F=String(r[5]==null?"":r[5]).trim();
+    const G=String(r[6]==null?"":r[6]).trim();
+    if(/^사양\s*No$/.test(A)) return;                    // 헤더행
+    if(!A && !B && !C) return;                          // 빈 행
+    if(_specIsSection(A,B,C)){ out.push({kind:"section",t:A,cm:[]}); return; }
+    out.push({kind:"spec",no:A,item:B,spec:C,unit:D,std:E,status:_specMapStatus(F),confirm:G,finalSpec:"",emph:false,cm:[]});
+  });
+  return {title,subtitle:subtitle+(meta?(" · "+meta):""),rows:out};
+}
+function _specValid(j){ return j && Array.isArray(j.rows) && j.rows.length; }
+// 엑셀 → 파싱 → (기존 댓글·상태·확정사양 보존) SPEC_DATA 교체
+async function specImportExcel(saveAfter){
+  await _ensureXLSX();
+  const t=await graphToken(); const d=await spDrive();
+  const folderEnc=SPEC_DIR.split("/").map(encodeURIComponent).join("/");
+  const lr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${folderEnc}:/children?$top=200`,{headers:{Authorization:"Bearer "+t}});
+  if(!lr.ok){ const tx=await lr.text().catch(()=>""); throw new Error(`폴더 조회 실패 ${lr.status} — [${SPEC_DIR}]. ${tx.slice(0,120)}`); }
+  const items=((await lr.json()).value)||[];
+  const xls=items.filter(it=>/\.xlsx?$/i.test(it.name));
+  let item=xls.find(it=>it.name===SPEC_XLSX)||xls.find(it=>/장비제작사양서/.test(it.name))||xls[0];
+  if(!item){ const names=items.map(i=>i.name).slice(0,15).join(", ")||"(폴더 비어있음)"; throw new Error(`'${SPEC_XLSX}' 못 찾음. 폴더 내: ${names}`); }
+  let buf, dlUrl=item["@microsoft.graph.downloadUrl"];
+  if(!dlUrl){ const mr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${item.id}`,{headers:{Authorization:"Bearer "+t}}); if(mr.ok) dlUrl=(await mr.json())["@microsoft.graph.downloadUrl"]; }
+  if(dlUrl){ const fr=await fetch(dlUrl); if(!fr.ok) throw new Error(`엑셀 다운로드 실패 ${fr.status}`); buf=await fr.arrayBuffer(); }
+  else{ const cr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${item.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(!cr.ok) throw new Error(`엑셀 다운로드 실패 ${cr.status}`); buf=await cr.arrayBuffer(); }
+  const wb=XLSX.read(buf,{type:"array"});
+  const fresh=specParseWb(wb);
+  if(!fresh.rows.length) throw new Error("엑셀에 데이터 행이 없습니다");
+  const keep={};
+  if(_specValid(SPEC_DATA)) SPEC_DATA.rows.forEach(r=>{ if(r.kind==="spec") keep[(r.no||"")+"::"+(r.item||"")]={cm:r.cm||[],status:r.status,finalSpec:r.finalSpec||"",emph:r.emph}; });
+  fresh.rows.forEach(r=>{ if(r.kind==="spec"){ const k=keep[(r.no||"")+"::"+(r.item||"")]; if(k){ r.cm=k.cm||[]; if(k.status)r.status=k.status; r.finalSpec=k.finalSpec||""; if(k.emph!==undefined)r.emph=k.emph; } } });
+  SPEC_DATA={title:fresh.title,subtitle:fresh.subtitle,rows:fresh.rows,srcFile:item.name,importedAt:new Date().toISOString()};
+  _specErr="";
+  if(saveAfter) await specSave(false);
+}
+async function specLoad(){
+  $('specTbl').innerHTML='<tbody><tr><td style="padding:30px;text-align:center;color:var(--t3)">불러오는 중…</td></tr></tbody>';
+  try{ const j=await spGetJson(`${SPEC_DIR}/${SPEC_JSON}`); if(_specValid(j)) SPEC_DATA=j; }catch(e){}
+  if(!_specValid(SPEC_DATA)){
+    try{ await specImportExcel(false); }
+    catch(e){ _specErr=e.message; SPEC_DATA={title:"장비제작사양서",subtitle:"",rows:[]}; }
+  }
+  specRender();
+}
+async function specInit(){ if(!_specLoaded){ await specLoad(); _specLoaded=true; } else specRender(); }
+async function specReload(){ _specLoaded=false; await specInit(); }
+async function specSave(manual){
+  const _j=manual?_J("사양서 저장"):null;
+  try{
+    await spPutJson(`${SPEC_DIR}/${SPEC_JSON}`, SPEC_DATA);
+    const ind=$('specSaveInd'); if(ind){ ind.classList.add('show'); clearTimeout(_specSaveT); _specSaveT=setTimeout(()=>ind.classList.remove('show'),1500); }
+    if(manual){ _Jok(_j,"완료"); toast("사양서 SharePoint 저장 완료","ok"); }
+  }catch(e){ if(manual){ _Jno(_j,e.message); toast("저장 실패: "+e.message,"bad"); } else console.warn("사양서 자동저장 실패:",e.message); }
+}
+async function specSyncExcel(){
+  if(!confirm("마스터 엑셀(TIC_장비제작사양서.xlsx)에서 다시 불러옵니다.\n항목은 엑셀 기준으로 갱신되고, 사양No+항목이 같으면 댓글·상태·확정사양은 유지됩니다. 진행할까요?")) return;
+  const _j=_J("사양서 엑셀 동기화");
+  try{ await specImportExcel(true); specRender(); _Jok(_j,SPEC_DATA.rows.filter(r=>r.kind==="spec").length+"개 항목"); toast("엑셀에서 동기화 완료","ok"); }
+  catch(e){ _Jno(_j,e.message); toast("동기화 실패: "+e.message,"bad"); }
+}
+function specRender(){
+  if(!SPEC_DATA){ return; }
+  $('specTitle').textContent=SPEC_DATA.title||"장비제작사양서";
+  $('specSub').textContent=SPEC_DATA.subtitle||"";
+  if(!(SPEC_DATA.rows||[]).length){
+    $('specStats').innerHTML='';
+    $('specTbl').innerHTML='<tbody><tr><td style="padding:34px 24px;text-align:center;color:var(--t3)"><div style="font-size:15px;font-weight:700;color:var(--t2);margin-bottom:8px">📭 표시할 사양이 없습니다</div><div>상단 <b>[📥 엑셀 동기화]</b>로 마스터 엑셀을 불러오세요.</div>'+(_specErr?'<div style="display:inline-block;margin-top:10px;text-align:left;max-width:560px;background:rgba(214,68,46,.08);border:1px solid rgba(214,68,46,.3);color:#b23420;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5">⚠️ 마지막 오류<br>'+esc(_specErr)+'</div>':'')+'</td></tr></tbody>';
+    return;
+  }
+  specStats(); specTable();
+}
+function specStats(){
+  const rows=(SPEC_DATA.rows||[]).filter(r=>r.kind==="spec");
+  const secN=(SPEC_DATA.rows||[]).filter(r=>r.kind==="section").length;
+  const total=rows.length;
+  const c1=rows.filter(r=>r.status==="확정").length;
+  const c2=rows.filter(r=>r.status==="확인필요").length;
+  const c3=rows.filter(r=>r.status==="요청중").length;
+  const rate=total?Math.round(c1/total*100):0;
+  const cards=[
+    {k:"총 항목",v:total+"개",d:secN+"개 섹션",c:"#534AB7"},
+    {k:"✅ 확정",v:c1+"개",d:"합의·고정",c:SPEC_ST_COLORS["확정"]},
+    {k:"확인필요 / 요청중",v:c2+" / "+c3,d:"확인·검토 대기",c:SPEC_ST_COLORS["확인필요"]},
+    {k:"확정률",v:rate+"%",d:"확정 "+c1+" / "+total,c:"#1a6fd4"}
+  ];
+  $('specStats').innerHTML=cards.map(c=>`<div class="sch-stat"><div class="bar" style="background:${c.c}"></div><div class="k">${esc(c.k)}</div><div class="v">${esc(c.v)}</div><div class="d">${esc(c.d)}</div></div>`).join("");
+}
+function _specStatusSel(i,st){
+  const opt=(v)=>`<option value="${v}" ${st===v?"selected":""}>${v}</option>`;
+  return `<select class="sch-stsel spec-st-${st||'none'}" onchange="specStatus(${i},this.value)">${opt("확정")}${opt("확인필요")}${opt("요청중")}</select>`;
+}
+function specTable(){
+  const rows=SPEC_DATA.rows||[];
+  const head=`<thead><tr><th style="width:60px">사양No</th><th style="width:150px">항목</th><th>사양 / 요구값</th><th class="c" style="width:58px">단위</th><th style="width:140px">표준·근거</th><th class="c" style="width:96px">상태</th><th style="width:200px">✅ 확정 사양</th><th style="width:190px">최종확인사항</th><th class="c" style="width:104px">댓글/행</th></tr></thead>`;
+  let body="<tbody>";
+  rows.forEach((t,i)=>{
+    if(t.kind==="section"){ body+=`<tr class="sch-trsec"><td colspan="9"><div class="sch-seccell"><span class="t">${esc(t.t)}</span></div></td></tr>`; body+=_specCrow(i,t); return; }
+    const done=t.status==="확정";
+    body+=`<tr class="${t.emph?'emph':''}">
+      <td><div class="cell" contenteditable onblur="specUp(${i},'no',this)" style="font-weight:700;color:var(--p2)">${esc(t.no||"")}</div></td>
+      <td><div class="cell" contenteditable onblur="specUp(${i},'item',this)" style="font-weight:600">${esc(t.item||"")}</div></td>
+      <td><div class="cell" contenteditable onblur="specUp(${i},'spec',this)">${esc(t.spec||"")}</div></td>
+      <td class="c"><div class="cell" contenteditable onblur="specUp(${i},'unit',this)" style="color:var(--t3)">${esc(t.unit||"")}</div></td>
+      <td><div class="cell" contenteditable onblur="specUp(${i},'std',this)" style="font-size:11px;color:var(--t3)">${esc(t.std||"")}</div></td>
+      <td class="c">${_specStatusSel(i,t.status)}</td>
+      <td class="spec-final ${done?'on':''}"><div class="cell" contenteditable onblur="specUp(${i},'finalSpec',this)" data-ph="확정 시 입력">${esc(t.finalSpec||"")}</div></td>
+      <td><div class="cell" contenteditable onblur="specUp(${i},'confirm',this)" style="font-size:11.5px">${esc(t.confirm||"")}</div></td>
+      <td><div class="sch-rowact">${_specRowBtns(i,t)}</div></td></tr>`;
+    body+=_specCrow(i,t);
+  });
+  body+="</tbody>";
+  $('specTbl').innerHTML=head+body;
+}
+function _specRowBtns(i,t){
+  return `<button class="sch-iconbtn" title="아래에 행 추가" onclick="specInsertBelow(${i})">➕</button>`+
+    `<button class="sch-iconbtn" title="댓글" onclick="specToggleC(${i})">💬${t.cm&&t.cm.length?`<span class="cnt">${t.cm.length}</span>`:""}</button>`+
+    `<button class="sch-iconbtn" title="강조" onclick="specToggleEmph(${i})">${t.emph?'<span class="sch-star">★</span>':'☆'}</button>`+
+    `<button class="sch-iconbtn" title="삭제" onclick="specDelRow(${i})">🗑</button>`;
+}
+function _specCrow(i,t){ return `<tr class="crow" id="speccrow${i}" style="display:none"><td colspan="9">${specCommentBox(i,t)}</td></tr>`; }
+function specCommentBox(i,t){
+  const cl=(t.cm||[]).map((c,ci)=>`<div class="sch-cmt"><div class="meta"><span>${esc(c.by||"익명")} · ${c.at}</span><span class="del" onclick="specDelC(${i},${ci})">삭제</span></div>${esc(c.tx)}</div>`).join("");
+  const label=t.kind==="section"?t.t:(t.item||t.no||"");
+  return `<div class="sch-cbox"><h4>💬 ${esc(label)} — 댓글 (${(t.cm||[]).length})</h4><div class="sch-clist">${cl||'<span class="sch-cempty">아직 댓글이 없습니다.</span>'}</div><div class="sch-cadd"><input id="speccby${i}" value="${esc(myName())}" placeholder="이름"><textarea id="specctx${i}" placeholder="댓글 입력…"></textarea><button class="btn sm primary" onclick="specAddC(${i})">등록</button></div></div>`;
+}
+function specUp(i,k,el){ const r=SPEC_DATA.rows[i]; if(!r)return; r[k]=el.innerText.trim(); specSave(false); }
+function specStatus(i,v){ const r=SPEC_DATA.rows[i]; if(!r)return; r.status=v; specSave(false); specRender(); }
+function specToggleEmph(i){ const r=SPEC_DATA.rows[i]; if(!r)return; r.emph=!r.emph; specSave(false); specRender(); }
+function specDelRow(i){ const r=SPEC_DATA.rows[i]; if(!r)return; if(confirm("이 행을 삭제할까요?")){ SPEC_DATA.rows.splice(i,1); specSave(false); specRender(); } }
+function specInsertBelow(i){ const ref=SPEC_DATA.rows[i]||{}; SPEC_DATA.rows.splice(i+1,0,{kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); }
+function specAddRow(){ (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"spec",no:"",item:"새 항목",spec:"",unit:"",std:"",status:"요청중",confirm:"",finalSpec:"",emph:false,cm:[]}); specSave(false); specRender(); }
+function specAddSection(){ const t=prompt("섹션 제목 (예: 15. 기타):",""); if(!t)return; (SPEC_DATA.rows=SPEC_DATA.rows||[]).push({kind:"section",t:t.trim(),cm:[]}); specSave(false); specRender(); }
+function specToggleC(i){ const el=$('speccrow'+i); if(!el)return; const show=el.style.display==="none"; document.querySelectorAll('#specTbl .crow').forEach(r=>r.style.display="none"); el.style.display=show?"table-row":"none"; if(show)setTimeout(()=>$('specctx'+i)?.focus(),30); }
+function specAddC(i){ const r=SPEC_DATA.rows[i]; if(!r)return; const tx=$('specctx'+i).value.trim(); if(!tx)return; const by=$('speccby'+i).value.trim()||myName(); const now=new Date(); const at=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`; (r.cm=r.cm||[]).push({by,tx,at}); specSave(false); specRender(); setTimeout(()=>specToggleC(i),20); }
+function specDelC(i,ci){ const r=SPEC_DATA.rows[i]; if(!r)return; r.cm.splice(ci,1); specSave(false); specRender(); setTimeout(()=>specToggleC(i),20); }
 
 // 서버 주소를 SharePoint(server.py가 자동 기록)에서 읽어 갱신 — 재부팅으로 터널 주소 바뀌어도 자동 추적
 const SERVER_ENDPOINT_SITE="enjetco.sharepoint.com:/sites/TIC";
