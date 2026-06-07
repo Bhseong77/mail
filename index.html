@@ -471,7 +471,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v25</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v26</span></div>
     </div>
     <div class="spacer"></div>
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
@@ -1068,7 +1068,7 @@ const ADMIN_SEED_TPROJECT={
     purchase:'엑셀파일 (파일명 하승수 작성예정)',
     mailUrl:'https://bhseong77.github.io/mail/',
     docUrl:'https://enjetco.sharepoint.com/sites/TIC-Mail/Shared%20Documents/Forms/AllItems.aspx',
-    acctMail:'enjet_ed@enjet.co.kr', acctPw:'20260604', officePw:'260604',
+    acctMail:'enjet_ed@enjet.co.kr', acctPw:'20260604', officePw:'260604', wifiPw:'',
     security:'고객사 약어 <b>T사</b> · 프로젝트명 <b>T프로젝트</b> 로만 표기',
     summaryNote:'받은메일 · 보낸메일을 실시간 알림<br>정기 요약: <b>오전 8시 / 오후 12:30 / 오후 5시</b>'
   }
@@ -1110,7 +1110,7 @@ function admRenderChannels(){
   const box=$('adm_channels'); if(!box) return;
   if(!ADMIN_CFG.channels.length){ box.innerHTML='<div class="adm-card" style="text-align:center;color:var(--t3)">채널이 없습니다. [＋ 채널 추가]를 누르세요.</div>'; return; }
   box.innerHTML=ADMIN_CFG.channels.map((c,i)=>{
-    const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+    const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',wifiPw:'',security:'',summaryNote:''}, c.welcomeFields||{});
     return `
     <div class="adm-card adm-ch">
       <div class="adm-ch-head">
@@ -1146,6 +1146,7 @@ function admRenderChannels(){
           <label class="adm-row col"><span class="adm-lbl">계정 이메일</span><input type="text" value="${esc(wf.acctMail)}" onchange="admWF(${i},'acctMail',this.value)"></label>
           <label class="adm-row col"><span class="adm-lbl">계정 비번</span><input type="text" value="${esc(wf.acctPw)}" onchange="admWF(${i},'acctPw',this.value)"></label>
           <label class="adm-row col"><span class="adm-lbl">오피스 PW</span><input type="text" value="${esc(wf.officePw)}" onchange="admWF(${i},'officePw',this.value)"></label>
+          <label class="adm-row col"><span class="adm-lbl">4층 WiFi 비번</span><input type="text" value="${esc(wf.wifiPw)}" onchange="admWF(${i},'wifiPw',this.value)"></label>
         </div>
         <label class="adm-row col"><span class="adm-lbl">🔒 보안 문구</span><input type="text" value="${esc(wf.security)}" onchange="admWF(${i},'security',this.value)"></label>
         <label class="adm-row col"><span class="adm-lbl">🤖 요약 안내</span><input type="text" value="${esc(wf.summaryNote)}" onchange="admWF(${i},'summaryNote',this.value)"></label>
@@ -1172,7 +1173,7 @@ function admBuildWelcome(wf){
     `<div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px;background:#ffffff;">`+
     (wf.code?`<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:14px;"><span style="color:#6b7280;font-size:13px;">Project Code</span><br><span style="font-size:20px;font-weight:bold;color:#7c3aed;letter-spacing:1px;">${wf.code}</span></div>`:'')+
     `<table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;">${rows}</table>`+
-    (wf.acctMail||wf.acctPw||wf.officePw?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>${wf.acctMail||''}</b> / pw <b>${wf.acctPw||''}</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span>${wf.officePw?`<br>4층 오피스 PW: <b>${wf.officePw}</b>`:''}</div>`:'')+
+    (wf.acctMail||wf.acctPw||wf.officePw||wf.wifiPw?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.7;"><b>🔑 계정 정보</b><br>이메일: <b>${wf.acctMail||''}</b> / pw <b>${wf.acctPw||''}</b><br><span style="color:#dc2626;">※ 개인메일 사용 금지</span>${wf.officePw?`<br>4층 오피스 PW: <b>${wf.officePw}</b>`:''}${wf.wifiPw?`<br>📶 4층 WiFi 비번: <b>${wf.wifiPw}</b>`:''}</div>`:'')+
     (wf.security?`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🔒 보안 준수</b><br>${wf.security}</div>`:'')+
     (wf.summaryNote?`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13.5px;line-height:1.7;"><b>🤖 자동 요약 안내</b><br>${wf.summaryNote}</div>`:'')+
     `</div></div>`;
@@ -1191,11 +1192,11 @@ let _admPrevIdx=-1;
 function admPreview(i){
   const c=ADMIN_CFG.channels[i]; if(!c) return;
   _admPrevIdx=i;
-  const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',security:'',summaryNote:''}, c.welcomeFields||{});
+  const wf=Object.assign({title:'',code:'',scheduleUrl:'',purchase:'',mailUrl:'',docUrl:'',acctMail:'',acctPw:'',officePw:'',wifiPw:'',security:'',summaryNote:''}, c.welcomeFields||{});
   const F=[
     ['title','제목'],['code','프로젝트 코드'],['scheduleUrl','📅 일정표 링크'],
     ['purchase','🛒 구매요청 안내'],['mailUrl','📧 메일 대시보드 링크'],['docUrl','📁 문서함 링크'],
-    ['acctMail','계정 이메일'],['acctPw','계정 비번'],['officePw','오피스 PW'],
+    ['acctMail','계정 이메일'],['acctPw','계정 비번'],['officePw','오피스 PW'],['wifiPw','4층 WiFi 비번'],
     ['security','🔒 보안 문구'],['summaryNote','🤖 요약 안내']
   ];
   $('admPrevFields').innerHTML=F.map(([k,label])=>
