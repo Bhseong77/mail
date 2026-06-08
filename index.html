@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v89</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v90</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -3369,7 +3369,24 @@ async function ftAct(action){
   }else if(action==='delete'){
     if(!t.itemId){ toast('루트는 삭제 불가','bad'); return; }
     if(!confirm(`"${t.name}" 삭제할까요? (SharePoint 영구삭제)`)) return;
-    try{ await spDeleteItem(t.itemId); toast('삭제됨','ok'); actLog(`🗑 삭제: ${t.name}`); FT_CHILDREN={}; renderFileTree(p); }
+    try{
+      await spDeleteItem(t.itemId); toast('삭제됨','ok'); actLog(`🗑 삭제: ${t.name}`);
+      // 분석탭이면 분석 목록(AN_DATA)에서도 제거 → 트리에서 지우면 목록 행도 사라짐
+      if(DOC_ANALYZE.includes(p) && AN_DATA[p]){
+        let changed=false;
+        if(!t.isFolder){
+          if(AN_DATA[p][t.itemId]){ delete AN_DATA[p][t.itemId]; changed=true; }
+        }else{
+          const rel=t.path||'';
+          if(rel) for(const fid of Object.keys(AN_DATA[p])){
+            const f=AN_DATA[p][fid].folder||'';
+            if(f===rel || f.startsWith(rel+'/')){ delete AN_DATA[p][fid]; changed=true; }
+          }
+        }
+        if(changed){ try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); }catch(e){} if(typeof anRender==='function') anRender(p); }
+      }
+      FT_CHILDREN={}; renderFileTree(p);
+    }
     catch(ex){ toast('실패: '+ex.message,'bad'); }
   }
 }
