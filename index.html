@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v79</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v80</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -2617,6 +2617,35 @@ ${content}`;
   }catch(_){ return null; }
 }
 // 메일 로드 시 자동 백그라운드 스캔 (1회)
+function _isFwd(s){ return /^\s*(fwd?|fw|전달)\s*[:：]/i.test(s||''); }
+// 전달(Fwd) 메일: 본문에서 '전달한 직원'이 아닌 '원래 외부 발신자' 명함 추출
+async function _copilotParseForward(forwarder, subject, content){
+  const prompt=`아래는 enjet 직원(${forwarder})이 '전달(Fwd)'한 이메일이다. 전달한 직원이 아니라, 본문에 인용된 **원래 보낸사람(외부 거래처)**의 명함 정보를 JSON 하나로만 추출해. 설명·마크다운 없이 순수 JSON만 출력.
+
+규칙:
+- 전달 헤더(From:/보낸사람:/差出人/Sent by 등)와 본문 하단 서명(signature)에서 원 발신자를 찾는다.
+- enjet.co.kr 주소는 원 발신자가 아니다 (그건 전달한 직원).
+- name: 원 발신자 이름(직급 제외)
+- company: 회사명("(주)","㈜" 표기 유지)
+- dept: 부서, title: 직급/직책
+- phone: 휴대폰(010) 우선, 없으면 대표전화
+- email: 원 발신자 이메일 (필수). 못 찾으면 ""
+- category: [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나
+- 못 찾는 값은 빈 문자열 "".
+
+예시: {"name":"하태일","company":"TÜV Rheinland Korea","dept":"","title":"이사","phone":"010-4554-7709","email":"taill.ha@tuv.com","category":"기타"}
+
+[제목] ${subject}
+[전달 본문]
+${content}`;
+  try{
+    const txt=await callCopilot(prompt);
+    let t=txt.replace(/```json|```/g,'').trim();
+    const s=t.indexOf('{'), e=t.lastIndexOf('}');
+    if(s>=0&&e>s) t=t.slice(s,e+1);
+    return JSON.parse(t);
+  }catch(_){ return null; }
+}
 async function autoScanOnLoad(){
   if(_autoScanned||_autoScanRunning) return;
   _autoScanned=true;
@@ -2638,13 +2667,17 @@ async function _scanCopilot(silent){
       const f=(m.from&&m.from[0])?m.from[0]:null;
       if(!f||!f.email) continue;
       const em=f.email.toLowerCase();
-      if(em.endsWith("@enjet.co.kr")) continue;
+      if(em.endsWith("@enjet.co.kr")){
+        // 내부 직원이 전달(Fwd)한 메일 → 본문 속 '원래 외부 발신자'를 추출 대상으로
+        if(_isFwd(m.subject)) targets.push({uid:m.uid, fwd:true, forwarder:f.email, subject:m.subject||""});
+        continue;
+      }
       if(existing.has(em)||seen.has(em)) continue;
       seen.add(em);
-      targets.push({uid:m.uid, email:f.email, name:f.name||"", subject:m.subject||""});
+      targets.push({uid:m.uid, fwd:false, email:f.email, name:f.name||"", subject:m.subject||""});
     }
     if(!targets.length){ _Jok(_j,"신규 없음"); if(!silent) toast("새 외부 연락처 없음","ok"); return; }
-    if(!silent) toast(`${targets.length}명 본문 분석 중… (다소 시간 걸림)`);
+    if(!silent) toast(`${targets.length}건 본문 분석 중… (다소 시간 걸림)`);
     let added=0, done=0;
     for(const tg of targets.slice(0,25)){
       done++;
@@ -2656,22 +2689,34 @@ async function _scanCopilot(silent){
         body=(bd.body||"").replace(/\s+/g," ").trim();
       }catch(_){}
       const content=((body+" \n "+bodyHtml).trim()||body||bodyHtml).slice(0,3500);
-      const info=await _copilotParseSignature(tg.email, tg.name||"", tg.subject||"", content);
-      const company=(info&&info.company)?info.company:guessCompany(tg.email,tg.name);
+      let email, hdrName, info;
+      if(tg.fwd){
+        info=await _copilotParseForward(tg.forwarder, tg.subject, content);
+        email=((info&&info.email)||"").trim();
+        if(!email) continue;                              // 원 발신자 못 찾음
+        const el=email.toLowerCase();
+        if(el.endsWith("@enjet.co.kr")) continue;          // 원 발신자도 내부면 스킵
+        if(existing.has(el)||seen.has(el)) continue;        // 이미 있음
+        seen.add(el); hdrName=info.name||"";
+      }else{
+        email=tg.email; hdrName=tg.name||"";
+        info=await _copilotParseSignature(tg.email, tg.name||"", tg.subject||"", content);
+      }
+      const company=(info&&info.company)?info.company:guessCompany(email,hdrName);
       let cat=(info&&info.category)||"";
       if(!cat||!CATEGORIES.includes(cat)) cat=guessCategory((company||"")+" "+(tg.subject||""));
       CONTACTS.push({
-        name:(info&&info.name)||tg.name||"",
-        email:tg.email,
+        name:(info&&info.name)||hdrName||"",
+        email:email,
         company:company||"",
         dept:(info&&info.dept)||"",
         title:(info&&info.title)||"",
         phone:(info&&info.phone)||"",
         category:cat||"",
-        memo:"Copilot 자동수집",
+        memo:tg.fwd?"Copilot 자동수집(전달메일 원발신자)":"Copilot 자동수집",
         isNew:true
       });
-      existing.add(tg.email.toLowerCase());
+      existing.add(email.toLowerCase());
       added++;
       await new Promise(r=>setTimeout(r,400));
       // 주소록 탭 보고 있으면 진행상황 갱신, 아니면 배지만
