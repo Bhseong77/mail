@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v84</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v86</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -1577,6 +1577,14 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div id="adm_openai_msg" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
     </div>
     <div class="adm-card">
+      <div class="adm-card-h">💳 카드 등록 <span style="font-weight:400;color:var(--t3);font-size:12px">· 거래명세서 ‘카드’ 컬럼에서 선택 (카드명칭만)</span></div>
+      <div class="adm-row" style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="adm_card" placeholder="예: 신한 법인카드" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
+        <button class="btn primary" type="button" onclick="admAddCard()">＋ 추가</button>
+      </div>
+      <div id="adm_cards" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <div class="adm-card">
       <div class="adm-card-h">🔔 전체 자동요약</div>
       <label class="adm-toggle"><input type="checkbox" id="adm_master"> <span>전체 자동요약 사용 (끄면 모든 채널 중지)</span></label>
     </div>
@@ -2073,12 +2081,12 @@ function showPage(p){
   $('nav-'+p)?.classList.add('active');
   $('specHdrBtn')?.classList.toggle('active', p==='spec');
   if(p==='contacts'){ loadContacts(); }
-  else if(p.startsWith('doc-')){ renderDocPage(p); }
+  else if(p.startsWith('doc-')){ renderDocPage(p); if(p==='doc-invoice'){ loadAnConfig().then(()=>{ if(curPage===p && AN_DATA[p]) anRender(p); }); } }
   else if(p==='schedule'){ schInit(); }
   else if(p==='spec'){ specInit(); }
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
-  else if(p==='admin'){ admLoad(); }
+  else if(p==='admin'){ admLoad(); loadAnConfig(true).then(admRenderCards); }
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
 }
@@ -2480,8 +2488,50 @@ async function admSaveOpenAI(){
     try{ actLog('🔑 OpenAI 키 저장'); }catch(e){}
   }catch(e){ _Jno(_j,e.message); msg.style.color='var(--r)'; msg.textContent='저장 실패: '+e.message; }
 }
-// 📇 명함 사진 → 서버(GPT-4o 비전) 파싱 → 모달에서 미리보기·편집 후 저장
-function _fileToB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(new Error('파일 읽기 실패')); r.readAsDataURL(f); }); }
+// ── 거래명세서 설정: 카드 목록 + 커스텀 분류 (TIC/01.통합관리/99.서버/an-config.json) ──
+const AN_CONFIG_PATH="01.통합관리/99.서버/an-config.json";
+let AN_CONFIG={cards:[], categories:[]}, _anConfigLoaded=false;
+async function loadAnConfig(force){
+  if(_anConfigLoaded && !force) return AN_CONFIG;
+  try{
+    const t=await graphToken(); const d=await _ticDrive();
+    const enc=AN_CONFIG_PATH.split("/").map(encodeURIComponent).join("/");
+    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok){ const j=await r.json(); AN_CONFIG={cards:j.cards||[], categories:j.categories||[]}; }
+  }catch(e){ /* 기본값 유지 */ }
+  _anConfigLoaded=true; return AN_CONFIG;
+}
+async function saveAnConfig(){
+  const t=await graphToken(); const d=await _ticDrive();
+  const enc=AN_CONFIG_PATH.split("/").map(encodeURIComponent).join("/");
+  const body=JSON.stringify({cards:AN_CONFIG.cards||[], categories:AN_CONFIG.categories||[], updated_at:new Date().toISOString()}, null, 2);
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,{method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+}
+function allCategories(){ return [...new Set([...CATEGORIES, ...((AN_CONFIG.categories)||[])])]; }
+function admRenderCards(){
+  const box=$('adm_cards'); if(!box) return;
+  const cards=AN_CONFIG.cards||[];
+  box.innerHTML = cards.length
+    ? cards.map((c,i)=>`<span class="chip"><b>💳 ${esc(c)}</b><span style="cursor:pointer;margin-left:6px" onclick="admDelCard(${i})">✕</span></span>`).join('')
+    : '<span style="color:var(--t3);font-size:12px">등록된 카드 없음</span>';
+}
+async function admAddCard(){
+  const inp=$('adm_card'); const name=(inp.value||'').trim();
+  if(!name) return;
+  AN_CONFIG.cards=AN_CONFIG.cards||[];
+  if(AN_CONFIG.cards.includes(name)){ toast('이미 등록된 카드','bad'); return; }
+  AN_CONFIG.cards.push(name);
+  try{ await saveAnConfig(); inp.value=''; admRenderCards(); toast('카드 추가됨','ok'); try{ actLog(`💳 카드 등록: ${name}`); }catch(e){} }
+  catch(e){ AN_CONFIG.cards.pop(); toast('저장 실패: '+e.message,'bad'); }
+}
+async function admDelCard(i){
+  const c=(AN_CONFIG.cards||[])[i]; if(c==null) return;
+  if(!confirm(`"${c}" 카드를 삭제할까요?`)) return;
+  const removed=AN_CONFIG.cards.splice(i,1);
+  try{ await saveAnConfig(); admRenderCards(); toast('삭제됨','ok'); }
+  catch(e){ AN_CONFIG.cards.splice(i,0,...removed); toast('저장 실패: '+e.message,'bad'); }
+}
 function _safeFn(s){ return String(s||'').replace(/[~"#%&*:<>?/\\{|}\r\n\t]/g,' ').replace(/\s+/g,' ').trim(); }
 let _cardQueue=[], _cardCur=null, _cardImgUrl=null;
 function scanBusinessCards(files){
@@ -3362,11 +3412,13 @@ async function ftUploadFiles(files){
       ok++;
     }catch(ex){ fail++; console.warn('업로드 실패',f.name,ex.message); }
   }
-  toast(`${ok}개 업로드 완료${fail?` · 실패 ${fail}`:''}${DOC_ANALYZE.includes(page)?' · [✨ 미분석 분석]으로 분석':''}`,'ok');
+  toast(`${ok}개 업로드 완료${fail?` · 실패 ${fail}`:''}${DOC_ANALYZE.includes(page)?' · 자동 분석 시작…':''}`,'ok');
   if(ok) actLog(`⬆ 업로드: ${files.length}개 → ${DOC_TITLE[page].replace(/^[^ ]+ /,'')}/${dir||'(루트)'}`);
   FT_CHILDREN={};
   if(dir) FT_OPEN[ftKey(page,dir)]=true;
   renderFileTree(page);
+  // 분석 대상 탭(견적/거래명세서/세금계산서)이면 업로드 후 자동으로 미분석 분석
+  if(ok && DOC_ANALYZE.includes(page)){ setTimeout(()=>{ try{ anAnalyze(page); }catch(e){} }, 900); }
 }
 // zip 풀어서 base 폴더 아래에 (내부 폴더구조 유지) 업로드
 async function _unzipUpload(file, base, page){
@@ -3460,6 +3512,38 @@ function anRender(p){
   $('ancount-'+p).textContent=`${rows.length}건`;
   const wrap=$('antbl-'+p);
   if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
+  // ── 거래명세서 전용 컬럼: 회사명·거래일·분류(추가가능)·품목·수량·단가·VAT·금액·납기·카드 ──
+  if(p==='doc-invoice'){
+    const cats=allCategories(), cards=AN_CONFIG.cards||[];
+    let h=`<table class="an-tbl"><thead><tr>
+      <th>회사명</th><th class="c">거래일</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">VAT</th><th class="r">금액</th>
+      <th class="c">납기</th><th class="c">카드</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+    for(const r of rows){
+      const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
+      const rowspan=items.length;
+      const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
+      items.forEach((it,ix)=>{
+        h+=`<tr>`;
+        if(ix===0){
+          h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
+          h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:98px" value="${esc(r.quoteDate||r.date||'')}" onchange="anField('${p}','${r.fid}','quoteDate',this.value)"></td>`;
+          const catOpts=cats.map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
+          h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:92px" onchange="anCatChange('${p}','${r.fid}',this)">${catOpts}</select></td>`;
+        }
+        h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(_vat10(it.amount))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
+        if(ix===0){
+          const cardOpts=`<option value="">-</option>`+cards.map(c=>`<option ${c===(r.card||'')?'selected':''}>${esc(c)}</option>`).join('');
+          h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
+             `<td rowspan="${rowspan}" class="c"><select class="memo" style="width:112px" onchange="anField('${p}','${r.fid}','card',this.value)">${cardOpts}</select></td>`+
+             `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+             `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
+        }
+        h+=`</tr>`;
+      });
+    }
+    h+=`</tbody></table>`;
+    wrap.innerHTML=h; return;
+  }
   let h=`<table class="an-tbl"><thead><tr>
     <th>회사명</th><th class="c">견적작성일</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
     <th class="c">납기</th><th class="c">대금지급</th><th class="c">보증기간</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
@@ -3490,6 +3574,23 @@ function anRender(p){
   wrap.innerHTML=h;
 }
 function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
+function _vat10(amount){ const v=Number(String(amount==null?'':amount).replace(/[, ]/g,'')); return (isNaN(v)||v===0)?'':Math.round(v*0.1).toLocaleString(); }
+async function anCatChange(p,fid,sel){
+  const v=sel.value;
+  if(v==='__new__'){
+    const nn=(prompt('새 분류 이름:')||'').trim();
+    if(!nn){ anRender(p); return; }
+    AN_CONFIG.categories=AN_CONFIG.categories||[];
+    if(!AN_CONFIG.categories.includes(nn) && !CATEGORIES.includes(nn)){
+      AN_CONFIG.categories.push(nn);
+      try{ await saveAnConfig(); }catch(e){ toast('분류 저장 실패: '+e.message,'bad'); }
+    }
+    await anField(p,fid,'category',nn);
+    anRender(p);
+    return;
+  }
+  await anField(p,fid,'category',v);
+}
 function anPreview(p,fid){
   const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
   if(canPreview(d.fileName)){ previewInModal({name:d.fileName, itemId:fid}); }
@@ -3643,9 +3744,9 @@ async function anReanalyze(p,fid){
     toast('재분석 완료','ok');
   }catch(e){ toast('재분석 실패: '+e.message,'bad'); }
 }
-async function anAnalyze(p){
+async function anAnalyze(p, silent){
   const root=DOC_MAP[p];
-  toast('문서 목록 확인 중…');
+  if(!silent) toast('문서 목록 확인 중…');
   const files=[];
   async function walk(path,customer){
     const items=await spList(path);
@@ -3657,9 +3758,10 @@ async function anAnalyze(p){
   await walk(root,'');
   AN_DATA[p]=AN_DATA[p]||{};
   const pending=files.filter(f=>!AN_DATA[p][f.id]);
-  if(!pending.length){ toast('새로 분석할 문서 없음','ok'); anRender(p); return; }
-  toast(`${pending.length}개 분석 중… (시간 걸림)`);
-  let done=0;
+  if(!pending.length){ if(!silent) toast('새로 분석할 문서 없음','ok'); anRender(p); return; }
+  const _j=_J(`${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 미분석 분석 ${pending.length}건`);
+  if(!silent) toast(`${pending.length}개 분석 중… (시간 걸림)`);
+  let done=0, okN=0;
   for(const f of pending){
     done++;
     try{
@@ -3692,14 +3794,17 @@ ${text.slice(0,6000)}`;
         warranty:(info&&info.warranty)||'',
         memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
       };
-      if(done%3===0){ anRender(p); toast(`분석 중… ${done}/${pending.length}`); }
+      okN++;
+      if(done%3===0){ anRender(p); if(!silent) toast(`분석 중… ${done}/${pending.length}`); }
     }catch(e){ console.warn('분석 실패',f.name,e.message); }
     await new Promise(r=>setTimeout(r,400));
   }
   try{ await spPutJson(`${root}/_analysis.json`, AN_DATA[p]); }catch(e){}
   anRender(p);
   renderDocPage(p); // 트리에 새 파일명 반영
-  toast(`${pending.length}개 분석 완료 · SharePoint 캐시 저장됨`,'ok');
+  _Jok(_j, `${okN}/${pending.length}건 분석`);
+  try{ actLog(`✨ ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 분석 ${okN}건`); }catch(e){}
+  if(!silent) toast(`${pending.length}개 분석 완료 · SharePoint 캐시 저장됨`,'ok');
 }
 
 // 기존 트리 방식 (기술자료 탭)
