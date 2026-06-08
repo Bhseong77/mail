@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v78</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v79</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -1638,23 +1638,32 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="mbox wide">
     <div class="mbox-h"><span>📁 문서함으로 이송</span><button class="x" onclick="closeMove()">✕</button></div>
     <div class="mbox-b">
-      <p>첨부별로 <b>문서종류·고객사·분류</b>를 확인/수정 후, 체크한 항목을 한 번에 저장합니다. (자동 추측됨 — 수정 가능)</p>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0">공통 고객사</label>
-        <input id="moveCommonCust" type="text" style="width:160px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="전체 적용">
-        <button class="btn sm" onclick="applyCommonCust()">전체 적용</button>
-        <label style="font-size:12px;font-weight:700;color:var(--t2);margin:0 0 0 8px">기준 날짜</label>
-        <input id="moveCommonDate" type="text" style="width:120px;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:7px" placeholder="YYYY-MM-DD">
-      </div>
-      <div class="move-scroll">
+      <p>체크한 첨부를, 아래에서 <b>문서종류 → 실제 하위폴더</b>까지 골라 그 위치로 한 번에 이송합니다.</p>
+      <div class="move-scroll" style="max-height:180px">
         <table class="move-tbl"><thead><tr>
           <th style="width:30px"><input type="checkbox" class="move-chk" id="moveAll" checked onchange="toggleAllMove(this.checked)"></th>
-          <th>파일명</th><th style="width:130px">문서종류</th><th style="width:130px">고객사</th>
-          <th style="width:100px">분류</th><th style="width:110px">날짜</th><th style="width:70px">상태</th>
+          <th>파일명</th><th style="width:74px">상태</th>
         </tr></thead><tbody id="moveBody"></tbody></table>
       </div>
+      <div class="adm-row col" style="margin:12px 0 8px"><span class="adm-lbl">문서종류</span>
+        <select id="mvDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit" onchange="mvFxOpenRoot()">
+          <option value="doc-tech">📚 기술자료</option>
+          <option value="doc-quote">📄 견적서</option>
+          <option value="doc-invoice">📋 거래명세서</option>
+          <option value="doc-tax">🧾 세금계산서</option>
+        </select>
+      </div>
+      <div class="ta-fx">
+        <div class="ta-fx-bar">
+          <span style="font-size:12px;color:var(--t3)">위치:</span>
+          <span class="ta-fx-crumb" id="mvFxCrumb"></span>
+          <div style="flex:1"></div>
+          <button class="btn sm" onclick="mvFxNewFolder()">＋ 새 폴더</button>
+        </div>
+        <div class="ta-fx-list" id="mvFxList"></div>
+      </div>
       <div id="moveMsg" class="cmsg"></div>
-      <div class="row"><button class="btn" onclick="closeMove()">닫기</button><button class="btn primary" id="moveBtn" onclick="doMoveAll()">💾 선택 항목 저장</button></div>
+      <div class="row"><button class="btn" onclick="closeMove()">닫기</button><button class="btn primary" id="moveBtn" onclick="doMoveAll()">📂 여기로 이송</button></div>
     </div>
   </div>
 </div>
@@ -3870,44 +3879,68 @@ function guessDocType(name,subj){
 const DOCTYPES=[['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
 function openMove(){
   if(!CUR_BODY||!CUR_MAIL){ toast('메일을 먼저 여세요','bad'); return; }
-  const m=CUR_MAIL, subj=m.subject||'';
-  const cust=guessCustomerFromSubject(subj,m);
-  const date=(m.dateRaw||'').slice(0,10) || new Date().toISOString().slice(0,10);
-  $('moveCommonCust').value=cust;
-  $('moveCommonDate').value=date;
-  // 일반첨부 + 대용량첨부 모두 행으로
+  const m=CUR_MAIL;
   MOVE_ROWS=[];
   for(const a of (CUR_BODY.attachments||[])){
-    MOVE_ROWS.push({kind:'normal', uid:m.uid, idx:a.idx, name:a.name,
-      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+    MOVE_ROWS.push({kind:'normal', uid:m.uid, idx:a.idx, name:a.name, checked:true, status:''});
   }
   for(const a of (CUR_BODY.largeAttachments||[])){
-    MOVE_ROWS.push({kind:'large', url:a.url, name:a.name,
-      docType:guessDocType(a.name,subj), customer:cust, category:guessCategory(a.name+' '+subj), date, checked:true, status:''});
+    MOVE_ROWS.push({kind:'large', url:a.url, name:a.name, checked:true, status:''});
   }
   renderMoveRows();
   $('moveMsg').textContent='';
   $('moveModal').classList.add('on');
+  mvFxOpenRoot();
 }
 function renderMoveRows(){
   $('moveBody').innerHTML=MOVE_ROWS.map((r,i)=>`<tr>
     <td><input type="checkbox" class="move-chk" ${r.checked?'checked':''} onchange="MOVE_ROWS[${i}].checked=this.checked"></td>
     <td class="fname" title="${esc(r.name)}">${r.kind==='large'?'🔗':'📎'} ${esc(r.name)}</td>
-    <td><select onchange="MOVE_ROWS[${i}].docType=this.value">${DOCTYPES.map(([v,t])=>`<option value="${v}" ${r.docType===v?'selected':''}>${t}</option>`).join('')}</select></td>
-    <td><input value="${esc(r.customer)}" onchange="MOVE_ROWS[${i}].customer=this.value"></td>
-    <td><select onchange="MOVE_ROWS[${i}].category=this.value">${CATEGORIES.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></td>
-    <td><input value="${esc(r.date)}" onchange="MOVE_ROWS[${i}].date=this.value"></td>
     <td class="st" id="movest-${i}">${r.status||''}</td>
   </tr>`).join('');
 }
 function toggleAllMove(on){ MOVE_ROWS.forEach(r=>r.checked=on); renderMoveRows(); $('moveAll').checked=on; }
-function applyCommonCust(){ const c=$('moveCommonCust').value; MOVE_ROWS.forEach(r=>r.customer=c); renderMoveRows(); }
+function applyCommonCust(){}
 function closeMove(){ $('moveModal').classList.remove('on'); }
+// 대상 폴더 네비게이터 (문서종류 → 하위폴더 드릴다운)
+let _mvRel="";
+function mvFxRoot(){ return DOC_MAP[$('mvDest').value]; }
+function mvFxFull(){ return _mvRel ? `${mvFxRoot()}/${_mvRel}` : mvFxRoot(); }
+function mvFxOpenRoot(){ _mvRel=""; mvFxRender(); }
+function mvFxGo(rel){ _mvRel=rel; mvFxRender(); }
+function mvFxEnter(name){ _mvRel=_mvRel?`${_mvRel}/${name}`:name; mvFxRender(); }
+function mvFxUp(){ const p=_mvRel.split('/'); p.pop(); _mvRel=p.join('/'); mvFxRender(); }
+async function mvFxNewFolder(){
+  const name=(prompt('새 폴더 이름:')||'').trim(); if(!name) return;
+  try{ await spEnsureFolder(`${mvFxFull()}/${name}`); toast('폴더 생성됨','ok'); mvFxEnter(name); }
+  catch(e){ toast('폴더 생성 실패: '+e.message,'bad'); }
+}
+async function mvFxRender(){
+  const list=$('mvFxList'), crumb=$('mvFxCrumb');
+  const rootLabel=$('mvDest').selectedOptions[0].text;
+  const parts=_mvRel?_mvRel.split('/'):[];
+  let html=`<a onclick="mvFxGo('')">🏠 ${esc(rootLabel)}</a>`; let acc='';
+  parts.forEach(p=>{ acc=acc?acc+'/'+p:p; html+=` <span style="color:var(--t3)">/</span> <a onclick="mvFxGo('${esc(acc).replace(/'/g,"\\'")}')">${esc(p)}</a>`; });
+  crumb.innerHTML=html;
+  list.innerHTML='<div style="padding:12px;color:var(--t3);font-size:12px">폴더 불러오는 중…</div>';
+  try{ await graphToken(); }catch(e){ list.innerHTML='<div style="padding:12px;color:var(--r);font-size:12px">폴더 권한 필요 — 권한 창에서 승인 후 <button class="btn sm" onclick="mvFxRender()">다시 시도</button></div>'; return; }
+  const items=await spList(mvFxFull());
+  const folders=items.filter(x=>x.folder).sort((a,b)=>winCompare(a.name,b.name));
+  const files=items.filter(x=>x.file).sort((a,b)=>winCompare(a.name,b.name));
+  let h='';
+  if(_mvRel){ h+=`<div class="ta-fx-row" onclick="mvFxUp()"><span>⬆️</span><span class="fn">.. (상위로)</span></div>`; }
+  h+=folders.map(f=>`<div class="ta-fx-row" onclick="mvFxEnter('${esc(f.name).replace(/'/g,"\\'")}')"><span>📁</span><span class="fn">${esc(f.name)}</span><span class="go">열기 ›</span></div>`).join('');
+  h+=files.map(f=>`<div class="ta-fx-row file"><span>${taIcon(f.name)}</span><span class="fn">${esc(f.name)}</span></div>`).join('');
+  if(!folders.length && !files.length){ h+='<div style="padding:10px 12px;color:var(--t3);font-size:12px">이 위치는 비어 있음 — [＋ 새 폴더] 또는 [여기로 이송]</div>'; }
+  list.innerHTML=h;
+}
 async function doMoveAll(){
   const targets=MOVE_ROWS.map((r,i)=>({r,i})).filter(x=>x.r.checked);
   if(!targets.length){ toast('선택된 첨부 없음','bad'); return; }
+  const dest=mvFxFull();
+  const destLabel=$('mvDest').selectedOptions[0].text.replace(/^\S+\s/,'')+(_mvRel?'/'+_mvRel:'');
   const btn=$('moveBtn'); btn.disabled=true;
-  $('moveMsg').style.color='var(--t2)'; $('moveMsg').textContent=`⏳ ${targets.length}개 저장 중…`;
+  $('moveMsg').style.color='var(--t2)'; $('moveMsg').textContent=`⏳ ${targets.length}개 → ${destLabel} 이송 중…`;
   let ok=0, fail=0;
   for(const {r,i} of targets){
     const cell=$('movest-'+i); if(cell){cell.textContent='⏳';}
@@ -3918,23 +3951,21 @@ async function doMoveAll(){
         if(!ar.ok) throw new Error('첨부 다운로드 실패');
         blob=await ar.blob();
       }else{
-        // 대용량: 서버 프록시로 외부 URL 받기
         const pr=await fetch(`${SERVER}/api/mail/fetch-url?url=${encodeURIComponent(r.url)}&name=${encodeURIComponent(r.name)}`);
         if(!pr.ok) throw new Error('대용량 다운로드 실패');
         blob=await pr.blob();
       }
-      const cust=(r.customer||'미분류').trim().replace(/[\\/:*?"<>|]/g,'_');
-      const cat=r.category||'기타';
-      const date=(r.date||new Date().toISOString().slice(0,10)).trim();
       const safeName=(r.name||'file').replace(/[\\/:*?"<>|]/g,'_');
-      const path=`${r.docType}/${cust}/${cat}/${date}/${safeName}`;
+      const path=`${dest}/${safeName}`;
       await spPutFile(path, blob, blob.type||'application/octet-stream');
+      try{ docIndexAdd(r.name, blob.size||0, destLabel); }catch(e){}
       r.status='✅'; if(cell)cell.textContent='✅'; ok++;
     }catch(e){ r.status='❌'; if(cell)cell.textContent='❌'; fail++; }
   }
   $('moveMsg').style.color=fail?'var(--y)':'var(--g)';
-  $('moveMsg').textContent=`완료: 성공 ${ok} / 실패 ${fail}`;
+  $('moveMsg').textContent=`완료: 성공 ${ok} / 실패 ${fail} · 위치: ${destLabel}`;
   toast(`이송 완료 (성공 ${ok}${fail?`, 실패 ${fail}`:''})`, fail?'bad':'ok');
+  try{ actLog(`📁 문서함 이송 ${ok}건 → ${destLabel}`); }catch(e){}
   btn.disabled=false;
 }
 
