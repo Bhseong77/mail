@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v88</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v89</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -7947,6 +7947,7 @@ const PERM_TABS = [
   {id:'tattach',     label:'📎 팀즈첨부'},
   {id:'mattach',     label:'📧 이메일첨부'},
   {id:'schedule',    label:'📅 통합일정'},
+  {id:'spec',        label:'🏭 설비제작사양서'},
   {id:'purchase',    label:'🛒 구매'},
 ];
 let PERM = null;          // {updated_at,updated_by,members:[{email,name}],perm:{email:{view:[],write:[]}}}
@@ -8151,7 +8152,7 @@ async function permSave(){
 
 // ── 적용 ──
 function permEnforce(){
-  PERM_TABS.forEach(t=>{ const nav=document.getElementById('nav-'+t.id); if(nav) nav.style.display = canView(t.id) ? '' : 'none'; });
+  PERM_TABS.forEach(t=>{ const nav=document.getElementById('nav-'+t.id) || (t.id==='spec'?document.getElementById('specHdrBtn'):null); if(nav) nav.style.display = canView(t.id) ? '' : 'none'; });
   if(typeof curPage!=='undefined' && !canView(curPage) && curPage!=='admin' && curPage!=='perm'){
     const first=PERM_TABS.find(t=>canView(t.id));
     if(first) showPage(first.id);
