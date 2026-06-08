@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v82</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v83</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -1709,6 +1709,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="ci" onclick="ftAct('mail')">✉ 첨부해서 새 메일</div>
   <div class="ci" id="ftCtxUnzip" onclick="ftAct('unzip')" style="display:none">🗜 여기에 압축 풀기</div>
   <div class="ci" id="ftCtxDownload" onclick="ftAct('download')">⬇ 다운로드</div>
+  <div class="ci" onclick="ftAct('link')">🔗 링크 복사 (내부)</div>
   <div class="sep"></div>
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
   <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
@@ -3281,6 +3282,18 @@ async function ftAct(action){
     try{ const u=await spDownloadUrl(t.itemId); if(u) window.open(u,'_blank'); else toast('링크 없음','bad'); }
     catch(e){ toast('다운로드 실패: '+e.message,'bad'); }
   }
+  else if(action==='link'){
+    try{
+      toast('내부 링크 생성 중…');
+      let url=null;
+      if(t.itemId){ url=await spOrgLink(t.itemId).catch(()=>null) || await spWebUrlById(t.itemId).catch(()=>null); }
+      else if(t.path!=null){ url=await spWebUrlByPath(t.path).catch(()=>null); }
+      if(!url){ toast('링크를 가져오지 못했습니다','bad'); return; }
+      try{ await navigator.clipboard.writeText(url); toast('🔗 내부 링크 복사됨 — 팀즈 채팅에 붙여넣기 (Ctrl+V)','ok'); }
+      catch(_){ prompt('아래 링크를 복사해 팀즈에 붙여넣으세요:', url); }
+      try{ actLog(`🔗 링크 복사(내부): ${t.name}`); }catch(_){}
+    }catch(e){ toast('링크 생성 실패: '+e.message,'bad'); }
+  }
   else if(action==='unzip'){
     if(!t.itemId || !/\.zip$/i.test(t.name)){ toast('zip 파일만 가능','bad'); return; }
     await ftUnzipExisting(p, t.itemId, t.name, t.path);
@@ -3777,6 +3790,14 @@ async function ftEditNewWin(itemId){
   catch(e){ toast('편집 열기 실패: '+e.message,'bad'); }
 }
 // SharePoint 파일을 첨부한 새 메일 작성
+async function spOrgLink(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/createLink`,
+    {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({type:"view",scope:"organization"})});
+  if(!r.ok) return null;
+  const j=await r.json();
+  return (j.link&&j.link.webUrl)||null;
+}
 // SharePoint 공유 링크 생성 (익명 30일 → 실패 시 조직 링크 폴백)
 async function spCreateShareLink(itemId, days){
   const t=await graphToken(); const d=await spDrive();
