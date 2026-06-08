@@ -888,7 +888,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v86</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v88</span></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
     <div class="spacer"></div>
@@ -1577,9 +1577,11 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div id="adm_openai_msg" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
     </div>
     <div class="adm-card">
-      <div class="adm-card-h">💳 카드 등록 <span style="font-weight:400;color:var(--t3);font-size:12px">· 거래명세서 ‘카드’ 컬럼에서 선택 (카드명칭만)</span></div>
-      <div class="adm-row" style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="adm_card" placeholder="예: 신한 법인카드" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
+      <div class="adm-card-h">💳 카드 등록 <span style="font-weight:400;color:var(--t3);font-size:12px">· 거래명세서 ‘카드’ 컬럼엔 <b>명칭만</b> 표시 (번호·유효기간은 보관용)</span></div>
+      <div class="adm-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="adm_card" placeholder="카드명칭 (예: 신한 법인카드)" style="flex:1;min-width:160px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
+        <input type="text" id="adm_card_no" placeholder="카드번호" style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
+        <input type="text" id="adm_card_exp" placeholder="유효기간 (MM/YY)" style="width:140px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
         <button class="btn primary" type="button" onclick="admAddCard()">＋ 추가</button>
       </div>
       <div id="adm_cards" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -2509,25 +2511,35 @@ async function saveAnConfig(){
   if(!r.ok) throw new Error("HTTP "+r.status);
 }
 function allCategories(){ return [...new Set([...CATEGORIES, ...((AN_CONFIG.categories)||[])])]; }
+function _cardName(c){ return (typeof c==='string')?c:((c&&c.name)||''); }
 function admRenderCards(){
   const box=$('adm_cards'); if(!box) return;
   const cards=AN_CONFIG.cards||[];
   box.innerHTML = cards.length
-    ? cards.map((c,i)=>`<span class="chip"><b>💳 ${esc(c)}</b><span style="cursor:pointer;margin-left:6px" onclick="admDelCard(${i})">✕</span></span>`).join('')
+    ? cards.map((c,i)=>{
+        const o=(typeof c==='string')?{name:c}:c;
+        const meta=[o.number?`번호 ${esc(o.number)}`:'', o.expiry?`유효 ${esc(o.expiry)}`:''].filter(Boolean).join(' · ');
+        return `<span class="chip" style="align-items:center"><b>💳 ${esc(o.name||'')}</b>${meta?`<span style="color:var(--t3);font-size:11px;margin-left:6px">${meta}</span>`:''}<span style="cursor:pointer;margin-left:8px" onclick="admDelCard(${i})">✕</span></span>`;
+      }).join('')
     : '<span style="color:var(--t3);font-size:12px">등록된 카드 없음</span>';
 }
 async function admAddCard(){
-  const inp=$('adm_card'); const name=(inp.value||'').trim();
-  if(!name) return;
+  const name=($('adm_card').value||'').trim();
+  const number=($('adm_card_no')?.value||'').trim();
+  const expiry=($('adm_card_exp')?.value||'').trim();
+  if(!name){ toast('카드명칭을 입력하세요','bad'); return; }
   AN_CONFIG.cards=AN_CONFIG.cards||[];
-  if(AN_CONFIG.cards.includes(name)){ toast('이미 등록된 카드','bad'); return; }
-  AN_CONFIG.cards.push(name);
-  try{ await saveAnConfig(); inp.value=''; admRenderCards(); toast('카드 추가됨','ok'); try{ actLog(`💳 카드 등록: ${name}`); }catch(e){} }
-  catch(e){ AN_CONFIG.cards.pop(); toast('저장 실패: '+e.message,'bad'); }
+  if(AN_CONFIG.cards.some(c=>_cardName(c)===name)){ toast('이미 등록된 카드명칭','bad'); return; }
+  AN_CONFIG.cards.push({name, number, expiry});
+  try{
+    await saveAnConfig();
+    $('adm_card').value=''; if($('adm_card_no'))$('adm_card_no').value=''; if($('adm_card_exp'))$('adm_card_exp').value='';
+    admRenderCards(); toast('카드 추가됨','ok'); try{ actLog(`💳 카드 등록: ${name}`); }catch(e){}
+  }catch(e){ AN_CONFIG.cards.pop(); toast('저장 실패: '+e.message,'bad'); }
 }
 async function admDelCard(i){
   const c=(AN_CONFIG.cards||[])[i]; if(c==null) return;
-  if(!confirm(`"${c}" 카드를 삭제할까요?`)) return;
+  if(!confirm(`"${_cardName(c)}" 카드를 삭제할까요?`)) return;
   const removed=AN_CONFIG.cards.splice(i,1);
   try{ await saveAnConfig(); admRenderCards(); toast('삭제됨','ok'); }
   catch(e){ AN_CONFIG.cards.splice(i,0,...removed); toast('저장 실패: '+e.message,'bad'); }
@@ -3532,7 +3544,7 @@ function anRender(p){
         }
         h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(_vat10(it.amount))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
         if(ix===0){
-          const cardOpts=`<option value="">-</option>`+cards.map(c=>`<option ${c===(r.card||'')?'selected':''}>${esc(c)}</option>`).join('');
+          const cardOpts=`<option value="">-</option>`+cards.map(c=>{const n=_cardName(c);return `<option ${n===(r.card||'')?'selected':''}>${esc(n)}</option>`;}).join('');
           h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
              `<td rowspan="${rowspan}" class="c"><select class="memo" style="width:112px" onchange="anField('${p}','${r.fid}','card',this.value)">${cardOpts}</select></td>`+
              `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
@@ -4204,7 +4216,13 @@ async function refreshEndpoint(){ toast('SharePoint에서 서버 주소 확인 �
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
 async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();if(DEEPLINK_UID){const tgt=DEEPLINK_UID;DEEPLINK_UID=null;const exists=MAILS.find(x=>String(x.uid)===String(tgt));if(exists){openMail(exists.uid);}else{openMail(tgt);}}setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function mailParty(m){return (FOLDER==='sent')?(m.to||[]):(m.from||[]);}
-function partyName(m){const a=mailParty(m);if(!a||!a.length)return FOLDER==='sent'?'(받는사람 없음)':'(보낸사람 없음)';return a[0].name||a[0].email||'';}
+function partyName(m){
+  const a=mailParty(m);
+  if(!a||!a.length) return FOLDER==='sent'?'(받는사람 없음)':'(보낸사람 없음)';
+  const c=contactFor(m);                       // 주소록에 등록된 이름 우선 (보낸함 받는사람도 이름으로)
+  if(c && (c.name||c.company)) return c.name||c.company;
+  return a[0].name||a[0].email||'';
+}
 function senderKey(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowerCase().trim();return e||partyName(m).toLowerCase();}
 function contactFor(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
 function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
