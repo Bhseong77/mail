@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v94</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v95</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1478,6 +1478,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div id="taMoveFile" style="font-size:13px;color:var(--t2);margin-bottom:14px;word-break:break-all"></div>
       <div class="adm-row col" style="margin-bottom:10px"><span class="adm-lbl">분류</span>
         <select id="taMoveDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px" onchange="taMoveOpenRoot()">
+          <option value="doc-vendor">🏢 거래처</option>
           <option value="doc-tech">📚 기술자료</option>
           <option value="doc-quote">📄 견적서</option>
           <option value="doc-invoice">📋 거래명세서</option>
@@ -1662,6 +1663,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="adm-row col" style="margin:12px 0 8px"><span class="adm-lbl">문서종류</span>
         <select id="mvDest" style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit" onchange="mvFxOpenRoot()">
+          <option value="doc-vendor">🏢 거래처</option>
           <option value="doc-tech">📚 기술자료</option>
           <option value="doc-quote">📄 견적서</option>
           <option value="doc-invoice">📋 거래명세서</option>
@@ -4181,12 +4183,13 @@ function guessCategory(text){
 }
 function guessDocType(name,subj){
   const low=((name||'')+' '+(subj||'')).toLowerCase();
+  if(/사업자등록증|사업자\s*등록|통장|통장사본|계좌사본|법인등기|등기부|거래처\s*등록/.test(low)) return '06.거래처';
   if(/견적|quot|estimate/.test(low)) return '02.견적서';
   if(/명세|거래명세|invoice|delivery/.test(low)) return '03.거래명세서';
   if(/세금|계산서|tax/.test(low)) return '04.세금계산서';
   return '05.기술자료'; // 도면(DXF/X_T 등)·기타 기본
 }
-const DOCTYPES=[['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
+const DOCTYPES=[['06.거래처','거래처'],['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
 function openMove(){
   if(!CUR_BODY||!CUR_MAIL){ toast('메일을 먼저 여세요','bad'); return; }
   const m=CUR_MAIL;
