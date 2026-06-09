@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v114</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v115</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8694,8 +8694,9 @@ function poadvInit(){
                 <th>거래처</th><th>프로젝트</th><th>품목</th>
                 <th style="width:70px;text-align:right;">수량</th><th style="width:100px;text-align:right;">금액</th>
                 <th style="width:100px;">납품예정일</th><th style="width:70px;">상태</th>
+                <th style="width:96px;">납품확인</th>
               </tr></thead>
-              <tbody id="poadv-list-tbody"><tr><td colspan="9" style="padding:18px;text-align:center;color:#9ca3af;">새로고침을 눌러 발주 목록을 불러오세요</td></tr></tbody>
+              <tbody id="poadv-list-tbody"><tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">새로고침을 눌러 발주 목록을 불러오세요</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -8990,8 +8991,16 @@ async function poadvSave(){
       poadvSaved = d;
       if(_j&&typeof _Jok==="function") _Jok(_j, "발주번호 "+(d.po_no||""));
       msg.style.color="#15803d"; msg.textContent=`✅ 저장 완료 · 발주번호 ${d.po_no||""}`;
-      document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. 「구매발주서출력」으로 PDF를 확인하세요.</div>`;
+      document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. 구매발주서를 SharePoint에 저장 중…</div>`;
       if(typeof actLog==="function") actLog(`📦 선발주 저장: ${v.header.cust} → ${d.po_no||""}`);
+      // 구매발주서 PDF → SharePoint(03.구매발주서) 자동 저장
+      try{
+        const blob=await _poadvBuildPdfBlobOffscreen(v, d.po_no);
+        await _poadvUploadToSp(blob);
+        document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">발주번호 <b>${esc(d.po_no||"")}</b> 생성 · 구매발주서 SharePoint 저장 완료 ✅<br><span style="font-size:12px;color:#6b7280;">${esc(_poadvSpFileName())}</span></div>`;
+      }catch(e){
+        document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. (구매발주서 SharePoint 저장 실패: ${esc(e.message)} — 「구매발주서출력」으로 수동 저장 가능)</div>`;
+      }
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, d.message||"저장 실패");
       msg.style.color="#dc2626"; msg.textContent="저장 실패: "+(d.message||"");
@@ -9112,10 +9121,66 @@ function poadvPreview(){
   document.body.appendChild(ov);
 }
 
+// 저장 직후 미리보기를 잠깐 띄워 PDF blob 생성 → 닫기 (SP 자동 저장용)
+async function _poadvBuildPdfBlobOffscreen(v, poNo){
+  if(!window.html2canvas || !window.jspdf) throw new Error("PDF 라이브러리 미로드");
+  // poadvSaved에 발주번호 반영 후 미리보기 생성
+  poadvSaved={ po_no: poNo };
+  poadvPreview();                       // #poadv-pv + #poadv-pdf-page 생성
+  // 화면 밖으로 빼서 안 보이게 (visibility:hidden은 html2canvas가 못 잡음)
+  const ov=document.getElementById("poadv-pv");
+  if(ov){ ov.style.opacity="0"; ov.style.pointerEvents="none"; ov.style.zIndex="-1"; }
+  await new Promise(r=>setTimeout(r,300));  // 렌더 대기
+  try{
+    const pdf=await _poadvMakePdfBlob();    // #poadv-pdf-page 캡처
+    const blob=pdf.output("blob");
+    return blob;
+  } finally {
+    if(ov) ov.remove();                     // 미리보기 닫기
+  }
+}
+
 function _poadvFileName(){
   const cust=(document.getElementById("poadv-cust").value||"발주처").trim().replace(/[\\/:*?"<>|]/g,"");
   const no = poadvSaved&&poadvSaved.po_no ? poadvSaved.po_no : (document.getElementById("poadv-date").value||poadvToday());
   return `구매발주서_${cust}_${no}.pdf`;
+}
+
+// SharePoint 저장용 파일명: 발주번호-거래처-프로젝트번호-대표품목
+function _poadvSpFileName(){
+  const clean=s=>String(s||"").trim().replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ");
+  const no=clean(poadvSaved&&poadvSaved.po_no ? poadvSaved.po_no : (document.getElementById("poadv-date").value||poadvToday()));
+  const cust=clean(document.getElementById("poadv-cust").value||"발주처");
+  const first=(poadvRows&&poadvRows[0])||{};
+  const pjt=clean(first.pjt_no||"");
+  const item=clean(first.item_name||first.item_no||"");
+  return [no,cust,pjt,item].filter(Boolean).join("-")+".pdf";
+}
+
+// TIC 사이트 드라이브 (발주서 저장 위치 = sites/TIC)
+const POADV_TIC_SITE="enjetco.sharepoint.com:/sites/TIC";
+const POADV_PO_FOLDER="01.통합관리/03.구매발주서";
+let _poadvTicDrive=null;
+async function _poadvTicDriveId(){
+  if(_poadvTicDrive) return _poadvTicDrive;
+  const t=await graphToken();
+  const r1=await fetch(`https://graph.microsoft.com/v1.0/sites/${POADV_TIC_SITE}`,{headers:{Authorization:"Bearer "+t}});
+  if(!r1.ok) throw new Error("TIC 사이트 조회 실패 "+r1.status);
+  const site=await r1.json();
+  const r2=await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r2.ok) throw new Error("TIC 드라이브 조회 실패 "+r2.status);
+  _poadvTicDrive=(await r2.json()).id;
+  return _poadvTicDrive;
+}
+async function _poadvUploadToSp(blob){
+  const t=await graphToken();
+  const d=await _poadvTicDriveId();
+  const path=`${POADV_PO_FOLDER}/${_poadvSpFileName()}`;
+  const enc=path.split("/").map(encodeURIComponent).join("/");
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${enc}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/pdf"},body:blob});
+  if(!r.ok) throw new Error("발주서 업로드 실패 "+r.status);
+  return await r.json();
 }
 
 async function _poadvMakePdfBlob(){
@@ -9382,7 +9447,7 @@ async function poadvLoadDelvChg(){
 
 async function poadvListLoad(refresh){
   const tb=document.getElementById("poadv-list-tbody"); if(!tb) return;
-  tb.innerHTML='<tr><td colspan="9" style="padding:18px;text-align:center;color:#9ca3af;">발주 목록 불러오는 중…</td></tr>';
+  tb.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">발주 목록 불러오는 중…</td></tr>';
   try{
     await poadvLoadDelvChg();
     const r=await fetch(`${SERVER}/api/purchase/orders`);
@@ -9404,7 +9469,7 @@ async function poadvListLoad(refresh){
     });
     _poadvOrders=Object.values(grp).sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
     poadvListRender((document.getElementById("poadv-list-q")||{}).value||"");
-  }catch(e){ tb.innerHTML=`<tr><td colspan="9" style="padding:16px;color:#dc2626;">로드 실패: ${esc(e.message)}</td></tr>`; }
+  }catch(e){ tb.innerHTML=`<tr><td colspan="10" style="padding:16px;color:#dc2626;">로드 실패: ${esc(e.message)}</td></tr>`; }
 }
 
 function poadvListRender(q){
@@ -9420,7 +9485,7 @@ function poadvListRender(q){
     return blob.includes(q);
   });
   const cnt=document.getElementById("poadv-list-cnt"); if(cnt) cnt.textContent=`${arr.length}건`;
-  if(!arr.length){ tb.innerHTML='<tr><td colspan="9" style="padding:16px;text-align:center;color:#9ca3af;">발주 없음</td></tr>'; return; }
+  if(!arr.length){ tb.innerHTML='<tr><td colspan="10" style="padding:16px;text-align:center;color:#9ca3af;">발주 없음</td></tr>'; return; }
   tb.innerHTML=arr.slice(0,200).map(o=>{
     const totQty=o.items.reduce((s,i)=>s+poadvNum(i.qty),0);
     const totAmt=o.items.reduce((s,i)=>s+poadvNum(i.amount||poadvNum(i.qty)*poadvNum(i.price)),0);
@@ -9441,6 +9506,9 @@ function poadvListRender(q){
       <td style="text-align:right;">${poadvComma(totAmt)}</td>
       <td>${delvBadge}</td>
       <td style="font-size:12px;">${esc(first.status||"-")}</td>
+      <td style="text-align:center;">${(first.status||"").indexOf("완료")>=0
+        ? `<button onclick="event.stopPropagation();poadvDelvConfirm('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:5px 10px;border:none;background:#16a34a;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">📦 납품</button>`
+        : `<span style="color:#cbd5e1;font-size:11px;">-</span>`}</td>
     </tr>`;
   }).join("");
 }
@@ -9550,6 +9618,102 @@ function poadvReprint(pono){
   if(typeof poadvPreview==="function") poadvPreview();
   // 미리보기 닫힐 때 복구되도록 백업 보관
   window._poadvRowsBak=bak;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  발주목록 "완료" 행 → 납품확인 모달 (STEP2 품목 + STEP3 납품정보)
+//  기존 /api/erp/save_delivery 재사용
+// ════════════════════════════════════════════════════════════════
+function poadvDelvConfirm(pono){
+  const o=(_poadvOrders||[]).find(x=>x.po_no===pono); if(!o) return;
+  const first=o.items[0]||{};
+  const totQty=o.items.reduce((s,i)=>s+poadvNum(i.qty),0);
+  const itemLabel=(first.pjt_name||first.item_name||"")+(o.items.length>1?` 외 ${o.items.length-1}건`:"");
+  const today=new Date().toISOString().slice(0,10);
+  let m=document.getElementById("poadv-delv-ov"); if(m) m.remove();
+  m=document.createElement("div");
+  m.id="poadv-delv-ov";
+  m.style.cssText="position:fixed;inset:0;z-index:1000060;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
+  m.innerHTML=`
+    <div style="width:min(720px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#16a34a;color:#fff;position:sticky;top:0;">
+        <b>📦 납품확인 — ${esc(o.po_no)}</b>
+        <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-delv-ov').remove()">✕</span>
+      </div>
+      <div style="padding:18px 20px;">
+        <!-- STEP 2: 납품 품목 -->
+        <div style="font-weight:700;font-size:15px;color:#334155;margin-bottom:8px;">STEP 2. 납품 품목 <span style="font-weight:400;font-size:12px;color:#94a3b8;float:right;">납품수량 확인/수정 후 등록</span></div>
+        <table class="poadv-tbl" style="font-size:13px;">
+          <thead><tr><th>발주번호</th><th>품목</th><th>거래처</th><th style="width:110px;text-align:right;">납품수량</th><th style="width:100px;">발주일</th></tr></thead>
+          <tbody><tr>
+            <td style="font-family:monospace;">${esc(o.po_no)}</td>
+            <td>${esc(itemLabel||"-")}</td>
+            <td style="color:#6b7280;">${esc(o.cust||"-")}</td>
+            <td style="text-align:right;"><input type="number" id="poadv-delv-qty" value="${totQty}" style="width:90px;padding:6px;border:1px solid #cbd5e1;border-radius:6px;text-align:right;"></td>
+            <td>${esc(o.date||"-")}</td>
+          </tr></tbody>
+        </table>
+        <div style="margin-top:6px;font-size:12.5px;color:#6b7280;">💡 납품수량을 확인하세요. 현재 납품은 발주 확정 값으로 등록됩니다.</div>
+
+        <!-- STEP 3: 납품 정보 -->
+        <div style="font-weight:700;font-size:15px;color:#334155;margin:18px 0 8px;">STEP 3. 납품 정보 + 등록</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px;">납품일자</label>
+            <input type="date" id="poadv-delv-date" value="${today}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;"></div>
+          <div><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px;">납품부서</label>
+            <input type="text" id="poadv-delv-dept" value="경영전략본부" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;">
+            <input type="hidden" id="poadv-delv-dept-seq" value="3"></div>
+          <div><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px;">납품담당자</label>
+            <input type="text" id="poadv-delv-emp" value="${esc(first.emp_name||o.emp_name||'성백훈')}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;">
+            <input type="hidden" id="poadv-delv-emp-seq" value="49"></div>
+        </div>
+        <div style="margin-top:12px;"><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px;">비고</label>
+          <input type="text" id="poadv-delv-remark" placeholder="(선택)" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;"></div>
+        <div id="poadv-delv-result" style="margin-top:12px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+          <button onclick="document.getElementById('poadv-delv-ov').remove()" style="padding:10px 18px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:14px;">취소</button>
+          <button id="poadv-delv-savebtn" onclick="poadvDelvSubmit('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:10px 20px;border:none;background:#16a34a;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">✅ 영림원에 납품 등록</button>
+        </div>
+      </div>
+    </div>`;
+  m.addEventListener("click", e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+}
+
+function poadvDelvSubmit(pono){
+  const qty=parseFloat((document.getElementById("poadv-delv-qty")||{}).value)||0;
+  const delvDate=((document.getElementById("poadv-delv-date")||{}).value||"").replace(/-/g,"");
+  const payload={
+    po_no:pono, delv_date:delvDate,
+    dept_seq:parseInt((document.getElementById("poadv-delv-dept-seq")||{}).value)||3,
+    dept_name:(document.getElementById("poadv-delv-dept")||{}).value||"경영전략본부",
+    emp_seq:parseInt((document.getElementById("poadv-delv-emp-seq")||{}).value)||49,
+    emp_name:(document.getElementById("poadv-delv-emp")||{}).value||"",
+    remark:(document.getElementById("poadv-delv-remark")||{}).value||"",
+    items:[{ qty }],
+  };
+  const out=document.getElementById("poadv-delv-result");
+  const btn=document.getElementById("poadv-delv-savebtn");
+  if(btn){ btn.disabled=true; btn.style.opacity=.5; }
+  if(out) out.innerHTML='<div style="padding:12px;background:#dbeafe;border-radius:8px;color:#1e40af;">⏳ 영림원에 납품 등록 중… (~20초)</div>';
+  const _j=(typeof _J==="function")?_J("납품등록: "+pono):null;
+  fetch(`${SERVER}/api/erp/save_delivery`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(d=>{
+      if(d.success){
+        if(out) out.innerHTML=`<div style="padding:14px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ 납품 완료! 납품번호: <b>${esc(d.delv_no||"(등록됨)")}</b></div>`;
+        if(_j&&typeof _Jok==="function") _Jok(_j, d.delv_no||"등록됨");
+        if(typeof poadvListLoad==="function") setTimeout(()=>poadvListLoad(true), 800);
+        setTimeout(()=>{ const m=document.getElementById("poadv-delv-ov"); if(m) m.remove(); }, 1600);
+      }else{
+        if(out) out.innerHTML=`<div style="padding:14px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 납품 실패: ${esc(d.message||"오류")}</div>`;
+        if(_j&&typeof _Jno==="function") _Jno(_j, d.message||"실패");
+        if(btn){ btn.disabled=false; btn.style.opacity=1; }
+      }
+    }).catch(e=>{
+      if(out) out.innerHTML=`<div style="padding:14px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}</div>`;
+      if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+      if(btn){ btn.disabled=false; btn.style.opacity=1; }
+    });
 }
 
 </script>
