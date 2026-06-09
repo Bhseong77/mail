@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v92</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v94</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -911,6 +911,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div class="topnav">
   <button id="nav-mail" class="active" onclick="showPage('mail')">📧 메일</button>
   <button id="nav-contacts" onclick="showPage('contacts')">👥 주소록<span class="nav-badge" id="newBadge" style="display:none">0</span></button>
+  <button id="nav-doc-vendor" onclick="showPage('doc-vendor')">🏢 거래처</button>
   <button id="nav-doc-quote" onclick="showPage('doc-quote')">📄 견적서</button>
   <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
@@ -969,6 +970,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 
 <!-- 문서 페이지 4개 (공통 템플릿) -->
+<div class="page" id="page-doc-vendor"><div class="panel" id="panel-doc-vendor"></div></div>
 <div class="page" id="page-doc-quote"><div class="panel" id="panel-doc-quote"></div></div>
 <div class="page" id="page-doc-invoice"><div class="panel" id="panel-doc-invoice"></div></div>
 <div class="page" id="page-doc-tax"><div class="panel" id="panel-doc-tax"></div></div>
@@ -1690,7 +1692,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <label>고객사</label>
       <input id="fmvCust" type="text" placeholder="예: 한국화낙">
       <label>분류</label>
-      <select id="fmvCat"><option value="가공">가공</option><option value="구매품">구매품</option><option value="로봇">로봇</option><option value="공압품">공압품</option><option value="물류">물류</option><option value="기타">기타</option></select>
+      <select id="fmvCat"><option value="가공">가공</option><option value="로봇">로봇</option><option value="비전">비전</option><option value="스테이지">스테이지</option><option value="물류">물류</option><option value="소모품">소모품</option><option value="기타">기타</option></select>
       <label>날짜 (폴더, 선택)</label>
       <input id="fmvDate" type="text" placeholder="YYYY-MM-DD (비우면 생략)">
       <div id="fmvMsg" class="cmsg"></div>
@@ -2086,8 +2088,8 @@ function showPage(p){
   $('page-'+p).classList.add('on');
   $('nav-'+p)?.classList.add('active');
   $('specHdrBtn')?.classList.toggle('active', p==='spec');
-  if(p==='contacts'){ loadContacts(); }
-  else if(p.startsWith('doc-')){ renderDocPage(p); if(p==='doc-invoice'){ loadAnConfig().then(()=>{ if(curPage===p && AN_DATA[p]) anRender(p); }); } }
+  if(p==='contacts'){ loadContacts(); loadAnConfig().then(()=>{ if(curPage==='contacts'&&typeof renderContacts==='function'&&CONTACTS&&CONTACTS.length) renderContacts(); }); }
+  else if(p.startsWith('doc-')){ renderDocPage(p); if(DOC_ANALYZE.includes(p)){ loadAnConfig().then(()=>{ if(curPage===p && AN_DATA[p]) anRender(p); }); } }
   else if(p==='schedule'){ schInit(); }
   else if(p==='spec'){ specInit(); }
   else if(p==='tattach'){ taLoad(); }
@@ -2099,7 +2101,7 @@ function showPage(p){
 
 // ── 주소록 ──
 const CONTACTS_PATH="01.연락처/contacts.json";
-const CATEGORIES=["가공","구매품","로봇","공압품","물류","기타"];
+const CATEGORIES=["가공","로봇","비전","스테이지","물류","소모품","기타"];
 let CONTACTS=[];
 async function loadContacts(){
   $('contactBody').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--t3)">불러오는 중…</td></tr>`;
@@ -2132,7 +2134,7 @@ function renderContacts(){
     <td><input value="${esc(c.dept||'')}" onchange="editContact(${i},'dept',this.value)"></td>
     <td><input value="${esc(c.title||'')}" onchange="editContact(${i},'title',this.value)"></td>
     <td><input value="${esc(c.phone||'')}" onchange="editContact(${i},'phone',this.value)"></td>
-    <td><select onchange="editContact(${i},'category',this.value)">${['',...CATEGORIES].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}</select></td>
+    <td><select onchange="contactCat(${i},this)">${['',...allCategories()].map(cat=>`<option ${c.category===cat?'selected':''} value="${cat}">${cat||'-'}</option>`).join('')}<option value="__new__">＋ 새 분류…</option></select></td>
     <td><input value="${esc(c.memo||'')}" onchange="editContact(${i},'memo',this.value)"></td>
     <td style="white-space:nowrap">${c.email?`<button class="row-mail" title="Copilot 재수집(부서·직급 포함 다시 파싱)" onclick="reparseContact(${i})">🔄</button>`:''}${c.cardUrl?`<button class="row-mail" title="명함 보기" onclick="window.open('${esc(c.cardUrl)}','_blank')">📇</button>`:''}<button class="row-mail" title="메일쓰기" onclick="composeTo('${esc(c.email||'')}','${esc(c.name||'')}')">✉</button><button class="row-del" onclick="delContact(${i})">✕</button></td>
   </tr>`).join('');
@@ -2146,6 +2148,17 @@ function composeTo(email,name){
 }
 function editContact(i,k,v){ if(CONTACTS[i]) CONTACTS[i][k]=v; }
 function addContactRow(){ CONTACTS.unshift({name:"",email:"",company:"",dept:"",title:"",phone:"",category:"",memo:""}); renderContacts(); }
+async function contactCat(i, sel){
+  const v=sel.value;
+  if(v==='__new__'){
+    const nn=(prompt('새 분류 이름:')||'').trim();
+    if(!nn){ renderContacts(); return; }
+    AN_CONFIG.categories=AN_CONFIG.categories||[];
+    if(!AN_CONFIG.categories.includes(nn) && !CATEGORIES.includes(nn)){ AN_CONFIG.categories.push(nn); try{ await saveAnConfig(); }catch(e){} }
+    editContact(i,'category',nn); renderContacts(); return;
+  }
+  editContact(i,'category',v);
+}
 function delContact(i){ CONTACTS.splice(i,1); renderContacts(); }
 // ── 작업큐(우상단) 연동 헬퍼 (위젯/함수는 빌드시 주입됨) ──
 function _J(label){ try{ return (typeof _jobAdd==='function')?_jobAdd(label):null; }catch(e){ return null; } }
@@ -2556,7 +2569,7 @@ function scanBusinessCards(files){
   try{ $('cardFile').value=''; }catch(e){}
   _cardNext();
 }
-function _cardCatOptions(sel){ return ['',...CATEGORIES].map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c||'-'}</option>`).join(''); }
+function _cardCatOptions(sel){ return ['',...allCategories()].map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c||'-'}</option>`).join(''); }
 async function _cardNext(){
   if(!_cardQueue.length){ _cardCur=null; if(_cardImgUrl){URL.revokeObjectURL(_cardImgUrl);_cardImgUrl=null;} return; }
   const f=_cardQueue.shift();
@@ -2665,7 +2678,7 @@ async function _copilotParseSignature(email, hdrName, subject, content){
 - title: 직급/직책 (예: 과장, 대리, 부장). 없으면 ""
 - phone: 휴대폰(010) 우선, 없으면 대표 전화(TEL)
 - email: 이메일
-- category: 반드시 [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나. 애매하면 기타.
+- category: 반드시 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나. 애매하면 기타.
 - 값을 못 찾으면 빈 문자열 "".
 
 예시: {"name":"홍길동","company":"한국화낙(주)","dept":"영업부","title":"과장","phone":"010-1234-5678","email":"hong@fanuc.co.kr","category":"로봇"}
@@ -2697,7 +2710,7 @@ async function _copilotParseForward(forwarder, subject, content){
 - dept: 부서, title: 직급/직책
 - phone: 휴대폰(010) 우선, 없으면 대표전화
 - email: 원 발신자 이메일 (필수). 못 찾으면 ""
-- category: [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나
+- category: [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나
 - 못 찾는 값은 빈 문자열 "".
 
 예시: {"name":"하태일","company":"TÜV Rheinland Korea","dept":"","title":"이사","phone":"010-4554-7709","email":"taill.ha@tuv.com","category":"기타"}
@@ -2799,8 +2812,8 @@ async function _scanCopilot(silent){
 }
 
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
-const DOC_MAP={'doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
-const DOC_TITLE={'doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
+const DOC_MAP={'doc-vendor':'06.거래처','doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
+const DOC_TITLE={'doc-vendor':'🏢 거래처','doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
 // ── 문서함 전체 파일 인덱스 (이동완료 판단용) ──
 // 4개 문서함을 재귀 스캔해서 인덱스 생성. 이름 기준 매칭(크기는 보조 확인).
 let DOC_INDEX_NAME=null;   // {name: [{size, dest}]}  같은 이름이 여러 폴더에 있을 수 있음
@@ -3199,7 +3212,7 @@ function maMove(idx){
   _openMoveModal();
 }
 
-const DOC_ANALYZE=['doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
+const DOC_ANALYZE=['doc-vendor','doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
 let docState={};
 let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,payment,warranty,memo,fileName,url,date}}
 let AN_FILTER={}; // page -> {customer, q}
@@ -3545,6 +3558,41 @@ function anRender(p){
   $('ancount-'+p).textContent=`${rows.length}건`;
   const wrap=$('antbl-'+p);
   if(!rows.length){ wrap.innerHTML=`<div class="an-empty">분석된 문서가 없습니다 · [✨ 미분석 분석]을 누르세요</div>`; return; }
+  // ── 거래처: 회사명 기준으로 묶어 한 행에 통합 (사업자등록증+통장사본 등 합침) ──
+  if(p==='doc-vendor'){
+    const groups={};
+    for(const r of rows){
+      const key=((r.company||'미분류').trim())||'미분류';
+      const g=groups[key]||(groups[key]={company:r.company||key, bizno:'', ceo:'', address:'', bank:'', category:'', files:[]});
+      if(!g.bizno && r.bizno) g.bizno=r.bizno;
+      if(!g.ceo && r.ceo) g.ceo=r.ceo;
+      if(!g.address && r.address) g.address=r.address;
+      if(!g.bank && r.bank) g.bank=r.bank;
+      if(!g.category && r.category) g.category=r.category;
+      g.files.push(r);
+    }
+    const gkeys=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ko'));
+    let h=`<table class="an-tbl"><thead><tr>
+      <th>회사명</th><th class="c">분류</th><th class="c">사업자등록번호</th><th class="c">대표자</th><th>주소</th><th class="c">통장번호</th><th>파일</th></tr></thead><tbody>`;
+    for(const k of gkeys){
+      const g=groups[k];
+      const ek=esc(k).replace(/'/g,"\\'");
+      const _cat=g.category||guessCategory((g.company||'')+' '+(g.address||''));
+      const catOpts=allCategories().map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
+      const fileChips=g.files.map(r=>`<span class="file-link" style="display:inline-block;margin:1px 4px 1px 0" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">📄 ${esc((r.fileName||'').slice(0,22))}</span><span class="an-mini del" style="cursor:pointer;margin-right:8px" onclick="anDelete('${p}','${r.fid}')">🗑</span>`).join('<br>');
+      h+=`<tr>
+        <td><span class="an-co">${esc(g.company||'?')}</span></td>
+        <td class="c"><select class="memo" style="width:92px" onchange="anVendorCat('${p}','${ek}',this)">${catOpts}</select></td>
+        <td class="c"><input class="memo" style="width:124px" value="${esc(g.bizno)}" onchange="anVendorField('${p}','${ek}','bizno',this.value)"></td>
+        <td class="c"><input class="memo" style="width:84px" value="${esc(g.ceo)}" onchange="anVendorField('${p}','${ek}','ceo',this.value)"></td>
+        <td><input class="memo" style="width:100%;min-width:220px" value="${esc(g.address)}" onchange="anVendorField('${p}','${ek}','address',this.value)"></td>
+        <td class="c"><input class="memo" style="width:134px" value="${esc(g.bank)}" onchange="anVendorField('${p}','${ek}','bank',this.value)"></td>
+        <td>${fileChips}</td>
+      </tr>`;
+    }
+    h+=`</tbody></table>`;
+    wrap.innerHTML=h; return;
+  }
   // ── 거래명세서 전용 컬럼: 회사명·거래일·분류(추가가능)·품목·수량·단가·VAT·금액·납기·카드 ──
   if(p==='doc-invoice'){
     const cats=allCategories(), cards=AN_CONFIG.cards||[];
@@ -3589,7 +3637,7 @@ function anRender(p){
         h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
         h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:98px" value="${esc(r.quoteDate||r.date||'')}" onchange="anField('${p}','${r.fid}','quoteDate',this.value)"></td>`;
         const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
-        h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:82px" onchange="anField('${p}','${r.fid}','category',this.value)">${CATEGORIES.map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')}</select></td>`;
+        h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:92px" onchange="anCatChange('${p}','${r.fid}',this)">${allCategories().map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')}<option value="__new__">＋ 새 분류…</option></select></td>`;
       }
       h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(it.amount))}</td>`;
       if(ix===0){
@@ -3608,6 +3656,26 @@ function anRender(p){
 }
 function fmtNum(n){ if(n===''||n==null) return ''; const v=Number(String(n).replace(/[, ]/g,'')); return isNaN(v)?String(n):v.toLocaleString(); }
 function _vat10(amount){ const v=Number(String(amount==null?'':amount).replace(/[, ]/g,'')); return (isNaN(v)||v===0)?'':Math.round(v*0.1).toLocaleString(); }
+async function anVendorCat(p, companyKey, sel){
+  const v=sel.value;
+  if(v==='__new__'){
+    const nn=(prompt('새 분류 이름:')||'').trim();
+    if(!nn){ anRender(p); return; }
+    AN_CONFIG.categories=AN_CONFIG.categories||[];
+    if(!AN_CONFIG.categories.includes(nn) && !CATEGORIES.includes(nn)){ AN_CONFIG.categories.push(nn); try{ await saveAnConfig(); }catch(e){} }
+    await anVendorField(p,companyKey,'category',nn); anRender(p); return;
+  }
+  await anVendorField(p,companyKey,'category',v);
+}
+async function anVendorField(p, companyKey, key, val){
+  let changed=false;
+  for(const fid of Object.keys(AN_DATA[p]||{})){
+    const r=AN_DATA[p][fid];
+    const k=((r.company||'미분류').trim())||'미분류';
+    if(k===companyKey){ r[key]=val; changed=true; }
+  }
+  if(changed){ try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); }catch(e){} }
+}
 async function anCatChange(p,fid,sel){
   const v=sel.value;
   if(v==='__new__'){
@@ -3743,7 +3811,7 @@ async function _analyzeOne(p, f){
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
 {"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
-- category(분류): 품목 성격을 [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나로. 판단 어려우면 빈 문자열.
+- category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
 - delivery(납기): 물품을 언제 납품/인도하는지. 문서에 "납기","납품기일","납품시기","delivery","리드타임" 등으로 표기됨.
 - payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금"). "대금지불","지급조건","결제조건" 등으로 표기됨.
 - warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상"). "보증","무상","품질보증" 등. 특이사항·비고란도 찾을 것.
@@ -3802,10 +3870,10 @@ async function anAnalyze(p, silent){
       let text='';
       try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
       // 2) Copilot 분석
-      const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+      let prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
 {"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식. 견적 유효기한과 혼동하지 말 것. 없으면 빈 문자열.
-- category(분류): 품목 성격을 [가공, 구매품, 로봇, 공압품, 물류, 기타] 중 하나로. 판단 어려우면 빈 문자열.
+- category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
 - delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 1개월", "2026-07-30"). 문서에 "납기","납품기일","납품시기","delivery","D/T","리드타임" 등으로 표기됨.
 - payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금", "납품 후 30일 현금"). 문서에 "대금지불","지급조건","결제조건","payment" 등으로 표기됨.
 - warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상", "1년"). 문서에 "보증","무상","warranty","품질보증" 등으로 표기됨. 특이사항·비고란에 적힌 경우도 찾을 것.
@@ -3815,18 +3883,44 @@ async function anAnalyze(p, silent){
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
+      if(p==='doc-vendor'){
+        prompt=`다음은 거래처 관련 문서(사업자등록증 / 통장사본 등)에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"회사명/상호","bizno":"사업자등록번호","ceo":"대표자 성명","address":"사업장 주소","bank":"계좌번호(통장번호)","category":"분류"}
+- company: 법인명/상호 (예: "한국화낙(주)").
+- bizno: 사업자등록번호, 하이픈 포함 원문 (예: "609-81-02482"). 없으면 빈 문자열.
+- ceo: 대표자 성명 (예: "고영운"). 없으면 빈 문자열.
+- address: 사업장 소재지 주소. 없으면 빈 문자열.
+- bank: 통장/계좌번호. 통장사본이면 "계좌번호" 옆 숫자(하이픈 포함, 예: "140-002-678724"). 사업자등록증 등 계좌가 없으면 빈 문자열.
+- category(분류): 거래처 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 업태/종목/회사명으로 판단, 애매하면 빈 문자열.
+- 없는 값은 빈 문자열. 숫자는 원문 그대로(하이픈 유지).
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+      }
       let info=null;
       try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
-      AN_DATA[p][f.id]={
-        company:(info&&info.company)||f.customer||'',
-        quoteDate:(info&&info.quoteDate)||'',
-        category:(info&&info.category)||'',
-        items:(info&&info.items)||[],
-        delivery:(info&&info.delivery)||'',
-        payment:(info&&info.payment)||'',
-        warranty:(info&&info.warranty)||'',
-        memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
-      };
+      if(p==='doc-vendor'){
+        AN_DATA[p][f.id]={
+          company:(info&&info.company)||f.customer||'',
+          bizno:(info&&info.bizno)||'',
+          ceo:(info&&info.ceo)||'',
+          address:(info&&info.address)||'',
+          bank:(info&&info.bank)||'',
+          category:(info&&info.category)||'',
+          fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+        };
+      }else{
+        AN_DATA[p][f.id]={
+          company:(info&&info.company)||f.customer||'',
+          quoteDate:(info&&info.quoteDate)||'',
+          category:(info&&info.category)||'',
+          items:(info&&info.items)||[],
+          delivery:(info&&info.delivery)||'',
+          payment:(info&&info.payment)||'',
+          warranty:(info&&info.warranty)||'',
+          memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+        };
+      }
       okN++;
       if(done%3===0){ anRender(p); if(!silent) toast(`분석 중… ${done}/${pending.length}`); }
     }catch(e){ console.warn('분석 실패',f.name,e.message); }
@@ -4077,11 +4171,12 @@ function guessCustomerFromSubject(subj,m){
 }
 function guessCategory(text){
   const t=(text||'').toLowerCase();
-  if(/로봇|robot|컨트롤러|controller|mate|arc|fanuc|화낙/.test(t)) return '로봇';
-  if(/가공|machining|cnc|밀링|선반|dxf|x_t|step|3d|2d|도면/.test(t)) return '가공';
-  if(/공압|pneumat|실린더|밸브|valve/.test(t)) return '공압품';
-  if(/물류|logist|운송|배송|포장/.test(t)) return '물류';
-  if(/구매|purchas|부품|part/.test(t)) return '구매품';
+  if(/로봇|robot|컨트롤러|controller|mate|arc|fanuc|화낙|협동|cobot/.test(t)) return '로봇';
+  if(/비전|vision|카메라|camera|렌즈|lens|광학|optic|조명|이미지|inspect|검사|키엔스|keyence|cognex/.test(t)) return '비전';
+  if(/스테이지|stage|리니어|linear|액추에이터|actuator|모션|motion|서보|servo|갠트리|gantry|xy[ -]?stage/.test(t)) return '스테이지';
+  if(/가공|machining|cnc|밀링|선반|dxf|x_t|step|도면|drawing|harness|하네스/.test(t)) return '가공';
+  if(/물류|logist|운송|배송|포장|컨베이어|conveyor/.test(t)) return '물류';
+  if(/소모|consum|부품|part|구매|purchas|nozzle|니들|needle|tip|소재|material/.test(t)) return '소모품';
   return '기타';
 }
 function guessDocType(name,subj){
@@ -7971,6 +8066,7 @@ const TIC_GROUP_ID = "8457d8bf-1dd8-4e24-ad22-250816cc7d6d"; // [일반|TIC] 팀
 const PERM_TABS = [
   {id:'mail',        label:'📧 메일'},
   {id:'contacts',    label:'👥 주소록'},
+  {id:'doc-vendor',  label:'🏢 거래처'},
   {id:'doc-quote',   label:'📄 견적서'},
   {id:'doc-invoice', label:'📋 거래명세서'},
   {id:'doc-tax',     label:'🧾 세금계산서'},
