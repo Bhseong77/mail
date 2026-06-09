@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v116</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v119</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9001,6 +9001,14 @@ async function poadvSave(){
       }catch(e){
         document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. (구매발주서 SharePoint 저장 실패: ${esc(e.message)} — 「구매발주서출력」으로 수동 저장 가능)</div>`;
       }
+      // 발주 목록 영림원에서 즉시 새로고침 (방금 저장한 발주 반영)
+      if(typeof poadvListLoad==="function"){
+        const lt=document.getElementById("poadv-list-tbody");
+        if(lt) lt.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">방금 저장한 발주를 영림원에서 불러오는 중…</td></tr>';
+        poadvListLoad(true);
+      }
+      // 작성 행 초기화 (다음 발주 준비)
+      poadvRows=[]; poadvAddRow(); poadvRenderRows();
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, d.message||"저장 실패");
       msg.style.color="#dc2626"; msg.textContent="저장 실패: "+(d.message||"");
@@ -9461,7 +9469,7 @@ function _poadvNormDate(s){
 }
 
 // ════════════════════════════════════════════════════════════════
-//  발주 목록 (영림원 /api/purchase/orders) + 상세 모달 + 납기변경(로컬)
+//  발주 목록 (영림원 라이브 발주조회 /api/erp/order-list) + 상세 모달 + 납기변경(로컬)
 // ════════════════════════════════════════════════════════════════
 let _poadvOrders = null;          // 발주번호별 그룹 [{po_no, date, cust, items:[...]}]
 let _poadvDelvChg = null;         // 납기변경이력 { "20260609-0025": [{ts,from,to,by,memo}] }
@@ -9476,28 +9484,25 @@ async function poadvLoadDelvChg(){
 
 async function poadvListLoad(refresh){
   const tb=document.getElementById("poadv-list-tbody"); if(!tb) return;
-  tb.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">발주 목록 불러오는 중…</td></tr>';
+  tb.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">발주 목록 불러오는 중…'+(refresh?' (영림원 조회 ~20초)':'')+'</td></tr>';
   try{
     await poadvLoadDelvChg();
-    const r=await fetch(`${SERVER}/api/purchase/orders`);
-    const rows=await r.json();
-    // 발주번호별 그룹핑 (id = PONo_POSerl → raw_json에 PONo)
-    const grp={};
-    (rows||[]).forEach(x=>{
-      let raw={}; try{ raw=JSON.parse(x.raw_json||"{}"); }catch(e){}
-      const pono=raw.PONo||((x.id||"").split("_")[0])||"";
-      if(!pono) return;
-      if(!grp[pono]) grp[pono]={ po_no:pono, date:x.order_date||raw.PODate||"", cust:x.vendor||raw.CustName||"", items:[] };
-      grp[pono].items.push({
-        pjt_no:x.project_code||raw.PJTNo||"", pjt_name:x.project_name||raw.PJTName||"",
-        item_name:x.item_name||raw.ItemName||"", item_no:x.item_no||raw.ItemNo||"",
-        spec:raw.Spec||"", unit:raw.UnitName||"EA", maker:raw.MakerName||"",
-        qty:x.qty||raw.Qty||0, price:raw.Price||raw.DomPrice||0, amount:x.amount||raw.DomAmt||0,
-        delv:raw.DelvDate||raw.DelvPlanDate||"", status:x.status||raw.SMCurrStatusName||""
-      });
-    });
-    _poadvOrders=Object.values(grp).sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
+    const r=await fetch(`${SERVER}/api/erp/order-list${refresh?"?refresh=1":""}`);
+    const j=await r.json();
+    const rows=(j&&j.rows)||[];
+    // 발주조회는 발주번호별 1행(헤더) → 그대로 매핑
+    _poadvOrders=rows.map(x=>({
+      po_no:x.po_no||"", date:x.po_date||"", cust:x.cust_name||"",
+      emp_name:x.emp_name||"", dept_name:x.dept_name||"",
+      items:[{
+        pjt_no:x.pjt_no||"", pjt_name:x.pjt_name||"",
+        item_name:x.item_name||"", item_no:"", spec:"", unit:"EA", maker:"",
+        qty:poadvNum(x.qty), price:0, amount:poadvNum(x.total||x.amount),
+        delv:x.delv||"", status:x.status||"", emp_name:x.emp_name||""
+      }]
+    })).sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
     poadvListRender((document.getElementById("poadv-list-q")||{}).value||"");
+    if(j&&j.error){ const cnt=document.getElementById("poadv-list-cnt"); if(cnt) cnt.textContent+=" (영림원 조회 실패—캐시)"; }
   }catch(e){ tb.innerHTML=`<tr><td colspan="10" style="padding:16px;color:#dc2626;">로드 실패: ${esc(e.message)}</td></tr>`; }
 }
 
@@ -9535,9 +9540,11 @@ function poadvListRender(q){
       <td style="text-align:right;">${poadvComma(totAmt)}</td>
       <td>${delvBadge}</td>
       <td style="font-size:12px;">${esc(first.status||"-")}</td>
-      <td style="text-align:center;">${(first.status||"").indexOf("완료")>=0
+      <td style="text-align:center;">${(first.status||"").indexOf("작성")>=0
         ? `<button onclick="event.stopPropagation();poadvDelvConfirm('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:5px 10px;border:none;background:#16a34a;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">📦 납품</button>`
-        : `<span style="color:#cbd5e1;font-size:11px;">-</span>`}</td>
+        : (first.status||"").indexOf("완료")>=0
+          ? `<span style="color:#16a34a;font-size:12px;font-weight:700;">✅ 완료</span>`
+          : `<span style="color:#cbd5e1;font-size:11px;">-</span>`}</td>
     </tr>`;
   }).join("");
 }
