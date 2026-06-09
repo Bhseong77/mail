@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v124</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v125</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9926,23 +9926,25 @@ function prnewRenderRows(){
   tb.innerHTML=prnewRows.map((r,i)=>{
     const tot = prnewNum(r["기본소요량"])*prnewNum(r["제작대수"]);
     const done = r._pr;   // 구매요청 입력 저장 완료 행
-    const rowStyle = done ? 'style="background:#fee2e2;"' : '';   // 빨간색
+    const existing = r._existing;  // 영림원 기존 등록 행 (재료자원 저장 제외)
+    const rowStyle = done ? 'style="background:#fee2e2;"' : (existing ? 'style="background:#f1f5f9;"' : '');
+    const lockInput = done || existing;  // 기존/완료 행은 입력 잠금
     const chk = done
       ? '<span style="color:#b91c1c;font-weight:700;font-size:11px;">완료</span>'
       : `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
-      <td style="text-align:center;color:#9ca3af;">${i+1}</td>
-      <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="구매단위" value="${esc(r["구매단위"]||"EA")}" oninput="prnewRowInput(${i},'구매단위',this)" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)" ${done?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${done?"disabled":""}></td>
+      <td style="text-align:center;color:#9ca3af;">${i+1}${existing?'<div style="font-size:9px;color:#94a3b8;">기존</div>':''}</td>
+      <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="구매단위" value="${esc(r["구매단위"]||"EA")}" oninput="prnewRowInput(${i},'구매단위',this)" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${lockInput?"disabled":""}></td>
       <td class="num" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
       <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
     </tr>`;
@@ -9988,12 +9990,13 @@ async function prnewQuery(){
       prnewRows=j.rows.map(x=>({
         "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
         "품명":x["품명"]||"", "품번":x["품번"]||"", "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
-        "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||""
+        "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||"",
+        _existing:true   // 영림원에 이미 등록된 행 → 저장 시 제외
       }));
       if(!prnewRows.length) prnewAddRow();
       prnewRenderRows();
       if(_j&&typeof _Jok==="function") _Jok(_j, `${j.rows.length}건`);
-      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ ${pjt} 기존 재료자원 ${j.rows.length}건 로드 — 수정/추가 후 저장하세요`; }
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ ${pjt} 기존 재료자원 ${j.rows.length}건 로드 — 「＋행 추가」로 신규만 입력 후 저장 (기존 행은 저장 제외)`; }
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, j.error||"조회 실패");
       if(msg){ msg.style.color="#dc2626"; msg.textContent="조회 실패: "+(j.error||""); }
@@ -10008,20 +10011,22 @@ function prnewValidate(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const errs=[];
   if(!pjt) errs.push("프로젝트번호");
-  const valid=prnewRows.filter(r=>r["BOM레벨"]||r["품명"]||r["품번"]);
-  if(!valid.length) errs.push("재료자원 품목(최소 1행)");
+  // 신규 행만 대상 (조회로 불러온 기존 행 _existing 제외)
+  const newRows=prnewRows.filter(r=>!r._existing && (r["BOM레벨"]||r["품명"]||r["품번"]));
+  if(!newRows.length) errs.push("신규 재료자원 품목(「＋행 추가」로 입력)");
   let rowErr=0;
   document.querySelectorAll("#prnew-tbody input").forEach(el=>el.classList.remove("miss"));
   const need=["BOM레벨","품명","품번","기본소요량","제작대수"];
   prnewRows.forEach((r,i)=>{
+    if(r._existing) return;  // 기존 행은 검증 안 함
+    if(!(r["BOM레벨"]||r["품명"]||r["품번"])) return;  // 완전 빈 행 skip
     need.forEach(f=>{
       const bad=(f==="기본소요량"||f==="제작대수")? !(prnewNum(r[f])>0) : !String(r[f]||"").trim();
-      if(bad){ rowErr++; const tr=document.querySelectorAll("#prnew-tbody tr")[i];
-        if(tr){ const map={"BOM레벨":0,"품명":3,"품번":4,"기본소요량":7,"제작대수":8}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } }
+      if(bad){ rowErr++; }
     });
   });
-  if(rowErr) errs.push(`품목 필수입력 ${rowErr}칸`);
-  return {ok:errs.length===0, errs, pjt, rows:valid};
+  if(rowErr) errs.push(`신규 품목 필수입력 ${rowErr}칸`);
+  return {ok:errs.length===0, errs, pjt, rows:newRows};
 }
 
 async function prnewSave(){
