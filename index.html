@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v103</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v105</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8150,7 +8150,7 @@ function pInProj(row){
   const cands = [row.project_code,row.pjt_no,row.PJTNo,row.projectCode,row.project_no,row.pjtNo];
   return cands.some(v => v && set.includes(String(v).trim().toUpperCase()));
 }
-{ const _o=ppnewLoadConfirmed; ppnewLoadConfirmed=async function(r){ await _o(r); try{ ppnewConfirmed=(ppnewConfirmed||[]).filter(pInProj); ppnewRenderList(); }catch(e){console.warn('필터 pp',e);} }; }
+/* 구매품의 STEP1: 확정 구매요청은 프로젝트 등록 여부와 무관하게 전부 표시 (pInProj 필터 제거) */
 { const _o=ponewLoadDrafts;    ponewLoadDrafts=async function(r){ await _o(r); try{ ponewDrafts=(ponewDrafts||[]).filter(pInProj); ponewRenderList(); }catch(e){console.warn('필터 po',e);} }; }
 { const _o=dvnewLoadDrafts;    dvnewLoadDrafts=async function(r){ await _o(r); try{ dvnewDrafts=(dvnewDrafts||[]).filter(pInProj); dvnewRenderList(); }catch(e){console.warn('필터 dv',e);} }; }
 { const _o=ivnewLoadList;      ivnewLoadList=async function(r){ await _o(r); try{ ivnewList=(ivnewList||[]).filter(pInProj); ivnewRenderList(); }catch(e){console.warn('필터 iv',e);} }; }
@@ -8500,7 +8500,7 @@ function ccRender(){
   const list=$('ccList'); if(!list) return;
   const cnt=$('ccCount'); if(cnt) cnt.textContent=`${CC_ROWS.length}건`;
   if(!CC_ROWS.length){ list.innerHTML='<div class="an-empty">조회된 사용내역이 없습니다 (기간/상태 확인).</div>'; return; }
-  const acctOpts=sel=>['',...CC_ACCOUNTS].map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join('');
+  const acctOpts=sel=>{ const base=['',...CC_ACCOUNTS]; if(sel && !base.includes(sel)) base.push(sel); return base.map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join(''); };
   let h=`<table class="an-tbl"><thead><tr>
     <th class="c"><input type="checkbox" onclick="ccCheckAll(this.checked)"></th>
     <th class="c">처리상태</th><th class="c">카드번호</th><th>카드명</th>
@@ -8510,6 +8510,8 @@ function ccRender(){
     const k=_ccRowKey(r,i);
     const ed=CC_EDIT[k]||{};
     const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
+    const curAcct = (ed.acct!=null && ed.acct!=='') ? ed.acct : (r['비용계정']||'');
+    const curJeokyo = (ed.jeokyo!=null && ed.jeokyo!=='') ? ed.jeokyo : (r['적요']||'');
     h+=`<tr>
       <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
       <td class="c">${esc(r['처리상태']||'')}</td>
@@ -8521,8 +8523,8 @@ function ccRender(){
       <td>${esc(r['가맹점명']||'')}</td>
       <td>${esc(r['거래처']||'')}</td>
       <td class="r">${_ccNum(r['승인금액'])}</td>
-      <td class="c"><select class="memo" style="width:120px" onchange="ccSet('${esc(k)}','acct',this.value)">${acctOpts(ed.acct||'')}</select></td>
-      <td><input class="memo" style="width:100%;min-width:180px" value="${esc(ed.jeokyo||'')}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
+      <td class="c"><select class="memo" style="width:120px" onchange="ccSet('${esc(k)}','acct',this.value)">${acctOpts(curAcct)}</select></td>
+      <td><input class="memo" style="width:100%;min-width:180px" value="${esc(curJeokyo)}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
     </tr>`;
   });
   h+=`</tbody></table>`;
@@ -8560,8 +8562,7 @@ async function ccSave(){
   if(!confirm(`${items.length}건을 영림원에 저장합니다.\n(비용계정·적요를 그리드에 입력하고 [저장] 실행)\n계속할까요?`)) return;
   const from=$('ccFrom').value, to=$('ccTo').value, st=$('ccState').value;
   const _j=(typeof _J==='function')?_J(`법인카드 저장 ${items.length}건`):null;
-  const list=$('ccList'); const prev=list.innerHTML;
-  list.innerHTML='<div class="an-empty">영림원에 저장 중… (로그인+입력+저장, 30~60초)</div>';
+  const saveBtn=document.querySelector('#panel-corpcard .panel-bar~div .btn.primary');
   try{
     const res=await fetch(`${SERVER}/api/erp/corpcard/save`,{
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -8571,10 +8572,9 @@ async function ccSave(){
     if(!res.ok || data.error){ throw new Error(data.error||('서버 '+res.status)); }
     if(_j&&typeof _Jok==='function') _Jok(_j, `${data.saved||0}건 저장`);
     toast(`✅ ${data.saved||0}건 저장 완료`,'ok');
-    ccLoad(); // 갱신 (저장분은 처리상태/미처리에서 빠질 수 있음)
+    ccLoad(); // 갱신 (저장분은 미처리에서 빠질 수 있음)
   }catch(e){
     if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
-    list.innerHTML=prev;
     toast('저장 실패: '+e.message,'bad');
   }
 }
