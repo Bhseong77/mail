@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v108</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v109</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1036,6 +1036,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="psb-section">
         <div class="psb-title">설정</div>
+        <div class="psb-item" data-p="cust" onclick="pShowPage('cust')">🏢 거래처조회</div>
         <div class="psb-item" data-p="settings" onclick="pShowPage('settings')">⚙️ 프로젝트 설정</div>
       </div>
     </div>
@@ -1417,6 +1418,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
 
       <!-- 설정 -->
+      <div class="psub" id="p-cust"></div>
       <div class="psub" id="p-settings"></div>
     </div>
   </div>
@@ -5469,6 +5471,7 @@ function pRenderCurrent(){
   if(n==="overview") return pRenderOverview();
   if(n==="activity") return pRenderActivity();
   if(P_FILES.includes(n)) return pRenderTable(n);
+  if(n==="cust") return (typeof custPageInit==="function") ? custPageInit() : pRenderSoon(n);
   if(n==="po_adv") return (typeof poadvInit==="function") ? poadvInit() : pRenderSoon(n);
   if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n);
 }
@@ -8682,7 +8685,11 @@ function poadvInit(){
             <div><label class="poadv-lb">발주일 <span class="poadv-req">*</span></label>
               <input type="date" id="poadv-date" class="poadv-in"></div>
             <div><label class="poadv-lb">구매거래처 <span class="poadv-req">*</span></label>
-              <input type="text" id="poadv-cust" class="poadv-in" placeholder="거래처명 입력"></div>
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="poadv-cust" class="poadv-in" placeholder="🔍 거래처 검색" readonly style="cursor:pointer;background:#f8fafc;" onclick="poadvCustOpen()">
+                <input type="hidden" id="poadv-cust-seq">
+                <button type="button" onclick="poadvCustOpen()" style="padding:0 12px;border:1.5px solid #0f4c81;border-radius:6px;background:#eef4fb;color:#0f4c81;font-size:15px;cursor:pointer;flex-shrink:0;">🔍</button>
+              </div></div>
             <div><label class="poadv-lb">발주부서 <span class="poadv-req">*</span></label>
               <input type="text" id="poadv-dept" class="poadv-in" value="경영전략본부"></div>
             <div><label class="poadv-lb">발주담당자 <span class="poadv-req">*</span></label>
@@ -8855,6 +8862,7 @@ function poadvCollect(){
   return {
     date: (document.getElementById("poadv-date").value||"").trim(),
     cust: (document.getElementById("poadv-cust").value||"").trim(),
+    cust_seq: (document.getElementById("poadv-cust-seq").value||"").trim(),
     dept: (document.getElementById("poadv-dept").value||"").trim(),
     emp:  (document.getElementById("poadv-emp").value||"").trim(),
     cur:  (document.getElementById("poadv-cur").value||"").trim(),
@@ -9068,6 +9076,194 @@ async function poadvEmailPDF(){
     if($c("cBody")) $c("cBody").value=body;
     const pv=document.getElementById("poadv-pv"); if(pv) pv.remove();
   }catch(e){ alert("메일 첨부 오류: "+e.message); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  구매거래처 검색·선택 + 신규등록 (영림원 매입거래처)
+// ════════════════════════════════════════════════════════════════
+let _poadvCustCache = null;
+
+function poadvCustOpen(){
+  let ov = document.getElementById("poadv-cust-ov");
+  if(!ov){
+    ov = document.createElement("div");
+    ov.id = "poadv-cust-ov";
+    ov.style.cssText = "position:fixed;inset:0;z-index:1000040;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
+    ov.innerHTML = `
+      <div style="width:min(480px,94vw);max-height:82vh;background:#fff;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,.3);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:#0f4c81;color:#fff;">
+          <b>🏢 구매거래처 선택</b>
+          <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-cust-ov').remove()">✕</span>
+        </div>
+        <div style="padding:12px 14px;">
+          <input id="poadv-cust-q" oninput="poadvCustRender(this.value)" placeholder="🔍 거래처명·사업자번호·대표자 검색" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div id="poadv-cust-list" style="overflow:auto;flex:1;border-top:1px solid #f1f5f9;min-height:120px;"></div>
+      </div>`;
+    ov.addEventListener("click", e=>{ if(e.target===ov) ov.remove(); });
+    document.body.appendChild(ov);
+  } else { ov.style.display="flex"; }
+  const q=document.getElementById("poadv-cust-q"); if(q){ q.value=""; q.focus(); }
+  const list=document.getElementById("poadv-cust-list");
+  list.innerHTML='<div style="padding:14px;color:#94a3b8;">거래처 불러오는 중…</div>';
+  poadvLoadCustomers().then(()=>poadvCustRender(""))
+    .catch(e=>{ list.innerHTML='<div style="padding:14px;color:#dc2626;">로드 실패: '+esc(e.message)+'</div>'; });
+}
+
+async function poadvLoadCustomers(){
+  if(_poadvCustCache) return _poadvCustCache;
+  const r = await fetch(`${SERVER}/api/customers/buy`);
+  const rows = await r.json();
+  _poadvCustCache = (rows||[]).map(x=>({
+    cust_seq:x.cust_seq, cust_name:x.cust_name||"", biz_no:x.biz_no||"",
+    owner:x.owner||"", kind:x.cust_kind_name||""
+  }));
+  return _poadvCustCache;
+}
+
+function poadvCustRender(q){
+  const list=document.getElementById("poadv-cust-list"); if(!list) return;
+  let arr=_poadvCustCache||[];
+  q=(q||"").trim().toLowerCase();
+  if(q) arr=arr.filter(c=>(`${c.cust_name} ${c.biz_no} ${c.owner}`).toLowerCase().includes(q));
+  let html=`<div onclick="poadvCustNew()" style="padding:11px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:14px;color:#0f4c81;font-weight:700;">➕ 신규 거래처 등록</div>`;
+  if(!arr.length) html+='<div style="padding:14px;color:#94a3b8;">검색 결과 없음 — 위에서 신규 등록하세요</div>';
+  else html+=arr.slice(0,60).map(c=>{
+    const nm=esc(c.cust_name);
+    return `<div onclick="poadvCustPick('${nm.replace(/'/g,"\\'")}',${c.cust_seq||0})" style="padding:10px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:13.5px;">🏢 <b>${nm}</b>${c.biz_no?`<span style="color:#94a3b8;font-size:12px;"> · ${esc(c.biz_no)}</span>`:''}${c.owner?`<span style="color:#94a3b8;font-size:12px;"> · ${esc(c.owner)}</span>`:''}</div>`;
+  }).join("");
+  list.innerHTML=html;
+}
+
+function poadvCustPick(name, seq){
+  document.getElementById("poadv-cust").value=name;
+  document.getElementById("poadv-cust-seq").value=seq||"";
+  const ov=document.getElementById("poadv-cust-ov"); if(ov) ov.remove();
+}
+
+// 신규 거래처 등록 (영림원 매입거래처)
+function poadvCustNew(){
+  const ov=document.getElementById("poadv-cust-ov"); if(ov) ov.remove();
+  let m=document.getElementById("poadv-custnew-ov");
+  if(!m){
+    m=document.createElement("div");
+    m.id="poadv-custnew-ov";
+    m.style.cssText="position:fixed;inset:0;z-index:1000045;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
+    m.innerHTML=`
+      <div style="width:min(540px,95vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff;">
+          <b>🏢 신규 구매 거래처 등록</b>
+          <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-custnew-ov').remove()">✕</span>
+        </div>
+        <div style="padding:18px 20px;">
+          <div style="background:#eef4fb;border:1px solid #c7ddf5;border-radius:8px;padding:9px 11px;margin-bottom:14px;font-size:12.5px;color:#0f4c81;">
+            영림원 거래처등록에 바로 생성돼요. <b>국내</b>=사업자번호 필수 · <b>해외</b>=불필요. 거래처번호는 영림원이 자동 발급합니다.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
+            <label style="font-size:13px;color:#475569;font-weight:600;grid-column:1/3;">거래처명(상호) <span style="color:#dc2626">*</span>
+              <input id="poadv-cn-name" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;"></label>
+            <label style="font-size:13px;color:#475569;font-weight:600;">국내/해외 <span style="color:#dc2626">*</span>
+              <select id="poadv-cn-domfor" onchange="poadvCustNewToggle()" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;">
+                <option value="국내">국내 (국내매입거래처)</option><option value="해외">해외 (해외매입거래처)</option></select></label>
+            <label style="font-size:13px;color:#475569;font-weight:600;">신용등급
+              <select id="poadv-cn-cred" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;"><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+            <label id="poadv-cn-biz-row" style="font-size:13px;color:#475569;font-weight:600;grid-column:1/3;">사업자번호 <span style="color:#dc2626">*</span> <span style="color:#94a3b8;font-size:11px;">(국내 필수, 숫자 10자리)</span>
+              <input id="poadv-cn-bizno" placeholder="124-45-43211" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;"></label>
+            <label style="font-size:13px;color:#475569;font-weight:600;">대표자 <span style="color:#94a3b8;font-size:11px;">(선택)</span>
+              <input id="poadv-cn-owner" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;"></label>
+            <label style="font-size:13px;color:#475569;font-weight:600;">전화번호 <span style="color:#94a3b8;font-size:11px;">(선택)</span>
+              <input id="poadv-cn-tel" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px;font-size:14px;box-sizing:border-box;"></label>
+          </div>
+          <div id="poadv-cn-result" style="margin-top:12px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+            <button onclick="document.getElementById('poadv-custnew-ov').remove()" style="padding:10px 18px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:14px;">취소</button>
+            <button id="poadv-cn-save" onclick="poadvCustNewSave()" style="padding:10px 20px;border:none;background:#0f4c81;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">💾 영림원에 등록</button>
+          </div>
+        </div>
+      </div>`;
+    m.addEventListener("click", e=>{ if(e.target===m) m.remove(); });
+    document.body.appendChild(m);
+  } else { m.style.display="flex"; }
+  poadvCustNewToggle();
+}
+
+function poadvCustNewToggle(){
+  const dom=(document.getElementById("poadv-cn-domfor")||{}).value;
+  const row=document.getElementById("poadv-cn-biz-row");
+  if(row) row.style.display=(dom==="국내")?"block":"none";
+}
+
+async function poadvCustNewSave(){
+  const g=id=>((document.getElementById(id)||{}).value||"").trim();
+  const name=g("poadv-cn-name"), dom=g("poadv-cn-domfor"), bizno=g("poadv-cn-bizno").replace(/\D/g,"");
+  if(!name){ alert("거래처명은 필수입니다"); return; }
+  if(dom==="국내" && !bizno){ alert("국내 거래처는 사업자번호가 필수입니다"); return; }
+  const payload={ cust_name:name, trun_name:name, dom_for:dom, cust_type:"매입", cred_level:g("poadv-cn-cred"),
+                  biz_no: dom==="국내"?bizno:"", owner:g("poadv-cn-owner"), tel_no:g("poadv-cn-tel") };
+  const out=document.getElementById("poadv-cn-result");
+  const btn=document.getElementById("poadv-cn-save");
+  if(btn){ btn.disabled=true; btn.style.opacity=.5; }
+  if(out) out.innerHTML='<div style="padding:12px;color:#6b7280;">⏳ 영림원에 거래처 등록 중… (~30초)</div>';
+  const _j=(typeof _J==="function")?_J("구매 거래처 등록: "+name):null;
+  try{
+    const res=await fetch(`${SERVER}/api/erp/customers/save`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const d=await res.json();
+    if(d.success){
+      if(out) out.innerHTML=`<div style="padding:12px;background:#d1fae5;border-radius:8px;color:#065f46;">✅ ${esc(d.message||"등록 완료")}${d.cust_seq?" · CustSeq "+esc(String(d.cust_seq)):""}</div>`;
+      if(_j&&typeof _Jok==="function") _Jok(_j, name);
+      _poadvCustCache=null;  // 목록 캐시 무효화
+      // 등록한 거래처 자동 선택
+      poadvCustPick(name, d.cust_seq||"");
+      setTimeout(()=>{ const m=document.getElementById("poadv-custnew-ov"); if(m) m.remove(); }, 1400);
+    }else{
+      if(out) out.innerHTML=`<div style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ ${esc(d.message||"등록 실패")}</div>`;
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.message||"등록 실패");
+      if(btn){ btn.disabled=false; btn.style.opacity=1; }
+    }
+  }catch(e){
+    if(out) out.innerHTML=`<div style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 호출 실패: ${esc(e.message)}</div>`;
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(btn){ btn.disabled=false; btn.style.opacity=1; }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  거래처조회 페이지 (구매 사이드바 설정 > 거래처조회)
+// ════════════════════════════════════════════════════════════════
+function custPageInit(){
+  const host=document.getElementById("p-cust");
+  if(!host) return;
+  host.innerHTML=`
+    <div class="pfilter" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <strong style="font-size:15px;">🏢 구매 거래처조회</strong>
+      <input id="custpage-q" oninput="custPageRender(this.value)" placeholder="🔍 거래처명·사업자번호·대표자 검색" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
+      <span style="flex:1;"></span>
+      <button class="pbtn" onclick="_poadvCustCache=null;custPageLoad()">↻ 새로고침</button>
+      <button class="pbtn primary" onclick="poadvCustNew()" style="background:#0f4c81;color:#fff;">+ 신규 거래처</button>
+      <span id="custpage-cnt" style="color:#6b7280;font-size:13px;"></span>
+    </div>
+    <div class="pcard">
+      <div class="ptbl-wrap"><table class="ptbl" id="custpage-tbl">
+        <thead><tr><th>거래처명</th><th>사업자번호</th><th>대표자</th><th>종류</th></tr></thead>
+        <tbody id="custpage-tbody"><tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">불러오는 중…</td></tr></tbody>
+      </table></div>
+    </div>`;
+  custPageLoad();
+}
+async function custPageLoad(){
+  try{ await poadvLoadCustomers(); custPageRender((document.getElementById("custpage-q")||{}).value||""); }
+  catch(e){ const tb=document.getElementById("custpage-tbody"); if(tb) tb.innerHTML=`<tr><td colspan="4" style="padding:16px;color:#dc2626;">로드 실패: ${esc(e.message)}</td></tr>`; }
+}
+function custPageRender(q){
+  const tb=document.getElementById("custpage-tbody"); if(!tb) return;
+  let arr=_poadvCustCache||[];
+  q=(q||"").trim().toLowerCase();
+  if(q) arr=arr.filter(c=>(`${c.cust_name} ${c.biz_no} ${c.owner}`).toLowerCase().includes(q));
+  const cnt=document.getElementById("custpage-cnt"); if(cnt) cnt.textContent=`${arr.length}개`;
+  if(!arr.length){ tb.innerHTML='<tr><td colspan="4" style="padding:16px;text-align:center;color:#9ca3af;">검색 결과 없음</td></tr>'; return; }
+  tb.innerHTML=arr.slice(0,300).map(c=>`<tr>
+    <td><b>${esc(c.cust_name)}</b></td><td>${esc(c.biz_no||"-")}</td><td>${esc(c.owner||"-")}</td><td>${esc(c.kind||"-")}</td>
+  </tr>`).join("");
 }
 
 </script>
