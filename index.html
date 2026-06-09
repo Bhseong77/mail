@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v120</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v122</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1027,6 +1027,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       </div>
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
+        <div class="psb-item" data-p="pr_new" onclick="pShowPage('pr_new')">📥 구매요청서 입력</div>
         <div class="psb-item" data-p="pp_new" onclick="pShowPage('pp_new')">✏️ 구매품의 작성</div>
         <div class="psb-item" data-p="po_new" onclick="pShowPage('po_new')">✏️ 발주 작성</div>
         <div class="psb-item" data-p="po_adv" onclick="pShowPage('po_adv')">🧾 선발주 작성</div>
@@ -1065,6 +1066,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="psub" id="p-iv"></div>
 
       <!-- 작성(준비중) -->
+      <div class="psub" id="p-pr_new"></div>
       <div class="psub" id="p-pp_new">
         <div class="acc-page">
           <div class="acc-page-header">
@@ -5472,6 +5474,7 @@ function pRenderCurrent(){
   if(n==="activity") return pRenderActivity();
   if(P_FILES.includes(n)) return pRenderTable(n);
   if(n==="cust") return (typeof custPageInit==="function") ? custPageInit() : pRenderSoon(n);
+  if(n==="pr_new") return (typeof prnewInit==="function") ? prnewInit() : pRenderSoon(n);
   if(n==="po_adv") return (typeof poadvInit==="function") ? poadvInit() : pRenderSoon(n);
   if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n);
 }
@@ -9553,8 +9556,13 @@ function poadvListRender(q){
   }).join("");
 }
 
+let _poadvDetailLoading=false;
 async function poadvOrderDetail(pono){
+  if(_poadvDetailLoading) return;            // 중복 클릭 차단
   const o=(_poadvOrders||[]).find(x=>x.po_no===pono); if(!o) return;
+  _poadvDetailLoading=true;
+  // 즉시 로딩 모달 표시 (영림원 조회 ~15초)
+  poadvShowLoadingModal(pono);
   // 521296에서 품목 전체 로드 (대표품목 1개 → 전체로 교체)
   try{
     const r=await fetch(`${SERVER}/api/erp/order-items?po_no=${encodeURIComponent(pono)}`);
@@ -9570,7 +9578,32 @@ async function poadvOrderDetail(pono){
       o._itemsLoaded=true;
     }
   }catch(e){ /* 실패 시 대표품목 1개 유지 */ }
-  poadvRenderOrderDetail(o);
+  _poadvDetailLoading=false;
+  // 로딩 모달이 사용자가 닫지 않았으면 상세로 교체
+  const lo=document.getElementById("poadv-det-ov");
+  if(lo) poadvRenderOrderDetail(o);
+}
+
+function poadvShowLoadingModal(pono){
+  let m=document.getElementById("poadv-det-ov"); if(m) m.remove();
+  m=document.createElement("div");
+  m.id="poadv-det-ov";
+  m.style.cssText="position:fixed;inset:0;z-index:1000060;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
+  m.innerHTML=`
+    <div style="width:min(420px,92vw);background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff;">
+        <b>🧾 발주 상세 — ${esc(pono)}</b>
+        <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-det-ov').remove()">✕</span>
+      </div>
+      <div style="padding:36px 20px;text-align:center;">
+        <div class="poadv-spin" style="width:38px;height:38px;border:4px solid #e5e7eb;border-top-color:#0f4c81;border-radius:50%;margin:0 auto 16px;animation:poadvspin 0.8s linear infinite;"></div>
+        <div style="font-size:14px;color:#475569;">영림원에서 발주 품목을 불러오는 중…</div>
+        <div style="font-size:12px;color:#94a3b8;margin-top:6px;">최대 15초 정도 걸려요</div>
+      </div>
+    </div>
+    <style>@keyframes poadvspin{to{transform:rotate(360deg)}}</style>`;
+  m.addEventListener("click", e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
 }
 
 function poadvRenderOrderDetail(o){
@@ -9775,6 +9808,237 @@ function poadvDelvSubmit(pono){
       if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
       if(btn){ btn.disabled=false; btn.style.opacity=1; }
     });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  구매요청서 입력 (프로젝트재료자원등록) — pr_new
+//  프로젝트번호 선택 → 조회(기존 데이터) → 재료자원 그리드 입력 → 영림원 저장
+//  저장: POST /api/bom/register-rows {project_name, rows:[{...}]}
+//  컬럼(영림원 화면 순서): BOM레벨·조달구분·품목분류·품명·품번·규격·구매단위·기본소요량·제작대수·여유수량·(총소요량 자동)
+//  ※ 표준품여부=0, 등록구분=최초, 총소요량=기본소요량×제작대수 는 서버가 자동 처리
+// ════════════════════════════════════════════════════════════════
+let prnewRows = [];
+const PRNEW_FIELDS = ["BOM레벨","조달구분","품목분류","품명","품번","규격","구매단위","기본소요량","제작대수","여유수량"];
+
+function prnewNum(v){ const n=parseFloat(String(v==null?"":v).replace(/,/g,"")); return isNaN(n)?0:n; }
+
+function prnewInit(){
+  const host=document.getElementById("p-pr_new");
+  if(!host) return;
+  if(!host.dataset.built){
+    host.innerHTML = `
+      <div class="acc-page">
+        <div class="acc-page-header"><div>
+          <div class="acc-page-title">📥 구매요청서 입력 <span style="font-size:12px;color:#7c3aed;font-weight:700;">(프로젝트 재료자원 등록)</span></div>
+          <div class="acc-page-subtitle">프로젝트 선택 → 재료자원 그리드 입력 → 영림원 프로젝트재료자원등록 자동 저장</div>
+        </div></div>
+
+        <div class="acc-card">
+          <div class="acc-card-header"><div class="acc-card-title">① 프로젝트 선택</div></div>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div><label class="poadv-lb">프로젝트번호 <span class="poadv-req">*</span></label><br>
+              <select id="prnew-pjt" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;min-width:200px;"></select></div>
+            <button class="acc-period-btn today" onclick="prnewQuery()">🔍 조회</button>
+            <span id="prnew-pjt-msg" style="color:#6b7280;font-size:13px;"></span>
+          </div>
+        </div>
+
+        <div class="acc-card">
+          <div class="acc-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="acc-card-title">② 재료자원 품목</div>
+            <div style="font-size:12px;color:#94a3b8;">표준품여부=0 · 등록구분=최초 · 총소요량 자동(기본소요량×제작대수)</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+            <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
+            <button class="acc-period-btn" onclick="prnewClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
+            <span style="color:#15803d;font-size:12px;">💡 엑셀에서 셀 범위 복사 → 행 칸 클릭 후 <b>Ctrl+V</b></span>
+            <span id="prnew-rowinfo" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="poadv-tbl" id="prnew-tbl">
+              <thead><tr>
+                <th style="width:30px;">#</th>
+                <th style="width:62px;">BOM레벨 <span class="poadv-req">*</span></th>
+                <th style="width:90px;">조달구분</th>
+                <th style="width:90px;">품목분류</th>
+                <th>품명 <span class="poadv-req">*</span></th>
+                <th>품번 <span class="poadv-req">*</span></th>
+                <th style="width:80px;">규격</th>
+                <th style="width:62px;">구매단위</th>
+                <th style="width:80px;">기본소요량 <span class="poadv-req">*</span></th>
+                <th style="width:70px;">제작대수 <span class="poadv-req">*</span></th>
+                <th style="width:70px;">여유수량</th>
+                <th style="width:80px;">총소요량</th>
+                <th style="width:34px;"></th>
+              </tr></thead>
+              <tbody id="prnew-tbody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:10px;">
+            <button onclick="prnewSave()" id="prnew-save-btn" style="padding:11px 26px;border:none;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;cursor:pointer;font-size:15px;">📥 영림원에 저장</button>
+          </div>
+          <div id="prnew-msg" style="margin-top:10px;font-size:14px;"></div>
+          <div id="prnew-save-result" style="margin-top:10px;"></div>
+        </div>
+      </div>`;
+    host.dataset.built="1";
+  }
+  // 프로젝트 드롭다운 채우기
+  if(typeof pLoadConfig==="function"){
+    pLoadConfig().then(()=>prnewFillProjects()).catch(()=>prnewFillProjects());
+  } else prnewFillProjects();
+  if(!prnewRows.length) prnewAddRow();
+  prnewRenderRows();
+}
+
+function prnewFillProjects(){
+  const sel=document.getElementById("prnew-pjt"); if(!sel) return;
+  const projs=(typeof pProjects!=='undefined' && pProjects.length) ? pProjects : [];
+  const cur=sel.value;
+  sel.innerHTML=`<option value="">— 프로젝트 선택 —</option>`+projs.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  if(cur) sel.value=cur;
+}
+
+function prnewAddRow(prefill){
+  prnewRows.push(Object.assign({
+    "BOM레벨":"","조달구분":"","품목분류":"","품명":"","품번":"","규격":"","구매단위":"EA",
+    "기본소요량":"","제작대수":"","여유수량":""
+  }, prefill||{}));
+  prnewRenderRows();
+}
+function prnewDelRow(i){ prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRow(); prnewRenderRows(); }
+function prnewClearRows(){ prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
+
+function prnewRowInput(i, field, el){ prnewRows[i][field]=el.value; if(field==="기본소요량"||field==="제작대수") prnewRenderRows(); }
+
+function prnewRenderRows(){
+  const tb=document.getElementById("prnew-tbody"); if(!tb) return;
+  tb.innerHTML=prnewRows.map((r,i)=>{
+    const tot = prnewNum(r["기본소요량"])*prnewNum(r["제작대수"]);
+    return `<tr>
+      <td style="text-align:center;color:#9ca3af;">${i+1}</td>
+      <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1"></td>
+      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-"></td>
+      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-"></td>
+      <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명"></td>
+      <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번"></td>
+      <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-"></td>
+      <td><input data-r="${i}" data-f="구매단위" value="${esc(r["구매단위"]||"EA")}" oninput="prnewRowInput(${i},'구매단위',this)"></td>
+      <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)"></td>
+      <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)"></td>
+      <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)"></td>
+      <td class="num" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
+      <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
+    </tr>`;
+  }).join("");
+  const ri=document.getElementById("prnew-rowinfo"); if(ri) ri.textContent=`${prnewRows.length}개 품목`;
+  if(!tb.dataset.pasteBound){ tb.addEventListener("paste", prnewOnPaste); tb.dataset.pasteBound="1"; }
+}
+
+// 엑셀 셀 범위 붙여넣기 (행 칸에서 Ctrl+V)
+function prnewOnPaste(e){
+  const tgt=e.target; const startF=tgt&&tgt.dataset?tgt.dataset.f:null;
+  if(!startF || PRNEW_FIELDS.indexOf(startF)<0) return;
+  const text=(e.clipboardData||window.clipboardData).getData("text");
+  if(!text || (text.indexOf("\t")<0 && text.indexOf("\n")<0)) return;
+  e.preventDefault();
+  const startR=parseInt(tgt.dataset.r,10)||0;
+  const startC=PRNEW_FIELDS.indexOf(startF);
+  const lines=text.replace(/\r/g,"").replace(/\n$/,"").split("\n");
+  lines.forEach((line,li)=>{
+    const cells=line.split("\t"); const ri=startR+li;
+    while(prnewRows.length<=ri) prnewRows.push({"BOM레벨":"","조달구분":"","품목분류":"","품명":"","품번":"","규격":"","구매단위":"EA","기본소요량":"","제작대수":"","여유수량":""});
+    cells.forEach((val,ci)=>{ const f=PRNEW_FIELDS[startC+ci]; if(f) prnewRows[ri][f]=(val||"").trim(); });
+  });
+  prnewRenderRows();
+  const m=document.getElementById("prnew-msg"); if(m){ m.style.color="#15803d"; m.textContent=`✅ ${lines.length}행 붙여넣기 완료`; }
+}
+
+// 조회 — 기존 재료자원 데이터 (영림원 조회 자동화는 추후, 현재는 안내)
+function prnewQuery(){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  const msg=document.getElementById("prnew-pjt-msg");
+  if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
+  if(msg){ msg.style.color="#6b7280"; msg.textContent=`프로젝트 ${pjt} 선택됨 — 아래 그리드에 품목을 입력하거나 엑셀에서 붙여넣으세요`; }
+}
+
+function prnewValidate(){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  const errs=[];
+  if(!pjt) errs.push("프로젝트번호");
+  const valid=prnewRows.filter(r=>r["BOM레벨"]||r["품명"]||r["품번"]);
+  if(!valid.length) errs.push("재료자원 품목(최소 1행)");
+  let rowErr=0;
+  document.querySelectorAll("#prnew-tbody input").forEach(el=>el.classList.remove("miss"));
+  const need=["BOM레벨","품명","품번","기본소요량","제작대수"];
+  prnewRows.forEach((r,i)=>{
+    need.forEach(f=>{
+      const bad=(f==="기본소요량"||f==="제작대수")? !(prnewNum(r[f])>0) : !String(r[f]||"").trim();
+      if(bad){ rowErr++; const tr=document.querySelectorAll("#prnew-tbody tr")[i];
+        if(tr){ const map={"BOM레벨":0,"품명":3,"품번":4,"기본소요량":7,"제작대수":8}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } }
+    });
+  });
+  if(rowErr) errs.push(`품목 필수입력 ${rowErr}칸`);
+  return {ok:errs.length===0, errs, pjt, rows:valid};
+}
+
+async function prnewSave(){
+  const v=prnewValidate();
+  const msg=document.getElementById("prnew-msg");
+  if(!v.ok){ if(msg){ msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); } return; }
+  const btn=document.getElementById("prnew-save-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="등록 요청 중…";
+  if(msg){ msg.style.color="#6b7280"; msg.textContent="⏳ 영림원 재료자원 등록 요청 중…"; }
+  const _j=(typeof _J==="function")?_J("재료자원 등록: "+v.pjt):null;
+  try{
+    const r=await fetch(`${SERVER}/api/bom/register-rows`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({project_name:v.pjt, rows:v.rows})});
+    const d=await r.json();
+    if(d.job_id){
+      if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ 등록 작업 시작 (job ${d.job_id}) — 영림원에 자동 입력 중… 진행상황을 추적합니다`; }
+      prnewPollJob(d.job_id, _j);
+    }else{
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"등록 실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="등록 실패: "+(d.error||""); }
+      btn.disabled=false; btn.textContent=ot;
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="요청 오류: "+e.message; }
+    btn.disabled=false; btn.textContent=ot;
+  }
+}
+
+async function prnewPollJob(jobId, _j){
+  const msg=document.getElementById("prnew-msg");
+  const res=document.getElementById("prnew-save-result");
+  const btn=document.getElementById("prnew-save-btn");
+  let tries=0;
+  const tick=async()=>{
+    tries++;
+    try{
+      const r=await fetch(`${SERVER}/api/bom/jobs/${jobId}`);
+      const d=await r.json();
+      const stage=d.stage||d.status||"";
+      if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${stage}`; }
+      if(d.status==="success"){
+        if(_j&&typeof _Jok==="function") _Jok(_j, `${d.rows||""}행 등록`);
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">✅ 영림원 재료자원 등록 완료 · ${esc(String(d.rows||""))}행</div>`;
+        if(msg) msg.textContent="";
+        if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; }
+        return;
+      }
+      if(d.status==="failed"){
+        if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">❌ 등록 실패: ${esc(d.error||stage)}</div>`;
+        if(msg) msg.textContent="";
+        if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; }
+        return;
+      }
+    }catch(e){ /* 폴링 실패는 재시도 */ }
+    if(tries<150) setTimeout(tick, 2000); // 최대 5분
+    else { if(msg){ msg.style.color="#92400e"; msg.textContent="진행 추적 시간 초과 — 등록 이력을 확인하세요"; } if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; } }
+  };
+  setTimeout(tick, 1500);
 }
 
 </script>
