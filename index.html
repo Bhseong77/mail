@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v115</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v116</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9025,7 +9025,14 @@ function poadvClosePreview(){
 }
 function poadvPreview(){
   const v = poadvValidate();
-  if(!v.ok){ const msg=document.getElementById("poadv-msg"); msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); return; }
+  if(!v.ok){
+    const m="⚠️ 미입력 항목: "+v.errs.join(", ")+"\n\n행에 프로젝트번호·품명·품번·납기·수량을 입력해야 발주서가 출력됩니다.";
+    const msg=document.getElementById("poadv-msg"); if(msg){ msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); }
+    alert(m); return;
+  }
+  if(!window.html2canvas || !window.jspdf){
+    alert("PDF 라이브러리가 아직 로드 중입니다. 잠시 후(또는 새로고침 후) 다시 시도하세요.");
+  }
   const h=v.header, rows=v.rows;
   const supply = rows.reduce((s,r)=>s+poadvNum(r.qty)*poadvNum(r.price),0);
   const vat = Math.round(supply*0.1);
@@ -9040,58 +9047,80 @@ function poadvPreview(){
       <td>${esc(r.spec||"")}</td>
       <td class="c">${esc(r.unit||"EA")}</td>
       <td class="r">${poadvComma(r.qty)}</td>
-      <td class="r">${poadvComma(r.price)}</td>
+      <td class="r">${poadvNum(r.price).toFixed(2)}</td>
       <td class="r">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
       <td class="c">${esc(r.delv||"")}</td>
-      <td>${esc(r.pjt_no||"")}</td>
+      <td class="c">${esc(r.pjt_no||"")}</td>
     </tr>`).join("");
 
+  const cell="border:1px solid #999;padding:5px 8px;font-size:12px;";
+  const lbl="border:1px solid #999;padding:5px 8px;font-size:12px;background:#f1f4f8;color:#333;font-weight:600;text-align:center;white-space:nowrap;";
   const pdfHtml = `
-    <div id="poadv-pdf-page" style="width:760px;background:#fff;color:#111;padding:34px 38px;font-family:'Malgun Gothic','맑은 고딕',sans-serif;box-sizing:border-box;">
-      <div style="text-align:center;font-size:26px;font-weight:800;letter-spacing:8px;margin-bottom:18px;">구 매 발 주 서</div>
-      <div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;">
-        <table style="font-size:12.5px;border-collapse:collapse;flex:1;">
-          <tr><td style="padding:3px 8px;color:#555;width:70px;">수　　신</td><td style="padding:3px 8px;font-weight:700;border-bottom:1px solid #ccc;">${esc(h.cust)} 귀중</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">발 주 일</td><td style="padding:3px 8px;border-bottom:1px solid #eee;">${esc(h.date)}</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">발주번호</td><td style="padding:3px 8px;border-bottom:1px solid #eee;">${esc(poNo)}</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">통화/환율</td><td style="padding:3px 8px;border-bottom:1px solid #eee;">${esc(h.cur)} / ${esc(h.rate)}</td></tr>
-        </table>
-        <table style="font-size:12.5px;border-collapse:collapse;flex:1;border:1px solid #d1d5db;">
-          <tr><td colspan="2" style="padding:5px 8px;background:#0f4c81;color:#fff;font-weight:700;text-align:center;">공 급 받 는 자</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;width:64px;">상　호</td><td style="padding:3px 8px;font-weight:700;">${esc(POADV_CO.name)}</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">부　서</td><td style="padding:3px 8px;">${esc(h.dept)}</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">담당자</td><td style="padding:3px 8px;">${esc(h.emp)}</td></tr>
-          <tr><td style="padding:3px 8px;color:#555;">연락처</td><td style="padding:3px 8px;">${esc(POADV_CO.tel)}</td></tr>
-        </table>
-      </div>
-      <div style="font-size:12.5px;margin:6px 0 10px;">아래와 같이 발주합니다.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
+    <div id="poadv-pdf-page" style="width:760px;background:#fff;color:#111;padding:30px 36px;font-family:'Malgun Gothic','맑은 고딕',sans-serif;box-sizing:border-box;">
+      <div style="text-align:center;font-size:25px;font-weight:800;letter-spacing:10px;margin:4px 0 20px;">구 매 발 주 서</div>
+
+      <!-- 헤더 정보 (영림원 양식: 3행) -->
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <tr>
+          <td style="${lbl}width:90px;">구매거래처</td><td style="${cell}font-weight:700;">${esc(h.cust)}</td>
+          <td style="${lbl}width:70px;">발주일</td><td style="${cell}width:110px;">${esc(h.date)}</td>
+          <td style="${lbl}width:70px;">발주번호</td><td style="${cell}width:120px;">${esc(poNo)}</td>
+        </tr>
+        <tr>
+          <td style="${lbl}">전화번호</td><td style="${cell}">${esc(POADV_CO.tel)}</td>
+          <td style="${lbl}">발주담당자</td><td style="${cell}">${esc(h.emp)}</td>
+          <td style="${lbl}">발주부서</td><td style="${cell}">${esc(h.dept)}</td>
+        </tr>
+        <tr>
+          <td style="${lbl}">팩스번호</td><td style="${cell}">${esc(POADV_CO.fax||"")}</td>
+          <td style="${lbl}">통화</td><td style="${cell}">${esc(h.cur)}</td>
+          <td style="${lbl}">총금액</td><td style="${cell}text-align:right;font-weight:700;">${poadvComma(total)}</td>
+        </tr>
+        <tr>
+          <td style="${lbl}">특이사항</td><td style="${cell}" colspan="5">${esc(h.note||"")}</td>
+        </tr>
+      </table>
+
+      <!-- 품목표 (영림원 컬럼 순서) -->
+      <table style="width:100%;border-collapse:collapse;margin-top:14px;table-layout:fixed;">
         <thead>
-          <tr style="background:#eef2f7;">
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:26px;">No</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;">품명</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;">품번</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;">규격</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:36px;">단위</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:50px;">수량</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:74px;">단가</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:84px;">금액</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;width:78px;">납품예정일</th>
-            <th style="border:1px solid #cbd5e1;padding:6px 4px;">프로젝트</th>
+          <tr style="background:#f1f4f8;">
+            <th style="border:1px solid #999;padding:6px 3px;width:30px;font-size:11.5px;">순번</th>
+            <th style="border:1px solid #999;padding:6px 3px;font-size:11.5px;">품명</th>
+            <th style="border:1px solid #999;padding:6px 3px;font-size:11.5px;">품번</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:56px;font-size:11.5px;">규격</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:38px;font-size:11.5px;">단위</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:44px;font-size:11.5px;">수량</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:64px;font-size:11.5px;">단가</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:72px;font-size:11.5px;">금액</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:74px;font-size:11.5px;">납기일</th>
+            <th style="border:1px solid #999;padding:6px 3px;width:84px;font-size:11.5px;">프로젝트번호</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr style="background:#fafbfc;font-weight:700;">
+            <td class="c" style="border:1px solid #999;padding:5px 4px;" colspan="5">합　계</td>
+            <td class="r" style="border:1px solid #999;padding:5px 8px;">${poadvComma(rows.reduce((s,r)=>s+poadvNum(r.qty),0))}</td>
+            <td style="border:1px solid #999;"></td>
+            <td class="r" style="border:1px solid #999;padding:5px 8px;">${poadvComma(supply)}</td>
+            <td style="border:1px solid #999;" colspan="2"></td>
+          </tr>
+        </tfoot>
       </table>
+
+      <!-- 합계 (공급가/부가세/합계) -->
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-        <table style="font-size:12.5px;border-collapse:collapse;min-width:280px;">
-          <tr><td style="padding:4px 12px;color:#555;border:1px solid #e5e7eb;">공급가액</td><td style="padding:4px 12px;text-align:right;border:1px solid #e5e7eb;">${poadvComma(supply)}</td></tr>
-          <tr><td style="padding:4px 12px;color:#555;border:1px solid #e5e7eb;">부가세 (10%)</td><td style="padding:4px 12px;text-align:right;border:1px solid #e5e7eb;">${poadvComma(vat)}</td></tr>
+        <table style="font-size:12px;border-collapse:collapse;min-width:300px;">
+          <tr><td style="padding:4px 12px;color:#555;border:1px solid #ccc;">공급가액</td><td style="padding:4px 12px;text-align:right;border:1px solid #ccc;">${poadvComma(supply)}</td></tr>
+          <tr><td style="padding:4px 12px;color:#555;border:1px solid #ccc;">부가세 (10%)</td><td style="padding:4px 12px;text-align:right;border:1px solid #ccc;">${poadvComma(vat)}</td></tr>
           <tr><td style="padding:5px 12px;color:#fff;background:#0f4c81;font-weight:700;border:1px solid #0f4c81;">합　계</td><td style="padding:5px 12px;text-align:right;font-weight:700;background:#f0f6fc;border:1px solid #0f4c81;">${poadvComma(total)}</td></tr>
         </table>
       </div>
-      ${h.note?`<div style="margin-top:12px;font-size:12px;color:#444;">※ 특이사항: ${esc(h.note)}</div>`:""}
-      <div style="margin-top:34px;text-align:center;font-size:13px;font-weight:700;">${esc(POADV_CO.name)}　 (인)</div>
-      <div style="margin-top:6px;text-align:center;font-size:11px;color:#777;">TEL ${esc(POADV_CO.tel)}${POADV_CO.fax?" · FAX "+esc(POADV_CO.fax):""}</div>
+
+      <div style="margin-top:30px;text-align:center;font-size:14px;font-weight:700;">${esc(POADV_CO.name)}</div>
+      <div style="margin-top:5px;text-align:center;font-size:11px;color:#777;">TEL : ${esc(POADV_CO.tel)}${POADV_CO.fax?" · FAX : "+esc(POADV_CO.fax):""}</div>
+      <div style="margin-top:4px;text-align:center;font-size:10.5px;color:#999;">${esc(h.date)}</div>
     </div>`;
 
   // 스타일
