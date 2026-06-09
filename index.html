@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v97</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v98</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -920,6 +920,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-mattach" onclick="showPage('mattach')">📧 이메일첨부파일정리<span class="nav-cnt" id="maCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
+  <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
 </div>
 
 <!-- 메일 페이지 -->
@@ -1431,6 +1432,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
+<div class="page" id="page-corpcard"><div class="panel" id="panel-corpcard"></div></div>
 <!-- 파일 미리보기 모달 -->
 <div class="modal" id="previewModal">
   <div class="mbox" style="max-width:1100px;width:94vw;max-height:92vh;display:flex;flex-direction:column">
@@ -2106,6 +2108,7 @@ function showPage(p){
   else if(p==='admin'){ admLoad(); loadAnConfig(true).then(admRenderCards); }
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
+  else if(p==='corpcard'){ ccInit(); }
 }
 
 // ── 주소록 ──
@@ -8166,6 +8169,7 @@ const PERM_TABS = [
   {id:'schedule',    label:'📅 통합일정'},
   {id:'spec',        label:'🏭 설비제작사양서'},
   {id:'purchase',    label:'🛒 구매'},
+  {id:'corpcard',    label:'💳 법인카드'},
 ];
 let PERM = null;          // {updated_at,updated_by,members:[{email,name}],perm:{email:{view:[],write:[]}}}
 let PERM_LOADED = false;
@@ -8391,6 +8395,118 @@ function permWrapWrites(){
   // 문서 트리 쓰기(업로드/삭제/이름변경/새폴더/압축풀기) — _ftCtxTarget.page 기준
   { const o=window.ftAct; if(typeof o==='function'){ window.ftAct=function(action){ const writeActs=['newfolder','upload','unzip','rename','delete']; if(writeActs.includes(action)){ const tab=(typeof _ftCtxTarget!=='undefined'&&_ftCtxTarget)?_ftCtxTarget.page:''; if(tab && !canWrite(tab)){ if(typeof toast==='function')toast('입력 권한이 없습니다','bad'); return; } } return o.apply(this,arguments); }; } }
 }
+
+/* ====== 법인카드(전표) 탭 ======
+   영림원 "법인카드사용내역회계전표생성(관리자)" 그리드를 서버(erp_corpcard.py)로 실시간 조회 →
+   관리자설정에 등록된 카드번호로 필터 → 목록. (전표처리는 다음 단계)
+*/
+// (제) 비용계정 — 영림원 자동전표환경설정 계정 기준(우선 흔한 것). 추후 ERP에서 전체 동기화 가능.
+const CC_ACCOUNTS=["(제)복리후생비","(제)여비교통비","(제)차량유지비","(제)도서인쇄비","(제)운반비","(제)소모품비","(제)통신비","(제)교육훈련비","(제)접대비","(제)지급수수료","(제)수도광열비","(제)소모공구비","(제)지급임차료","(제)보험료","(제)세금과공과","(제)광고선전비","(제)회의비","(제)외주가공비","(제)전력비"];
+let CC_ROWS=[];        // 서버 원본(필터 후)
+let CC_EDIT={};        // {rowKey: {acct, gubun}}  (비용계정/비용구분 입력값 — 로컬 보관, 전표처리 단계에서 사용)
+let CC_LOADING=false;
+
+function _ccDigits(s){ return String(s||'').replace(/\D/g,''); }
+function ccCardName(num){
+  const d=_ccDigits(num);
+  for(const c of (AN_CONFIG.cards||[])){ const o=(typeof c==='string')?{name:c}:c; if(o.number && _ccDigits(o.number)===d) return o.name; }
+  return '';
+}
+function ccCardNums(){ return (AN_CONFIG.cards||[]).map(c=>_ccDigits((typeof c==='string')?'':c.number)).filter(Boolean); }
+function _ccRowKey(r,i){ return (r['승인번호']||'')+'|'+(r['카드번호']||'')+'|'+(r['승인일']||'')+'|'+i; }
+function _ccNum(n){ const v=Number(String(n==null?'':n).replace(/[, ]/g,'')); return isNaN(v)?(n||''):v.toLocaleString(); }
+
+function _ccDefaultRange(){
+  const to=new Date(); const from=new Date(); from.setDate(from.getDate()-30);
+  const f=d=>d.toISOString().slice(0,10);
+  return {from:f(from), to:f(to)};
+}
+async function ccInit(){
+  const panel=$('panel-corpcard'); if(!panel) return;
+  const r=_ccDefaultRange();
+  panel.innerHTML=`<div class="panel-bar"><h2>💳 법인카드 · 전표</h2>
+      <span style="font-size:12px;color:var(--t3)">승인일</span>
+      <input type="date" id="ccFrom" value="${r.from}" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <span style="color:var(--t3)">~</span>
+      <input type="date" id="ccTo" value="${r.to}" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <select id="ccState" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="미처리">미처리</option><option value="전체">전체</option><option value="처리">처리</option></select>
+      <div class="spacer" style="flex:1"></div>
+      <span id="ccCount" style="font-size:12px;color:var(--t3)"></span>
+      <button class="btn primary" onclick="ccLoad()">🔍 영림원 조회</button>
+    </div>
+    <div style="padding:6px 16px;font-size:12px;color:var(--t3)" id="ccCardInfo"></div>
+    <div class="an-tbl-wrap" id="ccList" style="padding:0 12px 20px"><div class="an-empty">[🔍 영림원 조회]를 누르세요</div></div>`;
+  await loadAnConfig();
+  const nums=ccCardNums();
+  $('ccCardInfo').innerHTML = nums.length
+    ? `필터 대상 카드: ${(AN_CONFIG.cards||[]).filter(c=>c&&c.number).map(c=>`<b>${esc(c.name)}</b>(${esc(c.number)})`).join(' · ')}`
+    : `⚠️ 관리자설정에 카드번호가 등록돼 있지 않습니다. [관리자설정 → 카드 등록]에서 번호를 넣어주세요.`;
+  ccLoad();
+}
+async function ccLoad(){
+  if(CC_LOADING) return; CC_LOADING=true;
+  const list=$('ccList'); if(!list) return;
+  await loadAnConfig();
+  const nums=ccCardNums();
+  if(!nums.length){ list.innerHTML='<div class="an-empty">관리자설정에 카드번호를 먼저 등록하세요.</div>'; CC_LOADING=false; return; }
+  list.innerHTML='<div class="an-empty">영림원에서 불러오는 중… (로그인+조회로 20~40초 걸릴 수 있어요)</div>';
+  const from=$('ccFrom').value, to=$('ccTo').value, st=$('ccState').value;
+  const _j=(typeof _J==='function')?_J('법인카드 영림원 조회'):null;
+  try{
+    const url=`${SERVER}/api/erp/corpcard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&state=${encodeURIComponent(st)}&cards=${encodeURIComponent(nums.join(','))}`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('서버 '+res.status);
+    const data=await res.json();
+    let rows=(data.rows||data.data||[]);
+    // 관리자 카드번호로 필터
+    const set=new Set(nums);
+    rows=rows.filter(r=>set.has(_ccDigits(r['카드번호'])));
+    CC_ROWS=rows;
+    if(_j&&typeof _Jok==='function') _Jok(_j, `${rows.length}건`);
+    ccRender();
+  }catch(e){
+    if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
+    list.innerHTML=`<div class="an-empty">조회 실패: ${esc(e.message)}<br><span style="font-size:12px">서버(C:\\enjet-server)에 erp_corpcard.py + 라우트가 배포·기동돼 있어야 합니다.</span></div>`;
+  }
+  CC_LOADING=false;
+}
+function ccRender(){
+  const list=$('ccList'); if(!list) return;
+  const cnt=$('ccCount'); if(cnt) cnt.textContent=`${CC_ROWS.length}건`;
+  if(!CC_ROWS.length){ list.innerHTML='<div class="an-empty">조회된 사용내역이 없습니다 (기간/상태 확인).</div>'; return; }
+  const acctOpts=sel=>['',...CC_ACCOUNTS].map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join('');
+  let h=`<table class="an-tbl"><thead><tr>
+    <th class="c"><input type="checkbox" onclick="ccCheckAll(this.checked)"></th>
+    <th class="c">중단여부</th><th class="c">처리상태</th><th class="c">카드번호</th><th>카드명</th>
+    <th class="c">승인일</th><th class="c">승인취소</th><th class="c">국내외</th><th>가맹점명</th><th>거래처</th>
+    <th class="r">승인금액</th><th class="c">비용계정</th><th class="c">비용구분</th></tr></thead><tbody>`;
+  CC_ROWS.forEach((r,i)=>{
+    const k=_ccRowKey(r,i);
+    const ed=CC_EDIT[k]||{};
+    const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
+    const stop=(String(r['중단여부'])==='1'||r['중단여부']==='Y')?'중단':'';
+    h+=`<tr>
+      <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
+      <td class="c">${esc(stop)}</td>
+      <td class="c">${esc(r['처리상태']||'')}</td>
+      <td class="c" style="font-size:12px">${esc(r['카드번호']||'')}</td>
+      <td>${esc(cardNm)}</td>
+      <td class="c" style="font-size:12px">${esc(r['승인일']||'')}</td>
+      <td class="c">${esc(r['승인취소여부']||'')}</td>
+      <td class="c">${esc(r['국내외구분']||'')}</td>
+      <td>${esc(r['가맹점명']||'')}</td>
+      <td>${esc(r['거래처']||'')}</td>
+      <td class="r">${_ccNum(r['승인금액'])}</td>
+      <td class="c"><select class="memo" style="width:120px" onchange="ccSet('${esc(k)}','acct',this.value)">${acctOpts(ed.acct||'')}</select></td>
+      <td class="c"><input class="memo" style="width:90px" value="${esc(ed.gubun||'')}" onchange="ccSet('${esc(k)}','gubun',this.value)"></td>
+    </tr>`;
+  });
+  h+=`</tbody></table>`;
+  list.innerHTML=h;
+}
+function ccSet(k,key,val){ CC_EDIT[k]=CC_EDIT[k]||{}; CC_EDIT[k][key]=val; }
+function ccCheckAll(on){ document.querySelectorAll('.cc-chk').forEach(c=>c.checked=on); }
 
 </script>
 <div id="jobq-wrap" style="display:none;position:fixed;top:14px;right:18px;z-index:1000001;font-family:inherit;">
