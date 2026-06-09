@@ -9553,8 +9553,28 @@ function poadvListRender(q){
   }).join("");
 }
 
-function poadvOrderDetail(pono){
+async function poadvOrderDetail(pono){
   const o=(_poadvOrders||[]).find(x=>x.po_no===pono); if(!o) return;
+  // 521296에서 품목 전체 로드 (대표품목 1개 → 전체로 교체)
+  try{
+    const r=await fetch(`${SERVER}/api/erp/order-items?po_no=${encodeURIComponent(pono)}`);
+    const j=await r.json();
+    if(j&&j.rows&&j.rows.length){
+      o.items=j.rows.map(x=>({
+        pjt_no:x.pjt_no||"", pjt_name:x.pjt_name||"", item_name:x.item_name||"", item_no:x.item_no||"",
+        spec:x.spec||"", unit:x.unit||"EA", maker:x.maker||"",
+        qty:poadvNum(x.qty), price:poadvNum(x.price), amount:poadvNum(x.amount||x.total),
+        delv:x.delv||"", status:x.status||"", emp_name:x.emp_name||"",
+        delv_qty:poadvNum(x.delv_qty), unfilled:poadvNum(x.unfilled)
+      }));
+      o._itemsLoaded=true;
+    }
+  }catch(e){ /* 실패 시 대표품목 1개 유지 */ }
+  poadvRenderOrderDetail(o);
+}
+
+function poadvRenderOrderDetail(o){
+  const pono=o.po_no;
   const chg=(_poadvDelvChg&&_poadvDelvChg[pono]||[]);
   let m=document.getElementById("poadv-det-ov");
   if(m) m.remove();
@@ -9565,35 +9585,38 @@ function poadvOrderDetail(pono){
     const curDelv = poadvItemDelv(pono, idx, it.delv);
     return `<tr>
       <td style="text-align:center;color:#9ca3af;">${idx+1}</td>
-      <td>${esc(it.pjt_no)}</td><td>${esc(it.item_name)}</td><td>${esc(it.item_no)}</td>
+      <td>${esc(it.pjt_no)}</td><td>${esc(it.item_name)}</td><td style="font-size:12px;">${esc(it.item_no)}</td>
+      <td>${esc(it.spec||"")}</td>
       <td style="text-align:right;">${poadvComma(it.qty)}</td>
       <td style="text-align:right;">${poadvComma(it.price)}</td>
       <td style="text-align:right;">${poadvComma(it.amount||poadvNum(it.qty)*poadvNum(it.price))}</td>
       <td><input type="date" value="${esc(curDelv)}" id="poadv-det-delv-${idx}" style="padding:4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;"></td>
     </tr>`;
   }).join("");
+  const totQty=o.items.reduce((s,i)=>s+poadvNum(i.qty),0);
+  const totAmt=o.items.reduce((s,i)=>s+poadvNum(i.amount||poadvNum(i.qty)*poadvNum(i.price)),0);
   const histHtml=chg.length
     ? chg.slice().reverse().map(h=>`<div style="padding:6px 0;border-bottom:1px dashed #e5e7eb;font-size:12.5px;">
         <b>${esc(h.ts)}</b> · ${esc(h.by||"")} <br>품목 #${(h.idx!=null?h.idx+1:"-")} 납기 <span style="color:#dc2626;">${esc(h.from||"-")}</span> → <span style="color:#15803d;">${esc(h.to||"-")}</span>${h.memo?` <span style="color:#6b7280;">(${esc(h.memo)})</span>`:""}</div>`).join("")
     : '<div style="color:#9ca3af;font-size:13px;padding:6px 0;">변경 이력 없음</div>';
   m.innerHTML=`
-    <div style="width:min(880px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
+    <div style="width:min(960px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff;position:sticky;top:0;">
-        <b>🧾 발주 상세 — ${esc(o.po_no)}</b>
+        <b>🧾 발주 상세 — ${esc(o.po_no)} <span style="font-weight:400;font-size:12px;opacity:.85;">(${o.items.length}품목)</span></b>
         <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-det-ov').remove()">✕</span>
       </div>
       <div style="padding:18px 20px;">
         <div style="font-size:13.5px;color:#475569;margin-bottom:10px;">
-          <b>거래처:</b> ${esc(o.cust||"-")} &nbsp;·&nbsp; <b>발주일:</b> ${esc(o.date||"-")}
+          <b>거래처:</b> ${esc(o.cust||"-")} &nbsp;·&nbsp; <b>발주일:</b> ${esc(o.date||"-")} &nbsp;·&nbsp; <b>합계:</b> 수량 ${poadvComma(totQty)} / ${poadvComma(totAmt)}원
         </div>
         <table class="poadv-tbl" style="font-size:13px;">
-          <thead><tr><th>#</th><th>프로젝트</th><th>품명</th><th>품번</th><th style="text-align:right;">수량</th><th style="text-align:right;">단가</th><th style="text-align:right;">금액</th><th style="width:140px;">납품예정일</th></tr></thead>
+          <thead><tr><th>#</th><th>프로젝트</th><th>품명</th><th>품번</th><th>규격</th><th style="text-align:right;">수량</th><th style="text-align:right;">단가</th><th style="text-align:right;">금액</th><th style="width:140px;">납품예정일</th></tr></thead>
           <tbody>${itemsHtml}</tbody>
         </table>
         <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">
           <input id="poadv-det-memo" placeholder="변경 사유(선택)" style="flex:1;min-width:180px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">
           <button onclick="poadvDelvSave('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:9px 16px;border:none;background:#d97706;color:#fff;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:700;">📅 납기 변경 저장</button>
-          <button onclick="poadvReprint('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:9px 16px;border:none;background:#0f4c81;color:#fff;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:700;">🖨️ 구매발주서 출력</button>
+          <button onclick="poadvReprint('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:9px 16px;border:none;background:#0f4c81;color:#fff;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:700;">🖨️ 구매발주서 PDF</button>
         </div>
         <div id="poadv-det-msg" style="margin-top:8px;font-size:13px;"></div>
         <div style="margin-top:16px;">
