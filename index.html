@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v125</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v126</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9881,6 +9881,7 @@ function prnewInit(){
               <input type="date" id="prnew-delv" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;">
             </div>
             <div style="display:flex;gap:10px;">
+              <button onclick="prnewDraftSave()" id="prnew-draft-btn" style="padding:11px 18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#475569;font-weight:700;cursor:pointer;font-size:14px;">💾 임시저장</button>
               <button onclick="prnewSave()" id="prnew-save-btn" style="padding:11px 22px;border:none;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📥 재료자원 저장</button>
               <button onclick="prnewPrInput()" id="prnew-pr-btn" style="padding:11px 22px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📝 구매요청 입력 저장 (선택행)</button>
             </div>
@@ -9934,7 +9935,7 @@ function prnewRenderRows(){
       : `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
-      <td style="text-align:center;color:#9ca3af;">${i+1}${existing?'<div style="font-size:9px;color:#94a3b8;">기존</div>':''}</td>
+      <td style="text-align:center;color:#9ca3af;">${i+1}${existing?'<div style="font-size:9px;color:#94a3b8;">기존</div>':(r._draft?'<div style="font-size:9px;color:#0f4c81;">임시</div>':'')}</td>
       <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${lockInput?"disabled":""}></td>
@@ -9977,6 +9978,25 @@ function prnewOnPaste(e){
 }
 
 // 조회 — 영림원에서 기존 재료자원 데이터를 읽어 그리드에 표시
+// SharePoint 상태 파일 경로
+function prnewStatePath(pjt){ return `100.ERP/pr-state-${pjt}.json`; }
+let _prnewState = {draft:[], pr_done:[]};
+
+async function prnewLoadState(pjt){
+  try{ const s=await spGetJson(prnewStatePath(pjt)); _prnewState = s || {draft:[], pr_done:[]}; }
+  catch(e){ _prnewState = {draft:[], pr_done:[]}; }
+  if(!Array.isArray(_prnewState.draft)) _prnewState.draft=[];
+  if(!Array.isArray(_prnewState.pr_done)) _prnewState.pr_done=[];
+  return _prnewState;
+}
+async function prnewSaveState(pjt){
+  try{ await spPutJson(prnewStatePath(pjt), _prnewState); return true; }
+  catch(e){ return false; }
+}
+// 품번 부분일치 (영림원 프리픽스 무시)
+function prnewPnMatch(a,b){ a=String(a||"").trim(); b=String(b||"").trim();
+  return a&&b&&(a===b || a.endsWith("_"+b) || b.endsWith("_"+a) || a.endsWith(b) || b.endsWith(a)); }
+
 async function prnewQuery(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-pjt-msg");
@@ -9984,19 +10004,36 @@ async function prnewQuery(){
   if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${pjt} 기존 재료자원 조회 중… (영림원, ~15초)`; }
   const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
   try{
+    await prnewLoadState(pjt);   // SharePoint 캐시 상태 먼저 로드
     const r=await fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`);
     const j=await r.json();
     if(j&&j.rows){
-      prnewRows=j.rows.map(x=>({
-        "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
-        "품명":x["품명"]||"", "품번":x["품번"]||"", "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
-        "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||"",
-        _existing:true   // 영림원에 이미 등록된 행 → 저장 시 제외
-      }));
+      const doneList=_prnewState.pr_done||[];
+      // 1) 영림원 기존 행 (회색). pr_done에 든 품번이면 빨간색(_pr)
+      prnewRows=j.rows.map(x=>{
+        const pn=x["품번"]||"";
+        const isPr=doneList.some(dp=>prnewPnMatch(pn,dp));
+        return {
+          "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
+          "품명":x["품명"]||"", "품번":pn, "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
+          "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||"",
+          _existing:true, _pr:isPr
+        };
+      });
+      // 2) 임시저장 draft 행 추가 (흰색, 아직 영림원 미등록). 단 이미 영림원에 있는 품번은 제외
+      const existingPns=prnewRows.map(r=>r["품번"]);
+      (_prnewState.draft||[]).forEach(d=>{
+        const dp=d["품번"]||"";
+        const already=existingPns.some(ep=>prnewPnMatch(ep,dp));
+        if(!already){
+          prnewRows.push({...d, _existing:false, _draft:true});
+        }
+      });
       if(!prnewRows.length) prnewAddRow();
       prnewRenderRows();
+      const nDraft=(_prnewState.draft||[]).length, nDone=doneList.length;
       if(_j&&typeof _Jok==="function") _Jok(_j, `${j.rows.length}건`);
-      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ ${pjt} 기존 재료자원 ${j.rows.length}건 로드 — 「＋행 추가」로 신규만 입력 후 저장 (기존 행은 저장 제외)`; }
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ ${pjt} 재료자원 ${j.rows.length}건`+(nDraft?` · 임시저장 ${nDraft}건`:"")+(nDone?` · 구매요청완료 ${nDone}건`:"")+` — 「＋행 추가」로 신규 입력`; }
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, j.error||"조회 실패");
       if(msg){ msg.style.color="#dc2626"; msg.textContent="조회 실패: "+(j.error||""); }
@@ -10139,11 +10176,14 @@ async function prnewPollPr(jobId, idxs, _j, btn, ot){
       if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${stage}`; }
       if(d.status==="success"){
         // 선택했던 행을 구매요청완료(_pr) 처리 → 빨간색
-        idxs.forEach(i=>{ if(prnewRows[i]){ prnewRows[i]._pr=true; prnewRows[i]._chk=false; } });
+        const donePns=[];
+        idxs.forEach(i=>{ if(prnewRows[i]){ prnewRows[i]._pr=true; prnewRows[i]._chk=false; prnewRows[i]._draft=false; const pn=prnewRows[i]["품번"]; if(pn) donePns.push(pn); } });
         prnewRenderRows();
+        const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+        prnewMarkPrDone(pjt, donePns);   // SharePoint에 완료 품번 기록 → 재조회해도 빨간색
         const reqNo=d.error||"";  // worker가 req_no를 error 칸에 저장
         if(_j&&typeof _Jok==="function") _Jok(_j, `요청번호 ${reqNo}`);
-        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">📝 구매요청 입력 완료 · 요청번호 <b>${esc(reqNo||"(발급됨)")}</b> · ${idxs.length}개 품목 (빨간색 표시)</div>`;
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">📝 구매요청 입력 완료 · 요청번호 <b>${esc(reqNo||"(발급됨)")}</b> · ${idxs.length}개 품목 (빨간색 유지)</div>`;
         if(msg) msg.textContent="";
         if(btn){ btn.disabled=false; btn.textContent=ot; }
         return;
@@ -10160,6 +10200,51 @@ async function prnewPollPr(jobId, idxs, _j, btn, ot){
     else { if(msg){ msg.style.color="#92400e"; msg.textContent="진행 추적 시간 초과 — 이력 확인"; } if(btn){ btn.disabled=false; btn.textContent=ot; } }
   };
   setTimeout(tick, 1500);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  임시저장 — 신규 입력 행을 SharePoint에 캐시 (다시 조회해도 흰색으로 나옴)
+// ════════════════════════════════════════════════════════════════
+async function prnewDraftSave(){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  const msg=document.getElementById("prnew-msg");
+  if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
+  // 신규 행(기존 영림원 행 아님)만 임시저장 대상 — 품번/품명 있는 것
+  const newRows=prnewRows.filter(r=>!r._existing && (r["품명"]||r["품번"]||r["BOM레벨"]))
+    .map(r=>({ "BOM레벨":r["BOM레벨"]||"", "조달구분":r["조달구분"]||"", "품목분류":r["품목분류"]||"",
+      "품명":r["품명"]||"", "품번":r["품번"]||"", "규격":r["규격"]||"", "구매단위":r["구매단위"]||"EA",
+      "기본소요량":r["기본소요량"]||"", "제작대수":r["제작대수"]||"", "여유수량":r["여유수량"]||"" }));
+  if(!newRows.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장할 신규 행이 없습니다"; } return; }
+  const btn=document.getElementById("prnew-draft-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="저장 중…";
+  if(msg){ msg.style.color="#6b7280"; msg.textContent="💾 SharePoint에 임시저장 중…"; }
+  try{
+    if(!_prnewState||typeof _prnewState!=="object") _prnewState={draft:[],pr_done:[]};
+    _prnewState.draft = newRows;   // 현재 신규 행 전체로 교체
+    const ok=await prnewSaveState(pjt);
+    if(ok){
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 임시저장 완료 (${newRows.length}건) — 다시 조회해도 그대로 나옵니다`; }
+      // 화면 행에 _draft 표시
+      prnewRows.forEach(r=>{ if(!r._existing && (r["품명"]||r["품번"])) r._draft=true; });
+      prnewRenderRows();
+    }else{
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 실패 (SharePoint 권한 확인)"; }
+    }
+  }catch(e){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 오류: "+e.message; } }
+  btn.disabled=false; btn.textContent=ot;
+}
+
+// 구매요청 완료 행의 품번을 SharePoint pr_done에 기록 (다시 조회해도 빨간색)
+async function prnewMarkPrDone(pjt, itemNos){
+  try{
+    if(!_prnewState||typeof _prnewState!=="object") await prnewLoadState(pjt);
+    if(!Array.isArray(_prnewState.pr_done)) _prnewState.pr_done=[];
+    itemNos.forEach(no=>{ if(no && !_prnewState.pr_done.includes(no)) _prnewState.pr_done.push(no); });
+    // 완료된 품번은 draft에서 제거
+    if(Array.isArray(_prnewState.draft)){
+      _prnewState.draft=_prnewState.draft.filter(d=>!itemNos.some(no=>prnewPnMatch(d["품번"],no)));
+    }
+    await prnewSaveState(pjt);
+  }catch(e){ /* 무시 (색상 유지는 best-effort) */ }
 }
 
 </script>
