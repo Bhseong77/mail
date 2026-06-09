@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v122</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v123</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9954,12 +9954,34 @@ function prnewOnPaste(e){
   const m=document.getElementById("prnew-msg"); if(m){ m.style.color="#15803d"; m.textContent=`✅ ${lines.length}행 붙여넣기 완료`; }
 }
 
-// 조회 — 기존 재료자원 데이터 (영림원 조회 자동화는 추후, 현재는 안내)
-function prnewQuery(){
+// 조회 — 영림원에서 기존 재료자원 데이터를 읽어 그리드에 표시
+async function prnewQuery(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-pjt-msg");
   if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
-  if(msg){ msg.style.color="#6b7280"; msg.textContent=`프로젝트 ${pjt} 선택됨 — 아래 그리드에 품목을 입력하거나 엑셀에서 붙여넣으세요`; }
+  if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${pjt} 기존 재료자원 조회 중… (영림원, ~15초)`; }
+  const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
+  try{
+    const r=await fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`);
+    const j=await r.json();
+    if(j&&j.rows){
+      prnewRows=j.rows.map(x=>({
+        "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
+        "품명":x["품명"]||"", "품번":x["품번"]||"", "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
+        "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||""
+      }));
+      if(!prnewRows.length) prnewAddRow();
+      prnewRenderRows();
+      if(_j&&typeof _Jok==="function") _Jok(_j, `${j.rows.length}건`);
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ ${pjt} 기존 재료자원 ${j.rows.length}건 로드 — 수정/추가 후 저장하세요`; }
+    }else{
+      if(_j&&typeof _Jno==="function") _Jno(_j, j.error||"조회 실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="조회 실패: "+(j.error||""); }
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="조회 오류: "+e.message; }
+  }
 }
 
 function prnewValidate(){
