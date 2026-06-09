@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v98</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v99</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8485,7 +8485,7 @@ function ccRender(){
     const k=_ccRowKey(r,i);
     const ed=CC_EDIT[k]||{};
     const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
-    const stop=(String(r['중단여부'])==='1'||r['중단여부']==='Y')?'중단':'';
+    const stop=/^(true|1|y)$/i.test(String(r['중단여부']||'').trim())?'중단':'';
     h+=`<tr>
       <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
       <td class="c">${esc(stop)}</td>
