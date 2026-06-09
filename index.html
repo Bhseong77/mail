@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v119</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v120</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9038,10 +9038,14 @@ function poadvPreview(){
     const msg=document.getElementById("poadv-msg"); if(msg){ msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); }
     alert(m); return;
   }
+  poadvShowPdf(v.header, v.rows);
+}
+
+// 발주서 PDF 미리보기 렌더 (header/rows를 직접 받음 — 작성폼/상세모달 공용)
+function poadvShowPdf(h, rows){
   if(!window.html2canvas || !window.jspdf){
     alert("PDF 라이브러리가 아직 로드 중입니다. 잠시 후(또는 새로고침 후) 다시 시도하세요.");
   }
-  const h=v.header, rows=v.rows;
   const supply = rows.reduce((s,r)=>s+poadvNum(r.qty)*poadvNum(r.price),0);
   const vat = Math.round(supply*0.1);
   const total = supply+vat;
@@ -9639,21 +9643,19 @@ async function poadvDelvSave(pono){
 // 저장된 발주 → 구매발주서 PDF 재출력 (poadvRows 임시 세팅 후 미리보기)
 function poadvReprint(pono){
   const o=(_poadvOrders||[]).find(x=>x.po_no===pono); if(!o) return;
-  const bak=poadvRows.slice();
-  poadvRows=o.items.map((it,idx)=>({
+  // 발주일 정규화 (20260608 → 2026-06-08)
+  const d=String(o.date||"").replace(/-/g,"");
+  const dateStr = d.length===8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : (o.date||poadvToday());
+  const header={ cust:o.cust||"", date:dateStr, emp:(o.items[0]&&o.items[0].emp_name)||o.emp_name||"성백훈",
+                 dept:o.dept_name||"경영전략본부", cur:"KRW", rate:"1.00", note:"" };
+  const rows=o.items.map((it,idx)=>({
     pjt_name:it.pjt_name, pjt_no:it.pjt_no, item_name:it.item_name, item_no:it.item_no,
     spec:it.spec||"", unit:it.unit||"EA", maker:it.maker||"",
-    delv:poadvItemDelv(pono, idx, it.delv), qty:it.qty, price:it.price,
-    pjt_seq:0, item_seq:0, cust_seq:0, cust_name:o.cust
+    delv:poadvItemDelv(pono, idx, it.delv), qty:poadvNum(it.qty), price:poadvNum(it.price),
   }));
-  // 헤더 임시 세팅
-  const setv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
-  setv("poadv-cust", o.cust); setv("poadv-date", o.date||poadvToday());
-  poadvSaved={ po_no:o.po_no };
   const det=document.getElementById("poadv-det-ov"); if(det) det.remove();
-  if(typeof poadvPreview==="function") poadvPreview();
-  // 미리보기 닫힐 때 복구되도록 백업 보관
-  window._poadvRowsBak=bak;
+  poadvSaved={ po_no:o.po_no };
+  poadvShowPdf(header, rows);   // 검증/화면폼 무관하게 직접 렌더
 }
 
 // ════════════════════════════════════════════════════════════════
