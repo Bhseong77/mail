@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v123</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v124</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9857,6 +9857,7 @@ function prnewInit(){
           <div style="overflow-x:auto;">
             <table class="poadv-tbl" id="prnew-tbl">
               <thead><tr>
+                <th style="width:34px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
                 <th style="width:30px;">#</th>
                 <th style="width:62px;">BOM레벨 <span class="poadv-req">*</span></th>
                 <th style="width:90px;">조달구분</th>
@@ -9874,8 +9875,15 @@ function prnewInit(){
               <tbody id="prnew-tbody"></tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:10px;">
-            <button onclick="prnewSave()" id="prnew-save-btn" style="padding:11px 26px;border:none;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;cursor:pointer;font-size:15px;">📥 영림원에 저장</button>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;gap:10px;flex-wrap:wrap;">
+            <div>
+              <label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px;">납기요청일 <span class="poadv-req">*</span> <span style="font-weight:400;color:#94a3b8;">(구매요청 입력 시)</span></label>
+              <input type="date" id="prnew-delv" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;">
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button onclick="prnewSave()" id="prnew-save-btn" style="padding:11px 22px;border:none;border-radius:8px;background:#0f4c81;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📥 재료자원 저장</button>
+              <button onclick="prnewPrInput()" id="prnew-pr-btn" style="padding:11px 22px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📝 구매요청 입력 저장 (선택행)</button>
+            </div>
           </div>
           <div id="prnew-msg" style="margin-top:10px;font-size:14px;"></div>
           <div id="prnew-save-result" style="margin-top:10px;"></div>
@@ -9910,28 +9918,40 @@ function prnewDelRow(i){ prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRo
 function prnewClearRows(){ prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
 
 function prnewRowInput(i, field, el){ prnewRows[i][field]=el.value; if(field==="기본소요량"||field==="제작대수") prnewRenderRows(); }
+function prnewToggleChk(i, el){ prnewRows[i]._chk = el.checked; }
+function prnewToggleAll(el){ prnewRows.forEach(r=>{ if(!r._pr) r._chk=el.checked; }); prnewRenderRows(); }
 
 function prnewRenderRows(){
   const tb=document.getElementById("prnew-tbody"); if(!tb) return;
   tb.innerHTML=prnewRows.map((r,i)=>{
     const tot = prnewNum(r["기본소요량"])*prnewNum(r["제작대수"]);
-    return `<tr>
+    const done = r._pr;   // 구매요청 입력 저장 완료 행
+    const rowStyle = done ? 'style="background:#fee2e2;"' : '';   // 빨간색
+    const chk = done
+      ? '<span style="color:#b91c1c;font-weight:700;font-size:11px;">완료</span>'
+      : `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
+    return `<tr ${rowStyle}>
+      <td style="text-align:center;">${chk}</td>
       <td style="text-align:center;color:#9ca3af;">${i+1}</td>
-      <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1"></td>
-      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-"></td>
-      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-"></td>
-      <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명"></td>
-      <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번"></td>
-      <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-"></td>
-      <td><input data-r="${i}" data-f="구매단위" value="${esc(r["구매단위"]||"EA")}" oninput="prnewRowInput(${i},'구매단위',this)"></td>
-      <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)"></td>
-      <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)"></td>
-      <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)"></td>
+      <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="구매단위" value="${esc(r["구매단위"]||"EA")}" oninput="prnewRowInput(${i},'구매단위',this)" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)" ${done?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${done?"disabled":""}></td>
       <td class="num" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
       <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
     </tr>`;
   }).join("");
-  const ri=document.getElementById("prnew-rowinfo"); if(ri) ri.textContent=`${prnewRows.length}개 품목`;
+  const ri=document.getElementById("prnew-rowinfo"); if(ri){
+    const nchk=prnewRows.filter(r=>r._chk&&!r._pr).length;
+    const ndone=prnewRows.filter(r=>r._pr).length;
+    ri.textContent=`${prnewRows.length}개 품목`+(nchk?` · ${nchk}개 선택`:"")+(ndone?` · ${ndone}개 구매요청완료`:"");
+  }
   if(!tb.dataset.pasteBound){ tb.addEventListener("paste", prnewOnPaste); tb.dataset.pasteBound="1"; }
 }
 
@@ -10046,19 +10066,93 @@ async function prnewPollJob(jobId, _j){
         if(_j&&typeof _Jok==="function") _Jok(_j, `${d.rows||""}행 등록`);
         if(res) res.innerHTML=`<div style="padding:12px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">✅ 영림원 재료자원 등록 완료 · ${esc(String(d.rows||""))}행</div>`;
         if(msg) msg.textContent="";
-        if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; }
+        if(btn){ btn.disabled=false; btn.textContent="📥 재료자원 저장"; }
         return;
       }
       if(d.status==="failed"){
         if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
         if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">❌ 등록 실패: ${esc(d.error||stage)}</div>`;
         if(msg) msg.textContent="";
-        if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; }
+        if(btn){ btn.disabled=false; btn.textContent="📥 재료자원 저장"; }
         return;
       }
     }catch(e){ /* 폴링 실패는 재시도 */ }
     if(tries<150) setTimeout(tick, 2000); // 최대 5분
-    else { if(msg){ msg.style.color="#92400e"; msg.textContent="진행 추적 시간 초과 — 등록 이력을 확인하세요"; } if(btn){ btn.disabled=false; btn.textContent="📥 영림원에 저장"; } }
+    else { if(msg){ msg.style.color="#92400e"; msg.textContent="진행 추적 시간 초과 — 등록 이력을 확인하세요"; } if(btn){ btn.disabled=false; btn.textContent="📥 재료자원 저장"; } }
+  };
+  setTimeout(tick, 1500);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  구매요청 입력 저장 — 선택행 → 영림원 프로젝트구매요청입력 → 저장
+//  POST /api/erp/pr-input-save {project_no, item_nos, delv_date}
+//  성공 시 그 행 _pr=true (빨간색 표시)
+// ════════════════════════════════════════════════════════════════
+async function prnewPrInput(){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  const delv=(document.getElementById("prnew-delv")||{}).value||"";
+  const msg=document.getElementById("prnew-msg");
+  if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
+  // 선택된(체크) + 아직 구매요청 안 한 행
+  const picked=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk && !x.r._pr && (x.r["품번"]||"").trim());
+  if(!picked.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="구매요청할 품목을 체크하세요"; } return; }
+  if(!delv){ if(msg){ msg.style.color="#dc2626"; msg.textContent="납기요청일을 입력하세요 (필수)"; } return; }
+  const itemNos=picked.map(x=>(x.r["품번"]||"").trim());
+  const idxs=picked.map(x=>x.i);
+
+  const btn=document.getElementById("prnew-pr-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="요청 중…";
+  if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ 구매요청 입력 중… ${itemNos.length}개 품목 (영림원, ~30초)`; }
+  const _j=(typeof _J==="function")?_J("구매요청 입력: "+pjt):null;
+  try{
+    const r=await fetch(`${SERVER}/api/erp/pr-input-save`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({project_no:pjt, item_nos:itemNos, delv_date:delv})});
+    const d=await r.json();
+    if(d.job_id){
+      prnewPollPr(d.job_id, idxs, _j, btn, ot);
+    }else{
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="요청 실패: "+(d.error||""); }
+      btn.disabled=false; btn.textContent=ot;
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="요청 오류: "+e.message; }
+    btn.disabled=false; btn.textContent=ot;
+  }
+}
+
+async function prnewPollPr(jobId, idxs, _j, btn, ot){
+  const msg=document.getElementById("prnew-msg");
+  const res=document.getElementById("prnew-save-result");
+  let tries=0;
+  const tick=async()=>{
+    tries++;
+    try{
+      const r=await fetch(`${SERVER}/api/bom/jobs/${jobId}`);
+      const d=await r.json();
+      const stage=d.stage||d.status||"";
+      if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${stage}`; }
+      if(d.status==="success"){
+        // 선택했던 행을 구매요청완료(_pr) 처리 → 빨간색
+        idxs.forEach(i=>{ if(prnewRows[i]){ prnewRows[i]._pr=true; prnewRows[i]._chk=false; } });
+        prnewRenderRows();
+        const reqNo=d.error||"";  // worker가 req_no를 error 칸에 저장
+        if(_j&&typeof _Jok==="function") _Jok(_j, `요청번호 ${reqNo}`);
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">📝 구매요청 입력 완료 · 요청번호 <b>${esc(reqNo||"(발급됨)")}</b> · ${idxs.length}개 품목 (빨간색 표시)</div>`;
+        if(msg) msg.textContent="";
+        if(btn){ btn.disabled=false; btn.textContent=ot; }
+        return;
+      }
+      if(d.status==="failed"){
+        if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">❌ 구매요청 입력 실패: ${esc(d.error||stage)}</div>`;
+        if(msg) msg.textContent="";
+        if(btn){ btn.disabled=false; btn.textContent=ot; }
+        return;
+      }
+    }catch(e){ /* 재시도 */ }
+    if(tries<150) setTimeout(tick, 2000);
+    else { if(msg){ msg.style.color="#92400e"; msg.textContent="진행 추적 시간 초과 — 이력 확인"; } if(btn){ btn.disabled=false; btn.textContent=ot; } }
   };
   setTimeout(tick, 1500);
 }
