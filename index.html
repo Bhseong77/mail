@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v96</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v97</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -3631,29 +3631,31 @@ function anRender(p){
     const groups={};
     for(const r of rows){
       const key=((r.company||'미분류').trim())||'미분류';
-      const g=groups[key]||(groups[key]={company:r.company||key, bizno:'', ceo:'', address:'', bank:'', category:'', files:[]});
+      const g=groups[key]||(groups[key]={company:r.company||key, bizno:'', ceo:'', address:'', bankName:'', bank:'', category:'', files:[]});
       if(!g.bizno && r.bizno) g.bizno=r.bizno;
       if(!g.ceo && r.ceo) g.ceo=r.ceo;
       if(!g.address && r.address) g.address=r.address;
+      if(!g.bankName && r.bankName) g.bankName=r.bankName;
       if(!g.bank && r.bank) g.bank=r.bank;
       if(!g.category && r.category) g.category=r.category;
       g.files.push(r);
     }
     const gkeys=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ko'));
     let h=`<table class="an-tbl"><thead><tr>
-      <th>회사명</th><th class="c">분류</th><th class="c">사업자등록번호</th><th class="c">대표자</th><th>주소</th><th class="c">통장번호</th><th>파일</th></tr></thead><tbody>`;
+      <th>회사명</th><th class="c">분류</th><th class="c">사업자등록번호</th><th class="c">대표자</th><th>주소</th><th class="c">은행명</th><th class="c">통장번호</th><th>파일</th></tr></thead><tbody>`;
     for(const k of gkeys){
       const g=groups[k];
       const ek=esc(k).replace(/'/g,"\\'");
       const _cat=g.category||guessCategory((g.company||'')+' '+(g.address||''));
       const catOpts=allCategories().map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
-      const fileChips=g.files.map(r=>`<span class="file-link" style="display:inline-block;margin:1px 4px 1px 0" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">📄 ${esc((r.fileName||'').slice(0,22))}</span><span class="an-mini del" style="cursor:pointer;margin-right:8px" onclick="anDelete('${p}','${r.fid}')">🗑</span>`).join('<br>');
+      const fileChips=g.files.map(r=>`<span class="file-link" style="display:inline-block;margin:1px 4px 1px 0" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">📄 ${esc((r.fileName||'').slice(0,22))}</span><span class="an-mini" style="cursor:pointer" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</span><span class="an-mini del" style="cursor:pointer;margin-right:8px" onclick="anDelete('${p}','${r.fid}')">🗑</span>`).join('<br>');
       h+=`<tr>
         <td><span class="an-co">${esc(g.company||'?')}</span></td>
         <td class="c"><select class="memo" style="width:92px" onchange="anVendorCat('${p}','${ek}',this)">${catOpts}</select></td>
         <td class="c"><input class="memo" style="width:124px" value="${esc(g.bizno)}" onchange="anVendorField('${p}','${ek}','bizno',this.value)"></td>
         <td class="c"><input class="memo" style="width:84px" value="${esc(g.ceo)}" onchange="anVendorField('${p}','${ek}','ceo',this.value)"></td>
-        <td><input class="memo" style="width:100%;min-width:220px" value="${esc(g.address)}" onchange="anVendorField('${p}','${ek}','address',this.value)"></td>
+        <td><input class="memo" style="width:100%;min-width:200px" value="${esc(g.address)}" onchange="anVendorField('${p}','${ek}','address',this.value)"></td>
+        <td class="c"><input class="memo" style="width:90px" value="${esc(g.bankName)}" onchange="anVendorField('${p}','${ek}','bankName',this.value)"></td>
         <td class="c"><input class="memo" style="width:134px" value="${esc(g.bank)}" onchange="anVendorField('${p}','${ek}','bank',this.value)"></td>
         <td>${fileChips}</td>
       </tr>`;
@@ -3876,6 +3878,13 @@ async function extractTextBrowser(f){
 async function _analyzeOne(p, f){
   let text='';
   try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
+  if(p==='doc-vendor'){
+    const vp=_vendorPrompt(f, text);
+    let vinfo=null;
+    try{ const txt=await callCopilot(vp); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); vinfo=JSON.parse(t); }catch(_){ vinfo=null; }
+    AN_DATA[p][f.id]=_vendorStore(f, vinfo, AN_DATA[p][f.id]);
+    return vinfo;
+  }
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
 {"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
@@ -3912,6 +3921,37 @@ async function anReanalyze(p,fid){
     anRender(p);
     toast('재분석 완료','ok');
   }catch(e){ toast('재분석 실패: '+e.message,'bad'); }
+}
+function _vendorPrompt(f, text){
+  return `다음은 거래처 관련 문서(사업자등록증 / 통장사본 등)에서 추출한 텍스트다. 라벨과 값이 줄바꿈·공백·표로 흩어져 있어도 반드시 연결해서 찾아라. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"회사명/상호","bizno":"사업자등록번호","ceo":"대표자 성명","address":"사업장 소재지 주소","bankName":"은행명","bank":"계좌번호","category":"분류"}
+[사업자등록증이면]
+- bizno: "등록번호" 옆 번호. 반드시 3-2-5 형식 (예: 609-81-02482). "법인등록번호"(6-7형식)와 혼동하지 말 것.
+- company: "법인명(단체명)" 또는 "상호" (예: 한국화낙(주)).
+- ceo: "대 표 자" / "대표자" / "성명" 옆 사람 이름 (예: 고영운).
+- address: "사업장 소재지" 또는 "본점 소재지" 한 줄 전체 (예: 경상남도 창원시 성산구 ...).
+[통장 / 통장사본이면]
+- bankName: 은행명 (예: 신한은행, 국민은행, 기업은행).
+- bank: "계좌번호" 옆 번호 (예: 140-002-678724). 화면 상단 "계좌번호"를 우선하고 "구계좌번호(S)"는 무시.
+[공통]
+- category: 회사 업태/종목으로 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나. 애매하면 빈 문자열.
+- 숫자는 하이픈 포함 원문 그대로. 못 찾는 값만 빈 문자열로. 파일명도 힌트로 활용하라.
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+}
+function _vendorStore(f, info, prev){
+  prev=prev||{};
+  return {
+    company:(info&&info.company)||f.customer||prev.company||'',
+    bizno:(info&&info.bizno)||prev.bizno||'',
+    ceo:(info&&info.ceo)||prev.ceo||'',
+    address:(info&&info.address)||prev.address||'',
+    bankName:(info&&info.bankName)||prev.bankName||'',
+    bank:(info&&info.bank)||prev.bank||'',
+    category:(info&&info.category)||prev.category||'',
+    fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+  };
 }
 async function anAnalyze(p, silent){
   const root=DOC_MAP[p];
@@ -3952,31 +3992,12 @@ async function anAnalyze(p, silent){
 [내용]
 ${text.slice(0,6000)}`;
       if(p==='doc-vendor'){
-        prompt=`다음은 거래처 관련 문서(사업자등록증 / 통장사본 등)에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
-{"company":"회사명/상호","bizno":"사업자등록번호","ceo":"대표자 성명","address":"사업장 주소","bank":"계좌번호(통장번호)","category":"분류"}
-- company: 법인명/상호 (예: "한국화낙(주)").
-- bizno: 사업자등록번호, 하이픈 포함 원문 (예: "609-81-02482"). 없으면 빈 문자열.
-- ceo: 대표자 성명 (예: "고영운"). 없으면 빈 문자열.
-- address: 사업장 소재지 주소. 없으면 빈 문자열.
-- bank: 통장/계좌번호. 통장사본이면 "계좌번호" 옆 숫자(하이픈 포함, 예: "140-002-678724"). 사업자등록증 등 계좌가 없으면 빈 문자열.
-- category(분류): 거래처 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 업태/종목/회사명으로 판단, 애매하면 빈 문자열.
-- 없는 값은 빈 문자열. 숫자는 원문 그대로(하이픈 유지).
-[파일명] ${f.name}
-[내용]
-${text.slice(0,6000)}`;
+        prompt=_vendorPrompt(f, text);
       }
       let info=null;
       try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
       if(p==='doc-vendor'){
-        AN_DATA[p][f.id]={
-          company:(info&&info.company)||f.customer||'',
-          bizno:(info&&info.bizno)||'',
-          ceo:(info&&info.ceo)||'',
-          address:(info&&info.address)||'',
-          bank:(info&&info.bank)||'',
-          category:(info&&info.category)||'',
-          fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
-        };
+        AN_DATA[p][f.id]=_vendorStore(f, info, AN_DATA[p][f.id]);
       }else{
         AN_DATA[p][f.id]={
           company:(info&&info.company)||f.customer||'',
