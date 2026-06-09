@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v107</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v108</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8703,9 +8703,9 @@ function poadvInit(){
             <div class="acc-card-subtitle">규격·제조사 외 모든 칸이 입력되어야 저장됩니다 · 단위 EA 고정</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
-            <button class="acc-period-btn today" onclick="poadvLoadConfirmed(false)">📥 확정 구매요청에서 가져오기</button>
-            <button class="acc-period-btn" onclick="poadvAddRow()">＋ 행 추가</button>
+            <button class="acc-period-btn today" onclick="poadvAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="poadvClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
+            <span style="color:#9ca3af;font-size:12px;">행을 직접 입력하세요 (품의·요청 연결 없음)</span>
             <span id="poadv-rowinfo" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
           </div>
           <div style="overflow-x:auto;">
