@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v100</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v103</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -916,8 +916,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
   <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
-  <button id="nav-tattach" onclick="showPage('tattach')">📎 팀즈첨부파일정리<span class="nav-cnt" id="taCnt" style="display:none">0</span></button>
-  <button id="nav-mattach" onclick="showPage('mattach')">📧 이메일첨부파일정리<span class="nav-cnt" id="maCnt" style="display:none">0</span></button>
+  <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
@@ -977,41 +976,28 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div class="page" id="page-doc-tax"><div class="panel" id="panel-doc-tax"></div></div>
 <div class="page" id="page-doc-tech"><div class="panel" id="panel-doc-tech"></div></div>
 
-<!-- 팀즈첨부파일정리 페이지 -->
-<div class="page" id="page-tattach">
+<!-- 첨부파일 정리 페이지 (이메일 받은/보낸 + 팀즈채팅방 통합) -->
+<div class="page" id="page-attach">
   <div class="ta-wrap">
     <div class="ta-head">
       <div>
-        <h2>📎 팀즈 첨부파일 정리</h2>
-        <div class="ta-sub" id="taSub">T Project 채팅에 올라온 첨부파일</div>
+        <h2>📎 첨부파일</h2>
+        <div class="ta-sub" id="atSub"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="taSearch" placeholder="파일명·작성자 검색" oninput="taRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <button class="btn" onclick="DOC_INDEX_AT=0;taLoad()">↻ 새로고침</button>
-      </div>
-    </div>
-    <div id="taList"></div>
-  </div>
-</div>
-
-<!-- 이메일첨부파일정리 페이지 -->
-<div class="page" id="page-mattach">
-  <div class="ta-wrap">
-    <div class="ta-head">
-      <div>
-        <h2>📧 이메일 첨부파일 정리</h2>
-        <div class="ta-sub" id="maSub">enjet_ed 메일 첨부파일</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="maSearch" placeholder="파일명·제목·보낸사람 검색" oninput="maRender()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <button class="btn" onclick="DOC_INDEX_AT=0;maLoad()">↻ 새로고침</button>
+        <input type="text" id="atSearch" placeholder="파일명·제목·보낸사람 검색" oninput="atSearchInput()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <button class="btn" onclick="atReload()">↻ 새로고침</button>
       </div>
     </div>
     <div class="ma-subtabs">
-      <button class="ma-subtab active" id="maTabInbox" onclick="maSwitch('inbox')">📥 받은편지함<span class="nav-cnt" id="maInboxCnt" style="display:none">0</span></button>
-      <button class="ma-subtab" id="maTabSent" onclick="maSwitch('sent')">📤 보낸편지함<span class="nav-cnt" id="maSentCnt" style="display:none">0</span></button>
+      <button class="ma-subtab active" id="atTabInbox" onclick="atSwitch('inbox')">📥 받은편지함<span class="nav-cnt" id="maInboxCnt" style="display:none">0</span></button>
+      <button class="ma-subtab" id="atTabSent" onclick="atSwitch('sent')">📤 보낸편지함<span class="nav-cnt" id="maSentCnt" style="display:none">0</span></button>
+      <button class="ma-subtab" id="atTabTeams" onclick="atSwitch('teams')">💬 팀즈채팅방<span class="nav-cnt" id="atTeamsCnt" style="display:none">0</span></button>
     </div>
+    <!-- maRender/taRender 가 읽는 검색칸 (숨김, atSearch와 동기화) -->
+    <input type="hidden" id="maSearch"><input type="hidden" id="taSearch">
     <div id="maList"></div>
+    <div id="taList" style="display:none"></div>
   </div>
 </div>
 
@@ -2105,6 +2091,7 @@ function showPage(p){
   else if(p==='spec'){ specInit(); }
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
+  else if(p==='attach'){ attachInit(); }
   else if(p==='admin'){ admLoad(); loadAnConfig(true).then(admRenderCards); }
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
@@ -2831,6 +2818,8 @@ const DOC_TITLE={'doc-vendor':'🏢 거래처','doc-quote':'📄 견적서','doc
 let DOC_INDEX_NAME=null;   // {name: [{size, dest}]}  같은 이름이 여러 폴더에 있을 수 있음
 let DOC_INDEX_AT=0;
 const DOC_INDEX_TTL=180000; // 3분 캐시
+// 파일명 키 정규화: 한글 NFC/NFD 차이·앞뒤공백 때문에 매칭 실패하던 것 방지
+function _docKey(s){ try{ return String(s||'').normalize('NFC').trim(); }catch(e){ return String(s||'').trim(); } }
 async function buildDocIndex(force){
   if(DOC_INDEX_NAME && !force && (Date.now()-DOC_INDEX_AT<DOC_INDEX_TTL)) return DOC_INDEX_NAME;
   const byName={};
@@ -2839,13 +2828,13 @@ async function buildDocIndex(force){
     async function walk(path,rel){
       let items=[];
       try{ items=await spList(path); }catch(e){ return; }
-      // 폴더/파일 병렬 처리 (하위 폴더 동시 스캔 → 속도↑)
       const subdirs=[];
       for(const it of items){
         if(it.folder){ subdirs.push([`${path}/${it.name}`, rel?`${rel}/${it.name}`:it.name]); }
         else if(it.file && it.name!=='_analysis.json'){
           const dest=label+(rel?'/'+rel:'');
-          (byName[it.name]=byName[it.name]||[]).push({size:it.size||0, dest});
+          const k=_docKey(it.name);
+          (byName[k]=byName[k]||[]).push({size:it.size||0, dest});
         }
       }
       await Promise.all(subdirs.map(([p,r])=>walk(p,r)));
@@ -2855,19 +2844,20 @@ async function buildDocIndex(force){
   DOC_INDEX_NAME=byName; DOC_INDEX_AT=Date.now();
   return byName;
 }
-// 이동완료 판단: 이름 일치 우선. 같은 이름이 여러 개면 크기로 정확한 폴더 선택.
+// 이동완료 판단: 이름(NFC) 일치 우선. 같은 이름이 여러 개면 크기로 정확한 폴더 선택.
 function docFindMoved(name,size){
   if(!DOC_INDEX_NAME) return null;
-  const list=DOC_INDEX_NAME[name];
+  const list=DOC_INDEX_NAME[_docKey(name)];
   if(!list||!list.length) return null;
   if(size){ const exact=list.find(x=>x.size===size); if(exact) return exact.dest; }
-  return list[0].dest;  // 이름만 일치 (크기 정보 없거나 안 맞아도 같은 이름이면 이동된 것으로 간주)
+  return list[0].dest;
 }
 function docFindMovedFlexible(name,size){ return docFindMoved(name,size); }
 // 이동 직후: 전체 재스캔 없이 방금 올린 파일만 인덱스에 추가 (즉시 ✅ + 빠름)
 function docIndexAdd(name,size,dest){
   if(!DOC_INDEX_NAME) DOC_INDEX_NAME={};
-  (DOC_INDEX_NAME[name]=DOC_INDEX_NAME[name]||[]).push({size:size||0, dest});
+  const k=_docKey(name);
+  (DOC_INDEX_NAME[k]=DOC_INDEX_NAME[k]||[]).push({size:size||0, dest});
 }
 // ════════ 팀즈 첨부파일 정리 ════════
 const TA_PATH="teams_attachments.json";
@@ -2882,7 +2872,7 @@ async function taLoad(){
   TA_DATA=await spGetJson(TA_PATH);
   const hid=await spGetJson(TA_HIDDEN_PATH);
   TA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[]; TA_RENAME=(hid&&hid.renames)?hid.renames:{};
-  if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; $('taSub').textContent='T Project 채팅 첨부파일'; return; }
+  if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; TA_SUBTEXT='T Project 채팅 첨부파일'; atUpdateSub(); return; }
   // 문서함 스캔(캐시 3분) → 이동완료 계산
   $('taList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
   try{ await buildDocIndex(false); }catch(e){}
@@ -2892,9 +2882,11 @@ async function taLoad(){
   const visN=all.filter(it=>!TA_HIDDEN.includes(it.id)).length;
   const movedN=all.filter(it=>TA_MOVED[it.id]).length;
   const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
-  $('taSub').textContent=`T Project 채팅 첨부파일 · ${visN}건${movedN?` · ✅이동 ${movedN}`:''}${TA_HIDDEN.length?` · 숨김 ${TA_HIDDEN.length}`:''} · 수집 ${upd}`;
+  TA_SUBTEXT=`T Project 채팅 첨부파일 · ${visN}건${movedN?` · ✅이동 ${movedN}`:''}${TA_HIDDEN.length?` · 숨김 ${TA_HIDDEN.length}`:''} · 수집 ${upd}`; atUpdateSub();
   const unsorted=all.filter(it=>!TA_HIDDEN.includes(it.id)&&!TA_MOVED[it.id]).length;
-  const badge=$('taCnt'); if(badge){ if(unsorted>0){ badge.textContent=unsorted; badge.style.display='inline-block'; } else badge.style.display='none'; }
+  TA_UNSORTED=unsorted;
+  const tb=$('atTeamsCnt'); if(tb){ if(unsorted>0){ tb.textContent=unsorted; tb.style.display='inline-block'; } else tb.style.display='none'; }
+  if(typeof atUpdateNav==='function') atUpdateNav();
   taRender();
 }
 async function taSaveHidden(){
@@ -3168,27 +3160,52 @@ async function maLoad(){
   $('maList').innerHTML='<div class="an-empty">불러오는 중…</div>';
   MA_DATA=await spGetJson(MA_PATH);
   const hid=await spGetJson(MA_HIDDEN_PATH); MA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[]; MA_RENAME=(hid&&hid.renames)?hid.renames:{};
-  if(!MA_DATA){ $('maList').innerHTML='<div class="an-empty">수집된 메일 첨부파일이 없습니다. (서버 수집 스크립트 mail_attachments.py 실행 필요)</div>'; $('maSub').textContent='enjet_ed 메일 첨부파일'; return; }
+  if(!MA_DATA){ $('maList').innerHTML='<div class="an-empty">수집된 메일 첨부파일이 없습니다. (서버 수집 스크립트 mail_attachments.py 실행 필요)</div>'; MA_SUBTEXT='enjet_ed 메일 첨부파일'; atUpdateSub(); return; }
   $('maList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
   try{ await buildDocIndex(false); }catch(e){}
   MA_MOVED={};
   const all=(MA_DATA.items||[]);
   for(const it of all){ const d=docFindMovedFlexible(it.name, it.size); if(d) MA_MOVED[it.id]=d; }
   const upd=MA_DATA.updatedAt?new Date(MA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
-  $('maSub').textContent=`enjet_ed 메일 첨부파일 · 총 ${all.length}건 · 수집 ${upd}`;
+  MA_SUBTEXT=`enjet_ed 메일 첨부파일 · 총 ${all.length}건 · 수집 ${upd}`; atUpdateSub();
   const cnt=(folder)=>all.filter(it=>it.folder===folder&&!MA_HIDDEN.includes(it.id)&&!MA_MOVED[it.id]).length;
   const setB=(id,n)=>{ const b=$(id); if(b){ if(n>0){b.textContent=n;b.style.display='inline-block';} else b.style.display='none'; } };
   const ib=cnt('inbox'), sb=cnt('sent');
-  setB('maInboxCnt',ib); setB('maSentCnt',sb); setB('maCnt', ib+sb);
+  setB('maInboxCnt',ib); setB('maSentCnt',sb);
+  MA_UNSORTED=ib+sb; if(typeof atUpdateNav==='function') atUpdateNav();
   maRender();
 }
 async function maSaveHidden(){ try{ await spPutJson(MA_HIDDEN_PATH,{hidden:MA_HIDDEN,renames:MA_RENAME,updatedAt:new Date().toISOString()}); }catch(e){ toast('숨김 저장 실패','bad'); } }
-function maSwitch(folder){
-  MA_FOLDER=folder;
-  $('maTabInbox').classList.toggle('active',folder==='inbox');
-  $('maTabSent').classList.toggle('active',folder==='sent');
-  maRender();
+let MA_SUBTEXT='', TA_SUBTEXT='', MA_UNSORTED=0, TA_UNSORTED=0, AT_MODE='inbox';
+function maSwitch(folder){ atSwitch(folder); }
+function atUpdateSub(){ const el=$('atSub'); if(el) el.textContent = (AT_MODE==='teams') ? TA_SUBTEXT : MA_SUBTEXT; }
+function atUpdateNav(){ const b=$('atNavCnt'); if(!b) return; const n=(MA_UNSORTED||0)+(TA_UNSORTED||0); if(n>0){ b.textContent=n; b.style.display='inline-block'; } else b.style.display='none'; }
+function atSwitch(mode){
+  AT_MODE=mode;
+  $('atTabInbox')?.classList.toggle('active', mode==='inbox');
+  $('atTabSent')?.classList.toggle('active', mode==='sent');
+  $('atTabTeams')?.classList.toggle('active', mode==='teams');
+  const isTeams = mode==='teams';
+  $('maList').style.display = isTeams?'none':'';
+  $('taList').style.display = isTeams?'':'none';
+  $('atSearch').placeholder = isTeams ? '파일명·작성자 검색' : '파일명·제목·보낸사람 검색';
+  if(isTeams){ taRender(); }
+  else { MA_FOLDER=mode; maRender(); }
+  atUpdateSub();
 }
+function atSearchInput(){
+  const v=$('atSearch').value||'';
+  if($('maSearch')) $('maSearch').value=v;
+  if($('taSearch')) $('taSearch').value=v;
+  if(AT_MODE==='teams') taRender(); else maRender();
+}
+async function attachInit(){
+  // 데이터 없으면 로드 (둘 다)
+  if(!MA_DATA) await maLoad(); else maRender();
+  if(!TA_DATA) await taLoad(); else taRender();
+  atSwitch(AT_MODE||'inbox');
+}
+function atReload(){ DOC_INDEX_AT=0; MA_DATA=null; TA_DATA=null; attachInit(); }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
   if(!MA_DATA) return;
@@ -8164,8 +8181,7 @@ const PERM_TABS = [
   {id:'doc-invoice', label:'📋 거래명세서'},
   {id:'doc-tax',     label:'🧾 세금계산서'},
   {id:'doc-tech',    label:'📚 기술자료'},
-  {id:'tattach',     label:'📎 팀즈첨부'},
-  {id:'mattach',     label:'📧 이메일첨부'},
+  {id:'attach',      label:'📎 첨부파일'},
   {id:'schedule',    label:'📅 통합일정'},
   {id:'spec',        label:'🏭 설비제작사양서'},
   {id:'purchase',    label:'🛒 구매'},
@@ -8439,7 +8455,7 @@ async function ccInit(){
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border)">
       <b style="font-size:12.5px">📥 선택행 일괄입력</b>
       <select id="ccBulkAcct" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">${acctOptsBulk}</select>
-      <input id="ccBulkGubun" placeholder="비용구분" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:120px">
+      <input id="ccBulkJeokyo" placeholder="적요 (필수)" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:180px">
       <button class="btn sm" onclick="ccBulkApply()">선택행에 적용</button>
       <div class="spacer" style="flex:1"></div>
       <button class="btn primary" onclick="ccSave()">💾 영림원에 저장</button>
@@ -8487,17 +8503,15 @@ function ccRender(){
   const acctOpts=sel=>['',...CC_ACCOUNTS].map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join('');
   let h=`<table class="an-tbl"><thead><tr>
     <th class="c"><input type="checkbox" onclick="ccCheckAll(this.checked)"></th>
-    <th class="c">중단여부</th><th class="c">처리상태</th><th class="c">카드번호</th><th>카드명</th>
+    <th class="c">처리상태</th><th class="c">카드번호</th><th>카드명</th>
     <th class="c">승인일</th><th class="c">승인취소</th><th class="c">국내외</th><th>가맹점명</th><th>거래처</th>
-    <th class="r">승인금액</th><th class="c">비용계정</th><th class="c">비용구분</th></tr></thead><tbody>`;
+    <th class="r">승인금액</th><th class="c">비용계정</th><th>적요 <span style="color:var(--r)">*</span></th></tr></thead><tbody>`;
   CC_ROWS.forEach((r,i)=>{
     const k=_ccRowKey(r,i);
     const ed=CC_EDIT[k]||{};
     const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
-    const stop=/^(true|1|y)$/i.test(String(r['중단여부']||'').trim())?'중단':'';
     h+=`<tr>
       <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
-      <td class="c">${esc(stop)}</td>
       <td class="c">${esc(r['처리상태']||'')}</td>
       <td class="c" style="font-size:12px">${esc(r['카드번호']||'')}</td>
       <td>${esc(cardNm)}</td>
@@ -8508,7 +8522,7 @@ function ccRender(){
       <td>${esc(r['거래처']||'')}</td>
       <td class="r">${_ccNum(r['승인금액'])}</td>
       <td class="c"><select class="memo" style="width:120px" onchange="ccSet('${esc(k)}','acct',this.value)">${acctOpts(ed.acct||'')}</select></td>
-      <td class="c"><input class="memo" style="width:90px" value="${esc(ed.gubun||'')}" onchange="ccSet('${esc(k)}','gubun',this.value)"></td>
+      <td><input class="memo" style="width:100%;min-width:180px" value="${esc(ed.jeokyo||'')}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
     </tr>`;
   });
   h+=`</tbody></table>`;
@@ -8517,13 +8531,13 @@ function ccRender(){
 function ccSet(k,key,val){ CC_EDIT[k]=CC_EDIT[k]||{}; CC_EDIT[k][key]=val; }
 function ccCheckAll(on){ document.querySelectorAll('.cc-chk').forEach(c=>c.checked=on); }
 function ccBulkApply(){
-  const acct=$('ccBulkAcct').value, gubun=$('ccBulkGubun').value.trim();
-  if(!acct && !gubun){ toast('비용계정 또는 비용구분을 입력하세요','bad'); return; }
+  const acct=$('ccBulkAcct').value, jeokyo=$('ccBulkJeokyo').value.trim();
+  if(!acct && !jeokyo){ toast('비용계정 또는 적요를 입력하세요','bad'); return; }
   let n=0;
   document.querySelectorAll('.cc-chk:checked').forEach(c=>{
     const k=c.dataset.k; CC_EDIT[k]=CC_EDIT[k]||{};
     if(acct) CC_EDIT[k].acct=acct;
-    if(gubun) CC_EDIT[k].gubun=gubun;
+    if(jeokyo) CC_EDIT[k].jeokyo=jeokyo;
     n++;
   });
   if(!n){ toast('선택된 행이 없습니다','bad'); return; }
@@ -8531,17 +8545,19 @@ function ccBulkApply(){
   toast(`${n}개 행에 적용`,'ok');
 }
 async function ccSave(){
-  // 비용계정이 입력된 행만 저장 대상 (영림원 전표 비용계정 필수)
-  const items=[];
+  // 비용계정이 입력된 행만 저장 대상 (비용계정 필수 → 비용구분 자동). 적요는 필수.
+  const items=[]; let noJeokyo=0;
   CC_ROWS.forEach((r,i)=>{
     const k=_ccRowKey(r,i); const ed=CC_EDIT[k];
-    if(ed && (ed.acct||ed.gubun)){
+    if(ed && ed.acct){
+      if(!ed.jeokyo) noJeokyo++;
       items.push({ '승인번호': r['승인번호']||'', '카드번호': r['카드번호']||'', '승인일': r['승인일']||'',
-                   '비용계정': ed.acct||'', '비용구분': ed.gubun||'' });
+                   '비용계정': ed.acct||'', '적요': ed.jeokyo||'' });
     }
   });
-  if(!items.length){ toast('저장할 행이 없습니다 (비용계정/비용구분 입력 후)','bad'); return; }
-  if(!confirm(`${items.length}건을 영림원에 저장합니다.\n(비용계정/비용구분을 그리드에 입력하고 [저장] 실행)\n계속할까요?`)) return;
+  if(!items.length){ toast('저장할 행이 없습니다 (비용계정 선택 후)','bad'); return; }
+  if(noJeokyo){ if(!confirm(`적요가 비어있는 행이 ${noJeokyo}건 있습니다. 적요는 필수입니다.\n그래도 진행할까요?`)) return; }
+  if(!confirm(`${items.length}건을 영림원에 저장합니다.\n(비용계정·적요를 그리드에 입력하고 [저장] 실행)\n계속할까요?`)) return;
   const from=$('ccFrom').value, to=$('ccTo').value, st=$('ccState').value;
   const _j=(typeof _J==='function')?_J(`법인카드 저장 ${items.length}건`):null;
   const list=$('ccList'); const prev=list.innerHTML;
