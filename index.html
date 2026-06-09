@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v105</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v106</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1581,6 +1581,19 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div id="adm_cards" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
     <div class="adm-card">
+      <div class="adm-card-h">📁 구매 프로젝트 등록 <span style="font-weight:400;color:var(--t3);font-size:12px">· 구매 대시보드(현황·조회·작성)는 여기 등록된 프로젝트만 표시·연동 (100.ERP/config.json)</span></div>
+      <div class="adm-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="adm_proj_code" placeholder="프로젝트번호 (예: BG23003)" style="flex:1;min-width:160px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1);text-transform:uppercase" onkeydown="if(event.key==='Enter')admProjAdd()">
+        <input type="text" id="adm_proj_label" placeholder="설명 (선택)" style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admProjAdd()">
+        <button class="btn primary" type="button" onclick="admProjAdd()">＋ 추가</button>
+      </div>
+      <div id="adm_projs" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn primary" type="button" onclick="admProjSave()">💾 프로젝트 설정 저장</button>
+        <span id="adm_proj_msg" style="font-size:13px;color:var(--t3)"></span>
+      </div>
+    </div>
+    <div class="adm-card">
       <div class="adm-card-h">🔔 전체 자동요약</div>
       <label class="adm-toggle"><input type="checkbox" id="adm_master"> <span>전체 자동요약 사용 (끄면 모든 채널 중지)</span></label>
     </div>
@@ -2092,7 +2105,7 @@ function showPage(p){
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
   else if(p==='attach'){ attachInit(); }
-  else if(p==='admin'){ admLoad(); loadAnConfig(true).then(admRenderCards); }
+  else if(p==='admin'){ admLoad(); loadAnConfig(true).then(admRenderCards); admProjLoad(); }
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
   else if(p==='corpcard'){ ccInit(); }
@@ -2236,6 +2249,43 @@ const ADMIN_SEED_TPROJECT={
   }
 };
 let ADMIN_CFG={master:true, channels:[]};
+
+// ── 구매 프로젝트 등록 (관리자설정) : 구매 대시보드 config.json 공용 ──
+let _admProjEdit=null;
+async function admProjLoad(){
+  try{ if(typeof pLoadConfig==='function'){ await pLoadConfig(); } }catch(e){}
+  _admProjEdit = (typeof pConfig!=='undefined' && pConfig.projects && pConfig.projects.length)
+    ? pConfig.projects.map(p=> typeof p==='string'?{code:p,label:''}:{code:(p.code||'').toUpperCase(),label:p.label||''})
+    : ((typeof pProjects!=='undefined'?pProjects:[]).map(c=>({code:c,label:''})));
+  admProjRender();
+}
+function admProjRender(){
+  const box=$('adm_projs'); if(!box) return;
+  if(!_admProjEdit||!_admProjEdit.length){ box.innerHTML='<span style="color:var(--t3);font-size:13px">등록된 프로젝트가 없습니다. 위에서 추가하세요.</span>'; return; }
+  box.innerHTML=_admProjEdit.map((p,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px"><b>${esc(p.code)}</b>${p.label?`<span style="color:var(--t3)">${esc(p.label)}</span>`:''} <span style="cursor:pointer;color:var(--r)" onclick="admProjRemove(${i})">✕</span></span>`).join('');
+}
+function admProjAdd(){
+  const c=($('adm_proj_code').value||'').trim().toUpperCase();
+  const l=($('adm_proj_label').value||'').trim();
+  if(!c){ $('adm_proj_msg').textContent='프로젝트번호를 입력하세요.'; return; }
+  _admProjEdit=_admProjEdit||[];
+  if(_admProjEdit.some(p=>p.code===c)){ $('adm_proj_msg').textContent='이미 등록된 프로젝트입니다.'; return; }
+  _admProjEdit.push({code:c,label:l});
+  $('adm_proj_code').value=''; $('adm_proj_label').value=''; $('adm_proj_msg').textContent='';
+  admProjRender();
+}
+function admProjRemove(i){ _admProjEdit.splice(i,1); admProjRender(); }
+async function admProjSave(){
+  const msg=$('adm_proj_msg');
+  if(!_admProjEdit||!_admProjEdit.length){ msg.textContent='최소 1개 이상 등록하세요.'; return; }
+  msg.textContent='저장 중…';
+  try{
+    if(typeof pSaveConfig==='function'){ await pSaveConfig(_admProjEdit); }
+    msg.textContent='✅ 저장 완료 (구매 대시보드에 적용됨)';
+    toast('구매 프로젝트 설정 저장됨','ok');
+    try{ if(typeof pLoaded!=='undefined'){ pLoaded=false; } }catch(e){}
+  }catch(e){ msg.textContent='저장 실패: '+(e.message||e); }
+}
 
 async function admLoad(){
   const sv=$('adm_saved'); if(sv) sv.textContent='불러오는 중…';
@@ -8150,7 +8200,7 @@ function pInProj(row){
   const cands = [row.project_code,row.pjt_no,row.PJTNo,row.projectCode,row.project_no,row.pjtNo];
   return cands.some(v => v && set.includes(String(v).trim().toUpperCase()));
 }
-/* 구매품의 STEP1: 확정 구매요청은 프로젝트 등록 여부와 무관하게 전부 표시 (pInProj 필터 제거) */
+{ const _o=ppnewLoadConfirmed; ppnewLoadConfirmed=async function(r){ await _o(r); try{ ppnewConfirmed=(ppnewConfirmed||[]).filter(pInProj); ppnewRenderList(); }catch(e){console.warn('필터 pp',e);} }; }
 { const _o=ponewLoadDrafts;    ponewLoadDrafts=async function(r){ await _o(r); try{ ponewDrafts=(ponewDrafts||[]).filter(pInProj); ponewRenderList(); }catch(e){console.warn('필터 po',e);} }; }
 { const _o=dvnewLoadDrafts;    dvnewLoadDrafts=async function(r){ await _o(r); try{ dvnewDrafts=(dvnewDrafts||[]).filter(pInProj); dvnewRenderList(); }catch(e){console.warn('필터 dv',e);} }; }
 { const _o=ivnewLoadList;      ivnewLoadList=async function(r){ await _o(r); try{ ivnewList=(ivnewList||[]).filter(pInProj); ivnewRenderList(); }catch(e){console.warn('필터 iv',e);} }; }
