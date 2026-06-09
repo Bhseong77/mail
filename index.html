@@ -890,7 +890,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v99</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v100</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8424,6 +8424,7 @@ function _ccDefaultRange(){
 async function ccInit(){
   const panel=$('panel-corpcard'); if(!panel) return;
   const r=_ccDefaultRange();
+  const acctOptsBulk=['',...CC_ACCOUNTS].map(a=>`<option value="${a}">${a||'(비용계정 선택)'}</option>`).join('');
   panel.innerHTML=`<div class="panel-bar"><h2>💳 법인카드 · 전표</h2>
       <span style="font-size:12px;color:var(--t3)">승인일</span>
       <input type="date" id="ccFrom" value="${r.from}" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
@@ -8434,6 +8435,14 @@ async function ccInit(){
       <div class="spacer" style="flex:1"></div>
       <span id="ccCount" style="font-size:12px;color:var(--t3)"></span>
       <button class="btn primary" onclick="ccLoad()">🔍 영림원 조회</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border)">
+      <b style="font-size:12.5px">📥 선택행 일괄입력</b>
+      <select id="ccBulkAcct" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">${acctOptsBulk}</select>
+      <input id="ccBulkGubun" placeholder="비용구분" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:120px">
+      <button class="btn sm" onclick="ccBulkApply()">선택행에 적용</button>
+      <div class="spacer" style="flex:1"></div>
+      <button class="btn primary" onclick="ccSave()">💾 영림원에 저장</button>
     </div>
     <div style="padding:6px 16px;font-size:12px;color:var(--t3)" id="ccCardInfo"></div>
     <div class="an-tbl-wrap" id="ccList" style="padding:0 12px 20px"><div class="an-empty">[🔍 영림원 조회]를 누르세요</div></div>`;
@@ -8507,6 +8516,52 @@ function ccRender(){
 }
 function ccSet(k,key,val){ CC_EDIT[k]=CC_EDIT[k]||{}; CC_EDIT[k][key]=val; }
 function ccCheckAll(on){ document.querySelectorAll('.cc-chk').forEach(c=>c.checked=on); }
+function ccBulkApply(){
+  const acct=$('ccBulkAcct').value, gubun=$('ccBulkGubun').value.trim();
+  if(!acct && !gubun){ toast('비용계정 또는 비용구분을 입력하세요','bad'); return; }
+  let n=0;
+  document.querySelectorAll('.cc-chk:checked').forEach(c=>{
+    const k=c.dataset.k; CC_EDIT[k]=CC_EDIT[k]||{};
+    if(acct) CC_EDIT[k].acct=acct;
+    if(gubun) CC_EDIT[k].gubun=gubun;
+    n++;
+  });
+  if(!n){ toast('선택된 행이 없습니다','bad'); return; }
+  ccRender();
+  toast(`${n}개 행에 적용`,'ok');
+}
+async function ccSave(){
+  // 비용계정이 입력된 행만 저장 대상 (영림원 전표 비용계정 필수)
+  const items=[];
+  CC_ROWS.forEach((r,i)=>{
+    const k=_ccRowKey(r,i); const ed=CC_EDIT[k];
+    if(ed && (ed.acct||ed.gubun)){
+      items.push({ '승인번호': r['승인번호']||'', '카드번호': r['카드번호']||'', '승인일': r['승인일']||'',
+                   '비용계정': ed.acct||'', '비용구분': ed.gubun||'' });
+    }
+  });
+  if(!items.length){ toast('저장할 행이 없습니다 (비용계정/비용구분 입력 후)','bad'); return; }
+  if(!confirm(`${items.length}건을 영림원에 저장합니다.\n(비용계정/비용구분을 그리드에 입력하고 [저장] 실행)\n계속할까요?`)) return;
+  const from=$('ccFrom').value, to=$('ccTo').value, st=$('ccState').value;
+  const _j=(typeof _J==='function')?_J(`법인카드 저장 ${items.length}건`):null;
+  const list=$('ccList'); const prev=list.innerHTML;
+  list.innerHTML='<div class="an-empty">영림원에 저장 중… (로그인+입력+저장, 30~60초)</div>';
+  try{
+    const res=await fetch(`${SERVER}/api/erp/corpcard/save`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from,to,state:st,items})
+    });
+    const data=await res.json();
+    if(!res.ok || data.error){ throw new Error(data.error||('서버 '+res.status)); }
+    if(_j&&typeof _Jok==='function') _Jok(_j, `${data.saved||0}건 저장`);
+    toast(`✅ ${data.saved||0}건 저장 완료`,'ok');
+    ccLoad(); // 갱신 (저장분은 처리상태/미처리에서 빠질 수 있음)
+  }catch(e){
+    if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
+    list.innerHTML=prev;
+    toast('저장 실패: '+e.message,'bad');
+  }
+}
 
 </script>
 <div id="jobq-wrap" style="display:none;position:fixed;top:14px;right:18px;z-index:1000001;font-family:inherit;">
