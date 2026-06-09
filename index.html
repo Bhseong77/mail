@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v111</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v114</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8734,8 +8734,7 @@ function poadvInit(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
             <button class="acc-period-btn today" onclick="poadvAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="poadvClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
-            <button class="acc-period-btn" onclick="poadvPasteOpen()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
-            <span style="color:#9ca3af;font-size:12px;">행을 직접 입력하거나 엑셀에서 복사해 붙여넣으세요</span>
+            <span style="color:#15803d;font-size:12px;">💡 엑셀에서 셀 범위 복사 → 행 칸 클릭 후 <b>Ctrl+V</b> 하면 한 번에 채워집니다</span>
             <span id="poadv-rowinfo" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
           </div>
           <div style="overflow-x:auto;">
@@ -8750,7 +8749,7 @@ function poadvInit(){
                 <th>제조사</th>
                 <th style="width:140px;">납품예정일 <span class="poadv-req">*</span></th>
                 <th style="width:80px;">발주수량 <span class="poadv-req">*</span></th>
-                <th style="width:110px;">단가 <span class="poadv-req">*</span></th>
+                <th style="width:110px;">단가</th>
                 <th style="width:110px;">금액</th>
                 <th style="width:34px;"></th>
               </tr></thead>
@@ -8800,12 +8799,17 @@ function poadvInit(){
   if(!document.getElementById("poadv-date").value) document.getElementById("poadv-date").value = poadvToday();
   if(!poadvRows.length) poadvAddRow();
   poadvRenderRows();
-  // 관리자설정 등록 프로젝트 로드 → 드롭다운 옵션 채우기
+  // 관리자설정 등록 프로젝트 로드 → 드롭다운 옵션 + 발주목록 필터
   if(typeof pLoadConfig==="function"){
-    pLoadConfig().then(()=>poadvRenderRows()).catch(()=>{});
+    pLoadConfig().then(()=>{
+      poadvRenderRows();
+      if(typeof poadvListLoad==="function") poadvListLoad(false);  // 프로젝트 로드 후 목록
+    }).catch(()=>{
+      if(typeof poadvListLoad==="function") poadvListLoad(false);
+    });
+  } else {
+    if(typeof poadvListLoad==="function") poadvListLoad(false);
   }
-  // 발주 목록 자동 로드
-  if(typeof poadvListLoad==="function") poadvListLoad(false);
 }
 
 function poadvAddRow(prefill){
@@ -8843,19 +8847,54 @@ function poadvRenderRows(){
   tb.innerHTML = poadvRows.map((r,i)=>`
     <tr>
       <td style="text-align:center;color:#9ca3af;">${i+1}</td>
-      <td><select onchange="poadvRowInput(${i},'pjt_no',this)" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">${projOpts(r.pjt_no||"")}</select></td>
-      <td><input value="${esc(r.item_name||"")}" oninput="poadvRowInput(${i},'item_name',this)" placeholder="품명"></td>
-      <td><input value="${esc(r.item_no||"")}" oninput="poadvRowInput(${i},'item_no',this)" placeholder="품번"></td>
-      <td><input value="${esc(r.spec||"")}" oninput="poadvRowInput(${i},'spec',this)" placeholder="-"></td>
+      <td><select data-r="${i}" data-f="pjt_no" onchange="poadvRowInput(${i},'pjt_no',this)" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">${projOpts(r.pjt_no||"")}</select></td>
+      <td><input data-r="${i}" data-f="item_name" value="${esc(r.item_name||"")}" oninput="poadvRowInput(${i},'item_name',this)" placeholder="품명"></td>
+      <td><input data-r="${i}" data-f="item_no" value="${esc(r.item_no||"")}" oninput="poadvRowInput(${i},'item_no',this)" placeholder="품번"></td>
+      <td><input data-r="${i}" data-f="spec" value="${esc(r.spec||"")}" oninput="poadvRowInput(${i},'spec',this)" placeholder="-"></td>
       <td><input value="${esc(r.unit||"EA")}" readonly style="text-align:center;color:#6b7280;"></td>
-      <td><input value="${esc(r.maker||"")}" oninput="poadvRowInput(${i},'maker',this)" placeholder="-"></td>
-      <td><input type="date" value="${esc(r.delv||"")}" oninput="poadvRowInput(${i},'delv',this)"></td>
-      <td><input class="num" type="number" value="${poadvNum(r.qty)}" min="0" oninput="poadvRowInput(${i},'qty',this)"></td>
-      <td><input class="num" type="number" value="${poadvNum(r.price)}" min="0" oninput="poadvRowInput(${i},'price',this)"></td>
+      <td><input data-r="${i}" data-f="maker" value="${esc(r.maker||"")}" oninput="poadvRowInput(${i},'maker',this)" placeholder="-"></td>
+      <td><input data-r="${i}" data-f="delv" type="date" value="${esc(r.delv||"")}" oninput="poadvRowInput(${i},'delv',this)"></td>
+      <td><input data-r="${i}" data-f="qty" class="num" type="number" value="${poadvNum(r.qty)}" min="0" oninput="poadvRowInput(${i},'qty',this)"></td>
+      <td><input data-r="${i}" data-f="price" class="num" type="number" value="${poadvNum(r.price)}" min="0" oninput="poadvRowInput(${i},'price',this)"></td>
       <td class="num" style="padding-right:6px;color:#0f4c81;">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
       <td class="poadv-del" onclick="poadvDelRow(${i})">✕</td>
     </tr>`).join("");
+  // 붙여넣기 핸들러 (한 번만 바인딩)
+  if(!tb.dataset.pasteBound){
+    tb.addEventListener("paste", poadvOnPaste);
+    tb.dataset.pasteBound="1";
+  }
   poadvRecalc();
+}
+
+// 행 입력칸에서 Ctrl+V → 엑셀 셀 범위를 그 위치부터 채움
+const POADV_PASTE_FIELDS = ["pjt_no","item_name","item_no","spec","maker","delv","qty","price"];
+function poadvOnPaste(e){
+  const tgt=e.target;
+  const startF=tgt && tgt.dataset ? tgt.dataset.f : null;
+  if(!startF || POADV_PASTE_FIELDS.indexOf(startF)<0) return;  // 행 칸이 아니면 기본 동작
+  const text=(e.clipboardData||window.clipboardData).getData("text");
+  if(!text || (text.indexOf("\t")<0 && text.indexOf("\n")<0)) return;  // 단일 셀이면 기본 붙여넣기
+  e.preventDefault();
+  const startR=parseInt(tgt.dataset.r,10)||0;
+  const startC=POADV_PASTE_FIELDS.indexOf(startF);
+  const lines=text.replace(/\r/g,"").replace(/\n$/,"").split("\n");
+  lines.forEach((line,li)=>{
+    const cells=line.split("\t");
+    const ri=startR+li;
+    while(poadvRows.length<=ri) poadvRows.push({pjt_name:"",pjt_no:"",item_name:"",item_no:"",spec:"",unit:"EA",maker:"",delv:poadvTomorrow(),qty:1,price:0,pjt_seq:0,item_seq:0,cust_seq:0,cust_name:""});
+    cells.forEach((val,ci)=>{
+      const f=POADV_PASTE_FIELDS[startC+ci];
+      if(!f) return;
+      val=(val||"").trim();
+      if(f==="pjt_no") poadvRows[ri][f]=val.toUpperCase();
+      else if(f==="delv") poadvRows[ri][f]=_poadvNormDate(val)||poadvRows[ri][f];
+      else if(f==="qty"||f==="price") poadvRows[ri][f]=poadvNum(val.replace(/,/g,""));
+      else poadvRows[ri][f]=val;
+    });
+  });
+  poadvRenderRows();
+  const m=document.getElementById("poadv-msg"); if(m){ m.style.color="#15803d"; m.textContent=`✅ ${lines.length}행 붙여넣기 완료`; }
 }
 
 // ── 확정 구매요청에서 행 가져오기 ──
@@ -8921,12 +8960,12 @@ function poadvValidate(){
   // 새 컬럼 순서: [0]#, [1]프로젝트번호(select), [2]품명, [3]품번, [4]규격, [5]단위, [6]제조사, [7]납기, [8]수량, [9]단가
   // input 인덱스(select 제외): 품명0·품번1·규격2·단위3·제조사4·납기5·수량6·단가7
   h.rows.forEach((r,i)=>{
-    const need=["pjt_no","item_name","item_no","delv","qty","price"];
+    const need=["pjt_no","item_name","item_no","delv","qty"];  // 단가는 0 허용 → 필수 제외
     need.forEach(f=>{
-      const bad = (f==="qty") ? !(poadvNum(r.qty)>0) : (f==="price") ? !(poadvNum(r.price)>0) : !String(r[f]||"").trim();
+      const bad = (f==="qty") ? !(poadvNum(r.qty)>0) : !String(r[f]||"").trim();
       if(bad){ rowErr++; const tr=document.querySelectorAll("#poadv-tbody tr")[i];
         if(tr){ if(f==="pjt_no"){ const s=tr.querySelector("select"); if(s) s.classList.add("miss"); }
-          else { const map={item_name:0,item_no:1,delv:5,qty:6,price:7}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } } }
+          else { const map={item_name:0,item_no:1,delv:5,qty:6}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } } }
     });
   });
   if(rowErr) errs.push(`품목 필수입력 ${rowErr}칸`);
@@ -9317,42 +9356,7 @@ function custPageRender(q){
 //  엑셀 붙여넣기 (탭/줄바꿈 파싱 → 행 추가)
 //  컬럼 순서: 프로젝트번호 | 품명 | 품번 | 규격 | 제조사 | 납품예정일 | 발주수량 | 단가
 // ════════════════════════════════════════════════════════════════
-function poadvPasteOpen(){
-  let ov=document.getElementById("poadv-paste-ov");
-  if(!ov){
-    ov=document.createElement("div");
-    ov.id="poadv-paste-ov";
-    ov.style.cssText="position:fixed;inset:0;z-index:1000050;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
-    ov.innerHTML=`
-      <div style="width:min(720px,95vw);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#15803d;color:#fff;">
-          <b>📋 엑셀 붙여넣기</b>
-          <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-paste-ov').remove()">✕</span>
-        </div>
-        <div style="padding:18px 20px;">
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#166534;line-height:1.7;">
-            엑셀에서 아래 <b>컬럼 순서</b>로 복사한 뒤(헤더 제외) 칸에 붙여넣고 <b>적용</b>을 누르세요.<br>
-            <b>프로젝트번호 · 품명 · 품번 · 규격 · 제조사 · 납품예정일 · 발주수량 · 단가</b><br>
-            <span style="color:#15803d;">※ 규격·제조사는 비워도 됩니다. 날짜는 2026-06-10 또는 20260610 형식. 단위는 EA 고정.</span>
-          </div>
-          <textarea id="poadv-paste-ta" placeholder="여기에 Ctrl+V 로 붙여넣기..." style="width:100%;height:200px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-family:monospace;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>
-          <label style="display:block;margin-top:8px;font-size:13px;color:#475569;">
-            <input type="checkbox" id="poadv-paste-replace"> 기존 행 비우고 교체 (체크 안 하면 추가)
-          </label>
-          <div id="poadv-paste-msg" style="margin-top:8px;font-size:13px;"></div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
-            <button onclick="document.getElementById('poadv-paste-ov').remove()" style="padding:10px 18px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:14px;">취소</button>
-            <button onclick="poadvPasteApply()" style="padding:10px 20px;border:none;background:#15803d;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">적용</button>
-          </div>
-        </div>
-      </div>`;
-    ov.addEventListener("click", e=>{ if(e.target===ov) ov.remove(); });
-    document.body.appendChild(ov);
-  } else { ov.style.display="flex"; }
-  const ta=document.getElementById("poadv-paste-ta"); if(ta){ ta.value=""; ta.focus(); }
-  const msg=document.getElementById("poadv-paste-msg"); if(msg) msg.textContent="";
-}
-
+// 날짜 정규화 (붙여넣기에서 사용)
 function _poadvNormDate(s){
   s=(s||"").trim().replace(/[./]/g,"-");
   let m=s.match(/^(\d{4})-?(\d{1,2})-?(\d{1,2})$/);
@@ -9360,39 +9364,6 @@ function _poadvNormDate(s){
   m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
   if(m) return `${m[1]}-${m[2]}-${m[3]}`;
   return s;
-}
-
-function poadvPasteApply(){
-  const ta=document.getElementById("poadv-paste-ta");
-  const msg=document.getElementById("poadv-paste-msg");
-  const replace=(document.getElementById("poadv-paste-replace")||{}).checked;
-  const raw=(ta&&ta.value||"").replace(/\r/g,"");
-  const lines=raw.split("\n").map(l=>l).filter(l=>l.trim()!=="");
-  if(!lines.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="붙여넣은 내용이 없습니다."; } return; }
-  const parsed=[];
-  for(const line of lines){
-    const c=line.split("\t");
-    const pjt=(c[0]||"").trim();
-    const nm =(c[1]||"").trim();
-    const no =(c[2]||"").trim();
-    if(!pjt && !nm && !no) continue;
-    parsed.push({
-      pjt_name:"", pjt_no:pjt.toUpperCase(), item_name:nm, item_no:no,
-      spec:(c[3]||"").trim(), unit:"EA", maker:(c[4]||"").trim(),
-      delv:_poadvNormDate(c[5]||"")||poadvTomorrow(),
-      qty:poadvNum((c[6]||"").replace(/,/g,""))||1,
-      price:poadvNum((c[7]||"").replace(/,/g,""))||0,
-      pjt_seq:0, item_seq:0, cust_seq:0, cust_name:""
-    });
-  }
-  if(!parsed.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="유효한 행이 없습니다."; } return; }
-  if(replace) poadvRows=[];
-  // 빈 첫 행 제거
-  poadvRows=poadvRows.filter(r=>r.pjt_no||r.item_name||r.item_no);
-  parsed.forEach(p=>poadvRows.push(p));
-  poadvRenderRows();
-  const ov=document.getElementById("poadv-paste-ov"); if(ov) ov.remove();
-  const m=document.getElementById("poadv-msg"); if(m){ m.style.color="#15803d"; m.textContent=`✅ ${parsed.length}개 행 추가됨 — 프로젝트번호가 목록에 없으면 확인하세요`; }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -9439,6 +9410,10 @@ async function poadvListLoad(refresh){
 function poadvListRender(q){
   const tb=document.getElementById("poadv-list-tbody"); if(!tb) return;
   let arr=_poadvOrders||[];
+  // 권한설정(등록 프로젝트)으로 필터 — items 중 하나라도 등록 프로젝트면 표시
+  if(typeof pInProj==="function"){
+    try{ arr=arr.filter(o=>(o.items||[]).some(it=>pInProj({pjt_no:it.pjt_no, project_code:it.pjt_no}))); }catch(e){}
+  }
   q=(q||"").trim().toLowerCase();
   if(q) arr=arr.filter(o=>{
     const blob=`${o.po_no} ${o.cust} ${o.items.map(i=>i.pjt_no+" "+i.pjt_name+" "+i.item_name+" "+i.item_no).join(" ")}`.toLowerCase();
