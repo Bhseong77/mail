@@ -8862,12 +8862,12 @@ function poadvInit(){
             <span id="poadv-list-cnt" style="color:#6b7280;font-size:13px;"></span>
           </div>
           <div style="overflow-x:auto;max-height:300px;overflow-y:auto;">
-            <table class="poadv-tbl" style="font-size:13px;">
+            <table class="poadv-tbl poadv-list-tbl" style="table-layout:fixed;width:100%;font-size:13px;">
               <thead><tr>
-                <th style="width:130px;">발주번호</th><th style="width:90px;">발주일</th>
-                <th>거래처</th><th>프로젝트</th><th>품목</th>
-                <th style="width:70px;text-align:right;">수량</th><th style="width:100px;text-align:right;">금액</th>
-                <th style="width:100px;">납품예정일</th><th style="width:70px;">상태</th>
+                <th style="width:120px;">발주번호</th><th style="width:84px;">발주일</th>
+                <th style="width:150px;">거래처</th><th style="width:110px;">프로젝트</th><th>품목</th>
+                <th style="width:64px;text-align:right;">수량</th><th style="width:96px;text-align:right;">금액</th>
+                <th style="width:104px;">납품예정일</th><th style="width:64px;">상태</th>
                 <th style="width:96px;">납품확인</th>
               </tr></thead>
               <tbody id="poadv-list-tbody"><tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">새로고침을 눌러 발주 목록을 불러오세요</td></tr></tbody>
@@ -8964,6 +8964,8 @@ function poadvInit(){
         .poadv-tbl input:focus{outline:2px solid #93c5fd;border-radius:4px;background:#fff;}
         .poadv-tbl input.miss, .poadv-tbl select.miss{background:#fef2f2;}
         .poadv-tbl .num{text-align:right;}
+        .poadv-list-tbl td{padding:7px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;}
+        .poadv-list-tbl th{padding:8px 9px;}
         .poadv-del{cursor:pointer;color:#dc2626;text-align:center;font-weight:700;}
       `;
       document.head.appendChild(st);
@@ -9742,9 +9744,9 @@ function poadvListRender(q){
     return `<tr style="cursor:pointer;${rowBg}" onclick="poadvOrderDetail('${esc(o.po_no).replace(/'/g,"\\'")}')">
       <td>${poCell}</td>
       <td>${esc(o.date||"-")}</td>
-      <td>${esc(o.cust||"-")}</td>
-      <td style="font-size:12px;">${esc(pjtLabel||"-")}</td>
-      <td style="font-size:12px;">${esc(itemLabel||"-")}</td>
+      <td title="${esc(o.cust||'')}">${esc(o.cust||"-")}</td>
+      <td style="font-size:12px;" title="${esc(pjtLabel||'')}">${esc(pjtLabel||"-")}</td>
+      <td style="font-size:12px;" title="${esc(itemLabel||'')}">${esc(itemLabel||"-")}</td>
       <td style="text-align:right;">${poadvComma(totQty)}</td>
       <td style="text-align:right;">${poadvComma(totAmt)}</td>
       <td>${delvBadge}</td>
