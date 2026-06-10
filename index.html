@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v133</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v134</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1016,7 +1016,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
         <div class="psb-item" data-p="pr_new" onclick="pShowPage('pr_new')">📥 구매요청서 입력</div>
-        <div class="psb-item" data-p="po_adv" onclick="pShowPage('po_adv')">🧾 선발주 작성</div>
+        <div class="psb-item" data-p="po_adv" onclick="pShowPage('po_adv')">🧾 발주 작성</div>
         <div class="psb-item" data-p="dv_new" onclick="pShowPage('dv_new')">✏️ 납품확인</div>
         <div class="psb-item" data-p="iv_new" onclick="pShowPage('iv_new')">📄 전표발행</div>
         <div class="psb-item" data-p="vch" onclick="pShowPage('vch')">🧾 전표작성</div>
@@ -9519,12 +9519,26 @@ function poadvListRender(q){
     const first=o.items[0]||{};
     const itemLabel=first.item_name+(o.items.length>1?` 외 ${o.items.length-1}건`:"");
     const pjtLabel=[...new Set(o.items.map(i=>i.pjt_no).filter(Boolean))].join(", ");
-    // 납기: 변경이력 있으면 최신값
     const chg=(_poadvDelvChg&&_poadvDelvChg[o.po_no]||[]);
     const curDelv=chg.length? chg[chg.length-1].to : (first.delv||"");
     const delvBadge=chg.length?`<span title="납기 변경됨" style="color:#d97706;">✎ ${esc(curDelv)}</span>`:esc(curDelv||"-");
-    return `<tr style="cursor:pointer;" onclick="poadvOrderDetail('${esc(o.po_no).replace(/'/g,"\\'")}')">
-      <td><b style="color:#0f4c81;">${esc(o.po_no)}</b></td>
+    const st=(first.status||"").trim();
+    const isDraft = st.indexOf("작성")>=0;   // 아직 발주 안 됨 (po_no=품의번호)
+    const isDone  = st.indexOf("완료")>=0;   // 납품입력 완료
+    // 발주번호 칸: 작성=빈칸, 그 외=발주번호(=po_no, 발주되면 발주번호로 바뀜)
+    const poCell = isDraft ? '<span style="color:#cbd5e1;">-</span>' : `<b style="color:#0f4c81;">${esc(o.po_no)}</b>`;
+    // 상태/액션 칸
+    let actionCell;
+    if(isDraft){
+      actionCell = `<button onclick="event.stopPropagation();poadvPoInput('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`;
+    }else if(isDone){
+      actionCell = `<span style="color:#16a34a;font-size:12px;font-weight:700;">🏁 완료</span>`;
+    }else{
+      actionCell = `<span style="color:#2563eb;font-size:12px;font-weight:700;">⏳ 진행</span>`;
+    }
+    const rowBg = isDraft ? 'background:#faf5ff;' : (isDone ? 'background:#f0fdf4;' : '');
+    return `<tr style="cursor:pointer;${rowBg}" onclick="poadvOrderDetail('${esc(o.po_no).replace(/'/g,"\\'")}')">
+      <td>${poCell}</td>
       <td>${esc(o.date||"-")}</td>
       <td>${esc(o.cust||"-")}</td>
       <td style="font-size:12px;">${esc(pjtLabel||"-")}</td>
@@ -9532,17 +9546,58 @@ function poadvListRender(q){
       <td style="text-align:right;">${poadvComma(totQty)}</td>
       <td style="text-align:right;">${poadvComma(totAmt)}</td>
       <td>${delvBadge}</td>
-      <td style="font-size:12px;">${esc(first.status||"-")}</td>
-      <td style="text-align:center;">${(first.status||"").indexOf("작성")>=0
-        ? `<button onclick="event.stopPropagation();poadvDelvConfirm('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:5px 10px;border:none;background:#16a34a;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">📦 납품</button>`
-        : (first.status||"").indexOf("완료")>=0
-          ? `<span style="color:#16a34a;font-size:12px;font-weight:700;">✅ 완료</span>`
-          : `<span style="color:#cbd5e1;font-size:11px;">-</span>`}</td>
+      <td style="font-size:12px;">${esc(st||"-")}</td>
+      <td style="text-align:center;">${actionCell}</td>
     </tr>`;
   }).join("");
 }
 
 let _poadvDetailLoading=false;
+// 발주입력: 품의번호로 영림원 발주창 열어 품목 가져와 발주작성 폼에 채움
+async function poadvPoInput(proposalNo){
+  if(!proposalNo) return;
+  const _j=(typeof _J==="function")?_J("발주입력: "+proposalNo):null;
+  // 로딩 모달
+  if(typeof poadvShowLoadingModal==="function") poadvShowLoadingModal(proposalNo);
+  const _closeLoad=()=>{ const m=document.getElementById("poadv-det-ov"); if(m) m.remove(); };
+  try{
+    const r=await fetch(`${SERVER}/api/erp/po-from-proposal?proposal=${encodeURIComponent(proposalNo)}`);
+    const d=await r.json();
+    _closeLoad();
+    if(!d.success || !(d.items||[]).length){
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.message||"품목 없음");
+      alert("발주 품목을 가져오지 못했습니다: "+(d.message||"품목 없음"));
+      return;
+    }
+    // 발주작성 폼에 채우기
+    poadvRows = d.items.map(it=>({
+      pjt_name: it.project_no? "" : "", pjt_no: it.project_no||"",
+      item_name: it.item_name||"", item_no: it.item_no||"", spec: it.spec||"",
+      unit: it.unit||"EA", maker: it.maker||"", delv: poadvFmtDate(it.delv),
+      qty: it.qty||"", price: it.price||""
+    }));
+    // 작성 탭으로 전환 (페이지 내 작성 영역으로 스크롤/표시)
+    poadvRenderRows();
+    // 거래처: 품목엔 거래처seq 없으니 사용자가 선택하도록 안내 (품의 거래처는 상세에 있음)
+    const dateEl=document.getElementById("poadv-date"); if(dateEl && !dateEl.value) dateEl.value=poadvToday();
+    if(_j&&typeof _Jok==="function") _Jok(_j, `${d.items.length}개 품목`);
+    // 작성 영역으로 스크롤
+    const form=document.getElementById("poadv-date"); if(form) form.scrollIntoView({behavior:"smooth", block:"center"});
+    const msg=document.getElementById("poadv-msg"); if(msg){ msg.style.color="#7c3aed"; msg.textContent=`✅ 품의 ${proposalNo} 발주 품목 ${d.items.length}건 불러옴 — 거래처 선택 후 발주저장/발주서출력`; }
+  }catch(e){
+    _closeLoad();
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    alert("발주입력 오류: "+e.message);
+  }
+}
+// 영림원 날짜(20260706 또는 2026-07-06) → input[type=date] 형식
+function poadvFmtDate(s){
+  s=String(s||"").trim(); if(!s) return "";
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if(/^\d{8}$/.test(s)) return s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6,8);
+  return s;
+}
+
 async function poadvOrderDetail(pono){
   if(_poadvDetailLoading) return;            // 중복 클릭 차단
   const o=(_poadvOrders||[]).find(x=>x.po_no===pono); if(!o) return;
