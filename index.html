@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>ENJET 메일 대시보드</title>
+<title>ENJET T 프로젝트</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231a6fd4'/%3E%3Cstop offset='1' stop-color='%230f4c81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3EEN%3C/text%3E%3C/svg%3E">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
@@ -878,7 +878,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div id="gate">
   <div class="gate-card">
     <div class="gate-logo">📧</div>
-    <h1>ENJET 메일 대시보드</h1>
+    <h1>ENJET T 프로젝트</h1>
     <p>회사 Microsoft 계정으로 로그인하세요</p>
     <button class="gate-btn" id="gateBtn" onclick="doLogin()">
       <svg class="gate-ms" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#7fba00" d="M12 0h11v11H12z"/><path fill="#00a4ef" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>
@@ -891,8 +891,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <div class="hdr">
   <div class="hdr-row">
     <div>
-      <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v137</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-title">📧 ENJET T 프로젝트</div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v142</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -8562,6 +8562,23 @@ function ccCardName(num){
 }
 function ccCardNums(){ return (AN_CONFIG.cards||[]).map(c=>_ccDigits((typeof c==='string')?'':c.number)).filter(Boolean); }
 function _ccRowKey(r,i){ return (r['승인번호']||'')+'|'+(r['카드번호']||'')+'|'+(r['승인일']||'')+'|'+i; }
+// 승인일 → "YYYY-MM-DD (요일)" 표시 (대시보드 화면용). 토=파랑, 일=빨강
+const _CC_DOW=['일','월','화','수','목','금','토'];
+function _ccFmtDateDow(v){
+  let s=String(v||'').trim(); if(!s) return '';
+  // 날짜 부분만 추출 (시간 떼기)
+  let datePart=s.split(/[ T]/)[0];
+  let y,m,d;
+  let m1=datePart.match(/^(\d{4})[-./]?(\d{2})[-./]?(\d{2})$/);
+  if(m1){ y=+m1[1]; m=+m1[2]; d=+m1[3]; }
+  else return esc(s);  // 형식 모르면 원문
+  const dt=new Date(y, m-1, d);
+  if(isNaN(dt.getTime())) return esc(s);
+  const dow=_CC_DOW[dt.getDay()];
+  const dowColor = dt.getDay()===0 ? '#dc2626' : (dt.getDay()===6 ? '#2563eb' : 'var(--t3)');
+  const ymd=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return `${ymd} <span style="color:${dowColor};font-weight:700;">(${dow})</span>`;
+}
 function _ccNum(n){ const v=Number(String(n==null?'':n).replace(/[, ]/g,'')); return isNaN(v)?(n||''):v.toLocaleString(); }
 
 function _ccDefaultRange(){
@@ -8649,7 +8666,7 @@ function ccRender(){
       <td class="c">${esc(r['처리상태']||'')}</td>
       <td class="c" style="font-size:12px">${esc(r['카드번호']||'')}</td>
       <td>${esc(cardNm)}</td>
-      <td class="c" style="font-size:12px">${esc(r['승인일']||'')}</td>
+      <td class="c" style="font-size:12px">${_ccFmtDateDow(r['승인일'])}</td>
       <td class="c">${esc(r['승인취소여부']||'')}</td>
       <td class="c">${esc(r['국내외구분']||'')}</td>
       <td>${esc(r['가맹점명']||'')}</td>
@@ -8659,7 +8676,14 @@ function ccRender(){
       <td><input class="memo" style="width:100%;min-width:180px" value="${esc(curJeokyo)}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
     </tr>`;
   });
-  h+=`</tbody></table>`;
+  // 합계 행 (승인금액 합계) — 항상 맨 아래
+  const totAmt=CC_ROWS.reduce((s,r)=>s+(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0),0);
+  const noJeokyo=CC_ROWS.filter((r,i)=>{ const ed=CC_EDIT[_ccRowKey(r,i)]||{}; const jk=(ed.jeokyo!=null&&ed.jeokyo!=='')?ed.jeokyo:(r['적요']||''); return !String(jk).trim(); }).length;
+  h+=`</tbody><tfoot><tr style="background:#f1f5f9;font-weight:700;border-top:2px solid #cbd5e1;">
+    <td class="c" colspan="9" style="text-align:right;">합계 (${CC_ROWS.length}건${noJeokyo?` · 적요 미작성 ${noJeokyo}건`:''})</td>
+    <td class="r" style="color:#0f4c81;">${_ccNum(totAmt)}</td>
+    <td colspan="2"></td>
+  </tr></tfoot></table>`;
   list.innerHTML=h;
 }
 function ccSet(k,key,val){ CC_EDIT[k]=CC_EDIT[k]||{}; CC_EDIT[k][key]=val; }
@@ -8705,6 +8729,7 @@ async function ccSave(){
     if(_j&&typeof _Jok==='function') _Jok(_j, `${data.saved||0}건 저장`);
     toast(`✅ ${data.saved||0}건 저장 완료`,'ok');
     ccLoad(); // 갱신 (저장분은 미처리에서 빠질 수 있음)
+    setTimeout(ccUpdateBadge, 1500);  // 탭 배지 미처리 건수 갱신
   }catch(e){
     if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
     toast('저장 실패: '+e.message,'bad');
@@ -8725,8 +8750,8 @@ async function ccUpdateBadge(){
     let rows=(data.rows||data.data||[]);
     const set=new Set(nums);
     rows=rows.filter(x=>set.has(_ccDigits(x['카드번호'])));
-    // 미완료 = 적요 또는 비용계정이 비어있는 행
-    const pending=rows.filter(x=>!(String(x['적요']||'').trim()) || !(String(x['비용계정']||'').trim())).length;
+    // 미처리 = 적요가 안 써진 행 (적요 작성 여부만 확인)
+    const pending=rows.filter(x=>!(String(x['적요']||'').trim())).length;
     const btn=document.getElementById('nav-corpcard');
     if(btn){
       const base='💳 법인카드';
@@ -9109,6 +9134,7 @@ async function poadvSave(){
         if(lt) lt.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">방금 저장한 발주를 영림원에서 불러오는 중…</td></tr>';
         poadvListLoad(true);
       }
+      if(typeof pBadgePoAdv==="function") setTimeout(pBadgePoAdv, 2500);
       // 작성 행 초기화 (다음 발주 준비)
       poadvRows=[]; poadvAddRow(); poadvRenderRows();
     }else{
@@ -10659,6 +10685,7 @@ async function prnewProposalInput(reqNo){
       if(_j&&typeof _Jok==="function") _Jok(_j, d.proposal_no||"저장됨");
       if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 구매품의 입력 완료 — 요청번호 ${reqNo}${d.proposal_no?` · 품의번호 ${d.proposal_no}`:""}`; }
       prnewListLoad(true);   // 목록 새로고침 (상태 갱신)
+      if(typeof pBadgePrNew==="function") setTimeout(pBadgePrNew, 2000);
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, d.error||d.message||"실패");
       if(msg){ msg.style.color="#dc2626"; msg.textContent="구매품의 입력 실패: "+(d.error||d.message||""); }
