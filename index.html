@@ -8805,6 +8805,7 @@ const POADV_CO = {
 
 let poadvRows = [];           // [{pjt_name,pjt_no,item_name,item_no,spec,unit,maker,delv,qty,price, pjt_seq,item_seq,cust_seq,cust_name}]
 let poadvSaved = null;        // 저장 결과 {po_no, ...}
+let poadvSourceProposal = null;  // 품의에서 불러온 경우 그 품의번호 (저장 분기: 직접입력 X → 행선택→발주입력→저장만)
 let _poadvConfirmedCache = null;
 
 function poadvToday(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -8990,6 +8991,7 @@ function poadvInit(){
 }
 
 function poadvAddRow(prefill){
+  poadvSourceProposal = null;   // 수동으로 행 추가 = 직접입력 발주 (품의 연계 해제)
   poadvRows.push(Object.assign({
     pjt_name:"", pjt_no:"", item_name:"", item_no:"", spec:"", unit:"EA",
     maker:"", delv:poadvTomorrow(), qty:1, price:0,
@@ -9158,10 +9160,22 @@ async function poadvSave(){
   msg.style.color="#6b7280"; msg.textContent="⏳ 영림원에 발주 저장 중…";
   const _j = (typeof _J==="function") ? _J("선발주 저장: "+v.header.cust) : null;
   try{
-    const r = await fetch(`${SERVER}/api/erp/save_advance_order`,{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(v.header)
-    });
+    let r;
+    if(poadvSourceProposal){
+      // 품의 불러온 발주: 재타이핑 X. 남긴 품목(품명)만 영림원 521295에서 선택 → 발주입력 → 저장만.
+      const keep = poadvRows.filter(x=>String(x.item_name||"").trim()).map(x=>x.item_name);
+      if(!keep.length){ msg.style.color="#dc2626"; msg.textContent="⚠️ 발주 품목이 없습니다."; btn.disabled=false; btn.textContent=ot; return; }
+      msg.textContent=`⏳ 품의 ${poadvSourceProposal} 발주 저장 중… (품목 ${keep.length}건 선택→발주입력→저장)`;
+      r = await fetch(`${SERVER}/api/erp/save-order-from-proposal`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({proposal_no:poadvSourceProposal, keep_names:keep, date:v.header.date})
+      });
+    }else{
+      r = await fetch(`${SERVER}/api/erp/save_advance_order`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(v.header)
+      });
+    }
     const d = await r.json();
     if(d.success){
       poadvSaved = d;
@@ -9766,8 +9780,7 @@ async function poadvPoInput(proposalNo, custName){
       pjt_seq:0, item_seq:0, cust_seq:0, cust_name:""
     }));
     poadvRenderRows();
-
-    // 발주 정보: 거래처(품의 거래처 자동 채움) + 발주일
+    poadvSourceProposal = proposalNo;   // 품의 불러온 발주 → 저장 시 행선택→발주입력→저장만
     const dateEl=document.getElementById("poadv-date"); if(dateEl && !dateEl.value) dateEl.value=poadvToday();
     if(custName){
       const custEl=document.getElementById("poadv-cust");
