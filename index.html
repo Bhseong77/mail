@@ -902,7 +902,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v146</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v147</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -10693,20 +10693,107 @@ function prnewListRender(q){
 }
 
 // 구매품의 입력 — 요청번호로 영림원 화면 자동화 (요청조회→더블클릭→품의입력→저장)
+let _prnewCustList=null;
 async function prnewProposalInput(reqNo){
   if(!reqNo) return;
-  if(!confirm(`구매요청 ${reqNo}을(를) 구매품의로 입력하시겠습니까?\n(영림원에서 품의 저장까지 진행됩니다)`)) return;
-  const _j=(typeof _J==="function")?_J("구매품의 입력: "+reqNo):null;
   const msg=document.getElementById("prnew-msg");
-  if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ 구매품의 입력 중… 요청번호 ${reqNo} (영림원, ~25초)`; }
+  if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ ${reqNo} 품의 품목 확인 중… (영림원, ~25초)`; }
+  const _j=(typeof _J==="function")?_J("구매품의 입력: "+reqNo):null;
+  try{
+    // 1단계: 품목 읽기 (read_only) — 거래처 빈 행 확인
+    const r=await fetch(`${SERVER}/api/erp/save-proposal-input`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({req_no:reqNo, read_only:true})});
+    const d=await r.json();
+    if(!d.success){
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.error||d.message||"실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="품목 확인 실패: "+(d.error||d.message||""); }
+      return;
+    }
+    if(_j&&typeof _Jok==="function") _Jok(_j, `품목 ${(d.items||[]).length}건`);
+    if(msg) msg.textContent="";
+    // 거래처 빈 행 있으면 모달, 없으면 바로 저장
+    if(d.needs_cust){
+      prnewShowCustModal(reqNo, d.items||[]);
+    }else{
+      prnewDoProposalSave(reqNo, null);
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="품의 입력 오류: "+e.message; }
+  }
+}
+
+// 거래처 입력 모달
+async function prnewShowCustModal(reqNo, items){
+  // 거래처 목록 로드 (자동완성용)
+  if(!_prnewCustList){
+    try{ const r=await fetch(`${SERVER}/api/customers/buy`); _prnewCustList=await r.json(); }catch(e){ _prnewCustList=[]; }
+  }
+  const custNames=[...new Set((_prnewCustList||[]).map(c=>c.cust_name||c.name||c.거래처명).filter(Boolean))];
+  const ov=document.createElement("div");
+  ov.id="prnew-cust-ov";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:999999;display:flex;align-items:center;justify-content:center;";
+  const rows=items.map((it,i)=>`<tr>
+    <td style="padding:6px 8px;font-size:12px;">${esc(it.item_name||'')}</td>
+    <td style="padding:6px 8px;font-size:12px;color:#94a3b8;">${esc(it.item_no||'')}</td>
+    <td style="padding:6px 8px;font-size:12px;text-align:center;">${esc(it.qty||'')}</td>
+    <td style="padding:6px 8px;font-size:12px;text-align:center;">${esc(it.delv||'')}</td>
+    <td style="padding:6px 8px;font-size:12px;text-align:center;color:${it.cust?'#16a34a':'#dc2626'};">${it.cust?esc(it.cust):'미입력'}</td>
+  </tr>`).join("");
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:680px;width:92%;max-height:84vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="padding:16px 20px;border-bottom:1px solid #eef2f7;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:15px;font-weight:800;color:#0f4c81;">📝 구매품의 입력 · 거래처 지정</div>
+      <button onclick="document.getElementById('prnew-cust-ov').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>
+    </div>
+    <div style="padding:18px 20px;">
+      <div style="font-size:13px;color:#475569;margin-bottom:6px;">요청번호 <b>${esc(reqNo)}</b> · 품목 ${items.length}건</div>
+      <div style="font-size:12px;color:#dc2626;margin-bottom:12px;">⚠️ 구매거래처가 비어 있어 저장이 안 됩니다. 거래처를 입력하세요 (전체 품목에 동일 적용).</div>
+      <label style="font-size:13px;font-weight:700;color:#334155;">구매거래처</label>
+      <input id="prnew-cust-input" list="prnew-cust-dl" placeholder="거래처명 입력 (거래처조회와 동일하게)" autocomplete="off"
+        style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:6px;box-sizing:border-box;">
+      <datalist id="prnew-cust-dl">${custNames.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+      <div style="margin-top:16px;border:1px solid #eef2f7;border-radius:8px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:#f8fafc;">
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">품명</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">품번</th>
+            <th style="padding:7px 8px;font-size:11px;color:#64748b;">수량</th>
+            <th style="padding:7px 8px;font-size:11px;color:#64748b;">납기</th>
+            <th style="padding:7px 8px;font-size:11px;color:#64748b;">거래처</th>
+          </tr></thead><tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('prnew-cust-ov').remove()" style="padding:9px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;">취소</button>
+        <button onclick="prnewCustSaveConfirm('${esc(reqNo).replace(/'/g,"\\'")}')" style="padding:9px 18px;border:none;background:#7c3aed;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">💾 품의 입력 저장</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const inp=document.getElementById("prnew-cust-input"); if(inp) inp.focus(); }, 100);
+}
+
+function prnewCustSaveConfirm(reqNo){
+  const inp=document.getElementById("prnew-cust-input");
+  const cust=(inp&&inp.value||"").trim();
+  if(!cust){ alert("거래처를 입력하세요"); return; }
+  const ov=document.getElementById("prnew-cust-ov"); if(ov) ov.remove();
+  prnewDoProposalSave(reqNo, cust);
+}
+
+// 실제 저장 (거래처 포함)
+async function prnewDoProposalSave(reqNo, cust){
+  const msg=document.getElementById("prnew-msg");
+  if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ 구매품의 입력 중… ${reqNo}${cust?` · 거래처 ${cust}`:""} (영림원, ~30초)`; }
+  const _j=(typeof _J==="function")?_J("구매품의 저장: "+reqNo):null;
   try{
     const r=await fetch(`${SERVER}/api/erp/save-proposal-input`,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({req_no:reqNo})});
+      body:JSON.stringify({req_no:reqNo, cust:cust||""})});
     const d=await r.json();
     if(d.success){
       if(_j&&typeof _Jok==="function") _Jok(_j, d.proposal_no||"저장됨");
       if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 구매품의 입력 완료 — 요청번호 ${reqNo}${d.proposal_no?` · 품의번호 ${d.proposal_no}`:""}`; }
-      prnewListLoad(true);   // 목록 새로고침 (상태 갱신)
+      prnewListLoad(true);
       if(typeof pBadgePrNew==="function") setTimeout(pBadgePrNew, 2000);
     }else{
       if(_j&&typeof _Jno==="function") _Jno(_j, d.error||d.message||"실패");
