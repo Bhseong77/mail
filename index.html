@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v127</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v129</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9924,18 +9924,64 @@ function prnewToggleAll(el){ prnewRows.forEach(r=>{ if(!r._pr) r._chk=el.checked
 
 function prnewRenderRows(){
   const tb=document.getElementById("prnew-tbody"); if(!tb) return;
+  // 요청번호별 그룹 색 인덱스 계산 (등장 순서대로 0,1,0,1...) + 그룹별 행 인덱스 목록
+  const grpColor={};   // reqno → 0|1
+  const grpRows={};    // reqno → [행 인덱스...]
+  let colorTurn=0;
+  prnewRows.forEach((r,i)=>{
+    if(r._pr && r._reqno){
+      if(!(r._reqno in grpColor)){ grpColor[r._reqno]=colorTurn%2; colorTurn++; }
+      (grpRows[r._reqno]=grpRows[r._reqno]||[]).push(i);
+    }
+  });
+  // 그룹 색상 팔레트 (파랑 / 빨강 번갈아)
+  const PAL=[
+    {bg:"#dbeafe", bd:"#3b82f6", btn:"#1d4ed8", label:"#1d4ed8"},   // 파랑
+    {bg:"#fee2e2", bd:"#ef4444", btn:"#b91c1c", label:"#b91c1c"},   // 빨강
+  ];
+
   tb.innerHTML=prnewRows.map((r,i)=>{
     const tot = prnewNum(r["기본소요량"])*prnewNum(r["제작대수"]);
-    const done = r._pr;   // 구매요청 입력 저장 완료 행
-    const existing = r._existing;  // 영림원 기존 등록 행 (재료자원 저장 제외)
-    const rowStyle = done ? 'style="background:#fee2e2;"' : (existing ? 'style="background:#f1f5f9;"' : '');
-    const lockInput = done || existing;  // 기존/완료 행은 입력 잠금
-    const chk = done
-      ? `<button onclick="prnewSubmitApproval(${i})" title="다우오피스 결재상신" style="padding:3px 7px;border:none;border-radius:5px;background:#b91c1c;color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📤 상신</button>`
-      : `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
+    const done = r._pr;          // 구매요청 입력 저장 완료 행
+    const existing = r._existing;
+    const lockInput = done || existing;
+
+    let rowStyle="", chk, grpTag="";
+    if(done){
+      const stStyle = prnewStatusStyle(r._status);   // 결재진행중/확정/완료/중단 이면 스타일 반환
+      if(stStyle){
+        // 진행상태 있음 → 상태색 + 상태칩 (상신 버튼 없음, 잠금)
+        rowStyle = `style="background:${stStyle.bg};border-left:3px solid ${stStyle.bd};"`;
+        const rowsInGrp = grpRows[r._reqno]||[i];
+        const isFirstOfGrp = rowsInGrp[0]===i;
+        chk = isFirstOfGrp
+          ? `<span style="color:${stStyle.label};font-size:10px;font-weight:700;white-space:nowrap;">${stStyle.chip}</span>`
+          : `<span style="color:${stStyle.label};font-size:14px;">↳</span>`;
+        grpTag = `<div style="font-size:9px;color:${stStyle.label};">${esc(r._reqno||"")}</div>`;
+      }else{
+        // 진행상태 없음(저장만) → 그룹색(파랑/빨강) + 상신 버튼
+        const ci = (r._reqno in grpColor) ? grpColor[r._reqno] : 1;
+        const pal = PAL[ci];
+        const rowsInGrp = grpRows[r._reqno]||[i];
+        const isFirstOfGrp = rowsInGrp[0]===i;
+        rowStyle = `style="background:${pal.bg};border-left:3px solid ${pal.bd};"`;
+        chk = isFirstOfGrp
+          ? `<button onclick="prnewSubmitApproval('${esc(r._reqno)}')" title="요청번호 ${esc(r._reqno)} 전체 ${rowsInGrp.length}품목 결재상신" style="padding:3px 7px;border:none;border-radius:5px;background:${pal.btn};color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📤 상신</button>`
+          : `<span style="color:${pal.label};font-size:14px;">↳</span>`;
+        grpTag = `<div style="font-size:9px;color:${pal.label};">${esc(r._reqno||"완료")}</div>`;
+      }
+    }else if(existing){
+      rowStyle = 'style="background:#f1f5f9;"';
+      chk = `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
+      grpTag = '<div style="font-size:9px;color:#94a3b8;">기존</div>';
+    }else{
+      chk = `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
+      grpTag = r._draft?'<div style="font-size:9px;color:#0f4c81;">임시</div>':'';
+    }
+
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
-      <td style="text-align:center;color:#9ca3af;">${i+1}${existing?'<div style="font-size:9px;color:#94a3b8;">기존</div>':(r._draft?'<div style="font-size:9px;color:#0f4c81;">임시</div>':'')}</td>
+      <td style="text-align:center;color:#9ca3af;">${i+1}${grpTag}</td>
       <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${lockInput?"disabled":""}></td>
@@ -9953,7 +9999,8 @@ function prnewRenderRows(){
   const ri=document.getElementById("prnew-rowinfo"); if(ri){
     const nchk=prnewRows.filter(r=>r._chk&&!r._pr).length;
     const ndone=prnewRows.filter(r=>r._pr).length;
-    ri.textContent=`${prnewRows.length}개 품목`+(nchk?` · ${nchk}개 선택`:"")+(ndone?` · ${ndone}개 구매요청완료`:"");
+    const ngrp=Object.keys(grpRows).length;
+    ri.textContent=`${prnewRows.length}개 품목`+(nchk?` · ${nchk}개 선택`:"")+(ndone?` · 구매요청 ${ngrp}건(${ndone}품목)`:"");
   }
   if(!tb.dataset.pasteBound){ tb.addEventListener("paste", prnewOnPaste); tb.dataset.pasteBound="1"; }
 }
@@ -9997,6 +10044,28 @@ async function prnewSaveState(pjt){
 function prnewPnMatch(a,b){ a=String(a||"").trim(); b=String(b||"").trim();
   return a&&b&&(a===b || a.endsWith("_"+b) || b.endsWith("_"+a) || a.endsWith(b) || b.endsWith(a)); }
 
+// 영림원 진행상태 → 대시보드 상태 매핑
+let _prnewStatusMap = {};   // 요청번호 → 영림원 진행상태
+function prnewMapStatus(raw){
+  const s=String(raw||"").trim();
+  if(!s) return "";
+  if(s.includes("중단")) return "중단(선발주)";
+  if(s.includes("결재") || s.includes("진행")) return "결재진행중";
+  if(s.includes("확정") || s.includes("승인")) return "확정(승인)";
+  if(s.includes("완료")) return "완료";
+  return s;  // 기타는 원문
+}
+// 상태별 색상 (배경/테두리/라벨/버튼)
+function prnewStatusStyle(st){
+  switch(st){
+    case "결재진행중":   return {bg:"#fef3c7", bd:"#f59e0b", label:"#b45309", chip:"⏳ 결재진행중", lock:true};
+    case "확정(승인)":   return {bg:"#dcfce7", bd:"#22c55e", label:"#15803d", chip:"✅ 확정(승인)", lock:true};
+    case "완료":         return {bg:"#e0e7ff", bd:"#6366f1", label:"#4338ca", chip:"🏁 완료", lock:true};
+    case "중단(선발주)": return {bg:"#f3e8ff", bd:"#a855f7", label:"#7e22ce", chip:"⛔ 중단(선발주)", lock:true};
+    default: return null;  // 상태 없으면 그룹색(파랑/빨강) + 상신버튼
+  }
+}
+
 async function prnewQuery(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-pjt-msg");
@@ -10005,6 +10074,8 @@ async function prnewQuery(){
   const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
   try{
     await prnewLoadState(pjt);   // SharePoint 캐시 상태 먼저 로드
+    // 진행상태 맵 (백그라운드, 실패해도 무시)
+    prnewLoadStatus(pjt);
     const r=await fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`);
     const j=await r.json();
     if(j&&j.rows){
@@ -10255,16 +10326,15 @@ async function prnewMarkPrDone(pjt, itemNos, reqNo){
 // ════════════════════════════════════════════════════════════════
 //  결재상신 — 완료 행의 요청번호로 영림원 결재상신 → 다우오피스 URL → 새 창
 // ════════════════════════════════════════════════════════════════
-async function prnewSubmitApproval(i){
-  const row=prnewRows[i]; if(!row) return;
+async function prnewSubmitApproval(reqNo){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
-  const reqNo=row._reqno||"";
   const msg=document.getElementById("prnew-msg");
   if(!reqNo){
-    if(msg){ msg.style.color="#dc2626"; msg.textContent="이 행의 요청번호를 찾을 수 없습니다 (다시 구매요청 입력 저장 필요)"; }
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="요청번호를 찾을 수 없습니다 (다시 구매요청 입력 저장 필요)"; }
     return;
   }
-  if(msg){ msg.style.color="#b91c1c"; msg.textContent=`⏳ 결재상신 준비 중… 요청번호 ${reqNo} (영림원, ~20초)`; }
+  const nItems=prnewRows.filter(r=>r._pr && r._reqno===reqNo).length;
+  if(msg){ msg.style.color="#b91c1c"; msg.textContent=`⏳ 결재상신 준비 중… 요청번호 ${reqNo} (${nItems}품목, 영림원 ~20초)`; }
   const _j=(typeof _J==="function")?_J("결재상신: "+reqNo):null;
   try{
     const r=await fetch(`${SERVER}/api/erp/submit-approval`,{method:"POST",headers:{"Content-Type":"application/json"},
@@ -10272,7 +10342,10 @@ async function prnewSubmitApproval(i){
     const d=await r.json();
     if(d.success && d.approval_url){
       if(_j&&typeof _Jok==="function") _Jok(_j, "다우오피스 결재창 열림");
-      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 다우오피스 결재창을 새 창으로 엽니다 (요청번호 ${reqNo})`; }
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 다우오피스 결재창을 새 창으로 엽니다 (요청번호 ${reqNo}) — 결재 완료 후 조회하면 확정(승인)으로 갱신됩니다`; }
+      // 상신된 요청번호 행 → 즉시 결재진행중 표시
+      prnewRows.forEach(row=>{ if(row._reqno===reqNo) row._status="결재진행중"; });
+      prnewRenderRows();
       // BH 브라우저(다우 세션 있음)에서 결재 문서 새 창
       window.open(d.approval_url, "_blank", "width=1100,height=900");
     }else{
@@ -10283,6 +10356,24 @@ async function prnewSubmitApproval(i){
     if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
     if(msg){ msg.style.color="#dc2626"; msg.textContent="결재상신 오류: "+e.message; }
   }
+}
+
+// 진행상태 맵 백그라운드 로드 (영림원 프로젝트구매요청조회 ~15초) → 완료되면 행 갱신
+async function prnewLoadStatus(pjt){
+  try{
+    const r=await fetch(`${SERVER}/api/erp/pr-status?project=${encodeURIComponent(pjt)}`);
+    const d=await r.json();
+    _prnewStatusMap = d.status_map || {};
+    // 행에 상태 반영 (요청번호 매칭)
+    let changed=false;
+    prnewRows.forEach(row=>{
+      if(row._reqno && _prnewStatusMap[row._reqno]!=null){
+        const mapped=prnewMapStatus(_prnewStatusMap[row._reqno]);
+        if(row._status!==mapped){ row._status=mapped; changed=true; }
+      }
+    });
+    if(changed) prnewRenderRows();
+  }catch(e){ /* 무시 */ }
 }
 
 </script>
