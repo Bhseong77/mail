@@ -9154,6 +9154,24 @@ function poadvValidate(){
 }
 
 // ── 영림원 저장 (BETA) ──
+// 발주 저장 백그라운드 잡 폴링 (Cloudflare 100초 타임아웃 회피 — 긴 저장도 안 끊김)
+async function poadvPollSaveJob(jobId, msg){
+  const t0=Date.now();
+  while(true){
+    await new Promise(r=>setTimeout(r, 2500));
+    let s=null;
+    try{
+      const rr=await fetch(`${SERVER}/api/erp/save-job/${encodeURIComponent(jobId)}`);
+      s=await rr.json();
+    }catch(e){ continue; }   // 일시 네트워크 오류 → 계속 폴링
+    const sec=Math.round((Date.now()-t0)/1000);
+    if(msg){ msg.style.color="#6b7280"; msg.textContent=`⏳ 영림원에 발주 저장 중… ${sec}초 (백그라운드 처리 중)`; }
+    if(s && s.status==="done") return s.result || {success:false, message:"결과 없음"};
+    if(s && s.status==="unknown") return {success:false, message:"저장 잡을 찾을 수 없음 (서버 재시작 등) — 발주목록을 확인하세요."};
+    if(sec>600) return {success:false, message:"저장 시간 초과(10분). 영림원/발주목록을 직접 확인하세요."};
+  }
+}
+
 async function poadvSave(){
   const v = poadvValidate();
   const msg=document.getElementById("poadv-msg");
@@ -9178,7 +9196,9 @@ async function poadvSave(){
         body: JSON.stringify(v.header)
       });
     }
-    const d = await r.json();
+    const init = await r.json();
+    // 백그라운드 잡(job_id) → 폴링. (구버전 동기 응답이면 그대로 사용)
+    const d = (init && init.job_id) ? await poadvPollSaveJob(init.job_id, msg) : init;
     if(d.success){
       poadvSaved = d;
       if(_j&&typeof _Jok==="function") _Jok(_j, "발주번호 "+(d.po_no||""));
