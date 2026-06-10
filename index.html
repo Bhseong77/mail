@@ -8865,10 +8865,10 @@ function poadvInit(){
             <table class="poadv-tbl poadv-list-tbl" style="table-layout:fixed;width:100%;font-size:13px;">
               <thead><tr>
                 <th style="width:120px;">발주번호</th><th style="width:84px;">발주일</th>
-                <th style="width:150px;">거래처</th><th style="width:110px;">프로젝트</th><th>품목</th>
-                <th style="width:64px;text-align:right;">수량</th><th style="width:96px;text-align:right;">금액</th>
-                <th style="width:104px;">납품예정일</th><th style="width:64px;">상태</th>
-                <th style="width:96px;">납품확인</th>
+                <th>거래처</th><th style="width:120px;">프로젝트</th><th style="width:220px;">품목</th>
+                <th style="width:60px;text-align:right;">수량</th><th style="width:92px;text-align:right;">금액</th>
+                <th style="width:104px;">납품예정일</th><th style="width:60px;">상태</th>
+                <th style="width:100px;">납품확인</th>
               </tr></thead>
               <tbody id="poadv-list-tbody"><tr><td colspan="10" style="padding:18px;text-align:center;color:#9ca3af;">새로고침을 눌러 발주 목록을 불러오세요</td></tr></tbody>
             </table>
@@ -8944,6 +8944,8 @@ function poadvInit(){
         <div class="acc-card">
           <div style="display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
             <span id="poadv-msg" style="margin-right:auto;font-size:14px;"></span>
+            <button onclick="poadvDraftSave()" style="padding:10px 18px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#475569;font-weight:700;cursor:pointer;">💾 임시저장</button>
+            <button onclick="poadvDraftListOpen()" style="padding:10px 18px;border:1px solid #94a3b8;border-radius:8px;background:#f8fafc;color:#475569;font-weight:700;cursor:pointer;">📂 임시저장목록 <span id="poadv-draft-cnt" style="font-size:11px;color:#94a3b8;"></span></button>
             <button onclick="poadvSave()" id="poadv-save-btn" style="padding:10px 22px;border:none;border-radius:8px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;">📦 영림원에 발주 저장</button>
             <button onclick="poadvPreview()" style="padding:10px 22px;border:1px solid #0f4c81;border-radius:8px;background:#fff;color:#0f4c81;font-weight:700;cursor:pointer;">🖨️ 구매발주서출력</button>
           </div>
@@ -8990,6 +8992,7 @@ function poadvInit(){
     if(typeof poadvListLoad==="function") poadvListLoad(false);
     if(typeof poadvPropLoad==="function") poadvPropLoad();
   }
+  if(typeof poadvDraftCntUpdate==="function") poadvDraftCntUpdate();
 }
 
 function poadvAddRow(prefill){
@@ -9003,6 +9006,74 @@ function poadvAddRow(prefill){
 }
 function poadvDelRow(i){ poadvRows.splice(i,1); if(!poadvRows.length) poadvAddRow(); poadvRenderRows(); }
 function poadvClearRows(){ poadvRows=[]; poadvAddRow(); poadvRenderRows(); }
+
+// ── 발주 작성 임시저장 (브라우저 캐시 localStorage) ──
+const POADV_DRAFT_KEY="poadv_drafts";
+function poadvDraftAll(){ try{ return JSON.parse(localStorage.getItem(POADV_DRAFT_KEY)||"[]"); }catch(e){ return []; } }
+function poadvDraftWrite(a){ try{ localStorage.setItem(POADV_DRAFT_KEY, JSON.stringify(a)); }catch(e){} poadvDraftCntUpdate(); }
+function poadvDraftCntUpdate(){ const el=document.getElementById("poadv-draft-cnt"); if(el){ const n=poadvDraftAll().length; el.textContent=n?`(${n})`:""; } }
+function poadvDraftSave(){
+  const h=poadvCollect();
+  const items=(h.rows||[]).filter(r=>r.item_name||r.item_no||r.pjt_no);
+  const m=document.getElementById("poadv-msg");
+  if(!items.length){ if(m){ m.style.color="#dc2626"; m.textContent="⚠️ 저장할 발주 품목이 없습니다."; } return; }
+  const drafts=poadvDraftAll();
+  drafts.unshift({ id:"d"+Date.now(), ts:new Date().toISOString(), header:h });
+  if(drafts.length>50) drafts.length=50;
+  poadvDraftWrite(drafts);
+  if(m){ m.style.color="#15803d"; m.textContent=`💾 임시저장 완료 (${h.cust||"거래처미정"} · 품목 ${items.length}건)`; }
+}
+function poadvDraftLoad(id){
+  const d=poadvDraftAll().find(x=>x.id===id); if(!d) return;
+  const h=d.header||{};
+  const set=(eid,v)=>{ const el=document.getElementById(eid); if(el) el.value=v||""; };
+  set("poadv-date",h.date); set("poadv-cust",h.cust); set("poadv-cust-seq",h.cust_seq);
+  set("poadv-dept",h.dept); set("poadv-emp",h.emp); set("poadv-cur",h.cur); set("poadv-rate",h.rate); set("poadv-note",h.note);
+  poadvRows=(h.rows||[]).map(r=>Object.assign({},r));
+  poadvSourceProposal=null;   // 임시저장본은 직접입력 발주
+  if(!poadvRows.length) poadvAddRow();
+  poadvRenderRows();
+  const ov=document.getElementById("poadv-draft-ov"); if(ov) ov.remove();
+  const m=document.getElementById("poadv-msg"); if(m){ m.style.color="#0f4c81"; m.textContent=`📂 임시저장 불러옴 (${h.cust||""} · 품목 ${poadvRows.length}건)`; }
+}
+function poadvDraftDelete(id){ poadvDraftWrite(poadvDraftAll().filter(x=>x.id!==id)); poadvDraftListOpen(); }
+function poadvDraftListOpen(){
+  const drafts=poadvDraftAll();
+  let ov=document.getElementById("poadv-draft-ov"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="poadv-draft-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000055;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
+  const body = drafts.length ? drafts.map(d=>{
+    const h=d.header||{}; const n=(h.rows||[]).filter(r=>r.item_name||r.item_no||r.pjt_no).length;
+    const dt=new Date(d.ts); const ts=isNaN(dt)?"":`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")} ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`;
+    const first=(h.rows&&h.rows[0]&&(h.rows[0].item_name||h.rows[0].item_no))||"";
+    return `<tr style="border-top:1px solid #f1f5f9;">
+      <td style="padding:9px 10px;font-size:12px;color:#64748b;white-space:nowrap;">${esc(ts)}</td>
+      <td style="padding:9px 10px;">${esc(h.cust||"(거래처 미정)")}</td>
+      <td style="padding:9px 10px;font-size:12px;">${esc(first)}${n>1?` 외 ${n-1}건`:""}</td>
+      <td style="padding:9px 10px;text-align:right;">${n}건</td>
+      <td style="padding:9px 10px;text-align:center;white-space:nowrap;">
+        <button onclick="poadvDraftLoad('${d.id}')" style="padding:5px 11px;border:none;background:#0f4c81;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">📂 불러오기</button>
+        <button onclick="poadvDraftDelete('${d.id}')" style="padding:5px 9px;border:none;background:#fee2e2;color:#b91c1c;border-radius:6px;cursor:pointer;font-size:12px;margin-left:4px;">삭제</button>
+      </td></tr>`;
+  }).join("") : `<tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af;">임시저장된 발주가 없습니다</td></tr>`;
+  ov.innerHTML=`
+    <div style="width:min(780px,94vw);max-height:84vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff;position:sticky;top:0;">
+        <b>📂 임시저장 발주 목록 <span style="font-weight:400;font-size:12px;opacity:.85;">(${drafts.length}건)</span></b>
+        <span style="cursor:pointer;font-size:18px;" onclick="document.getElementById('poadv-draft-ov').remove()">✕</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#f1f5f9;color:#374151;">
+          <th style="padding:9px 10px;text-align:left;width:140px;">저장시각</th><th style="padding:9px 10px;text-align:left;width:160px;">거래처</th>
+          <th style="padding:9px 10px;text-align:left;">품목</th><th style="padding:9px 10px;text-align:right;width:60px;">수</th>
+          <th style="padding:9px 10px;text-align:center;width:180px;">처리</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
 
 function poadvRowInput(i, field, el){
   poadvRows[i][field] = (field==="qty"||field==="price") ? poadvNum(el.value) : el.value;
@@ -9262,6 +9333,7 @@ function poadvShowPdf(h, rows){
   const supply = rows.reduce((s,r)=>s+poadvNum(r.qty)*poadvNum(r.price),0);
   const vat = Math.round(supply*0.1);
   const total = supply+vat;
+  window._poadvPvData = { h, rows, total, supply };   // 메일 첨부 시 실제 인쇄 발주 데이터 사용
   const poNo = poadvSaved && poadvSaved.po_no ? poadvSaved.po_no : "(저장 후 발급)";
 
   const rowsHtml = rows.map((r,i)=>`
@@ -9481,12 +9553,39 @@ async function poadvDownloadPDF(){
   catch(e){ alert("PDF 생성 오류: "+e.message); }
 }
 
+// 주소록 로드 (주소록 페이지 렌더 없이 CONTACTS 배열만 채움)
+async function poadvEnsureContacts(){
+  if(CONTACTS && CONTACTS.length) return CONTACTS;
+  try{
+    const data=await spGetJson(CONTACTS_PATH);
+    const saved=Array.isArray(data)?data:(data&&Array.isArray(data.contacts)?data.contacts:[]);
+    if(saved.length) CONTACTS=saved;
+  }catch(e){}
+  return CONTACTS||[];
+}
+// 거래처명으로 주소록에서 이메일 찾기 ((주)·㈜·주식회사·공백 무시, 부분일치)
+function poadvFindCustEmails(cust){
+  const norm=s=>String(s||"").replace(/\(주\)|㈜|\(유\)|주식회사|유한회사|\s/g,"").toLowerCase();
+  const target=norm(cust);
+  if(!target) return [];
+  const hits=(CONTACTS||[]).filter(c=>{
+    return [c.company,c.name,c.memo].map(norm).some(f=>f && (f.includes(target)||target.includes(f)));
+  });
+  return [...new Set(hits.map(c=>(c.email||"").trim()).filter(Boolean))];
+}
+
 async function poadvEmailPDF(){
   try{
     const pdf=await _poadvMakePdfBlob();
     const b64 = pdf.output("datauristring").split(",")[1];
     const fname=_poadvFileName();
-    const h=poadvCollect();
+    // 실제 인쇄된 발주 데이터 (없으면 작성폼)
+    const pv=window._poadvPvData||{};
+    const h=pv.h||poadvCollect();
+    const rows=(pv.rows&&pv.rows.length)?pv.rows:poadvRows;
+    const itemRows=rows.filter(r=>r.item_name||r.item_no);
+    const itemCount=itemRows.length;
+    const totalQty=itemRows.reduce((s,r)=>s+poadvNum(r.qty),0);
     // 작성창 열고 첨부 주입
     if(typeof openCompose==="function") openCompose("new");
     if(typeof COMPOSE_ATT!=="undefined"){
@@ -9494,12 +9593,19 @@ async function poadvEmailPDF(){
       COMPOSE_ATT.push({filename:fname, content_type:"application/pdf", b64});
       if(typeof renderFileChips==="function") renderFileChips();
     }
+    const poNo=(poadvSaved&&poadvSaved.po_no)?poadvSaved.po_no:"(별도 안내)";
     const subj=`[구매발주서] ${POADV_CO.name} → ${h.cust} (${h.date})`;
-    const body=`안녕하세요, ${h.cust} 담당자님.\n\n${POADV_CO.name}에서 아래와 같이 발주드립니다. 상세 내역은 첨부된 구매발주서를 확인 부탁드립니다.\n\n- 발주일: ${h.date}\n- 발주번호: ${poadvSaved&&poadvSaved.po_no?poadvSaved.po_no:"(별도 안내)"}\n- 품목수: ${poadvRows.filter(r=>r.item_name||r.item_no).length}건\n\n감사합니다.\n${h.dept} ${h.emp} 드림\nTEL ${POADV_CO.tel}`;
+    const body=`안녕하세요, ${h.cust} 담당자님.\n\n${POADV_CO.name}에서 아래와 같이 발주드립니다. 상세 내역은 첨부된 구매발주서를 확인 부탁드립니다.\n\n- 발주일: ${h.date}\n- 발주번호: ${poNo}\n- 품목수: ${itemCount}건\n- 총수량: ${poadvComma(totalQty)}개\n\n감사합니다.\n${h.dept} ${h.emp} 드림\nTEL ${POADV_CO.tel}`;
     const $c=id=>document.getElementById(id);
     if($c("cSubj")) $c("cSubj").value=subj;
     if($c("cBody")) $c("cBody").value=body;
-    const pv=document.getElementById("poadv-pv"); if(pv) pv.remove();
+    // 받는사람: 거래처를 주소록에서 찾아 자동 기입 (비어있을 때만)
+    try{
+      await poadvEnsureContacts();
+      const emails=poadvFindCustEmails(h.cust);
+      if(emails.length && $c("cTo") && !$c("cTo").value.trim()) $c("cTo").value=emails.join(", ");
+    }catch(e){}
+    const pv2=document.getElementById("poadv-pv"); if(pv2) pv2.remove();
   }catch(e){ alert("메일 첨부 오류: "+e.message); }
 }
 
@@ -9739,6 +9845,10 @@ async function poadvListLoad(refresh){
       }]
     })).sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
     poadvListRender((document.getElementById("poadv-list-q")||{}).value||"");
+    // 발주목록이 갱신되면 발주작성목록(품의완료 매칭)도 다시 렌더
+    if(typeof poadvPropRender==="function" && (_poadvPropList||[]).length){
+      poadvPropRender((document.getElementById("poadv-prop-q")||{}).value||"");
+    }
     if(j&&j.error){ const cnt=document.getElementById("poadv-list-cnt"); if(cnt) cnt.textContent+=" (영림원 조회 실패—캐시)"; }
   }catch(e){ tb.innerHTML=`<tr><td colspan="10" style="padding:16px;color:#dc2626;">로드 실패: ${esc(e.message)}</td></tr>`; }
 }
@@ -10021,7 +10131,6 @@ async function poadvPropPrint(proposalNo, cust){
   // 거래처 + (대표품명 또는 프로젝트번호)로 매칭되는 실제 발주 찾기 (작성 제외)
   let cand=(_poadvOrders||[]).filter(o=>{
     if(!o.po_no || o.po_no==="-") return false;
-    if(String((o.items&&o.items[0]||{}).status||"").indexOf("작성")>=0) return false;
     const okCust=!cust || nrm(o.cust).includes(nrm(cust)) || nrm(cust).includes(nrm(o.cust));
     const okItem=repName && (o.items||[]).some(it=>String(it.item_name||"").trim()===repName);
     const okPjt =repPjt  && (o.items||[]).some(it=>String(it.pjt_no||"").trim()===repPjt);
@@ -10177,9 +10286,9 @@ function poadvPropRender(q){
   let arr=_poadvPropList||[];
   // 권한 프로젝트 필터
   if(typeof pInProj==="function"){ try{ arr=arr.filter(o=>pInProj({pjt_no:o.pjt_no})); }catch(e){} }
-  // 작성만 토글
+  // 작성만 토글 (이미 발주된 = 품의완료 건은 제외)
   const onlyDraft=(document.getElementById("poadv-prop-onlydraft")||{}).checked;
-  if(onlyDraft) arr=arr.filter(o=>String(o.status||"").indexOf("작성")>=0);
+  if(onlyDraft) arr=arr.filter(o=>String(o.status||"").indexOf("작성")>=0 && !poadvPropHasOrder(o));
   q=(q||"").trim().toLowerCase();
   if(q) arr=arr.filter(o=>`${o.po_no} ${o.cust} ${o.pjt_no} ${o.item_name}`.toLowerCase().includes(q));
   arr=arr.slice().sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
@@ -10188,25 +10297,47 @@ function poadvPropRender(q){
   tb.innerHTML=arr.slice(0,200).map(o=>{
     const ss=poadvPropStatusStyle(o.status);
     const itemLabel=o.item_name+(o.n>1?` 외 ${o.n-1}건`:"");
-    const isDonePr = String(o.status||"").indexOf("완료")>=0;
-    let action;
-    if(ss.draft){
-      action = `<button onclick="poadvPoInput('${esc(o.po_no).replace(/'/g,"\\'")}', '${esc(o.cust||'').replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`;
-    }else if(isDonePr){
-      action = `<button onclick="poadvPropPrint('${esc(o.po_no).replace(/'/g,"\\'")}', '${esc(o.cust||'').replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#0f4c81;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">🖨️ 발주서출력</button>`;
+    const ordered = poadvPropHasOrder(o);                       // 발주목록에 같은 건 존재?
+    const doneLike = ordered || String(o.status||"").indexOf("완료")>=0;
+    const escNo=esc(o.po_no).replace(/'/g,"\\'");
+    const escCust=esc(o.cust||'').replace(/'/g,"\\'");
+    let action, statusChip;
+    if(doneLike){
+      statusChip = `<span style="color:#16a34a;font-size:11px;font-weight:700;">✅ 품의완료</span>`;
+      action = `<button onclick="poadvPropPrint('${escNo}', '${escCust}')" style="padding:5px 11px;border:none;background:#0f4c81;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">🖨️ 발주서출력</button>`;
+    }else if(ss.draft){
+      statusChip = `<span style="color:${ss.label};font-size:11px;font-weight:700;">${ss.chip}</span>`;
+      action = `<button onclick="poadvPoInput('${escNo}', '${escCust}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`;
     }else{
+      statusChip = `<span style="color:${ss.label};font-size:11px;font-weight:700;">${ss.chip}</span>`;
       action = `<span style="color:${ss.label};font-size:11px;">${ss.chip}</span>`;
     }
-    return `<tr style="${ss.draft?'background:#faf5ff;':''}">
+    return `<tr style="${doneLike?'background:#f0fdf4;':(ss.draft?'background:#faf5ff;':'')}">
       <td style="padding:8px 10px;"><b style="color:#0f4c81;">${esc(o.po_no)}</b></td>
       <td style="padding:8px 10px;font-size:12px;text-align:center;">${esc(o.date||"-")}</td>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(o.cust||'')}">${esc(o.cust||"-")}</td>
       <td style="padding:8px 10px;font-size:12px;">${esc(o.pjt_no||"-")}</td>
       <td style="padding:8px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(itemLabel||'')}">${esc(itemLabel||"-")}</td>
-      <td style="padding:8px 10px;text-align:center;"><span style="color:${ss.label};font-size:11px;font-weight:700;">${ss.chip}</span></td>
+      <td style="padding:8px 10px;text-align:center;">${statusChip}</td>
       <td style="padding:8px 10px;text-align:center;">${action}</td>
     </tr>`;
   }).join("");
+}
+
+// 발주작성목록(품의)이 발주목록에 실제 발주로 존재하는지 (거래처+프로젝트+대표품명, "외 N건" 제외 매칭)
+function poadvPropHasOrder(o){
+  const nrm=s=>String(s||"").replace(/\s/g,"").toLowerCase();
+  const stripOut=s=>String(s||"").replace(/\s*외\s*\d+\s*건\s*$/,"").trim();   // "외 N건" 꼬리 제거
+  const repName=nrm(stripOut(o.item_name));
+  if(!repName) return false;
+  const cust=nrm(o.cust), pjt=nrm(o.pjt_no);
+  return (_poadvOrders||[]).some(od=>{
+    if(!od.po_no) return false;
+    const okCust = !cust || nrm(od.cust).includes(cust) || cust.includes(nrm(od.cust));
+    const okItem = (od.items||[]).some(it=>nrm(stripOut(it.item_name))===repName);
+    const okPjt  = !pjt || (od.items||[]).some(it=>nrm(it.pjt_no)===pjt);
+    return okCust && okItem && okPjt;
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
