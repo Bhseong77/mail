@@ -9752,7 +9752,8 @@ function poadvListRender(q){
     // 상태/액션 칸
     let actionCell;
     if(isDraft){
-      actionCell = `<button onclick="event.stopPropagation();poadvPoInput('${esc(o.po_no).replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`;
+      // 작성(영림원에서 저장만 된 상태) → 발주입력 버튼 없이 상태만. 발주입력은 '발주 작성 목록'에서만.
+      actionCell = `<span style="color:#7c3aed;font-size:12px;font-weight:700;">📝 작성</span>`;
     }else if(isDone){
       actionCell = `<span style="color:#16a34a;font-size:12px;font-weight:700;">🏁 완료</span>`;
     }else{
@@ -9989,6 +9990,43 @@ function poadvReprint(pono){
   poadvShowPdf(header, rows);   // 검증/화면폼 무관하게 직접 렌더
 }
 
+// 완료 품의 → 발주 작성 목록에서 「발주서출력」: 해당 발주를 발주 목록에서 찾아 구매발주서 PDF 재출력
+async function poadvPropPrint(proposalNo, cust){
+  const prop=(_poadvPropList||[]).find(x=>x.po_no===proposalNo)||{};
+  const repName=String(prop.item_name||"").trim();
+  const repPjt =String(prop.pjt_no||"").trim();
+  const nrm=s=>String(s||"").replace(/\s/g,"");
+  // 거래처 + (대표품명 또는 프로젝트번호)로 매칭되는 실제 발주 찾기 (작성 제외)
+  let cand=(_poadvOrders||[]).filter(o=>{
+    if(!o.po_no || o.po_no==="-") return false;
+    if(String((o.items&&o.items[0]||{}).status||"").indexOf("작성")>=0) return false;
+    const okCust=!cust || nrm(o.cust).includes(nrm(cust)) || nrm(cust).includes(nrm(o.cust));
+    const okItem=repName && (o.items||[]).some(it=>String(it.item_name||"").trim()===repName);
+    const okPjt =repPjt  && (o.items||[]).some(it=>String(it.pjt_no||"").trim()===repPjt);
+    return okCust && (okItem||okPjt);
+  });
+  if(!cand.length){
+    alert(`품의 ${proposalNo} 에 해당하는 발주를 발주 목록에서 찾지 못했어요.\n아래 「발주 목록」에서 해당 발주 행을 클릭해 구매발주서 PDF를 출력하세요.`);
+    return;
+  }
+  cand.sort((a,b)=>String(b.po_no).localeCompare(String(a.po_no)));
+  const o=cand[0];
+  // 품목 전체 로드 (대표품목 → 전체) 후 PDF
+  poadvShowLoadingModal(o.po_no);
+  try{
+    const r=await fetch(`${SERVER}/api/erp/order-items?po_no=${encodeURIComponent(o.po_no)}`);
+    const j=await r.json();
+    if(j&&j.rows&&j.rows.length){
+      o.items=j.rows.map(x=>({pjt_no:x.pjt_no||"",pjt_name:x.pjt_name||"",item_name:x.item_name||"",item_no:x.item_no||"",
+        spec:x.spec||"",unit:x.unit||"EA",maker:x.maker||"",qty:poadvNum(x.qty),price:poadvNum(x.price),
+        amount:poadvNum(x.amount||x.total),delv:x.delv||"",emp_name:x.emp_name||""}));
+      o._itemsLoaded=true;
+    }
+  }catch(e){}
+  const lo=document.getElementById("poadv-det-ov"); if(lo) lo.remove();
+  poadvReprint(o.po_no);   // 발주 목록 데이터로 구매발주서 PDF (정확한 단가·금액)
+}
+
 // ════════════════════════════════════════════════════════════════
 //  발주목록 "완료" 행 → 납품확인 모달 (STEP2 품목 + STEP3 납품정보)
 //  기존 /api/erp/save_delivery 재사용
@@ -10128,9 +10166,15 @@ function poadvPropRender(q){
   tb.innerHTML=arr.slice(0,200).map(o=>{
     const ss=poadvPropStatusStyle(o.status);
     const itemLabel=o.item_name+(o.n>1?` 외 ${o.n-1}건`:"");
-    const action = ss.draft
-      ? `<button onclick="poadvPoInput('${esc(o.po_no).replace(/'/g,"\\'")}', '${esc(o.cust||'').replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`
-      : `<span style="color:${ss.label};font-size:11px;">${ss.chip}</span>`;
+    const isDonePr = String(o.status||"").indexOf("완료")>=0;
+    let action;
+    if(ss.draft){
+      action = `<button onclick="poadvPoInput('${esc(o.po_no).replace(/'/g,"\\'")}', '${esc(o.cust||'').replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#7c3aed;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📝 발주입력</button>`;
+    }else if(isDonePr){
+      action = `<button onclick="poadvPropPrint('${esc(o.po_no).replace(/'/g,"\\'")}', '${esc(o.cust||'').replace(/'/g,"\\'")}')" style="padding:5px 11px;border:none;background:#0f4c81;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">🖨️ 발주서출력</button>`;
+    }else{
+      action = `<span style="color:${ss.label};font-size:11px;">${ss.chip}</span>`;
+    }
     return `<tr style="${ss.draft?'background:#faf5ff;':''}">
       <td style="padding:8px 10px;"><b style="color:#0f4c81;">${esc(o.po_no)}</b></td>
       <td style="padding:8px 10px;font-size:12px;text-align:center;">${esc(o.date||"-")}</td>
