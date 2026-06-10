@@ -902,7 +902,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v144</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v146</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -10042,14 +10042,14 @@ function prnewInit(){
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="poadv-tbl">
+            <table class="poadv-tbl" style="table-layout:fixed;width:100%;">
               <thead><tr>
-                <th style="width:130px;">요청번호</th>
-                <th style="width:90px;">요청일</th>
-                <th>프로젝트</th>
-                <th>대표품명</th>
-                <th style="width:90px;">진행상태</th>
-                <th style="width:120px;text-align:center;">처리</th>
+                <th style="width:120px;padding:8px 10px;text-align:left;">요청번호</th>
+                <th style="width:90px;padding:8px 10px;text-align:center;">요청일</th>
+                <th style="width:120px;padding:8px 10px;text-align:left;">프로젝트</th>
+                <th style="padding:8px 10px;text-align:left;">대표품명</th>
+                <th style="width:110px;padding:8px 10px;text-align:center;">진행상태</th>
+                <th style="width:130px;padding:8px 10px;text-align:center;">처리</th>
               </tr></thead>
               <tbody id="prnew-list-tbody"><tr><td colspan="6" style="padding:16px;text-align:center;color:#9ca3af;">새로고침으로 구매요청 목록을 불러오세요</td></tr></tbody>
             </table>
@@ -10274,14 +10274,16 @@ function prnewMapStatus(raw){
   const s=String(raw||"").trim();
   if(!s) return "";
   if(s.includes("중단")) return "중단(선발주)";
-  if(s.includes("결재") || s.includes("진행")) return "결재진행중";
+  if(s.includes("미확정")) return "미확정";
   if(s.includes("확정") || s.includes("승인")) return "확정(승인)";
+  if(s.includes("결재") || s.includes("진행")) return "결재진행중";
   if(s.includes("완료")) return "완료";
   return s;  // 기타는 원문
 }
 // 상태별 색상 (배경/테두리/라벨/버튼)
 function prnewStatusStyle(st){
   switch(st){
+    case "미확정":       return {bg:"#f8fafc", bd:"#cbd5e1", label:"#64748b", chip:"⚪ 미확정", lock:true};
     case "결재진행중":   return {bg:"#fef3c7", bd:"#f59e0b", label:"#b45309", chip:"⏳ 결재진행중", lock:true};
     case "확정(승인)":   return {bg:"#dcfce7", bd:"#22c55e", label:"#15803d", chip:"✅ 확정(승인)", lock:true};
     case "완료":         return {bg:"#e0e7ff", bd:"#6366f1", label:"#4338ca", chip:"🏁 완료", lock:true};
@@ -10680,12 +10682,12 @@ function prnewListRender(q){
       : `<span style="color:#cbd5e1;font-size:11px;">-</span>`;
     const rowBg = isConfirmed ? 'background:#faf5ff;' : '';
     return `<tr style="${rowBg}">
-      <td><b style="color:#0f4c81;">${esc(o.req_no)}</b></td>
-      <td style="font-size:12px;">${esc(o.date||"-")}</td>
-      <td style="font-size:12px;">${esc(o.pjt_no||"-")}</td>
-      <td style="font-size:12px;">${esc(itemLabel||"-")}</td>
-      <td>${stChip}</td>
-      <td style="text-align:center;">${action}</td>
+      <td style="padding:8px 10px;"><b style="color:#0f4c81;">${esc(o.req_no)}</b></td>
+      <td style="padding:8px 10px;font-size:12px;text-align:center;">${esc(o.date||"-")}</td>
+      <td style="padding:8px 10px;font-size:12px;">${esc(o.pjt_no||"-")}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(itemLabel||'')}">${esc(itemLabel||"-")}</td>
+      <td style="padding:8px 10px;text-align:center;">${stChip}</td>
+      <td style="padding:8px 10px;text-align:center;">${action}</td>
     </tr>`;
   }).join("");
 }
