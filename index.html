@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v129</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v130</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -10070,28 +10070,34 @@ async function prnewQuery(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-pjt-msg");
   if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
-  if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${pjt} 기존 재료자원 조회 중… (영림원, ~15초)`; }
+  if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${pjt} 재료자원 + 진행상태 조회 중… (영림원, ~25초)`; }
   const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
   try{
     await prnewLoadState(pjt);   // SharePoint 캐시 상태 먼저 로드
-    // 진행상태 맵 (백그라운드, 실패해도 무시)
-    prnewLoadStatus(pjt);
-    const r=await fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`);
+    // 재료자원 + 진행상태 병렬 조회 (둘 다 기다렸다 한 번에 표시)
+    const [r, sr] = await Promise.all([
+      fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`),
+      fetch(`${SERVER}/api/erp/pr-status?project=${encodeURIComponent(pjt)}`).catch(()=>null)
+    ]);
     const j=await r.json();
+    try{ const sd = sr ? await sr.json() : {}; _prnewStatusMap = sd.status_map || {}; }
+    catch(e){ _prnewStatusMap = {}; }
     if(j&&j.rows){
       const doneList=_prnewState.pr_done||[];
       const reqMap=_prnewState.pr_reqno||{};
-      // 1) 영림원 기존 행 (회색). pr_done에 든 품번이면 빨간색(_pr)
+      // 1) 영림원 기존 행. pr_done이면 완료(_pr), 요청번호 매칭, 진행상태(_status)까지
       prnewRows=j.rows.map(x=>{
         const pn=x["품번"]||"";
         const isPr=doneList.some(dp=>prnewPnMatch(pn,dp));
         let rno="";
         if(isPr){ for(const k in reqMap){ if(prnewPnMatch(pn,k)){ rno=reqMap[k]; break; } } }
+        let status="";
+        if(rno && _prnewStatusMap[rno]!=null) status=prnewMapStatus(_prnewStatusMap[rno]);
         return {
           "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
           "품명":x["품명"]||"", "품번":pn, "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
           "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||"",
-          _existing:true, _pr:isPr, _reqno:rno
+          _existing:true, _pr:isPr, _reqno:rno, _status:status
         };
       });
       // 2) 임시저장 draft 행 추가 (흰색, 아직 영림원 미등록). 단 이미 영림원에 있는 품번은 제외
