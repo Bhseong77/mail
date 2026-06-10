@@ -9417,10 +9417,28 @@ async function _poadvUploadToSp(blob){
   return await r.json();
 }
 
+// PDF 셀 글자 자동 맞춤: 칸 폭을 넘치면 그 셀 글자크기를 줄여 한 줄에 들어오게 (범용)
+// PDF 생성(html2canvas 캡처) 직전에 호출. 줄바꿈 방지 + 최소 7px까지 축소.
+function _poadvFitPdfCells(page){
+  if(!page) return;
+  const MIN=7;
+  page.querySelectorAll("table td, table th").forEach(td=>{
+    if(td.colSpan && td.colSpan>1) return;          // 병합셀(합계/특이사항)은 제외
+    td.style.whiteSpace="nowrap";
+    td.style.overflow="hidden";
+    let fs=parseFloat(getComputedStyle(td).fontSize)||12;
+    let guard=60;
+    while(td.scrollWidth>td.clientWidth+0.5 && fs>MIN && guard-->0){
+      fs-=0.5; td.style.fontSize=fs+"px";
+    }
+  });
+}
+
 async function _poadvMakePdfBlob(){
   const page=document.getElementById("poadv-pdf-page");
   if(!page) throw new Error("미리보기를 먼저 여세요");
   if(!window.html2canvas || !window.jspdf) throw new Error("PDF 라이브러리 로드 실패 (새로고침 후 재시도)");
+  _poadvFitPdfCells(page);   // 캡처 전: 모든 셀 글자크기를 칸 폭에 맞게 자동 축소 (줄바꿈 방지)
   const canvas=await window.html2canvas(page,{scale:2,backgroundColor:"#ffffff",useCORS:true});
   const img=canvas.toDataURL("image/jpeg",0.95);
   const {jsPDF}=window.jspdf;
