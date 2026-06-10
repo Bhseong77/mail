@@ -892,7 +892,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET 메일 대시보드</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v126</span></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v127</span></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9931,7 +9931,7 @@ function prnewRenderRows(){
     const rowStyle = done ? 'style="background:#fee2e2;"' : (existing ? 'style="background:#f1f5f9;"' : '');
     const lockInput = done || existing;  // 기존/완료 행은 입력 잠금
     const chk = done
-      ? '<span style="color:#b91c1c;font-weight:700;font-size:11px;">완료</span>'
+      ? `<button onclick="prnewSubmitApproval(${i})" title="다우오피스 결재상신" style="padding:3px 7px;border:none;border-radius:5px;background:#b91c1c;color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📤 상신</button>`
       : `<input type="checkbox" ${r._chk?"checked":""} onclick="prnewToggleChk(${i},this)">`;
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
@@ -10009,15 +10009,18 @@ async function prnewQuery(){
     const j=await r.json();
     if(j&&j.rows){
       const doneList=_prnewState.pr_done||[];
+      const reqMap=_prnewState.pr_reqno||{};
       // 1) 영림원 기존 행 (회색). pr_done에 든 품번이면 빨간색(_pr)
       prnewRows=j.rows.map(x=>{
         const pn=x["품번"]||"";
         const isPr=doneList.some(dp=>prnewPnMatch(pn,dp));
+        let rno="";
+        if(isPr){ for(const k in reqMap){ if(prnewPnMatch(pn,k)){ rno=reqMap[k]; break; } } }
         return {
           "BOM레벨":x["BOM레벨"]||"", "조달구분":x["조달구분"]||"", "품목분류":x["품목분류"]||"",
           "품명":x["품명"]||"", "품번":pn, "규격":x["규격"]||"", "구매단위":x["구매단위"]||"EA",
           "기본소요량":x["기본소요량"]||"", "제작대수":x["제작대수"]||"", "여유수량":x["여유수량"]||"",
-          _existing:true, _pr:isPr
+          _existing:true, _pr:isPr, _reqno:rno
         };
       });
       // 2) 임시저장 draft 행 추가 (흰색, 아직 영림원 미등록). 단 이미 영림원에 있는 품번은 제외
@@ -10176,14 +10179,14 @@ async function prnewPollPr(jobId, idxs, _j, btn, ot){
       if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${stage}`; }
       if(d.status==="success"){
         // 선택했던 행을 구매요청완료(_pr) 처리 → 빨간색
+        const reqNo=d.error||"";  // worker가 req_no를 error 칸에 저장
         const donePns=[];
-        idxs.forEach(i=>{ if(prnewRows[i]){ prnewRows[i]._pr=true; prnewRows[i]._chk=false; prnewRows[i]._draft=false; const pn=prnewRows[i]["품번"]; if(pn) donePns.push(pn); } });
+        idxs.forEach(i=>{ if(prnewRows[i]){ prnewRows[i]._pr=true; prnewRows[i]._chk=false; prnewRows[i]._draft=false; prnewRows[i]._reqno=reqNo; const pn=prnewRows[i]["품번"]; if(pn) donePns.push(pn); } });
         prnewRenderRows();
         const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
-        prnewMarkPrDone(pjt, donePns);   // SharePoint에 완료 품번 기록 → 재조회해도 빨간색
-        const reqNo=d.error||"";  // worker가 req_no를 error 칸에 저장
+        prnewMarkPrDone(pjt, donePns, reqNo);   // SharePoint에 완료 품번+요청번호 기록 → 재조회해도 빨간색
         if(_j&&typeof _Jok==="function") _Jok(_j, `요청번호 ${reqNo}`);
-        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">📝 구매요청 입력 완료 · 요청번호 <b>${esc(reqNo||"(발급됨)")}</b> · ${idxs.length}개 품목 (빨간색 유지)</div>`;
+        if(res) res.innerHTML=`<div style="padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;">📝 구매요청 입력 완료 · 요청번호 <b>${esc(reqNo||"(발급됨)")}</b> · ${idxs.length}개 품목 (빨간색 유지) — 행의 「📤 결재상신」으로 다우오피스 상신</div>`;
         if(msg) msg.textContent="";
         if(btn){ btn.disabled=false; btn.textContent=ot; }
         return;
@@ -10233,18 +10236,53 @@ async function prnewDraftSave(){
   btn.disabled=false; btn.textContent=ot;
 }
 
-// 구매요청 완료 행의 품번을 SharePoint pr_done에 기록 (다시 조회해도 빨간색)
-async function prnewMarkPrDone(pjt, itemNos){
+// 구매요청 완료 행의 품번+요청번호를 SharePoint에 기록 (다시 조회해도 빨간색 + 결재상신 가능)
+async function prnewMarkPrDone(pjt, itemNos, reqNo){
   try{
     if(!_prnewState||typeof _prnewState!=="object") await prnewLoadState(pjt);
     if(!Array.isArray(_prnewState.pr_done)) _prnewState.pr_done=[];
-    itemNos.forEach(no=>{ if(no && !_prnewState.pr_done.includes(no)) _prnewState.pr_done.push(no); });
+    if(!_prnewState.pr_reqno||typeof _prnewState.pr_reqno!=="object") _prnewState.pr_reqno={};
+    itemNos.forEach(no=>{ if(no && !_prnewState.pr_done.includes(no)) _prnewState.pr_done.push(no);
+      if(no && reqNo) _prnewState.pr_reqno[no]=reqNo; });
     // 완료된 품번은 draft에서 제거
     if(Array.isArray(_prnewState.draft)){
       _prnewState.draft=_prnewState.draft.filter(d=>!itemNos.some(no=>prnewPnMatch(d["품번"],no)));
     }
     await prnewSaveState(pjt);
-  }catch(e){ /* 무시 (색상 유지는 best-effort) */ }
+  }catch(e){ /* 무시 */ }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  결재상신 — 완료 행의 요청번호로 영림원 결재상신 → 다우오피스 URL → 새 창
+// ════════════════════════════════════════════════════════════════
+async function prnewSubmitApproval(i){
+  const row=prnewRows[i]; if(!row) return;
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  const reqNo=row._reqno||"";
+  const msg=document.getElementById("prnew-msg");
+  if(!reqNo){
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="이 행의 요청번호를 찾을 수 없습니다 (다시 구매요청 입력 저장 필요)"; }
+    return;
+  }
+  if(msg){ msg.style.color="#b91c1c"; msg.textContent=`⏳ 결재상신 준비 중… 요청번호 ${reqNo} (영림원, ~20초)`; }
+  const _j=(typeof _J==="function")?_J("결재상신: "+reqNo):null;
+  try{
+    const r=await fetch(`${SERVER}/api/erp/submit-approval`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({req_no:reqNo})});
+    const d=await r.json();
+    if(d.success && d.approval_url){
+      if(_j&&typeof _Jok==="function") _Jok(_j, "다우오피스 결재창 열림");
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 다우오피스 결재창을 새 창으로 엽니다 (요청번호 ${reqNo})`; }
+      // BH 브라우저(다우 세션 있음)에서 결재 문서 새 창
+      window.open(d.approval_url, "_blank", "width=1100,height=900");
+    }else{
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="결재상신 실패: "+(d.error||""); }
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(msg){ msg.style.color="#dc2626"; msg.textContent="결재상신 오류: "+e.message; }
+  }
 }
 
 </script>
