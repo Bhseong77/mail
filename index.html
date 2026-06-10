@@ -9353,6 +9353,8 @@ function poadvShowPdf(h, rows){
     <div class="poadv-pv-scroll"><div style="box-shadow:0 10px 40px rgba(0,0,0,.4);">${pdfHtml}</div></div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
+  // 미리보기에도 셀 글자 자동맞춤 (다운로드 PDF와 동일하게 칸 안에 맞춤)
+  requestAnimationFrame(()=>{ try{ _poadvFitPdfCells(document.getElementById("poadv-pdf-page")); }catch(e){} });
 }
 
 // 저장 직후 미리보기를 잠깐 띄워 PDF blob 생성 → 닫기 (SP 자동 저장용)
