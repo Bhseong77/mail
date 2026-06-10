@@ -902,7 +902,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v149</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v158</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -10588,6 +10588,15 @@ async function prnewLoadState(pjt){
   catch(e){ _prnewState = {draft:[], pr_done:[]}; }
   if(!Array.isArray(_prnewState.draft)) _prnewState.draft=[];
   if(!Array.isArray(_prnewState.pr_done)) _prnewState.pr_done=[];
+  // 브라우저 캐시(localStorage) 임시저장 병합 — SharePoint 실패/지연 대비, 재조회 시 같이 불러옴
+  try{
+    const local=JSON.parse(localStorage.getItem("prnew_draft_"+pjt)||"[]");
+    if(Array.isArray(local) && local.length){
+      const key=r=>String((r&&(r["품번"]||r["품명"]))||"").trim().toLowerCase();
+      const have=new Set(_prnewState.draft.map(key));
+      local.forEach(d=>{ const k=key(d); if(k && !have.has(k)){ _prnewState.draft.push(d); have.add(k); } });
+    }
+  }catch(e){}
   return _prnewState;
 }
 async function prnewSaveState(pjt){
@@ -10872,14 +10881,15 @@ async function prnewDraftSave(){
   try{
     if(!_prnewState||typeof _prnewState!=="object") _prnewState={draft:[],pr_done:[]};
     _prnewState.draft = newRows;   // 현재 신규 행 전체로 교체
+    try{ localStorage.setItem("prnew_draft_"+pjt, JSON.stringify(newRows)); }catch(e){}  // 브라우저 캐시 백업
     const ok=await prnewSaveState(pjt);
+    // 화면 행에 _draft 표시 (SP 성공 여부와 무관 — 로컬 캐시엔 저장됨)
+    prnewRows.forEach(r=>{ if(!r._existing && (r["품명"]||r["품번"])) r._draft=true; });
+    prnewRenderRows();
     if(ok){
       if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 임시저장 완료 (${newRows.length}건) — 다시 조회해도 그대로 나옵니다`; }
-      // 화면 행에 _draft 표시
-      prnewRows.forEach(r=>{ if(!r._existing && (r["품명"]||r["품번"])) r._draft=true; });
-      prnewRenderRows();
     }else{
-      if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 실패 (SharePoint 권한 확인)"; }
+      if(msg){ msg.style.color="#d97706"; msg.textContent=`💾 브라우저 캐시에 임시저장 (${newRows.length}건) — SharePoint 동기화 실패(권한). 이 PC에선 재조회 시 그대로 나옵니다`; }
     }
   }catch(e){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 오류: "+e.message; } }
   btn.disabled=false; btn.textContent=ot;
