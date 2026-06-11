@@ -902,7 +902,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v158</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v159</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -4749,15 +4749,16 @@ async function onFiles(){
   const BIG=20*1024*1024;
   const small=files.filter(f=>f.size<=BIG);
   const big=files.filter(f=>f.size>BIG);
-  // 작은 파일: 일반 첨부
-  COMPOSE_ATT=[];
+  // 작은 파일: 기존 첨부에 누적 (같은 파일명 중복 제외) — 한 개씩 여러 번 첨부 가능
   await Promise.all(small.map(f=>new Promise(res=>{
+    if(COMPOSE_ATT.some(a=>a.filename===f.name)){ res(); return; }
     const fr=new FileReader();
     fr.onload=()=>{ COMPOSE_ATT.push({filename:f.name,content_type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]}); res(); };
     fr.onerror=()=>res();
     fr.readAsDataURL(f);
   })));
   renderFileChips();
+  try{ $('cFiles').value=''; }catch(e){}   // 입력 비워 다음 파일도 누적 추가 가능하게
   // 작은 파일 합계도 20MB 넘으면 경고
   const smallTotal=small.reduce((a,f)=>a+f.size,0);
   if(smallTotal>BIG){ $('cMsg').style.color='var(--r)'; $('cMsg').textContent='⚠️ 첨부 합계가 20MB를 넘습니다 — 일부를 빼주세요'; }
@@ -8821,7 +8822,7 @@ function poadvInit(){
       <div class="acc-page">
         <div class="acc-page-header">
           <div>
-            <div class="acc-page-title">🧾 선발주 작성 <span style="font-size:12px;color:#7c3aed;font-weight:700;">(직접 발주 입력)</span></div>
+            <div class="acc-page-title">🧾 발주 작성 <span style="font-size:12px;color:#7c3aed;font-weight:700;">(직접 발주 입력)</span></div>
             <div class="acc-page-subtitle">품의 없이 발주를 직접 입력 → 영림원 저장 → 구매발주서 PDF 출력·메일발송</div>
           </div>
         </div>
@@ -9077,7 +9078,13 @@ function poadvDraftListOpen(){
 
 function poadvRowInput(i, field, el){
   poadvRows[i][field] = (field==="qty"||field==="price") ? poadvNum(el.value) : el.value;
-  if(field==="qty"||field==="price") poadvRenderRows(); else poadvRecalc();
+  if(field==="qty"||field==="price"){
+    // 표 전체 재렌더하면 포커스가 날아가 한 자리씩만 입력됨 → 해당 행 합계 셀만 갱신
+    const r=poadvRows[i], tr=el.closest("tr");
+    const cell=tr?tr.querySelector(".poadv-rowsum"):null;
+    if(cell) cell.textContent=poadvComma(poadvNum(r.qty)*poadvNum(r.price));
+    poadvRecalc();
+  }else poadvRecalc();
 }
 function poadvRecalc(){
   let q=0,a=0;
@@ -9108,7 +9115,7 @@ function poadvRenderRows(){
       <td><input data-r="${i}" data-f="delv" type="date" value="${esc(r.delv||"")}" oninput="poadvRowInput(${i},'delv',this)"></td>
       <td><input data-r="${i}" data-f="qty" class="num" type="number" value="${poadvNum(r.qty)}" min="0" oninput="poadvRowInput(${i},'qty',this)"></td>
       <td><input data-r="${i}" data-f="price" class="num" type="number" value="${poadvNum(r.price)}" min="0" oninput="poadvRowInput(${i},'price',this)"></td>
-      <td class="num" style="padding-right:6px;color:#0f4c81;">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
+      <td class="num poadv-rowsum" style="padding-right:6px;color:#0f4c81;">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
       <td class="poadv-del" onclick="poadvDelRow(${i})">✕</td>
     </tr>`).join("");
   // 붙여넣기 핸들러 (한 번만 바인딩)
@@ -9249,7 +9256,7 @@ async function poadvSave(){
   if(!v.ok){ msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); return; }
   const btn=document.getElementById("poadv-save-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="저장 중…";
   msg.style.color="#6b7280"; msg.textContent="⏳ 영림원에 발주 저장 중…";
-  const _j = (typeof _J==="function") ? _J("선발주 저장: "+v.header.cust) : null;
+  const _j = (typeof _J==="function") ? _J("발주 저장: "+v.header.cust) : null;
   try{
     let r;
     if(poadvSourceProposal){
@@ -9275,7 +9282,7 @@ async function poadvSave(){
       if(_j&&typeof _Jok==="function") _Jok(_j, "발주번호 "+(d.po_no||""));
       msg.style.color="#15803d"; msg.textContent=`✅ 저장 완료 · 발주번호 ${d.po_no||""}`;
       document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. 구매발주서를 SharePoint에 저장 중…</div>`;
-      if(typeof actLog==="function") actLog(`📦 선발주 저장: ${v.header.cust} → ${d.po_no||""}`);
+      if(typeof actLog==="function") actLog(`📦 발주 저장: ${v.header.cust} → ${d.po_no||""}`);
       // 구매발주서 PDF → SharePoint(03.구매발주서) 자동 저장
       try{
         const blob=await _poadvBuildPdfBlobOffscreen(v, d.po_no);
@@ -9344,7 +9351,7 @@ function poadvShowPdf(h, rows){
       <td>${esc(r.spec||"")}</td>
       <td class="c">${esc(r.unit||"EA")}</td>
       <td class="r">${poadvComma(r.qty)}</td>
-      <td class="r">${poadvNum(r.price).toFixed(2)}</td>
+      <td class="r">${poadvComma(poadvNum(r.price))}</td>
       <td class="r">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
       <td class="c">${esc(r.delv||"")}</td>
       <td class="c">${esc(r.pjt_no||"")}</td>
@@ -10286,9 +10293,11 @@ function poadvPropRender(q){
   let arr=_poadvPropList||[];
   // 권한 프로젝트 필터
   if(typeof pInProj==="function"){ try{ arr=arr.filter(o=>pInProj({pjt_no:o.pjt_no})); }catch(e){} }
-  // 작성만 토글 (이미 발주된 = 품의완료 건은 제외)
+  // 발주목록에 이미 발주된 건(거래처+프로젝트+대표품명 매칭)은 작성목록에서 항상 숨김
+  arr=arr.filter(o=>!poadvPropHasOrder(o));
+  // 작성만 토글
   const onlyDraft=(document.getElementById("poadv-prop-onlydraft")||{}).checked;
-  if(onlyDraft) arr=arr.filter(o=>String(o.status||"").indexOf("작성")>=0 && !poadvPropHasOrder(o));
+  if(onlyDraft) arr=arr.filter(o=>String(o.status||"").indexOf("작성")>=0);
   q=(q||"").trim().toLowerCase();
   if(q) arr=arr.filter(o=>`${o.po_no} ${o.cust} ${o.pjt_no} ${o.item_name}`.toLowerCase().includes(q));
   arr=arr.slice().sort((a,b)=>(b.po_no||"").localeCompare(a.po_no||""));
@@ -10334,7 +10343,7 @@ function poadvPropHasOrder(o){
   return (_poadvOrders||[]).some(od=>{
     if(!od.po_no) return false;
     const okCust = !cust || nrm(od.cust).includes(cust) || cust.includes(nrm(od.cust));
-    const okItem = (od.items||[]).some(it=>nrm(stripOut(it.item_name))===repName);
+    const okItem = (od.items||[]).some(it=>{ const a=nrm(stripOut(it.item_name)); return a && (a===repName || a.includes(repName) || repName.includes(a)); });
     const okPjt  = !pjt || (od.items||[]).some(it=>nrm(it.pjt_no)===pjt);
     return okCust && okItem && okPjt;
   });
