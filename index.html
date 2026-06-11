@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v168</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v169</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -1499,6 +1499,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
           <option value="doc-vendor">🏢 거래처</option>
           <option value="doc-tech">📚 기술자료</option>
           <option value="doc-quote">📄 견적서</option>
+          <option value="doc-order">📦 발주서</option>
           <option value="doc-invoice">📋 거래명세서</option>
           <option value="doc-tax">🧾 세금계산서</option>
         </select>
@@ -1697,6 +1698,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
           <option value="doc-vendor">🏢 거래처</option>
           <option value="doc-tech">📚 기술자료</option>
           <option value="doc-quote">📄 견적서</option>
+          <option value="doc-order">📦 발주서</option>
           <option value="doc-invoice">📋 거래명세서</option>
           <option value="doc-tax">🧾 세금계산서</option>
         </select>
@@ -2904,8 +2906,8 @@ async function _scanCopilot(silent){
 }
 
 // ── 문서 탭 (견적서/거래명세서/세금계산서/기술자료) ──
-const DOC_MAP={'doc-vendor':'06.거래처','doc-quote':'02.견적서','doc-invoice':'03.거래명세서','doc-tax':'04.세금계산서','doc-tech':'05.기술자료'};
-const DOC_TITLE={'doc-vendor':'🏢 거래처','doc-quote':'📄 견적서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
+const DOC_MAP={'doc-vendor':'96.거래처','doc-quote':'02.견적서','doc-order':'03.발주서','doc-invoice':'04.거래명세서','doc-tax':'05.세금계산서','doc-tech':'06.기술자료'};
+const DOC_TITLE={'doc-vendor':'🏢 거래처','doc-quote':'📄 견적서','doc-order':'📦 발주서','doc-invoice':'📋 거래명세서','doc-tax':'🧾 세금계산서','doc-tech':'📚 기술자료'};
 // ── 문서함 전체 파일 인덱스 (이동완료 판단용) ──
 // 4개 문서함을 재귀 스캔해서 인덱스 생성. 이름 기준 매칭(크기는 보조 확인).
 let DOC_INDEX_NAME=null;   // {name: [{size, dest}]}  같은 이름이 여러 폴더에 있을 수 있음
@@ -3083,7 +3085,7 @@ function taOpen(idx){
   const url=it.webUrl||it.downloadUrl||it.contentUrl;
   if(url) window.open(url,'_blank'); else toast('열 수 있는 링크가 없습니다','bad');
 }
-// "기술자료/03.내부공유/APU/컨셉" → "05.기술자료/03.내부공유/APU/컨셉" (실제 루트 폴더명)
+// "기술자료/03.내부공유/APU/컨셉" → "06.기술자료/03.내부공유/APU/컨셉" (실제 루트 폴더명)
 function docDestToPath(dest){
   for(const [tab,root] of Object.entries(DOC_MAP)){
     const label=DOC_TITLE[tab].replace(/^[^ ]+ /,'');
@@ -4425,13 +4427,14 @@ function guessCategory(text){
 }
 function guessDocType(name,subj){
   const low=((name||'')+' '+(subj||'')).toLowerCase();
-  if(/사업자등록증|사업자\s*등록|통장|통장사본|계좌사본|법인등기|등기부|거래처\s*등록/.test(low)) return '06.거래처';
+  if(/사업자등록증|사업자\s*등록|통장|통장사본|계좌사본|법인등기|등기부|거래처\s*등록/.test(low)) return '96.거래처';
+  if(/발주|구매발주|발주서|purchase\s*order|\bpo[_\s-]/.test(low)) return '03.발주서';
   if(/견적|quot|estimate/.test(low)) return '02.견적서';
-  if(/명세|거래명세|invoice|delivery/.test(low)) return '03.거래명세서';
-  if(/세금|계산서|tax/.test(low)) return '04.세금계산서';
-  return '05.기술자료'; // 도면(DXF/X_T 등)·기타 기본
+  if(/명세|거래명세|invoice|delivery/.test(low)) return '04.거래명세서';
+  if(/세금|계산서|tax/.test(low)) return '05.세금계산서';
+  return '06.기술자료'; // 도면(DXF/X_T 등)·기타 기본
 }
-const DOCTYPES=[['06.거래처','거래처'],['02.견적서','견적서'],['03.거래명세서','거래명세서'],['04.세금계산서','세금계산서'],['05.기술자료','기술자료']];
+const DOCTYPES=[['96.거래처','거래처'],['02.견적서','견적서'],['03.발주서','발주서'],['04.거래명세서','거래명세서'],['05.세금계산서','세금계산서'],['06.기술자료','기술자료']];
 function openMove(){
   if(!CUR_BODY||!CUR_MAIL){ toast('메일을 먼저 여세요','bad'); return; }
   const m=CUR_MAIL;
