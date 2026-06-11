@@ -142,6 +142,16 @@ body{display:flex;flex-direction:column;height:100vh}
 .mbox textarea{resize:vertical;line-height:1.6}
 .mbox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .cbox{max-width:640px}
+/* Gmail식 우측하단 도킹 작성창 */
+#compose{position:fixed;inset:auto;right:24px;bottom:0;left:auto;top:auto;width:auto;height:auto;background:none;display:none;z-index:1200;padding:0;}
+#compose.on{display:block;}
+#compose .cbox{width:480px;max-width:calc(100vw - 40px);max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 44px rgba(0,0,0,.32);border-radius:12px 12px 0 0;}
+#compose .mbox-h{cursor:pointer;padding:12px 16px;font-size:14px;}
+#compose .mbox-b{overflow-y:auto;padding:14px 18px;flex:1;min-height:0;}
+#compose.min .mbox-b{display:none;}
+#compose.min .cbox{max-height:none;}
+#compose .cmin{background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px;margin-right:6px;}
+@media(max-width:640px){ #compose{right:0;left:0;} #compose .cbox{width:100vw;max-width:100vw;} }
 .cfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .cfiles .chip{font-size:12px;background:var(--pd);border:1px solid #c7ddf7;border-radius:7px;padding:4px 9px;display:inline-flex;gap:6px;align-items:center;color:var(--p2)}
 .cfiles .chip b{font-weight:600}
@@ -902,7 +912,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v160</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v161</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -940,11 +950,12 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="folders">
     <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
     <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
+    <button id="f-draft" onclick="setFolder('draft')">📝 임시저장</button>
     <button class="btn sm primary" onclick="openCompose('new')" style="margin-left:6px">✏ 메일쓰기</button>
   </div>
   <div class="search">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-    <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="renderList()">
+    <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="FOLDER==='draft'?renderDraftList():renderList()">
   </div>
   <span class="count" id="count"></span>
   <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
@@ -1623,7 +1634,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="modal" id="compose">
   <div class="mbox cbox">
-    <div class="mbox-h"><span id="cTitle">새 메일</span><button class="x" onclick="closeCompose()">✕</button></div>
+    <div class="mbox-h" onclick="composeHeaderClick()"><span id="cTitle">새 메일</span><div style="display:flex;align-items:center"><button class="cmin" title="내리기 / 올리기" onclick="event.stopPropagation();composeToggleMin()">▁</button><button class="x" onclick="event.stopPropagation();closeCompose()">✕</button></div></div>
     <div class="mbox-b">
       <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span> <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cTo')">📇 주소록</button></label>
       <input id="cTo" type="text" placeholder="someone@enjet.co.kr, ...">
@@ -1637,7 +1648,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <input id="cFiles" type="file" multiple onchange="onFiles()">
       <div id="cFileList" class="cfiles"></div>
       <div id="cMsg" class="cmsg"></div>
-      <div class="row"><button class="btn" onclick="closeCompose()">취소</button><button class="btn primary" id="cSend" onclick="sendMail()">✉ 보내기</button></div>
+      <div class="row"><button class="btn" onclick="composeSaveDraft()" id="cDraft">💾 임시저장</button><button class="btn" onclick="closeCompose()">취소</button><button class="btn primary" id="cSend" onclick="sendMail()">✉ 보내기</button></div>
     </div>
   </div>
 </div>
@@ -2081,6 +2092,19 @@ async function spDeleteItem(itemId){
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}});
   if(r.ok || r.status===204 || r.status===404 || r.status===410) return true; // 404/410 = 이미 삭제됨 → 성공 취급(목록 정리)
   throw new Error("삭제 실패 "+r.status);
+}
+async function spListChildren(path){
+  const t=await graphToken(); const d=await spDrive();
+  const url=path?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/children?$top=200&$orderby=lastModifiedDateTime desc`
+                :`https://graph.microsoft.com/v1.0/drives/${d}/root/children?$top=200`;
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) return [];
+  return (await r.json()).value||[];
+}
+async function spDeleteByPath(path){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}});
+  return r.ok||r.status===204||r.status===404||r.status===410;
 }
 
 // ── 페이지 전환 ──
@@ -4671,7 +4695,7 @@ function renderBody(m,d){
   $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+fwdHtml+attHtml+bodyHtml;
 }
 async function dlAtt(uid,idx,name){const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;try{const r=await fetch(url);if(!r.ok){alert('첨부 다운로드 실패');return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name||'file';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('다운로드 오류: '+e.message);}}
-function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');loadList();}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');$('f-draft')?.classList.toggle('active',f==='draft');if(f==='draft')loadDrafts();else loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 function mailPrint(){
@@ -4707,8 +4731,88 @@ function mailPrint(){
   w.document.close();
   try{ actLog(`🖨 메일 인쇄: ${(m.subject||'').slice(0,40)}`); }catch(e){}
 }
-async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
-function closeCompose(){$('compose').classList.remove('on');}
+async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};_composeDraft={};$('compose').classList.remove('min');$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
+function closeCompose(){$('compose').classList.remove('on');$('compose').classList.remove('min');}
+
+// ── Gmail식 도킹 작성창: 내리기/올리기 ──
+function composeToggleMin(){ $('compose').classList.toggle('min'); }
+function composeHeaderClick(){ const c=$('compose'); if(c.classList.contains('min')) c.classList.remove('min'); }
+
+// ── 임시저장 (97.임시저장함) ──
+const DRAFT_DIR='97.임시저장함';
+let _composeDraft={};   // {id, path, itemId}
+let _DRAFTS=[];
+
+async function composeSaveDraft(){
+  const to=$('cTo').value.trim(), cc=$('cCc').value.trim(), subj=$('cSubj').value.trim(), body=$('cBody').value;
+  if(!to&&!cc&&!subj&&!body&&!COMPOSE_ATT.length){ toast('저장할 내용이 없습니다','bad'); return; }
+  const btn=$('cDraft'); const ot=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  try{
+    if(!_composeDraft.id) _composeDraft.id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const path=`${DRAFT_DIR}/draft-${_composeDraft.id}.json`;
+    const obj={id:_composeDraft.id, to, cc, subject:subj, body, attachments:COMPOSE_ATT, reply:REPLY_CTX||{}, savedAt:new Date().toISOString()};
+    try{ await spEnsureFolder(DRAFT_DIR); }catch(e){}
+    const it=await spPutJson(path, obj);
+    _composeDraft.path=path; _composeDraft.itemId=(it&&it.id)||null;
+    toast('💾 임시저장함에 저장됨','ok');
+    if(btn){ btn.textContent='✅ 저장됨'; setTimeout(()=>{ if(btn){ btn.textContent=ot; btn.disabled=false; } }, 1500); }
+    if(FOLDER==='draft') setTimeout(loadDrafts, 400);
+  }catch(e){
+    toast('임시저장 실패: '+e.message,'bad');
+    if(btn){ btn.textContent=ot; btn.disabled=false; }
+  }
+}
+
+async function loadDrafts(){
+  SELECTED=null; if(typeof renderReaderEmpty==='function') renderReaderEmpty();
+  $('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(4);
+  try{
+    const kids=await spListChildren(DRAFT_DIR);
+    const files=kids.filter(k=>k.file && /^draft-.*\.json$/i.test(k.name));
+    const drafts=[];
+    for(const f of files){
+      try{ const j=await spGetJson(`${DRAFT_DIR}/${f.name}`); if(j) drafts.push({...j, _file:f.name, _itemId:f.id, _mod:f.lastModifiedDateTime}); }catch(e){}
+    }
+    drafts.sort((a,b)=>String(b.savedAt||b._mod||'').localeCompare(String(a.savedAt||a._mod||'')));
+    _DRAFTS=drafts; renderDraftList();
+  }catch(e){
+    $('list').innerHTML=`<div class="err">임시저장함 조회 실패: ${esc(e.message)}</div>`;
+  }
+}
+function renderDraftList(){
+  const q=$('q').value.trim().toLowerCase();
+  let rows=_DRAFTS||[];
+  if(q) rows=rows.filter(d=>`${d.subject||''} ${d.to||''} ${d.cc||''} ${d.body||''}`.toLowerCase().includes(q));
+  $('count').textContent=`${rows.length}건`;
+  if(!rows.length){ $('list').innerHTML='<div class="empty">임시저장된 메일이 없습니다</div>'; return; }
+  $('list').innerHTML=rows.map(d=>{
+    const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const att=(d.attachments&&d.attachments.length)?`<span class="mr-clip">📎${d.attachments.length}</span>`:'';
+    const safe=esc(d._file).replace(/'/g,"\\'");
+    return `<div class="grp"><div class="mailrow" onclick="openDraft('${safe}')">
+      <div class="mr-row"><div class="mr-body">
+        <div class="mr-top"><span class="mr-from">📝 받는사람: ${esc(d.to||'(미지정)')}</span><span class="mr-date">${esc(when)}</span></div>
+        <div class="mr-subj">${esc(d.subject||'(제목 없음)')}${att}<button class="btn sm" style="float:right;color:#dc2626;border-color:#fecaca;padding:1px 7px" onclick="event.stopPropagation();deleteDraft('${safe}')">🗑</button></div>
+      </div></div></div></div>`;
+  }).join('');
+}
+async function openDraft(file){
+  const d=(_DRAFTS||[]).find(x=>x._file===file);
+  if(!d){ toast('임시저장을 찾을 수 없습니다','bad'); return; }
+  COMPOSE_ATT=Array.isArray(d.attachments)?d.attachments.slice():[];
+  REPLY_CTX=d.reply||{};
+  _composeDraft={id:d.id, path:`${DRAFT_DIR}/${d._file}`, itemId:d._itemId};
+  $('cTitle').textContent='임시저장 편집';
+  $('cTo').value=d.to||''; $('cCc').value=d.cc||''; $('cSubj').value=d.subject||''; $('cBody').value=d.body||'';
+  $('cMsg').textContent=''; $('cFiles').value=''; if(typeof renderFileChips==='function') renderFileChips();
+  $('compose').classList.remove('min'); $('compose').classList.add('on');
+}
+async function deleteDraft(file){
+  if(!confirm('이 임시저장을 삭제할까요?')) return;
+  try{ await spDeleteByPath(`${DRAFT_DIR}/${file}`); toast('삭제됨','ok'); loadDrafts(); }
+  catch(e){ toast('삭제 실패: '+e.message,'bad'); }
+}
 // ── 메일쓰기: 주소록에서 받는사람/참조 선택 ──
 let _ctPickTarget='cTo', _ctPickSel=new Set();
 async function openContactPicker(targetId){
@@ -4803,7 +4907,7 @@ function renderBigChips(big){
 }
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
-async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');if(_composeDraft&&_composeDraft.path){spDeleteByPath(_composeDraft.path).catch(()=>{});const _wasDraft=(FOLDER==='draft');_composeDraft={};if(_wasDraft)setTimeout(loadDrafts,600);}$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
 let DEEPLINK_UID=null;
 // ════════ 통합일정관리 (엑셀 멀티시트 기반) ════════
 const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
