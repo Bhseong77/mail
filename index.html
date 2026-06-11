@@ -902,7 +902,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v159</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v160</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -3778,7 +3778,8 @@ function anRender(p){
     items.forEach((it,ix)=>{
       h+=`<tr>`;
       if(ix===0){
-        h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
+        h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span>`+
+           `<div style="margin-top:4px;font-size:11px;font-weight:700;white-space:nowrap;${r.negoAmount?'color:#7c3aed;':'color:#cbd5e1;'}">🔻네고 ₩<input class="memo" style="width:92px;${r.negoAmount?'color:#7c3aed;font-weight:700;border-color:#ddd6fe;background:#faf5ff;':''}" value="${esc(fmtNum(r.negoAmount))}" onchange="anField('${p}','${r.fid}','negoAmount',this.value.replace(/[^0-9]/g,''))" placeholder="없음"></div></td>`;
         h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:98px" value="${esc(r.quoteDate||r.date||'')}" onchange="anField('${p}','${r.fid}','quoteDate',this.value)"></td>`;
         const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
         h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:92px" onchange="anCatChange('${p}','${r.fid}',this)">${allCategories().map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')}<option value="__new__">＋ 새 분류…</option></select></td>`;
@@ -3960,12 +3961,13 @@ async function _analyzeOne(p, f){
     return vinfo;
   }
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
-{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
 - category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
 - delivery(납기): 물품을 언제 납품/인도하는지. 문서에 "납기","납품기일","납품시기","delivery","리드타임" 등으로 표기됨.
 - payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금"). "대금지불","지급조건","결제조건" 등으로 표기됨.
 - warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상"). "보증","무상","품질보증" 등. 특이사항·비고란도 찾을 것.
+- negoAmount(네고/협의 최종금액): "네고","NEGO","FINAL NEGO","네고가","협의금액","조정금액","DISCOUNT","D.C","할인","특가","최종금액","최종견적가" 등으로 표기된 **할인/협의 후 최종 총액**. 숫자만(통화기호·콤마 제거). 라인 합계와 다르면 이 값이 실제 계약금액이다. 없으면 빈 문자열.
 - 유효기간(견적 유효기한)은 작성일자가 아니다. 없는 값은 빈 문자열. 여러 품목이면 items 배열에 모두. 회사명은 발행처(공급자) 기준.
 [파일명] ${f.name}
 [내용]
@@ -3981,6 +3983,7 @@ ${text.slice(0,6000)}`;
     delivery:(info&&info.delivery)||'',
     payment:(info&&info.payment)||'',
     warranty:(info&&info.warranty)||'',
+    negoAmount:(info&&info.negoAmount)||prev.negoAmount||'',
     memo:prev.memo||'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
   };
   return info;
@@ -4053,12 +4056,13 @@ async function anAnalyze(p, silent){
       try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
       // 2) Copilot 분석
       let prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
-{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식. 견적 유효기한과 혼동하지 말 것. 없으면 빈 문자열.
 - category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
 - delivery(납기): 물품을 언제 납품/인도하는지 (예: "발주 후 8주", "계약일로부터 1개월", "2026-07-30"). 문서에 "납기","납품기일","납품시기","delivery","D/T","리드타임" 등으로 표기됨.
 - payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금", "납품 후 30일 현금"). 문서에 "대금지불","지급조건","결제조건","payment" 등으로 표기됨.
 - warranty(보증기간): 제품 보증/무상 기간 (예: "납품 후 1년 무상", "1년"). 문서에 "보증","무상","warranty","품질보증" 등으로 표기됨. 특이사항·비고란에 적힌 경우도 찾을 것.
+- negoAmount(네고/협의 최종금액): "네고","NEGO","FINAL NEGO","네고가","협의금액","조정금액","DISCOUNT","D.C","할인","특가","최종금액","최종견적가" 등으로 표기된 **할인/협의 후 최종 총액**. 숫자만(통화기호·콤마 제거). 라인 합계와 다르면 이 값이 실제 계약금액이다. 없으면 빈 문자열.
 - 각 항목을 혼동하지 말 것. 유효기간(견적이 살아있는 기한)은 중요하지 않으니 무시한다.
 - 여러 품목이면 items 배열에 모두. 없는 값은 빈 문자열.
 - 회사명은 발행처(공급자) 기준.
@@ -4081,6 +4085,7 @@ ${text.slice(0,6000)}`;
           delivery:(info&&info.delivery)||'',
           payment:(info&&info.payment)||'',
           warranty:(info&&info.warranty)||'',
+          negoAmount:(info&&info.negoAmount)||'',
           memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
         };
       }
