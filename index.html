@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v166</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v167</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -11156,27 +11156,24 @@ async function prnewSubmitApproval(reqNo){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-msg");
   if(!reqNo){
-    if(msg){ msg.style.color="#dc2626"; msg.textContent="요청번호를 찾을 수 없습니다 (다시 구매요청 입력 저장 필요)"; }
+    if(msg){ msg.style.color="#b45309"; msg.textContent="이 행은 요청번호가 없어 단독 상신이 안 됩니다 — 위 「구매요청 입력 + 결재상신」 버튼으로 다시 진행하세요"; }
     return;
   }
   const nItems=prnewRows.filter(r=>r._pr && r._reqno===reqNo).length;
-  if(msg){ msg.style.color="#b91c1c"; msg.textContent=`⏳ 결재상신 준비 중… 요청번호 ${reqNo} (${nItems}품목, 영림원 ~20초)`; }
+  if(msg){ msg.style.color="#b91c1c"; msg.textContent=`⏳ 다우오피스 결재요청 자동 처리 중… 요청번호 ${reqNo} (${nItems}품목, 영림원+다우 ~60초)`; }
   const _j=(typeof _J==="function")?_J("결재상신: "+reqNo):null;
   try{
     const r=await fetch(`${SERVER}/api/erp/submit-approval`,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({req_no:reqNo})});
+      body:JSON.stringify({req_no:reqNo, auto:true})});
     const d=await r.json();
-    if(d.success && d.approval_url){
-      if(_j&&typeof _Jok==="function") _Jok(_j, "다우오피스 결재창 열림");
-      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 다우오피스 결재창을 새 창으로 엽니다 (요청번호 ${reqNo}) — 결재 완료 후 조회하면 확정(승인)으로 갱신됩니다`; }
-      // 상신된 요청번호 행 → 즉시 결재진행중 표시
+    if(d.submitted || d.success){
+      if(_j&&typeof _Jok==="function") _Jok(_j, "다우오피스 결재요청 완료");
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 다우오피스 결재요청 완료 (요청번호 ${reqNo})`; }
       prnewRows.forEach(row=>{ if(row._reqno===reqNo) row._status="결재진행중"; });
       prnewRenderRows();
-      // BH 브라우저(다우 세션 있음)에서 결재 문서 새 창
-      window.open(d.approval_url, "_blank", "width=1100,height=900");
     }else{
-      if(_j&&typeof _Jno==="function") _Jno(_j, d.error||"실패");
-      if(msg){ msg.style.color="#dc2626"; msg.textContent="결재상신 실패: "+(d.error||""); }
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.message||d.error||"실패");
+      if(msg){ msg.style.color="#dc2626"; msg.textContent="결재요청 확인필요: "+(d.message||d.error||""); }
     }
   }catch(e){
     if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
