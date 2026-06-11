@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v167</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v168</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -10578,6 +10578,7 @@ function poadvPropHasOrder(o){
 //  ※ 표준품여부=0, 등록구분=최초, 총소요량=기본소요량×제작대수 는 서버가 자동 처리
 // ════════════════════════════════════════════════════════════════
 let prnewRows = [];
+let _prnewDeleted = [];   // 대시보드에서 삭제한 신규/저장 행 키(품번/품명) → 임시저장 시 엑셀에서도 제거
 const PRNEW_FIELDS = ["BOM레벨","조달구분","품목분류","품명","품번","규격","구매단위","기본소요량","제작대수","여유수량"];
 
 function prnewNum(v){ const n=parseFloat(String(v==null?"":v).replace(/,/g,"")); return isNaN(n)?0:n; }
@@ -10699,7 +10700,12 @@ function prnewAddRow(prefill){
   }, prefill||{}));
   prnewRenderRows();
 }
-function prnewDelRow(i){ prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRow(); prnewRenderRows(); }
+function prnewDelRow(i){
+  const r=prnewRows[i];
+  // 아직 영림원 저장 안 한 신규/임시 행이면 삭제 키 기록 (임시저장 시 엑셀에서도 제거)
+  if(r && !r._existing && !r._pr){ const k=(r["품번"]||r["품명"]||"").trim(); if(k) _prnewDeleted.push(k); }
+  prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRow(); prnewRenderRows();
+}
 function prnewClearRows(){ prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
 
 function prnewRowInput(i, field, el){ prnewRows[i][field]=el.value; if(field==="기본소요량"||field==="제작대수") prnewRenderRows(); }
@@ -11113,7 +11119,7 @@ async function prnewDraftSave(){
     .map(r=>({ "BOM레벨":r["BOM레벨"]||"", "조달구분":r["조달구분"]||"", "품목분류":r["품목분류"]||"",
       "품명":r["품명"]||"", "품번":r["품번"]||"", "규격":r["규격"]||"", "구매단위":r["구매단위"]||"EA",
       "기본소요량":r["기본소요량"]||"", "제작대수":r["제작대수"]||"", "여유수량":r["여유수량"]||"" }));
-  if(!newRows.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장할 신규 행이 없습니다"; } return; }
+  if(!newRows.length && !_prnewDeleted.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장할 신규 행이 없습니다"; } return; }
   const btn=document.getElementById("prnew-draft-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="저장 중…";
   if(msg){ msg.style.color="#6b7280"; msg.textContent="💾 SharePoint에 임시저장 중…"; }
   try{
@@ -11121,13 +11127,23 @@ async function prnewDraftSave(){
     _prnewState.draft = newRows;   // 현재 신규 행 전체로 교체
     try{ localStorage.setItem("prnew_draft_"+pjt, JSON.stringify(newRows)); }catch(e){}  // 브라우저 캐시 백업
     const ok=await prnewSaveState(pjt);
-    // 화면 행에 _draft 표시 (SP 성공 여부와 무관 — 로컬 캐시엔 저장됨)
+    // 대시보드에서 삭제한 행을 연동 엑셀에서도 제거
+    let delMsg="";
+    if(_prnewDeleted.length){
+      try{
+        const rr=await fetch(`${SERVER}/api/material/remove-excel`,{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({project:pjt, keys:_prnewDeleted})});
+        const dd=await rr.json();
+        if(dd.ok && dd.removed) delMsg=` · 엑셀에서 ${dd.removed}건 삭제`;
+      }catch(e){}
+      _prnewDeleted=[];
+    }
     prnewRows.forEach(r=>{ if(!r._existing && (r["품명"]||r["품번"])) r._draft=true; });
     prnewRenderRows();
     if(ok){
-      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 임시저장 완료 (${newRows.length}건) — 다시 조회해도 그대로 나옵니다`; }
+      if(msg){ msg.style.color="#15803d"; msg.textContent=`✅ 임시저장 완료 (${newRows.length}건)${delMsg} — 다시 조회해도 그대로 나옵니다`; }
     }else{
-      if(msg){ msg.style.color="#d97706"; msg.textContent=`💾 브라우저 캐시에 임시저장 (${newRows.length}건) — SharePoint 동기화 실패(권한). 이 PC에선 재조회 시 그대로 나옵니다`; }
+      if(msg){ msg.style.color="#d97706"; msg.textContent=`💾 브라우저 캐시에 임시저장 (${newRows.length}건)${delMsg} — SharePoint 동기화 실패(권한)`; }
     }
   }catch(e){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 오류: "+e.message; } }
   btn.disabled=false; btn.textContent=ot;
