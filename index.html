@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v164</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v165</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9255,6 +9255,66 @@ function poadvRecalc(){
   if(sa) sa.textContent=poadvComma(a);
   if(ri) ri.textContent=`${poadvRows.length}개 품목`;
 }
+
+// ── 견적서(캐시)에서 단가 불러오기 모달 ──
+function poadvQuoteClose(){ const m=document.getElementById("poadv-quote-modal"); if(m) m.remove(); }
+async function poadvQuotePick(rowIndex){
+  if(typeof AN_DATA==="undefined"){ try{ window.AN_DATA={}; }catch(e){} }
+  // 견적서 탭을 안 들렀으면 캐시가 비어있을 수 있음 → 직접 로드
+  if(typeof AN_DATA!=="undefined" && (!AN_DATA["doc-quote"] || !Object.keys(AN_DATA["doc-quote"]).length)){
+    try{ AN_DATA["doc-quote"]=(await spGetJson(`${DOC_MAP["doc-quote"]}/_analysis.json`))||{}; }catch(e){}
+  }
+  const data=(typeof AN_DATA!=="undefined" && AN_DATA["doc-quote"]) ? AN_DATA["doc-quote"] : {};
+  const rows=[];
+  Object.keys(data).forEach(fid=>{
+    const f=data[fid]||{}; const nego=poadvNum(f.negoAmount);
+    const items=(f.items&&f.items.length)?f.items:[{item:f.company||"",qty:"",price:f.negoAmount||"",amount:f.negoAmount||""}];
+    items.forEach(it=>{
+      const amount=poadvNum(it.amount), price=poadvNum(it.price);
+      const apply = nego>0 ? nego : (amount>0?amount:price);   // 네고 우선
+      rows.push({company:f.company||"?", fileName:f.fileName||"", quoteDate:f.quoteDate||f.date||"",
+                 item:it.item||"", qty:it.qty||"", price, amount, nego, apply});
+    });
+  });
+  if(!rows.length){ alert("견적서 탭에 분석된 견적이 없습니다.\n먼저 견적서를 업로드/분석하세요."); return; }
+  rows.sort((a,b)=>String(b.quoteDate).localeCompare(String(a.quoteDate)));
+  const esc2=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const body=rows.map((r,k)=>`
+    <tr style="cursor:pointer;border-bottom:1px solid #eef0f3;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''" onclick="poadvQuoteApply(${rowIndex}, ${r.apply})">
+      <td style="padding:7px 9px;">${esc2(r.company)}<div style="font-size:11px;color:#94a3b8;">${esc2(r.quoteDate)}</div></td>
+      <td style="padding:7px 9px;">${esc2(r.item)||'<span style="color:#cbd5e1">-</span>'}</td>
+      <td style="padding:7px 9px;text-align:center;">${esc2(r.qty)||'-'}</td>
+      <td style="padding:7px 9px;text-align:right;">${r.amount?poadvComma(r.amount):(r.price?poadvComma(r.price):'-')}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;color:${r.nego>0?'#7c3aed':'#cbd5e1'};">${r.nego>0?('₩'+poadvComma(r.nego)):'없음'}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;color:#0f4c81;">₩${poadvComma(r.apply)}</td>
+    </tr>`).join("");
+  const html=`
+    <div id="poadv-quote-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)poadvQuoteClose()">
+      <div style="background:#fff;width:min(820px,94vw);max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:14px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:700;">📄 견적서에서 단가 불러오기 <span style="font-size:12px;opacity:.8;">행 클릭 → 단가 적용 (네고 있으면 네고 우선)</span></div>
+          <button onclick="poadvQuoteClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div style="overflow:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#f1f4f8;position:sticky;top:0;">
+              <th style="padding:8px 9px;text-align:left;">회사</th><th style="padding:8px 9px;text-align:left;">품목</th>
+              <th style="padding:8px 9px;">수량</th><th style="padding:8px 9px;text-align:right;">금액</th>
+              <th style="padding:8px 9px;text-align:right;">네고</th><th style="padding:8px 9px;text-align:right;">적용단가</th>
+            </tr></thead><tbody>${body}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  const wrap=document.createElement("div"); wrap.innerHTML=html; document.body.appendChild(wrap.firstElementChild);
+}
+function poadvQuoteApply(rowIndex, val){
+  if(rowIndex<0 || rowIndex>=poadvRows.length){ poadvQuoteClose(); return; }
+  poadvRows[rowIndex].price = poadvNum(val);
+  poadvQuoteClose();
+  poadvRenderRows();
+}
+
 function poadvRenderRows(){
   const tb=document.getElementById("poadv-tbody"); if(!tb) return;
   const projs=(typeof pProjects!=='undefined' && pProjects.length) ? pProjects : [];
@@ -9275,7 +9335,7 @@ function poadvRenderRows(){
       <td><input data-r="${i}" data-f="maker" value="${esc(r.maker||"")}" oninput="poadvRowInput(${i},'maker',this)" placeholder="-"></td>
       <td><input data-r="${i}" data-f="delv" type="date" value="${esc(r.delv||"")}" oninput="poadvRowInput(${i},'delv',this)"></td>
       <td><input data-r="${i}" data-f="qty" class="num" type="number" value="${poadvNum(r.qty)}" min="0" oninput="poadvRowInput(${i},'qty',this)"></td>
-      <td><input data-r="${i}" data-f="price" class="num" type="number" value="${poadvNum(r.price)}" min="0" oninput="poadvRowInput(${i},'price',this)"></td>
+      <td><div style="display:flex;align-items:center;gap:3px;"><input data-r="${i}" data-f="price" class="num" type="number" value="${poadvNum(r.price)}" min="0" oninput="poadvRowInput(${i},'price',this)" style="flex:1;min-width:70px;"><button type="button" onclick="poadvQuotePick(${i})" title="견적서에서 단가 불러오기" style="border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer;white-space:nowrap;">📄</button></div></td>
       <td class="num poadv-rowsum" style="padding-right:6px;color:#0f4c81;">${poadvComma(poadvNum(r.qty)*poadvNum(r.price))}</td>
       <td class="poadv-del" onclick="poadvDelRow(${i})">✕</td>
     </tr>`).join("");
