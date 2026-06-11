@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v162</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v163</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -3806,6 +3806,43 @@ function anRender(p){
       });
     }
     h+=`</tbody></table>`;
+    wrap.innerHTML=h; return;
+  }
+  // ── 세금계산서 전용: 회사명·작성일·분류·품목·수량·단가·공급가액·VAT·합계 (납기/보증기간 없음) ──
+  if(p==='doc-tax'){
+    const cats=allCategories();
+    let sumSupply=0, sumVat=0, sumTot=0;
+    let h=`<table class="an-tbl"><thead><tr>
+      <th>회사명</th><th class="c">작성일</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">VAT</th><th class="r">합계</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+    for(const r of rows){
+      const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
+      const rowspan=items.length;
+      const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
+      items.forEach((it,ix)=>{
+        const supply=Number(String(it.amount==null?'':it.amount).replace(/[, ]/g,''))||0;
+        const vat=Math.round(supply*0.1);
+        sumSupply+=supply; sumVat+=vat; sumTot+=supply+vat;
+        h+=`<tr>`;
+        if(ix===0){
+          h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
+          h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:98px" value="${esc(r.quoteDate||r.date||'')}" onchange="anField('${p}','${r.fid}','quoteDate',this.value)"></td>`;
+          const catOpts=cats.map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
+          h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:92px" onchange="anCatChange('${p}','${r.fid}',this)">${catOpts}</select></td>`;
+        }
+        h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(supply))}</td><td class="r">${esc(fmtNum(vat))}</td><td class="r" style="font-weight:700;color:#0f4c81;">${esc(fmtNum(supply+vat))}</td>`;
+        if(ix===0){
+          h+=`<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+             `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
+        }
+        h+=`</tr>`;
+      });
+    }
+    h+=`</tbody><tfoot><tr style="background:#f1f4f8;font-weight:700;">
+      <td colspan="6" class="r">합계</td>
+      <td class="r">${esc(fmtNum(sumSupply))}</td>
+      <td class="r">${esc(fmtNum(sumVat))}</td>
+      <td class="r" style="color:#0f4c81;">${esc(fmtNum(sumTot))}</td>
+      <td colspan="2"></td></tr></tfoot></table>`;
     wrap.innerHTML=h; return;
   }
   let h=`<table class="an-tbl"><thead><tr>
