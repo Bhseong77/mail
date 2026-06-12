@@ -220,6 +220,9 @@ body{display:flex;flex-direction:column;height:100vh}
 .proj-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);text-align:center;gap:8px}
 .proj-ph .big{font-size:48px}
 @media(max-width:760px){ .proj-side{width:128px} .proj-side-btn{font-size:12px;padding:9px 8px} }
+.proj-subtab{font-family:inherit;border:1px solid var(--border);background:#fff;color:var(--t2);font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer}
+.proj-subtab:hover{color:var(--p)}
+.proj-subtab.on{background:#2563eb;border-color:#2563eb;color:#fff}
 .nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
 tr.new-contact{background:#fffbeb}
 tr.new-contact:hover{background:#fef3c7}
@@ -956,7 +959,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v181</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v182</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2220,6 +2223,156 @@ function showPage(p){
 }
 
 // ── 프로젝트 (드롭다운 + 좌측 사이드탭) ──
+// ── TIC 팀 드라이브 (프로젝트 채널 폴더) ──
+const TIC_TEAM_GROUP="8457d8bf-1dd8-4e24-ad22-250816cc7d6d";
+let _ticTeamDriveId=null, _projFolderCache={};
+async function ticTeamDrive(){
+  if(_ticTeamDriveId) return _ticTeamDriveId;
+  const t=await graphToken();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/drive`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("TIC 팀 드라이브 접근 실패 "+r.status);
+  _ticTeamDriveId=(await r.json()).id; return _ticTeamDriveId;
+}
+async function projFolderName(code){
+  if(_projFolderCache[code]) return _projFolderCache[code];
+  const t=await graphToken(); const d=await ticTeamDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root/children?$top=200`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("프로젝트 폴더 목록 실패 "+r.status);
+  const items=(await r.json()).value||[];
+  const f=items.find(it=>it.folder && (it.name||"").includes("("+code+")"));
+  if(!f) throw new Error(`프로젝트 폴더(${code})를 TIC 팀에서 못 찾음`);
+  _projFolderCache[code]=f.name; return f.name;
+}
+async function ticList(path){
+  const t=await graphToken(); const d=await ticTeamDrive();
+  const url=`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/children?$top=500&$orderby=lastModifiedDateTime%20desc`;
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) return []; return (await r.json()).value||[];
+}
+async function ticEnsureFolder(path){
+  const t=await graphToken(); const d=await ticTeamDrive();
+  const parts=path.split("/").filter(Boolean); let cur="";
+  for(const seg of parts){
+    const parent=cur; cur=cur?`${cur}/${seg}`:seg;
+    const url=parent?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(parent)}:/children`
+                    :`https://graph.microsoft.com/v1.0/drives/${d}/root/children`;
+    await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},
+      body:JSON.stringify({name:seg,folder:{},"@microsoft.graph.conflictBehavior":"fail"})}).catch(()=>{});
+  }
+}
+async function ticUpload(path,bytes,ct){
+  const t=await graphToken(); const d=await ticTeamDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+    {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":ct||"application/octet-stream"},body:bytes});
+  if(!r.ok) throw new Error("업로드 실패 "+r.status); return await r.json();
+}
+
+// ── 프로젝트 파일 보드 (장비컨셉/2D레이아웃·컨셉 등 공용) ──
+async function projFileBoard(host, opts){
+  host.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  let driveId, folder, files=[];
+  try{
+    driveId=await ticTeamDrive();
+    const base=await projFolderName(opts.code);
+    folder=`${base}/${opts.rel}`;
+    await ticEnsureFolder(folder);
+    files=(await ticList(folder)).filter(x=>x.file);
+    files.sort((a,b)=>(b.lastModifiedDateTime||"").localeCompare(a.lastModifiedDateTime||""));
+  }catch(e){
+    host.innerHTML=`<div class="proj-ph"><div class="big">⚠️</div>${esc(e.message)}<br><span style="font-size:12px;color:var(--t3)">TIC 팀에 해당 프로젝트 채널이 있는지 확인하세요.</span></div>`;
+    return;
+  }
+  const inputId='projUp_'+Math.random().toString(36).slice(2,8);
+  let h=`<div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <b style="font-size:15px">${esc(opts.title)}</b>
+      <span style="font-size:12px;color:var(--t3)">${esc(folder)}</span>
+      <span style="flex:1"></span>
+      <input type="file" id="${inputId}" style="display:none" ${opts.accept?`accept="${opts.accept}"`:''} onchange="projBoardUpload('${opts.code}','${esc(opts.rel)}',this.files[0])">
+      <button class="btn primary sm" onclick="document.getElementById('${inputId}').click()">⬆ 업로드</button>
+      <button class="btn sm" onclick="projBoardReload()">🔄</button>
+    </div>`;
+  const latest=files[0];
+  h+=`<div id="projPrevBox" style="flex:1;min-height:0;background:#0f1115;position:relative"></div>`;
+  h+=`<div style="max-height:38%;overflow:auto;border-top:1px solid var(--border)">
+    <table class="an-tbl"><thead><tr><th style="width:34px"></th><th>파일명</th><th class="c">수정일</th><th class="c">수정자</th><th class="r">크기</th><th class="c">작업</th></tr></thead><tbody>`;
+  if(!files.length){
+    h+=`<tr><td colspan="6" class="c" style="color:#94a3b8;padding:20px">업로드된 파일이 없습니다. 우측 상단 「업로드」로 추가하세요.</td></tr>`;
+  } else {
+    files.forEach((f,i)=>{
+      const dt=(f.lastModifiedDateTime||"").replace("T"," ").slice(0,16);
+      const who=(f.lastModifiedBy&&f.lastModifiedBy.user&&f.lastModifiedBy.user.displayName)||"";
+      const kb=f.size?(f.size>1048576?(f.size/1048576).toFixed(1)+"MB":Math.round(f.size/1024)+"KB"):"";
+      h+=`<tr${i===0?' style="background:#f0f7ff"':''}>
+        <td class="c">${i===0?'<span title="최신" style="color:#2563eb">●</span>':''}</td>
+        <td><span class="file-link" style="cursor:pointer" onclick="projBoardPreview('${f.id}','${esc(f.name)}')">${esc(f.name)}</span></td>
+        <td class="c">${esc(dt)}</td><td class="c">${esc(who)}</td><td class="r">${kb}</td>
+        <td class="c"><button class="an-mini" title="미리보기" onclick="projBoardPreview('${f.id}','${esc(f.name)}')">👁</button><button class="an-mini" title="다운로드" onclick="projBoardDownload('${f.id}')">⬇</button><button class="an-mini del" title="삭제" onclick="projBoardDelete('${f.id}','${esc(f.name)}')">🗑</button></td>
+      </tr>`;
+    });
+  }
+  h+=`</tbody></table></div></div>`;
+  host.innerHTML=h;
+  _projBoardCtx={code:opts.code, rel:opts.rel, driveId, folder, files};
+  if(latest) projBoardPreview(latest.id, latest.name);
+  else document.getElementById('projPrevBox').innerHTML='<div class="proj-ph"><div class="big">📂</div>미리보기할 파일 없음</div>';
+}
+let _projBoardCtx=null;
+async function projBoardPreview(itemId, name){
+  const box=document.getElementById('projPrevBox'); if(!box||!_projBoardCtx) return;
+  const driveId=_projBoardCtx.driveId;
+  if(/\.(dwg|dxf)$/i.test(name)){ await cadPreview(box, itemId, name, driveId); return; }
+  if(/\.(step|stp|iges|igs|stl|obj|3mf|ply|gltf|glb)$/i.test(name)){ await model3DPreviewDrive(box,itemId,name,driveId); return; }
+  if(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i.test(name)){
+    try{ const blob=await spFetchBlob(itemId,driveId); const u=URL.createObjectURL(blob); box.innerHTML=`<div style="height:100%;overflow:auto;display:flex;align-items:center;justify-content:center;padding:10px"><img src="${u}" style="max-width:100%;max-height:100%"></div>`; }catch(e){ box.innerHTML='<div class="proj-ph">미리보기 실패</div>'; }
+    return;
+  }
+  if(/\.pdf$/i.test(name)){
+    try{ const blob=await spFetchBlob(itemId,driveId); const u=URL.createObjectURL(blob); box.innerHTML=`<iframe src="${u}" style="width:100%;height:100%;border:none"></iframe>`; }catch(e){ box.innerHTML='<div class="proj-ph">미리보기 실패</div>'; }
+    return;
+  }
+  box.innerHTML=`<div class="proj-ph"><div class="big">📄</div>${esc(name)}<br><button class="btn sm" style="margin-top:8px" onclick="projBoardDownload('${itemId}')">⬇ 다운로드</button></div>`;
+}
+async function model3DPreviewDrive(box,itemId,name,driveId){
+  box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">🧊 3D 모델 불러오는 중…</div>';
+  try{ await _loadO3DV(); const blob=await spFetchBlob(itemId,driveId); const file=new File([blob],name);
+    box.innerHTML='<div id="o3dvHostP" style="width:100%;height:100%"></div>';
+    const v=new OV.EmbeddedViewer(document.getElementById('o3dvHostP'),{backgroundColor:new OV.RGBAColor(15,17,21,255),defaultColor:new OV.RGBColor(180,200,225)});
+    v.LoadModelFromFileList([file]);
+  }catch(e){ box.innerHTML=`<div class="proj-ph">3D 미리보기 실패: ${esc(e.message)}</div>`; }
+}
+async function projBoardDownload(itemId){
+  try{ const t=await graphToken(); const d=_projBoardCtx.driveId; const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); const u=j["@microsoft.graph.downloadUrl"]; if(u)window.open(u); }catch(e){ toast('다운로드 실패','bad'); }
+}
+async function projBoardDelete(itemId,name){
+  if(!confirm(`"${name}" 삭제할까요?`)) return;
+  try{ const t=await graphToken(); const d=_projBoardCtx.driveId; await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}}); toast('삭제됨','ok'); projBoardReload(); }catch(e){ toast('삭제 실패','bad'); }
+}
+async function projBoardUpload(code, rel, file){
+  if(!file) return;
+  try{
+    toast('업로드 중…');
+    const base=await projFolderName(code);
+    const buf=await file.arrayBuffer();
+    await ticUpload(`${base}/${rel}/${file.name}`, buf, file.type||"application/octet-stream");
+    toast('업로드 완료','ok'); projBoardReload();
+  }catch(e){ toast('업로드 실패: '+e.message,'bad'); }
+}
+function projBoardReload(){ projConceptRender(_projConceptSub); }
+
+let _projConceptSub='2d';
+function projConceptRender(sub){
+  _projConceptSub=sub||_projConceptSub;
+  const body=document.getElementById('projBody'); if(!body) return;
+  body.innerHTML=`<div style="display:flex;gap:4px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <button class="proj-subtab ${_projConceptSub==='2d'?'on':''}" onclick="projConceptRender('2d')">📐 2D레이아웃</button>
+      <button class="proj-subtab ${_projConceptSub==='concept'?'on':''}" onclick="projConceptRender('concept')">🟦 컨셉</button>
+    </div><div id="projConceptBody" style="height:calc(100% - 49px)"></div>`;
+  const cb=document.getElementById('projConceptBody');
+  if(_projConceptSub==='2d') projFileBoard(cb,{code:_curProject, rel:'01.장비컨셉/2D레이아웃', title:'📐 2D 레이아웃 (DWG)', accept:'.dwg,.dxf,.pdf'});
+  else projFileBoard(cb,{code:_curProject, rel:'01.장비컨셉/컨셉', title:'🟦 컨셉 자료'});
+}
+
 let _curProject=null, _projSub='concept';
 async function projDropdownRender(){
   const dd=document.getElementById('navdd-project'); if(!dd) return;
@@ -2262,9 +2415,7 @@ function projSub(sub){
   // 그 외 탭: page-spec을 원위치로 빼두고 본문 렌더
   if(specPage && specPage.parentElement===body){ specPage.classList.remove('on'); specPage.style.display='none'; document.querySelector('.main')?.appendChild(specPage); }
   if(sub==='concept'){
-    body.innerHTML=`<div class="proj-ph"><div class="big">🟦</div><b style="font-size:16px;color:var(--t2)">${esc(_curProject||'')} · 장비컨셉</b>
-      <div style="font-size:13px">장비 컨셉 자료(이미지·설명)를 여기에 구성할 수 있어요.</div>
-      <div style="font-size:12px;color:var(--t3)">원하는 구성(컨셉 이미지 업로드 / 설명 / 링크 등)을 알려주시면 채워드립니다.</div></div>`;
+    projConceptRender(_projConceptSub||'2d');
   } else if(sub==='func'){
     body.innerHTML=`<div class="proj-ph"><div class="big">📋</div><b style="font-size:16px;color:var(--t2)">${esc(_curProject||'')} · 기능명세서</b>
       <div style="font-size:13px">기능 명세 항목(기능/요구사항/상태)을 표로 관리할 수 있어요.</div>
@@ -4583,15 +4734,15 @@ function _loadDxfParser(){
   return _dxfParserReady;
 }
 // SharePoint 파일 본문(텍스트) 가져오기 — 인증 content (CORS 안전)
-async function spFetchText(itemId){
-  const t=await graphToken(); const d=await spDrive();
+async function spFetchText(itemId, driveId){
+  const t=await graphToken(); const d=driveId||await spDrive();
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/content`,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) throw new Error("파일 다운로드 실패 "+r.status);
   return await r.text();
 }
 // SharePoint 파일 본문(블롭) — 인증 content (3D/DWG 바이너리용)
-async function spFetchBlob(itemId){
-  const t=await graphToken(); const d=await spDrive();
+async function spFetchBlob(itemId, driveId){
+  const t=await graphToken(); const d=driveId||await spDrive();
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/content`,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) throw new Error("파일 다운로드 실패 "+r.status);
   return await r.blob();
@@ -4619,12 +4770,12 @@ function _dxfRenderInto(box, name, itemId, dxf, note){
     <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
   _dxfDraw(document.getElementById("dxfCanvas"), dxf);
 }
-async function cadPreview(box, itemId, name){
+async function cadPreview(box, itemId, name, driveId){
   if(/\.dwg$/i.test(name)){
     // DWG → 서버(ODA File Converter)에서 DXF 변환 시도 → 성공하면 렌더
     box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DWG → DXF 변환 중 (서버)…<br><span style="font-size:12px">최초 1회 ~10초</span></div>';
     try{
-      const blob=await spFetchBlob(itemId);
+      const blob=await spFetchBlob(itemId, driveId);
       const fd=new FormData(); fd.append("file", new File([blob], name, {type:"application/octet-stream"}));
       const r=await fetch(`${SERVER}/api/cad/dwg2dxf`,{method:"POST",body:fd});
       const d=await r.json().catch(()=>({}));
@@ -4649,7 +4800,7 @@ async function cadPreview(box, itemId, name){
   box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DXF 분석 중…</div>';
   try{
     await _loadDxfParser();
-    const txt=await spFetchText(itemId);
+    const txt=await spFetchText(itemId, driveId);
     _dxfRenderInto(box, name, itemId, _dxfParse(txt));
   }catch(e){
     box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>DXF 미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
