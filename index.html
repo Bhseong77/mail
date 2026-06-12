@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v172</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v173</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -4286,7 +4286,103 @@ async function spFetchText(itemId){
   if(!r.ok) throw new Error("파일 다운로드 실패 "+r.status);
   return await r.text();
 }
+// SharePoint 파일 본문(블롭) — 인증 content (3D/DWG 바이너리용)
+async function spFetchBlob(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/content`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("파일 다운로드 실패 "+r.status);
+  return await r.blob();
+}
+function _dxfParse(text){
+  const PR=(window.DxfParser && (window.DxfParser.default||window.DxfParser));
+  if(!PR) throw new Error("DXF 파서 초기화 실패");
+  const inst=new PR();
+  return inst.parseSync ? inst.parseSync(text) : inst.parse(text);
+}
+function _dxfRenderInto(box, name, itemId, dxf, note){
+  box.innerHTML=`<div class="pv-bar">📐 ${esc(name)}${note?` <span style="color:#7c3aed;font-size:12px;font-weight:700">${esc(note)}</span>`:''}
+      <span style="float:right;font-size:12px">
+        <button class="btn sm" onclick="_dxfFit()">⤢ 맞춤</button>
+        <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="margin-left:8px">다운로드</a>
+        <span style="margin-left:8px;color:var(--t3)">휠=확대 · 드래그=이동</span>
+      </span></div>
+    <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
+  _dxfDraw(document.getElementById("dxfCanvas"), dxf);
+}
 async function cadPreview(box, itemId, name){
+  if(/\.dwg$/i.test(name)){
+    // DWG → 서버(ODA File Converter)에서 DXF 변환 시도 → 성공하면 렌더
+    box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DWG → DXF 변환 중 (서버)…<br><span style="font-size:12px">최초 1회 ~10초</span></div>';
+    try{
+      const blob=await spFetchBlob(itemId);
+      const fd=new FormData(); fd.append("file", new File([blob], name, {type:"application/octet-stream"}));
+      const r=await fetch(`${SERVER}/api/cad/dwg2dxf`,{method:"POST",body:fd});
+      const d=await r.json().catch(()=>({}));
+      if(d && d.ok && d.dxf){
+        await _loadDxfParser();
+        _dxfRenderInto(box, name, itemId, _dxfParse(d.dxf), "DWG→DXF 변환");
+        return;
+      }
+      // 변환기 미설치/실패 → 안내
+      box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+        <div class="big">📐</div>${esc(name)}<br><br>
+        <b>DWG 자동 변환 실패</b><br>
+        <span style="font-size:12px;color:var(--t3)">${esc((d&&d.error)||"서버에 ODA File Converter가 설치되지 않았습니다")}<br>
+        오토캐드에서 <b>DXF로 저장</b>하면 변환 없이 바로 미리보기됩니다.</span><br><br>
+        <button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+    }catch(e){
+      box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>DWG 변환 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+    }
+    return;
+  }
+  // DXF
+  box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DXF 분석 중…</div>';
+  try{
+    await _loadDxfParser();
+    const txt=await spFetchText(itemId);
+    _dxfRenderInto(box, name, itemId, _dxfParse(txt));
+  }catch(e){
+    box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>DXF 미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+  }
+}
+
+// ── 3D 모델(STEP/STP/IGES/STL/OBJ/3MF/PLY…) 미리보기 (online-3d-viewer) ──
+let _o3dvReady=null;
+const O3DV_VER="0.12.0";
+function _loadO3DV(){
+  if(window.OV && window.OV.EmbeddedViewer) return Promise.resolve();
+  if(_o3dvReady) return _o3dvReady;
+  _o3dvReady=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src=`https://cdn.jsdelivr.net/npm/online-3d-viewer@${O3DV_VER}/build/o3dv.min.js`;
+    s.onload=()=>{ try{ OV.SetExternalLibLocation(`https://cdn.jsdelivr.net/npm/online-3d-viewer@${O3DV_VER}/libs/`); }catch(e){} res(); };
+    s.onerror=()=>rej(new Error("3D 뷰어 로드 실패(네트워크)"));
+    document.head.appendChild(s);
+  });
+  return _o3dvReady;
+}
+async function model3DPreview(box, itemId, name){
+  box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">🧊 3D 모델 불러오는 중…<br><span style="font-size:12px">STEP은 최초 변환에 수 초 걸립니다</span></div>';
+  try{
+    await _loadO3DV();
+    const blob=await spFetchBlob(itemId);
+    const file=new File([blob], name, {type:"application/octet-stream"});
+    box.innerHTML=`<div class="pv-bar">🧊 ${esc(name)}
+        <span style="float:right;font-size:12px;color:var(--t3)">드래그=회전 · 휠=확대 · 우클릭드래그=이동
+          <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="margin-left:8px">다운로드</a></span></div>
+      <div id="o3dvHost" style="width:100%;height:calc(100% - 44px);position:relative;background:#0f1115"></div>`;
+    const host=document.getElementById("o3dvHost");
+    const viewer=new OV.EmbeddedViewer(host, {
+      backgroundColor:new OV.RGBAColor(15,17,21,255),
+      defaultColor:new OV.RGBColor(180,200,225),
+      onModelLoaded:()=>{ try{ viewer.GetViewer().FitSphereToWindow(viewer.GetViewer().GetBoundingSphere(()=>true), false); }catch(e){} }
+    });
+    viewer.LoadModelFromFileList([file]);
+  }catch(e){
+    box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>3D 미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+  }
+}
+async function cadPreview_OLD(box, itemId, name){
   if(/\.dwg$/i.test(name)){
     box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
       <div class="big">📐</div>${esc(name)}<br><br>
@@ -4414,15 +4510,16 @@ function _dxfDrawEntity(ctx,e,m,T,scale){
     ctx.beginPath(); ctx.arc(P[0],P[1], (e.radius||0)*scale, 0, Math.PI*2); ctx.stroke();
   } else if(t==="ARC"){
     const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
-    let a0=e.startAngle, a1=e.endAngle;   // dxf-parser: 라디안
-    // y 뒤집힘 → 각도 부호 반전, 방향 보정
-    ctx.beginPath(); ctx.arc(P[0],P[1],(e.radius||0)*scale, -a1, -a0); ctx.stroke();
+    let a0=e.startAngle, a1=e.endAngle;   // dxf-parser: 라디안, 반시계(CCW)
+    // 캔버스는 y가 아래로 향함(수동 y뒤집기) → 각도 부호 반전 + 시계방향으로 그림
+    ctx.beginPath(); ctx.arc(P[0],P[1],(e.radius||0)*scale, -a0, -a1, true); ctx.stroke();
   } else if(t==="ELLIPSE"){
     const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
     const mx=e.majorAxisEndPoint||{x:1,y:0};
     const rmaj=Math.hypot(mx.x,mx.y)*scale; const rmin=rmaj*(e.axisRatio||1);
     const rot=Math.atan2(mx.y,mx.x);
-    ctx.beginPath(); ctx.ellipse(P[0],P[1],rmaj,rmin,-rot, -(e.endAngle||Math.PI*2), -(e.startAngle||0)); ctx.stroke();
+    const a0=(e.startAngle==null?0:e.startAngle), a1=(e.endAngle==null?Math.PI*2:e.endAngle);
+    ctx.beginPath(); ctx.ellipse(P[0],P[1],rmaj,rmin,-rot, -a0, -a1, true); ctx.stroke();
   } else if(t==="POINT"){
     const c=m(e.position.x,e.position.y); const P=T(c.x,c.y);
     ctx.beginPath(); ctx.arc(P[0],P[1],1.5,0,Math.PI*2); ctx.fill();
@@ -4448,6 +4545,8 @@ async function _renderTabBody(p,t){
       box.innerHTML=`<div class="pv-bar">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
     } else if(/\.(dxf|dwg)$/i.test(name)){
       await cadPreview(box, itemId, name);
+    } else if(/\.(step|stp|iges|igs|stl|obj|3mf|ply|off|brep|fbx|gltf|glb)$/i.test(name)){
+      await model3DPreview(box, itemId, name);
     } else if(canPreview(name)){
       const pv=await spPreviewUrl(itemId);
       const editBtn=isOfficeFile(name)?`<button class="btn sm" onclick="ftEditNewWin('${itemId}')">✏ 편집 (새 창)</button>`:'';
