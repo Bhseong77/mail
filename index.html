@@ -228,6 +228,10 @@ body{display:flex;flex-direction:column;height:100vh}
 .mailsub:hover{color:var(--p);border-color:var(--p)}
 .mailsub.active{background:#2563eb;border-color:#2563eb;color:#fff}
 .msub-cnt{font-size:11px;opacity:.85;margin-left:2px}
+.mr-dk{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle;white-space:nowrap}
+.mr-new{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle}
+.mr-from.new{font-weight:800;color:var(--t1)}
+.f-newcnt{display:inline-block;margin-left:6px;min-width:18px;padding:1px 6px;font-size:11px;font-weight:800;color:#fff;background:#ef4444;border-radius:10px;text-align:center;vertical-align:middle}
 #composeFab{position:fixed;right:28px;bottom:28px;z-index:1000040;width:58px;height:58px;border:none;border-radius:50%;background:linear-gradient(135deg,#2563eb,#00b4d8);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
 #composeFab:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 10px 28px rgba(37,99,235,.55)}
 #composeFab .fab-plus{position:absolute;right:6px;bottom:6px;font-size:15px;font-weight:800;line-height:1;background:#fff;color:#2563eb;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -967,7 +971,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v194</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v195</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5609,7 +5613,16 @@ function partyName(m){
 }
 function senderKey(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowerCase().trim();return e||partyName(m).toLowerCase();}
 function contactFor(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
-function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
+function labelHtml(m){
+  let h='';
+  const dk=_mailDocKind(m);
+  const DK={quote:['📄 견적서','#1d4ed8','#dbeafe'],invoice:['🧾 거래명세서','#a16207','#fef9c3'],tax:['💳 세금계산서','#7c3aed','#ede9fe']}[dk];
+  if(DK) h+=`<span class="mr-dk" style="color:${DK[1]};background:${DK[2]}">${DK[0]}</span>`;
+  const c=contactFor(m); if(!c) return h;
+  if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;
+  if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;
+  return h;
+}
 let OPEN_GROUPS={};
 let MAIL_SUB='vendor';   // vendor(거래처·기본) | quote(견적서) | invoice(거래명세서) | tax(세금계산서) | customer(고객사)
 // 메일이 '고객사'인지: 주소록 분류가 '고객사'인 연락처에서 온 메일
@@ -5627,8 +5640,8 @@ function _mailDocKind(m){
   if(k==='none'||k==='일반'||k==='etc') return '';
   // 폴백: 제목 키워드 (서버 분류 전 임시)
   const s=(m.subject||'');
-  if(/세금\s*계산서|계산서|tax\s*invoice/i.test(s)) return 'tax';
-  if(/거래\s*명세|명세서|거래명세서|delivery\s*note/i.test(s)) return 'invoice';
+  if(/세금\s*계산서|전자\s*계산서|계산서|tax\s*invoice/i.test(s)) return 'tax';
+  if(/거래\s*명세|납품\s*명세|명세서|결제\s*하?신?\s*내역|결제\s*내역|결제\s*완료|delivery\s*note/i.test(s)) return 'invoice';
   if(/견적|quotation|estimate|\bRFQ\b/i.test(s)) return 'quote';
   return '';
 }
@@ -5636,6 +5649,26 @@ function setMailSub(s){
   MAIL_SUB=s;
   ['vendor','quote','invoice','tax','customer'].forEach(k=>$('msub-'+k)?.classList.toggle('active', s===k));
   renderList();
+}
+// ── 신규(안 본) 메일 추적 (localStorage) ──
+const MAIL_SEEN_KEY='mailSeenUids';
+let MAIL_SEEN=new Set();
+try{ MAIL_SEEN=new Set(JSON.parse(localStorage.getItem(MAIL_SEEN_KEY)||'[]')); }catch(_){}
+function _isNewMail(m){ return FOLDER==='inbox' && !MAIL_SEEN.has('inbox:'+m.uid); }
+function _markSeen(uid){
+  const k='inbox:'+uid;
+  if(FOLDER==='inbox' && !MAIL_SEEN.has(k)){
+    MAIL_SEEN.add(k);
+    try{ localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify([...MAIL_SEEN])); }catch(_){}
+  }
+}
+function _updateNewBadge(){
+  if(FOLDER!=='inbox') return;
+  const n=MAILS.filter(_isNewMail).length;
+  const b=$('f-inbox'); if(!b) return;
+  let bd=b.querySelector('.f-newcnt');
+  if(n>0){ if(!bd){ bd=document.createElement('span'); bd.className='f-newcnt'; b.appendChild(bd); } bd.textContent=n; bd.style.display='inline-block'; }
+  else if(bd){ bd.style.display='none'; }
 }
 function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
 function renderList(){
@@ -5672,6 +5705,8 @@ function renderList(){
     const multi=arr.length>1;
     const sel=(SELECTED===head.uid)?' sel':'';
     const cnt=multi?`<span class="mr-cnt">${arr.length}</span>`:'';
+    const isNew=arr.some(_isNewMail);
+    const newDot=isNew?`<span class="mr-new" title="신규"></span>`:'';
     const caret=multi?`<span class="mr-caret">▶</span>`:'';
     const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
     const hck=SELECTED_UIDS.has(String(head.uid))?'checked':'';
@@ -5680,7 +5715,7 @@ function renderList(){
         <div class="mr-row">
           <input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
           <div class="mr-body">
-            <div class="mr-top"><span class="mr-from">${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
+            <div class="mr-top"><span class="mr-from${isNew?' new':''}">${newDot}${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
             <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
           </div>
         </div>
@@ -5692,6 +5727,7 @@ function renderList(){
   }
   $('list').innerHTML=html;
   updateDelBtn();
+  _updateNewBadge();
 }
 // 그룹 대표 클릭: 카드 토글 + 최신메일 열기
 function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
@@ -5733,7 +5769,7 @@ async function deleteSelected(){
 }
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
 function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
-async function openMail(uid){SELECTED=uid;renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
+async function openMail(uid){SELECTED=uid;_markSeen(uid);renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
 function autoSizeIframe(ifr){
   try{
