@@ -959,7 +959,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v186</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v187</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4977,14 +4977,20 @@ function _dxfDraw(cv, dxf){
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
   for(const {e,m} of ents){ for(const q of _dxfEntityPts(e,m)){ if(q.x<minx)minx=q.x; if(q.y<miny)miny=q.y; if(q.x>maxx)maxx=q.x; if(q.y>maxy)maxy=q.y; } }
   if(!isFinite(minx)){ minx=0;miny=0;maxx=100;maxy=100; }
-  _dxfState={cv,dxf,ents,bbox:{minx,miny,maxx,maxy},scale:1,ox:0,oy:0,mode:"pan",measure:[],hover:null,winStart:null,winCur:null};
+  _dxfState={cv,dxf,ents,bbox:{minx,miny,maxx,maxy},scale:1,ox:0,oy:0,mode:"pan",measure:[],hover:null,winStart:null,winCur:null,_fitted:false};
   _dxfFit();
+  // 박스 크기가 뒤늦게 잡히면 1회 재맞춤(잘림 방지). 사용자 조작 후엔 유지.
+  if(window.ResizeObserver){
+    try{ if(cv._dxfRO) cv._dxfRO.disconnect(); }catch(_){}
+    const ro=new ResizeObserver(()=>{ const s=_dxfState; if(s&&s.cv===cv&&!s._touched){ _dxfFit(); } });
+    ro.observe(cv); cv._dxfRO=ro;
+  }
   let drag=null;
-  cv.onwheel=(ev)=>{ ev.preventDefault(); const s=_dxfState; const f=ev.deltaY<0?1.15:1/1.15;
+  cv.onwheel=(ev)=>{ ev.preventDefault(); const s=_dxfState; s._touched=true; const f=ev.deltaY<0?1.15:1/1.15;
     const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
     s.ox=mx-(mx-s.ox)*f; s.oy=my-(my-s.oy)*f; s.scale*=f; _dxfRender(); };
   cv.onmousedown=(ev)=>{
-    const s=_dxfState; const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    const s=_dxfState; s._touched=true; const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
     if(s.mode==="win"){ s.winStart=[mx,my]; s.winCur=[mx,my]; return; }
     if(s.mode==="measure"){ const w=_dxfScreenToWorld(mx,my); s.measure.push(w); if(s.measure.length>2)s.measure=[w]; _dxfRender(); if(s.measure.length===2)_dxfShowMeasure(); return; }
     drag={x:ev.clientX,y:ev.clientY,ox:s.ox,oy:s.oy}; cv.style.cursor="grabbing";
@@ -5008,14 +5014,21 @@ function _dxfDraw(cv, dxf){
 function _dxfScreenToWorld(sx,sy){ const s=_dxfState; return { x:(sx-s.ox)/s.scale, y:(s.oy-sy)/s.scale }; }
 function _dxfWorldToScreen(x,y){ const s=_dxfState; return [ s.ox + x*s.scale, s.oy - y*s.scale ]; }
 function _dxfZoom(f){ const s=_dxfState; if(!s)return; const w=s.cv.clientWidth/2,h=s.cv.clientHeight/2; s.ox=w-(w-s.ox)*f; s.oy=h-(h-s.oy)*f; s.scale*=f; _dxfRender(); }
-function _dxfFit(){
+function _dxfFit(_retry){
   const s=_dxfState; if(!s) return;
-  const cv=s.cv; const w=cv.clientWidth||cv.width, h=cv.clientHeight||cv.height;
+  const cv=s.cv;
+  let w=cv.clientWidth, h=cv.clientHeight;
+  // 레이아웃 전(크기 0)이면 다음 프레임에 재시도 → 잘림 방지
+  if((w<10||h<10) && (_retry||0)<40){ requestAnimationFrame(()=>_dxfFit((_retry||0)+1)); return; }
+  if(w<10) w=cv.parentElement?cv.parentElement.clientWidth:800;
+  if(h<10) h=cv.parentElement?cv.parentElement.clientHeight:600;
+  w=w||800; h=h||600;
   cv.width=w*devicePixelRatio; cv.height=h*devicePixelRatio;
   const bw=(s.bbox.maxx-s.bbox.minx)||1, bh=(s.bbox.maxy-s.bbox.miny)||1;
   const sc=Math.min(w/bw, h/bh)*0.9; s.scale=sc;
   const cx=(s.bbox.minx+s.bbox.maxx)/2, cy=(s.bbox.miny+s.bbox.maxy)/2;
   s.ox=w/2 - cx*sc; s.oy=h/2 + cy*sc;
+  s._fitted=true;
   _dxfRender();
 }
 function _dxfZoomWindow(x0,y0,x1,y1){
