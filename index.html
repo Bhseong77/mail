@@ -232,6 +232,7 @@ body{display:flex;flex-direction:column;height:100vh}
 .mr-new{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle}
 .mr-from.new{font-weight:800;color:var(--t1)}
 .f-newcnt{display:inline-block;margin-left:6px;min-width:18px;padding:1px 6px;font-size:11px;font-weight:800;color:#fff;background:#ef4444;border-radius:10px;text-align:center;vertical-align:middle}
+.ti-row:hover{background:#f0f7ff}
 #composeFab{position:fixed;right:28px;bottom:28px;z-index:1000040;width:58px;height:58px;border:none;border-radius:50%;background:linear-gradient(135deg,#2563eb,#00b4d8);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
 #composeFab:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 10px 28px rgba(37,99,235,.55)}
 #composeFab .fab-plus{position:absolute;right:6px;bottom:6px;font-size:15px;font-weight:800;line-height:1;background:#fff;color:#2563eb;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -971,7 +972,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v196</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v197</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2310,6 +2311,7 @@ async function projFileBoard(host, opts){
       <span style="flex:1"></span>
       <input type="file" id="${inputId}" style="display:none" ${opts.accept?`accept="${opts.accept}"`:''} onchange="projBoardUpload('${opts.code}','${esc(opts.rel)}',this.files[0])">
       <button class="btn primary sm" onclick="document.getElementById('${inputId}').click()">⬆ 업로드</button>
+      <button class="btn sm" onclick="projImportTech('${opts.code}','${esc(opts.rel)}','${esc(opts.title)}')">📚 기술자료에서 가져오기</button>
       <button class="btn sm" onclick="projBoardReload()">🔄</button>
     </div>`;
   const latest=files[0];
@@ -2411,6 +2413,81 @@ async function projBoardUpload(code, rel, file){
     _projPrevCache={};   // 재업로드 반영 위해 캐시 초기화
     toast('업로드 완료','ok'); projBoardReload();
   }catch(e){ toast('업로드 실패: '+e.message,'bad'); }
+}
+
+// ── 기술자료(06.기술자료)에서 파일 골라 프로젝트 채널로 복사 ──
+let _techImp=null;   // {code, rel, title, path, sel:Set}
+function projImportTech(code, rel, title){
+  _techImp={code, rel, title, path:'', sel:new Set()};
+  let ov=document.getElementById('techImpOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='techImpOv';
+  ov.style.cssText="position:fixed;inset:0;z-index:1000060;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(760px,94vw);max-height:84vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff">
+      <b>📚 기술자료에서 가져오기 <span style="font-weight:400;font-size:12px;opacity:.85">→ ${esc(title)}</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('techImpOv').remove()">✕</span>
+    </div>
+    <div id="techImpCrumb" style="padding:8px 16px;font-size:12px;color:#64748b;border-bottom:1px solid #eef0f3"></div>
+    <div id="techImpList" style="flex:1;overflow:auto;min-height:240px"><div style="padding:30px;text-align:center;color:#94a3b8">불러오는 중…</div></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid #eef0f3">
+      <span id="techImpSel" style="font-size:12px;color:#64748b">선택 0개</span>
+      <span style="flex:1"></span>
+      <button class="btn sm" onclick="document.getElementById('techImpOv').remove()">취소</button>
+      <button class="btn primary sm" id="techImpGo" onclick="projImportTechGo()">📥 복사해 가져오기</button>
+    </div>
+  </div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  projImportTechNav('06.기술자료');
+}
+async function projImportTechNav(path){
+  _techImp.path=path;
+  const crumb=document.getElementById('techImpCrumb'); const list=document.getElementById('techImpList');
+  if(!list) return;
+  list.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8">불러오는 중…</div>';
+  // 빵부스러기
+  const parts=path.split('/'); let acc=''; let cr=parts.map((p,i)=>{ acc=acc?acc+'/'+p:p; const a=acc; return `<span style="cursor:pointer;color:#2563eb" onclick="projImportTechNav('${esc(a).replace(/'/g,"\\'")}')">${esc(p)}</span>`; }).join(' / ');
+  if(crumb) crumb.innerHTML='📁 '+cr;
+  const items=await spList(path);
+  const folders=items.filter(x=>x.folder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  const files=items.filter(x=>x.file).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  let h='<div style="padding:6px 0">';
+  if(path!=='06.기술자료'){ const up=parts.slice(0,-1).join('/')||'06.기술자료'; h+=`<div class="ti-row" style="padding:8px 16px;cursor:pointer;color:#64748b" onclick="projImportTechNav('${esc(up).replace(/'/g,"\\'")}')">⬆ 상위 폴더</div>`; }
+  folders.forEach(f=>{ const np=path+'/'+f.name; h+=`<div class="ti-row" style="padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="projImportTechNav('${esc(np).replace(/'/g,"\\'")}')"><span>📂</span><span>${esc(f.name)}</span></div>`; });
+  files.forEach(f=>{ const checked=_techImp.sel.has(f.id)?'checked':''; const kb=f.size?(f.size>1048576?(f.size/1048576).toFixed(1)+'MB':Math.round(f.size/1024)+'KB'):''; h+=`<div class="ti-row" style="padding:8px 16px;display:flex;align-items:center;gap:8px"><input type="checkbox" ${checked} onchange="projImportTechToggle('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',this.checked)"><span>${taIcon?taIcon(f.name):'📄'}</span><span style="flex:1">${esc(f.name)}</span><span style="font-size:11px;color:#94a3b8">${kb}</span></div>`; });
+  if(!folders.length && !files.length) h+='<div style="padding:30px;text-align:center;color:#94a3b8">폴더가 비어있습니다</div>';
+  h+='</div>';
+  list.innerHTML=h;
+}
+let _techImpNames={};
+function projImportTechToggle(id,name,on){ if(on){_techImp.sel.add(id);_techImpNames[id]=name;} else _techImp.sel.delete(id); const s=document.getElementById('techImpSel'); if(s)s.textContent='선택 '+_techImp.sel.size+'개'; }
+async function projImportTechGo(){
+  if(!_techImp || !_techImp.sel.size){ toast('가져올 파일을 선택하세요','bad'); return; }
+  const btn=document.getElementById('techImpGo'); if(btn){btn.disabled=true;btn.textContent='복사 중…';}
+  try{
+    const t=await graphToken();
+    const srcDrive=await spDrive();
+    const c=await projChannelInfo(_techImp.code);
+    await projChanEnsure(_techImp.code, _techImp.rel);
+    // 대상 폴더(채널 rel) item id 확인
+    const fr=await fetch(`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath(_techImp.rel)}`,{headers:{Authorization:"Bearer "+t}});
+    const destFolder=await fr.json(); const destId=destFolder.id;
+    let ok=0,fail=0;
+    for(const itemId of _techImp.sel){
+      try{
+        const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${srcDrive}/items/${itemId}/copy`,{
+          method:"POST", headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},
+          body:JSON.stringify({parentReference:{driveId:c.driveId, id:destId}, name:_techImpNames[itemId]||undefined})
+        });
+        if(r.ok||r.status===202) ok++; else fail++;
+      }catch(_){ fail++; }
+    }
+    document.getElementById('techImpOv')?.remove();
+    toast(`복사 요청 완료: ${ok}개${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok');
+    _projPrevCache={};
+    // 교차드라이브 복사는 비동기 → 잠시 후 새로고침
+    setTimeout(()=>projBoardReload(), 2500);
+  }catch(e){ toast('가져오기 실패: '+e.message,'bad'); if(btn){btn.disabled=false;btn.textContent='📥 복사해 가져오기';} }
 }
 function projBoardReload(){ if(_projSub==='concept') projConceptRender(_projConceptSub); else projSub(_projSub); }
 
