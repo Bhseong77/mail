@@ -197,12 +197,15 @@ body{display:flex;flex-direction:column;height:100vh}
 .navgrp-btn.active{color:var(--p);border-bottom-color:var(--p);font-weight:700}
 .navgrp-caret{font-size:10px;opacity:.7;transition:transform .15s}
 .nav-group.open .navgrp-caret{transform:rotate(180deg)}
-.nav-dropdown{position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 10px 28px rgba(0,0,0,.14);min-width:170px;z-index:1200;display:none;flex-direction:column;overflow:hidden}
+.nav-dropdown{position:fixed;background:#fff;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 10px 28px rgba(0,0,0,.18);min-width:170px;z-index:3000;display:none;flex-direction:column;overflow:hidden}
 .nav-dropdown.open{display:flex}
 .nav-dropdown button{font-family:inherit;text-align:left;border:none;background:transparent;padding:11px 16px;font-size:13.5px;font-weight:600;color:var(--t2);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--bg3)}
 .nav-dropdown button:last-child{border-bottom:none}
 .nav-dropdown button:hover{background:var(--bg3);color:var(--p)}
 .nav-dropdown button.active{background:#eef2ff;color:var(--p);font-weight:700}
+.dxf-tb{font-family:inherit;border:1px solid #2a3550;background:#1a2030;color:#cfe3ff;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;font-weight:600}
+.dxf-tb:hover{background:#243049;color:#fff}
+.dxf-tb.on{background:#2563eb;border-color:#2563eb;color:#fff}
 .nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
 tr.new-contact{background:#fffbeb}
 tr.new-contact:hover{background:#fef3c7}
@@ -939,7 +942,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v175</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v177</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -2188,14 +2191,19 @@ function showPage(p){
 // ── 상단 nav 드롭다운 (고객사 / 구매자료) ──
 function navToggle(ev, g){
   if(ev) ev.stopPropagation();
-  const grp=document.getElementById('navgrp-'+g)?.parentElement;
+  const btn=document.getElementById('navgrp-'+g);
+  const grp=btn?.parentElement;
   const dd=document.getElementById('navdd-'+g);
   if(!dd) return;
   const wasOpen=dd.classList.contains('open');
-  // 다른 드롭다운 닫기
   document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
   document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
-  if(!wasOpen){ dd.classList.add('open'); grp?.classList.add('open'); }   // 같은 버튼 재클릭=닫힘
+  if(!wasOpen){
+    const r=btn.getBoundingClientRect();
+    dd.style.left=r.left+'px';
+    dd.style.top=r.bottom+'px';
+    dd.classList.add('open'); grp?.classList.add('open');
+  }
 }
 function navPick(p){
   document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
@@ -4353,12 +4361,19 @@ function _dxfParse(text){
   return inst.parseSync ? inst.parseSync(text) : inst.parse(text);
 }
 function _dxfRenderInto(box, name, itemId, dxf, note){
-  box.innerHTML=`<div class="pv-bar">📐 ${esc(name)}${note?` <span style="color:#7c3aed;font-size:12px;font-weight:700">${esc(note)}</span>`:''}
-      <span style="float:right;font-size:12px">
-        <button class="btn sm" onclick="_dxfFit()">⤢ 맞춤</button>
-        <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="margin-left:8px">다운로드</a>
-        <span style="margin-left:8px;color:var(--t3)">휠=확대 · 드래그=이동</span>
-      </span></div>
+  box.innerHTML=`<div class="pv-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span>📐 ${esc(name)}${note?` <span style="color:#7c3aed;font-size:12px;font-weight:700">${esc(note)}</span>`:''}</span>
+      <span style="flex:1"></span>
+      <span style="display:flex;gap:3px;align-items:center">
+        <button class="dxf-tb" title="확대" onclick="_dxfZoom(1.25)">＋</button>
+        <button class="dxf-tb" title="축소" onclick="_dxfZoom(0.8)">－</button>
+        <button class="dxf-tb" title="전체보기(Extents)" onclick="_dxfFit()">⤢ 맞춤</button>
+        <button class="dxf-tb" id="dxf-win-btn" title="영역 확대(드래그)" onclick="_dxfWinMode()">▭ 윈도우</button>
+        <button class="dxf-tb" id="dxf-measure-btn" title="거리 측정(두 점 클릭)" onclick="_dxfMeasureMode()">📏 측정</button>
+        <span id="dxf-readout" style="font-size:11px;color:#9fd0ff;min-width:90px"></span>
+        <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="font-size:12px;margin-left:6px">다운로드</a>
+      </span>
+    </div>
     <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
   _dxfDraw(document.getElementById("dxfCanvas"), dxf);
 }
@@ -4484,84 +4499,144 @@ async function cadPreview_OLD(box, itemId, name){
   const cv=document.getElementById("dxfCanvas");
   _dxfDraw(cv, dxf);
 }
-// 엔티티(블록 INSERT 전개) 수집
+// ── DXF 렌더러 (블록 전개 + 정확한 바운딩 + CAD 줌/팬/측정) ──
+function _deg2rad(d){ return d*Math.PI/180; }
+function _normAng(a){ return (Math.abs(a)>Math.PI*2+0.01) ? _deg2rad(a) : a; }
+
 function _dxfCollect(dxf){
   const blocks=dxf.blocks||{};
   const out=[];
   function emit(ents, m, depth){
-    if(depth>4) return;
-    for(const e of (ents||[])){
+    if(depth>6 || !ents) return;
+    for(const e of ents){
       if(e.type==="INSERT"){
         const b=blocks[e.name]; if(!b) continue;
         const px=(e.position&&e.position.x)||0, py=(e.position&&e.position.y)||0;
-        const sx=e.xScale||1, sy=e.yScale||1, rot=(e.rotation||0)*Math.PI/180;
+        const sx=e.xScale||1, sy=e.yScale||1, rot=_deg2rad(e.rotation||0);
         const cos=Math.cos(rot), sin=Math.sin(rot);
         const bx=(b.position&&b.position.x)||0, by=(b.position&&b.position.y)||0;
-        const m2=(x,y)=>{ const X=(x-bx)*sx, Y=(y-by)*sy; return m(px+X*cos-Y*sin, py+X*sin+Y*cos); };
-        emit(b.entities, m2, depth+1);
+        const cols=e.columnCount||1, rows=e.rowCount||1, cs=e.columnSpacing||0, rs=e.rowSpacing||0;
+        for(let ci=0; ci<cols; ci++) for(let ri=0; ri<rows; ri++){
+          const ox=px+ci*cs, oy=py+ri*rs;
+          const mm=(x,y)=>{ const X=(x-bx)*sx, Y=(y-by)*sy; return m(ox+X*cos-Y*sin, oy+X*sin+Y*cos); };
+          emit(b.entities, mm, depth+1);
+        }
       } else out.push({e, m});
     }
   }
   emit(dxf.entities, (x,y)=>({x,y}), 0);
   return out;
 }
+
 function _dxfEntityPts(e, m){
-  // 바운딩 계산용 대표 점들
-  const pts=[];
-  const P=(x,y)=>{ const q=m(x,y); pts.push(q); };
-  if(e.vertices){ for(const v of e.vertices) P(v.x,v.y); }
-  if(e.center){ const r=e.radius||0; P(e.center.x-r,e.center.y-r); P(e.center.x+r,e.center.y+r); }
-  if(e.position && e.type==="MTEXT"){ P(e.position.x,e.position.y); }
-  if(e.startPoint){ P(e.startPoint.x,e.startPoint.y); }
+  const pts=[]; const P=(x,y)=>{ const q=m(x,y); if(isFinite(q.x)&&isFinite(q.y)) pts.push(q); };
+  const t=e.type;
+  if(t==="LINE" && e.vertices){ for(const v of e.vertices) P(v.x,v.y); }
+  else if((t==="LWPOLYLINE"||t==="POLYLINE") && e.vertices){ for(const v of e.vertices) P(v.x,v.y); }
+  else if(t==="CIRCLE" && e.center){ const r=e.radius||0,c=e.center; for(let i=0;i<8;i++){const a=i/8*Math.PI*2; P(c.x+r*Math.cos(a),c.y+r*Math.sin(a));} }
+  else if(t==="ARC" && e.center){ const r=e.radius||0,c=e.center; let a0=_normAng(e.startAngle),a1=_normAng(e.endAngle); if(a1<a0)a1+=Math.PI*2; for(let i=0;i<=8;i++){const a=a0+(a1-a0)*i/8; P(c.x+r*Math.cos(a),c.y+r*Math.sin(a));} }
+  else if(t==="ELLIPSE" && e.center){ const c=e.center,mx=e.majorAxisEndPoint||{x:1,y:0}; const rmaj=Math.hypot(mx.x,mx.y),rmin=rmaj*(e.axisRatio||1),rot=Math.atan2(mx.y,mx.x); for(let i=0;i<8;i++){const a=i/8*Math.PI*2; const X=rmaj*Math.cos(a),Y=rmin*Math.sin(a); P(c.x+X*Math.cos(rot)-Y*Math.sin(rot), c.y+X*Math.sin(rot)+Y*Math.cos(rot));} }
+  else if((t==="TEXT"||t==="MTEXT")){ const pos=e.startPoint||e.position; if(pos) P(pos.x,pos.y); }
+  else if(t==="POINT" && e.position){ P(e.position.x,e.position.y); }
+  else if((t==="SOLID"||t==="3DFACE"||t==="HATCH") && e.points){ for(const v of e.points) P(v.x,v.y); }
+  else if(e.vertices){ for(const v of e.vertices) P(v.x,v.y); }
+  else if(e.center){ P(e.center.x,e.center.y); }
+  else if(e.position){ P(e.position.x,e.position.y); }
   return pts;
 }
+
 let _dxfState=null;
 function _dxfDraw(cv, dxf){
   const ents=_dxfCollect(dxf);
-  // 바운딩
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
   for(const {e,m} of ents){ for(const q of _dxfEntityPts(e,m)){ if(q.x<minx)minx=q.x; if(q.y<miny)miny=q.y; if(q.x>maxx)maxx=q.x; if(q.y>maxy)maxy=q.y; } }
   if(!isFinite(minx)){ minx=0;miny=0;maxx=100;maxy=100; }
-  _dxfState={cv,dxf,ents,bbox:{minx,miny,maxx,maxy},scale:1,ox:0,oy:0};
+  _dxfState={cv,dxf,ents,bbox:{minx,miny,maxx,maxy},scale:1,ox:0,oy:0,mode:"pan",measure:[],hover:null,winStart:null,winCur:null};
   _dxfFit();
-  // 인터랙션
   let drag=null;
   cv.onwheel=(ev)=>{ ev.preventDefault(); const s=_dxfState; const f=ev.deltaY<0?1.15:1/1.15;
     const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
     s.ox=mx-(mx-s.ox)*f; s.oy=my-(my-s.oy)*f; s.scale*=f; _dxfRender(); };
-  cv.onmousedown=(ev)=>{ drag={x:ev.clientX,y:ev.clientY,ox:_dxfState.ox,oy:_dxfState.oy}; cv.style.cursor="grabbing"; };
-  window.addEventListener("mousemove",_dxfMove);
-  window.addEventListener("mouseup",()=>{ drag=null; if(cv)cv.style.cursor="grab"; });
-  function _dxfMove(ev){ if(!drag)return; _dxfState.ox=drag.ox+(ev.clientX-drag.x); _dxfState.oy=drag.oy+(ev.clientY-drag.y); _dxfRender(); }
+  cv.onmousedown=(ev)=>{
+    const s=_dxfState; const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    if(s.mode==="win"){ s.winStart=[mx,my]; s.winCur=[mx,my]; return; }
+    if(s.mode==="measure"){ const w=_dxfScreenToWorld(mx,my); s.measure.push(w); if(s.measure.length>2)s.measure=[w]; _dxfRender(); if(s.measure.length===2)_dxfShowMeasure(); return; }
+    drag={x:ev.clientX,y:ev.clientY,ox:s.ox,oy:s.oy}; cv.style.cursor="grabbing";
+  };
+  const moveH=(ev)=>{ const s=_dxfState; if(!s||s.cv!==cv) return;
+    const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    if(s.mode==="win" && s.winStart){ s.winCur=[mx,my]; _dxfRender(); return; }
+    if(s.mode==="measure" && s.measure.length===1){ s.hover=_dxfScreenToWorld(mx,my); _dxfRender(); return; }
+    if(!drag) return; s.ox=drag.ox+(ev.clientX-drag.x); s.oy=drag.oy+(ev.clientY-drag.y); _dxfRender();
+  };
+  const upH=(ev)=>{ const s=_dxfState; if(!s||s.cv!==cv){ drag=null; return; }
+    if(s.mode==="win" && s.winStart){ const rect=cv.getBoundingClientRect(); const ex=ev.clientX-rect.left, ey=ev.clientY-rect.top;
+      _dxfZoomWindow(s.winStart[0],s.winStart[1],ex,ey); s.winStart=null; s.winCur=null; s.mode="pan"; cv.style.cursor="grab";
+      const b=document.getElementById("dxf-win-btn"); if(b)b.classList.remove("on"); _dxfRender(); return; }
+    drag=null; if(cv)cv.style.cursor=(s.mode==="pan")?"grab":"crosshair";
+  };
+  if(cv._dxfCleanup) cv._dxfCleanup();
+  window.addEventListener("mousemove",moveH); window.addEventListener("mouseup",upH);
+  cv._dxfCleanup=()=>{ window.removeEventListener("mousemove",moveH); window.removeEventListener("mouseup",upH); };
 }
+function _dxfScreenToWorld(sx,sy){ const s=_dxfState; return { x:(sx-s.ox)/s.scale, y:(s.oy-sy)/s.scale }; }
+function _dxfWorldToScreen(x,y){ const s=_dxfState; return [ s.ox + x*s.scale, s.oy - y*s.scale ]; }
+function _dxfZoom(f){ const s=_dxfState; if(!s)return; const w=s.cv.clientWidth/2,h=s.cv.clientHeight/2; s.ox=w-(w-s.ox)*f; s.oy=h-(h-s.oy)*f; s.scale*=f; _dxfRender(); }
 function _dxfFit(){
   const s=_dxfState; if(!s) return;
   const cv=s.cv; const w=cv.clientWidth||cv.width, h=cv.clientHeight||cv.height;
   cv.width=w*devicePixelRatio; cv.height=h*devicePixelRatio;
   const bw=(s.bbox.maxx-s.bbox.minx)||1, bh=(s.bbox.maxy-s.bbox.miny)||1;
-  const pad=0.92; const sc=Math.min(w/bw, h/bh)*pad;
-  s.scale=sc;
-  // 중심 맞춤 (y축 뒤집기: CAD는 위가 +y)
+  const sc=Math.min(w/bw, h/bh)*0.9; s.scale=sc;
   const cx=(s.bbox.minx+s.bbox.maxx)/2, cy=(s.bbox.miny+s.bbox.maxy)/2;
   s.ox=w/2 - cx*sc; s.oy=h/2 + cy*sc;
   _dxfRender();
 }
+function _dxfZoomWindow(x0,y0,x1,y1){
+  const s=_dxfState; const cv=s.cv; const w=cv.clientWidth,h=cv.clientHeight;
+  if(Math.abs(x1-x0)<5||Math.abs(y1-y0)<5) return;
+  const wx0=(Math.min(x0,x1)-s.ox)/s.scale, wx1=(Math.max(x0,x1)-s.ox)/s.scale;
+  const wy0=(s.oy-Math.max(y0,y1))/s.scale, wy1=(s.oy-Math.min(y0,y1))/s.scale;
+  const bw=Math.abs(wx1-wx0)||1, bh=Math.abs(wy1-wy0)||1;
+  const sc=Math.min(w/bw, h/bh)*0.95; s.scale=sc;
+  const cx=(wx0+wx1)/2, cy=(wy0+wy1)/2; s.ox=w/2 - cx*sc; s.oy=h/2 + cy*sc;
+}
+function _dxfWinMode(){ const s=_dxfState; if(!s)return; s.mode=(s.mode==="win")?"pan":"win"; s.measure=[]; s.cv.style.cursor=s.mode==="win"?"crosshair":"grab";
+  const b=document.getElementById("dxf-win-btn"); if(b)b.classList.toggle("on",s.mode==="win"); const mb=document.getElementById("dxf-measure-btn"); if(mb)mb.classList.remove("on"); _dxfRender(); }
+function _dxfMeasureMode(){ const s=_dxfState; if(!s)return; s.mode=(s.mode==="measure")?"pan":"measure"; s.measure=[]; s.hover=null; s.cv.style.cursor=s.mode==="measure"?"crosshair":"grab";
+  const b=document.getElementById("dxf-measure-btn"); if(b)b.classList.toggle("on",s.mode==="measure"); const wb=document.getElementById("dxf-win-btn"); if(wb)wb.classList.remove("on");
+  const ro=document.getElementById("dxf-readout"); if(ro)ro.textContent=s.mode==="measure"?"두 점 클릭":""; _dxfRender(); }
+function _dxfShowMeasure(){ const s=_dxfState; if(s.measure.length<2)return; const a=s.measure[0],b=s.measure[1]; const d=Math.hypot(b.x-a.x,b.y-a.y);
+  const ro=document.getElementById("dxf-readout"); if(ro)ro.textContent="거리: "+d.toLocaleString(undefined,{maximumFractionDigits:2}); }
 function _dxfRender(){
   const s=_dxfState; if(!s) return;
   const cv=s.cv, ctx=cv.getContext("2d");
   ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
   ctx.clearRect(0,0,cv.width,cv.height);
-  ctx.lineWidth=0.7; ctx.strokeStyle="#9fd0ff"; ctx.fillStyle="#cfe3ff";
-  const T=(x,y)=>[ s.ox + x*s.scale, s.oy - y*s.scale ];   // y 뒤집기
-  for(const {e,m} of s.ents){
-    const col=_dxfColor(e);
-    ctx.strokeStyle=col; ctx.fillStyle=col;
-    try{ _dxfDrawEntity(ctx,e,m,T,s.scale); }catch(_){}
+  ctx.lineWidth=0.7;
+  const T=(x,y)=>[ s.ox + x*s.scale, s.oy - y*s.scale ];
+  for(const {e,m} of s.ents){ const col=_dxfColor(e); ctx.strokeStyle=col; ctx.fillStyle=col; try{ _dxfDrawEntity(ctx,e,m,T,s.scale); }catch(_){} }
+  if(s.mode==="measure" && s.measure.length){
+    ctx.strokeStyle="#ffd166"; ctx.fillStyle="#ffd166"; ctx.lineWidth=1.2;
+    const p0=_dxfWorldToScreen(s.measure[0].x,s.measure[0].y);
+    const end=(s.measure.length>1)?s.measure[1]:s.hover;
+    ctx.beginPath(); ctx.arc(p0[0],p0[1],3,0,Math.PI*2); ctx.fill();
+    if(end){ const p1=_dxfWorldToScreen(end.x,end.y);
+      ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p1[0],p1[1],3,0,Math.PI*2); ctx.fill();
+      const d=Math.hypot(end.x-s.measure[0].x, end.y-s.measure[0].y);
+      ctx.font="12px sans-serif"; ctx.fillStyle="#ffd166";
+      ctx.fillText(d.toLocaleString(undefined,{maximumFractionDigits:2}), (p0[0]+p1[0])/2+6, (p0[1]+p1[1])/2-6);
+    }
+  }
+  if(s.mode==="win" && s.winStart && s.winCur){
+    ctx.strokeStyle="#6bd0ff"; ctx.setLineDash([5,4]); ctx.lineWidth=1;
+    ctx.strokeRect(Math.min(s.winStart[0],s.winCur[0]),Math.min(s.winStart[1],s.winCur[1]),Math.abs(s.winCur[0]-s.winStart[0]),Math.abs(s.winCur[1]-s.winStart[1]));
+    ctx.setLineDash([]);
   }
 }
 function _dxfColor(e){
-  // AutoCAD index color 일부 매핑 (없으면 연한 파랑)
-  const C={1:"#ff6b6b",2:"#ffd166",3:"#a0e7a0",4:"#6bd0ff",5:"#7aa2ff",6:"#ff9cf0",7:"#e6edf3"};
+  const C={1:"#ff6b6b",2:"#ffd166",3:"#a0e7a0",4:"#6bd0ff",5:"#7aa2ff",6:"#ff9cf0",7:"#e6edf3",8:"#888",30:"#ffa94d"};
   return C[e.color] || (e.colorIndex&&C[e.colorIndex]) || "#9fd0ff";
 }
 function _dxfDrawEntity(ctx,e,m,T,scale){
@@ -4580,29 +4655,30 @@ function _dxfDrawEntity(ctx,e,m,T,scale){
     ctx.beginPath(); ctx.arc(P[0],P[1], (e.radius||0)*scale, 0, Math.PI*2); ctx.stroke();
   } else if(t==="ARC"){
     const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
-    let a0=e.startAngle, a1=e.endAngle;   // dxf-parser: 라디안, 반시계(CCW)
-    // 캔버스는 y가 아래로 향함(수동 y뒤집기) → 각도 부호 반전 + 시계방향으로 그림
+    let a0=_normAng(e.startAngle), a1=_normAng(e.endAngle);
     ctx.beginPath(); ctx.arc(P[0],P[1],(e.radius||0)*scale, -a0, -a1, true); ctx.stroke();
   } else if(t==="ELLIPSE"){
     const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
     const mx=e.majorAxisEndPoint||{x:1,y:0};
     const rmaj=Math.hypot(mx.x,mx.y)*scale; const rmin=rmaj*(e.axisRatio||1);
     const rot=Math.atan2(mx.y,mx.x);
-    const a0=(e.startAngle==null?0:e.startAngle), a1=(e.endAngle==null?Math.PI*2:e.endAngle);
-    ctx.beginPath(); ctx.ellipse(P[0],P[1],rmaj,rmin,-rot, -a0, -a1, true); ctx.stroke();
+    const a0=_normAng(e.startAngle==null?0:e.startAngle), a1=_normAng(e.endAngle==null?Math.PI*2:e.endAngle);
+    ctx.beginPath(); ctx.ellipse(P[0],P[1],Math.abs(rmaj),Math.abs(rmin),-rot, -a0, -a1, true); ctx.stroke();
   } else if(t==="POINT"){
     const c=m(e.position.x,e.position.y); const P=T(c.x,c.y);
     ctx.beginPath(); ctx.arc(P[0],P[1],1.5,0,Math.PI*2); ctx.fill();
   } else if(t==="TEXT"||t==="MTEXT"){
     const pos=e.startPoint||e.position||{x:0,y:0}; const c=m(pos.x,pos.y); const P=T(c.x,c.y);
-    const hgt=Math.max(8,(e.textHeight||e.height||10)*scale);
-    ctx.save(); ctx.font=`${hgt}px sans-serif`; ctx.textBaseline="bottom";
-    ctx.fillText(String(e.text||"").replace(/\\[A-Za-z0-9.;]+/g,"").slice(0,120), P[0], P[1]); ctx.restore();
+    const hgt=Math.max(7,(e.textHeight||e.height||10)*scale);
+    if(hgt<5) return;
+    ctx.save(); ctx.font=hgt+"px sans-serif"; ctx.textBaseline="bottom";
+    ctx.fillText(String(e.text||"").replace(/\\[A-Za-z0-9.;|]+/g,"").replace(/[{}]/g,"").slice(0,160), P[0], P[1]); ctx.restore();
   } else if((t==="SOLID"||t==="3DFACE") && e.points){
     ctx.beginPath(); e.points.forEach((v,i)=>{ const q=m(v.x,v.y); const Pp=T(q.x,q.y); i?ctx.lineTo(Pp[0],Pp[1]):ctx.moveTo(Pp[0],Pp[1]); });
     ctx.closePath(); ctx.globalAlpha=.5; ctx.fill(); ctx.globalAlpha=1;
   }
 }
+
 
 async function _renderTabBody(p,t){
   const box=$('ftBody-'+p); if(!box) return;
