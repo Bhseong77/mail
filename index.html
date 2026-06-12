@@ -191,6 +191,18 @@ body{display:flex;flex-direction:column;height:100vh}
 .topnav button{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:600;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.12s}
 .topnav button:hover{color:var(--p)}
 .topnav button.active{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+.nav-group{position:relative;display:inline-flex}
+.navgrp-btn{font-family:inherit;border:none;background:transparent;color:var(--t2);font-size:14px;font-weight:600;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.12s}
+.navgrp-btn:hover{color:var(--p)}
+.navgrp-btn.active{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+.navgrp-caret{font-size:10px;opacity:.7;transition:transform .15s}
+.nav-group.open .navgrp-caret{transform:rotate(180deg)}
+.nav-dropdown{position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 10px 28px rgba(0,0,0,.14);min-width:170px;z-index:1200;display:none;flex-direction:column;overflow:hidden}
+.nav-dropdown.open{display:flex}
+.nav-dropdown button{font-family:inherit;text-align:left;border:none;background:transparent;padding:11px 16px;font-size:13.5px;font-weight:600;color:var(--t2);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--bg3)}
+.nav-dropdown button:last-child{border-bottom:none}
+.nav-dropdown button:hover{background:var(--bg3);color:var(--p)}
+.nav-dropdown button.active{background:#eef2ff;color:var(--p);font-weight:700}
 .nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
 tr.new-contact{background:#fffbeb}
 tr.new-contact:hover{background:#fef3c7}
@@ -927,7 +939,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v174</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v175</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -947,11 +959,22 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="topnav">
   <button id="nav-mail" class="active" onclick="showPage('mail')">📧 메일</button>
-  <button id="nav-contacts" onclick="showPage('contacts')">👥 주소록<span class="nav-badge" id="newBadge" style="display:none">0</span></button>
-  <button id="nav-doc-vendor" onclick="showPage('doc-vendor')">🏢 거래처</button>
-  <button id="nav-doc-quote" onclick="showPage('doc-quote')">📄 견적서</button>
-  <button id="nav-doc-invoice" onclick="showPage('doc-invoice')">📋 거래명세서</button>
-  <button id="nav-doc-tax" onclick="showPage('doc-tax')">🧾 세금계산서</button>
+  <div class="nav-group">
+    <button class="navgrp-btn" id="navgrp-customer" onclick="navToggle(event,'customer')">👥 고객사 <span class="navgrp-caret">▾</span></button>
+    <div class="nav-dropdown" id="navdd-customer">
+      <button id="nav-contacts" onclick="navPick('contacts')">👥 주소록<span class="nav-badge" id="newBadge" style="display:none">0</span></button>
+      <button id="nav-doc-vendor" onclick="navPick('doc-vendor')">🏢 거래처</button>
+    </div>
+  </div>
+  <div class="nav-group">
+    <button class="navgrp-btn" id="navgrp-pdocs" onclick="navToggle(event,'pdocs')">📦 구매자료 <span class="navgrp-caret">▾</span></button>
+    <div class="nav-dropdown" id="navdd-pdocs">
+      <button id="nav-doc-quote" onclick="navPick('doc-quote')">📄 견적서</button>
+      <button id="nav-doc-order" onclick="navPick('doc-order')">📦 발주서</button>
+      <button id="nav-doc-invoice" onclick="navPick('doc-invoice')">📋 거래명세서</button>
+      <button id="nav-doc-tax" onclick="navPick('doc-tax')">🧾 세금계산서</button>
+    </div>
+  </div>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
@@ -1010,6 +1033,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 <!-- 문서 페이지 4개 (공통 템플릿) -->
 <div class="page" id="page-doc-vendor"><div class="panel" id="panel-doc-vendor"></div></div>
 <div class="page" id="page-doc-quote"><div class="panel" id="panel-doc-quote"></div></div>
+<div class="page" id="page-doc-order"><div class="panel" id="panel-doc-order"></div></div>
 <div class="page" id="page-doc-invoice"><div class="panel" id="panel-doc-invoice"></div></div>
 <div class="page" id="page-doc-tax"><div class="panel" id="panel-doc-tax"></div></div>
 <div class="page" id="page-doc-tech"><div class="panel" id="panel-doc-tech"></div></div>
@@ -2140,8 +2164,13 @@ function showPage(p){
   document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail');
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.topnav button').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.navgrp-btn').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-dropdown button').forEach(el=>el.classList.remove('active'));
   $('page-'+p).classList.add('on');
   $('nav-'+p)?.classList.add('active');
+  // 드롭다운 그룹 버튼 active 표시
+  const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax']};
+  for(const [g,pages] of Object.entries(NAVGROUPS)){ $('navgrp-'+g)?.classList.toggle('active', pages.includes(p)); }
   $('specHdrBtn')?.classList.toggle('active', p==='spec');
   if(p==='contacts'){ loadContacts(); loadAnConfig().then(()=>{ if(curPage==='contacts'&&typeof renderContacts==='function'&&CONTACTS&&CONTACTS.length) renderContacts(); }); }
   else if(p.startsWith('doc-')){ renderDocPage(p); if(DOC_ANALYZE.includes(p)){ loadAnConfig().then(()=>{ if(curPage===p && AN_DATA[p]) anRender(p); }); } }
@@ -2156,7 +2185,31 @@ function showPage(p){
   else if(p==='corpcard'){ ccInit(); }
 }
 
-// ── 주소록 ──
+// ── 상단 nav 드롭다운 (고객사 / 구매자료) ──
+function navToggle(ev, g){
+  if(ev) ev.stopPropagation();
+  const grp=document.getElementById('navgrp-'+g)?.parentElement;
+  const dd=document.getElementById('navdd-'+g);
+  if(!dd) return;
+  const wasOpen=dd.classList.contains('open');
+  // 다른 드롭다운 닫기
+  document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
+  document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
+  if(!wasOpen){ dd.classList.add('open'); grp?.classList.add('open'); }   // 같은 버튼 재클릭=닫힘
+}
+function navPick(p){
+  document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
+  document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
+  showPage(p);
+}
+// 바깥 클릭 시 드롭다운 닫기
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.nav-group')){
+    document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
+    document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
+  }
+});
+
 const CONTACTS_PATH="01.연락처/contacts.json";
 const CATEGORIES=["가공","로봇","비전","스테이지","물류","소모품","기타"];
 let CONTACTS=[];
@@ -3395,7 +3448,7 @@ function maMove(idx){
   _openMoveModal();
 }
 
-const DOC_ANALYZE=['doc-vendor','doc-quote','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
+const DOC_ANALYZE=['doc-vendor','doc-quote','doc-order','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
 let docState={};
 let AN_DATA={};   // page -> {fileId: {company,items:[{item,qty,price,amount}],delivery,payment,warranty,memo,fileName,url,date}}
 let AN_FILTER={}; // page -> {customer, q}
