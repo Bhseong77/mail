@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v173</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v174</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -4349,16 +4349,33 @@ async function cadPreview(box, itemId, name){
 // ── 3D 모델(STEP/STP/IGES/STL/OBJ/3MF/PLY…) 미리보기 (online-3d-viewer) ──
 let _o3dvReady=null;
 const O3DV_VER="0.12.0";
-function _loadO3DV(){
-  if(window.OV && window.OV.EmbeddedViewer) return Promise.resolve();
-  if(_o3dvReady) return _o3dvReady;
-  _o3dvReady=new Promise((res,rej)=>{
+const O3DV_CDNS=[
+  `https://cdn.jsdelivr.net/npm/online-3d-viewer@${O3DV_VER}`,
+  `https://unpkg.com/online-3d-viewer@${O3DV_VER}`,
+];
+function _tryScript(src){
+  return new Promise((res,rej)=>{
     const s=document.createElement("script");
-    s.src=`https://cdn.jsdelivr.net/npm/online-3d-viewer@${O3DV_VER}/build/o3dv.min.js`;
-    s.onload=()=>{ try{ OV.SetExternalLibLocation(`https://cdn.jsdelivr.net/npm/online-3d-viewer@${O3DV_VER}/libs/`); }catch(e){} res(); };
-    s.onerror=()=>rej(new Error("3D 뷰어 로드 실패(네트워크)"));
+    s.src=src; s.onload=()=>res(); s.onerror=()=>rej(new Error("load fail: "+src));
     document.head.appendChild(s);
   });
+}
+async function _loadO3DV(){
+  if(window.OV && window.OV.EmbeddedViewer) return;
+  if(_o3dvReady) return _o3dvReady;
+  _o3dvReady=(async()=>{
+    let lastErr=null;
+    for(const base of O3DV_CDNS){
+      try{
+        await _tryScript(`${base}/build/o3dv.min.js`);
+        if(window.OV && window.OV.EmbeddedViewer){
+          try{ OV.SetExternalLibLocation(`${base}/libs/`); }catch(e){}   // STEP용 occt wasm 등
+          return;
+        }
+      }catch(e){ lastErr=e; }
+    }
+    throw new Error("3D 뷰어 로드 실패(네트워크/CDN 차단): "+((lastErr&&lastErr.message)||""));
+  })();
   return _o3dvReady;
 }
 async function model3DPreview(box, itemId, name){
