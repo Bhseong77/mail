@@ -959,7 +959,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v182</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v183</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2223,46 +2223,48 @@ function showPage(p){
 }
 
 // ── 프로젝트 (드롭다운 + 좌측 사이드탭) ──
-// ── TIC 팀 드라이브 (프로젝트 채널 폴더) ──
+// ── TIC 팀 채널 폴더 (비공개 채널 포함: filesFolder API 사용) ──
 const TIC_TEAM_GROUP="8457d8bf-1dd8-4e24-ad22-250816cc7d6d";
-let _ticTeamDriveId=null, _projFolderCache={};
-async function ticTeamDrive(){
-  if(_ticTeamDriveId) return _ticTeamDriveId;
+let _projChanCache={};
+async function projChannelInfo(code){
+  if(_projChanCache[code]) return _projChanCache[code];
   const t=await graphToken();
-  const r=await fetch(`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/drive`,{headers:{Authorization:"Bearer "+t}});
-  if(!r.ok) throw new Error("TIC 팀 드라이브 접근 실패 "+r.status);
-  _ticTeamDriveId=(await r.json()).id; return _ticTeamDriveId;
+  const r=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("TIC 팀 채널 목록 실패 "+r.status);
+  const chans=(await r.json()).value||[];
+  console.log("📺 TIC 채널:", chans.map(c=>c.displayName));
+  const up=String(code).toUpperCase();
+  let ch=chans.find(c=>(c.displayName||"").toUpperCase().includes("("+up+")"))
+       || chans.find(c=>(c.displayName||"").toUpperCase().includes(up));
+  if(!ch) throw new Error(`채널(${code})을 TIC 팀에서 못 찾음\n(채널: ${chans.map(c=>c.displayName).join(', ')||'없음'})`);
+  const fr=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels/${ch.id}/filesFolder`,{headers:{Authorization:"Bearer "+t}});
+  if(!fr.ok) throw new Error("채널 폴더 접근 실패 "+fr.status);
+  const ff=await fr.json();
+  const info={driveId:(ff.parentReference&&ff.parentReference.driveId)||null, rootId:ff.id, name:ch.displayName, channelId:ch.id};
+  if(!info.driveId) throw new Error("채널 드라이브 ID 없음");
+  _projChanCache[code]=info; return info;
 }
-async function projFolderName(code){
-  if(_projFolderCache[code]) return _projFolderCache[code];
-  const t=await graphToken(); const d=await ticTeamDrive();
-  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root/children?$top=200`,{headers:{Authorization:"Bearer "+t}});
-  if(!r.ok) throw new Error("프로젝트 폴더 목록 실패 "+r.status);
-  const items=(await r.json()).value||[];
-  const f=items.find(it=>it.folder && (it.name||"").includes("("+code+")"));
-  if(!f) throw new Error(`프로젝트 폴더(${code})를 TIC 팀에서 못 찾음`);
-  _projFolderCache[code]=f.name; return f.name;
-}
-async function ticList(path){
-  const t=await graphToken(); const d=await ticTeamDrive();
-  const url=`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/children?$top=500&$orderby=lastModifiedDateTime%20desc`;
+async function projChanList(code, rel){
+  const t=await graphToken(); const c=await projChannelInfo(code);
+  const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath(rel)}:/children?$top=500&$orderby=lastModifiedDateTime%20desc`;
   const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) return []; return (await r.json()).value||[];
 }
-async function ticEnsureFolder(path){
-  const t=await graphToken(); const d=await ticTeamDrive();
-  const parts=path.split("/").filter(Boolean); let cur="";
+async function projChanEnsure(code, rel){
+  const t=await graphToken(); const c=await projChannelInfo(code);
+  const parts=rel.split("/").filter(Boolean); let cur="";
   for(const seg of parts){
     const parent=cur; cur=cur?`${cur}/${seg}`:seg;
-    const url=parent?`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(parent)}:/children`
-                    :`https://graph.microsoft.com/v1.0/drives/${d}/root/children`;
+    const url=parent
+      ? `https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath(parent)}:/children`
+      : `https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}/children`;
     await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},
       body:JSON.stringify({name:seg,folder:{},"@microsoft.graph.conflictBehavior":"fail"})}).catch(()=>{});
   }
 }
-async function ticUpload(path,bytes,ct){
-  const t=await graphToken(); const d=await ticTeamDrive();
-  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(path)}:/content`,
+async function projChanUpload(code, rel, filename, bytes, ct){
+  const t=await graphToken(); const c=await projChannelInfo(code);
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath(rel+"/"+filename)}:/content`,
     {method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":ct||"application/octet-stream"},body:bytes});
   if(!r.ok) throw new Error("업로드 실패 "+r.status); return await r.json();
 }
@@ -2272,11 +2274,10 @@ async function projFileBoard(host, opts){
   host.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   let driveId, folder, files=[];
   try{
-    driveId=await ticTeamDrive();
-    const base=await projFolderName(opts.code);
-    folder=`${base}/${opts.rel}`;
-    await ticEnsureFolder(folder);
-    files=(await ticList(folder)).filter(x=>x.file);
+    const c=await projChannelInfo(opts.code);
+    driveId=c.driveId; folder=`${c.name}/${opts.rel}`;
+    await projChanEnsure(opts.code, opts.rel);
+    files=(await projChanList(opts.code, opts.rel)).filter(x=>x.file);
     files.sort((a,b)=>(b.lastModifiedDateTime||"").localeCompare(a.lastModifiedDateTime||""));
   }catch(e){
     host.innerHTML=`<div class="proj-ph"><div class="big">⚠️</div>${esc(e.message)}<br><span style="font-size:12px;color:var(--t3)">TIC 팀에 해당 프로젝트 채널이 있는지 확인하세요.</span></div>`;
@@ -2352,13 +2353,12 @@ async function projBoardUpload(code, rel, file){
   if(!file) return;
   try{
     toast('업로드 중…');
-    const base=await projFolderName(code);
     const buf=await file.arrayBuffer();
-    await ticUpload(`${base}/${rel}/${file.name}`, buf, file.type||"application/octet-stream");
+    await projChanUpload(code, rel, file.name, buf, file.type||"application/octet-stream");
     toast('업로드 완료','ok'); projBoardReload();
   }catch(e){ toast('업로드 실패: '+e.message,'bad'); }
 }
-function projBoardReload(){ projConceptRender(_projConceptSub); }
+function projBoardReload(){ if(_projSub==='concept') projConceptRender(_projConceptSub); else projSub(_projSub); }
 
 let _projConceptSub='2d';
 function projConceptRender(sub){
@@ -2404,26 +2404,14 @@ function projSub(sub){
   _projSub=sub;
   document.querySelectorAll('#page-project .proj-side-btn').forEach(b=>b.classList.toggle('active', b.dataset.sub===sub));
   const body=document.getElementById('projBody'); if(!body) return;
-  // 설비제작사양서: 기존 page-spec 콘텐츠 재사용 (프로젝트 본문으로 이동)
-  const specPage=document.getElementById('page-spec');
-  if(sub==='spec'){
-    if(specPage && specPage.parentElement!==body){ body.innerHTML=''; specPage.classList.add('on'); specPage.style.display='block'; body.appendChild(specPage); }
-    else if(specPage){ body.innerHTML=''; specPage.classList.add('on'); specPage.style.display='block'; body.appendChild(specPage); }
-    if(typeof specInit==='function'){ try{ specInit(); }catch(e){} }
-    return;
-  }
-  // 그 외 탭: page-spec을 원위치로 빼두고 본문 렌더
-  if(specPage && specPage.parentElement===body){ specPage.classList.remove('on'); specPage.style.display='none'; document.querySelector('.main')?.appendChild(specPage); }
   if(sub==='concept'){
     projConceptRender(_projConceptSub||'2d');
+  } else if(sub==='spec'){
+    projFileBoard(body,{code:_curProject, rel:'02.설비제작사양서', title:'🏭 설비제작사양서'});
   } else if(sub==='func'){
-    body.innerHTML=`<div class="proj-ph"><div class="big">📋</div><b style="font-size:16px;color:var(--t2)">${esc(_curProject||'')} · 기능명세서</b>
-      <div style="font-size:13px">기능 명세 항목(기능/요구사항/상태)을 표로 관리할 수 있어요.</div>
-      <div style="font-size:12px;color:var(--t3)">원하는 컬럼 구성을 알려주시면 작성/저장 기능을 붙여드립니다.</div></div>`;
+    projFileBoard(body,{code:_curProject, rel:'03.기능명세서', title:'📋 기능명세서'});
   } else if(sub==='sched'){
-    body.innerHTML=`<div class="proj-ph"><div class="big">📅</div><b style="font-size:16px;color:var(--t2)">${esc(_curProject||'')} · 일정</b>
-      <div style="font-size:13px">프로젝트 일정을 여기서 관리하거나, 통합일정관리와 연동할 수 있어요.</div>
-      <button class="btn sm" style="margin-top:6px" onclick="showPage('schedule')">📅 통합일정관리 열기</button></div>`;
+    projFileBoard(body,{code:_curProject, rel:'04.일정', title:'📅 일정'});
   }
 }
 
