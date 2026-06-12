@@ -959,7 +959,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v188</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v189</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4488,23 +4488,41 @@ function parseOrderTextLocally(text, fileName){
   m=norm.match(/공급가액\s*([\d,]+)/); if(m)out.supply=m[1].replace(/,/g,'');
   m=norm.match(/부가세[^\d]*([\d,]+)/); if(m)out.vat=m[1].replace(/,/g,'');
   m=norm.match(/총금액\s*([\d,]+)/); if(m)out.total=m[1].replace(/,/g,'');
-  // 품목 행: [순번] 품명 품번(프로젝트_..) [규격] EA 수량 단가(x.xx) 금액 [납기 프로젝트]
-  const re=/(\d{1,3})\s+(.+?)\s+([A-Z]{2}\d{5}_\S[^\n]*?)\s+(?:(\S+)\s+)?(EA|ea|개|SET|set|식)\s+([\d,]+)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+)(?:\s+(\d{4}-\d{2}-\d{2}))?/g;
-  let r;
-  while((r=re.exec(norm))!==null){
-    const item=(r[2]||'').trim();
-    const qty=(r[6]||'').replace(/,/g,'');
-    const price=(r[7]||'').replace(/,/g,'');
-    const amount=(r[8]||'').replace(/,/g,'');
-    if(!item) continue;
-    out.items.push({item, spec:(r[4]||'').trim(), qty, price, amount, delivery:r[9]||''});
-    if(!out.delivery && r[9]) out.delivery=r[9];
+  // 품목 행: 단위(EA) + 수량·단가·금액·납기에 앵커. 품명/품번은 EA 앞 텍스트에서 역추출.
+  // (pdf.js 추출 순서가 표마다 달라도 EA+숫자 꼬리는 가장 안정적)
+  const itemRe=/(?:EA|ea|개|SET|set|식|PCS|pcs)\s+([\d,]+)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?:\s+(\d{4}-\d{2}-\d{2}))?/g;
+  let mm, lastIdx=0;
+  while((mm=itemRe.exec(norm))!==null){
+    const pre=norm.slice(lastIdx, mm.index);
+    lastIdx=itemRe.lastIndex;
+    const toks=pre.split(/\s+/).filter(Boolean);
+    // 품번: 프로젝트코드_ 패턴 (예: BR26002_...) — 뒤에서부터 탐색
+    let pnIdx=-1;
+    for(let i=toks.length-1;i>=0;i--){ if(/^[A-Za-z]{1,3}\d{4,6}[_-]/.test(toks[i])||/_/.test(toks[i])){ pnIdx=i; break; } }
+    // 순번: 품번(또는 끝) 앞에서 순수 1~3자리 숫자
+    let seqIdx=-1;
+    for(let i=(pnIdx<0?toks.length-1:pnIdx-1); i>=0; i--){ if(/^\d{1,3}$/.test(toks[i])){ seqIdx=i; break; } }
+    const nameStart = seqIdx>=0 ? seqIdx+1 : Math.max(0,(pnIdx<0?toks.length:pnIdx)-2);
+    const nameEnd = pnIdx<0 ? toks.length : pnIdx;
+    let itemName=toks.slice(nameStart, nameEnd).join(' ').trim();
+    const itemNo = pnIdx>=0 ? toks[pnIdx] : '';
+    if(!itemName) itemName=itemNo;
+    // 헤더 단어가 잡히면 스킵
+    if(/^(품명|품번|규격|단위|수량|단가|금액|납기일?|프로젝트번호|순번)$/.test(itemName)) itemName='';
+    const qty=(mm[1]||'').replace(/,/g,'');
+    const price=(mm[2]||'').replace(/,/g,'');
+    const amount=(mm[3]||'').replace(/,/g,'');
+    if(!itemName && !itemNo) continue;
+    out.items.push({item:itemName||itemNo, itemNo, spec:'', qty, price, amount, delivery:mm[4]||''});
+    if(!out.delivery && mm[4]) out.delivery=mm[4];
   }
-  // 총금액 비었으면 합계 마지막 큰 숫자 또는 품목 금액 합
+  // 총금액 비었으면 품목 금액 합
   if(!out.total){
-    const sum=out.items.reduce((a,b)=>a+(parseFloat(b.amount)||0),0);
+    const sum=out.items.reduce((a,b)=>a+(parseFloat(String(b.amount).replace(/,/g,''))||0),0);
     if(sum>0) out.total=String(sum);
   }
+  console.log('📦 발주서 파싱 raw(앞800):', norm.slice(0,800));
+  console.log('📦 발주서 파싱 결과:', {company:out.company, orderNo:out.orderNo, items:out.items.length, sampleItems:out.items.slice(0,3)});
   return out;
 }
 
