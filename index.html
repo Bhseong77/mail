@@ -959,7 +959,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v185</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v186</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4793,8 +4793,13 @@ function _dxfRenderInto(box, name, itemId, dxf, note){
     <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
   _dxfDraw(document.getElementById("dxfCanvas"), dxf);
 }
+const _dwgDxfCache={};   // itemId → 변환된 DXF 텍스트 (재변환 방지)
 async function cadPreview(box, itemId, name, driveId){
   if(/\.dwg$/i.test(name)){
+    // 캐시된 변환결과 있으면 즉시 렌더
+    if(_dwgDxfCache[itemId]){
+      try{ await _loadDxfParser(); _dxfRenderInto(box, name, itemId, _dxfParse(_dwgDxfCache[itemId]), "DWG→DXF (캐시)"); return; }catch(_){}
+    }
     // DWG → 서버(ODA File Converter)에서 DXF 변환 시도 → 성공하면 렌더
     box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DWG → DXF 변환 중 (서버)…<br><span style="font-size:12px">최초 1회 ~10초</span></div>';
     try{
@@ -4803,6 +4808,7 @@ async function cadPreview(box, itemId, name, driveId){
       const r=await fetch(`${SERVER}/api/cad/dwg2dxf`,{method:"POST",body:fd});
       const d=await r.json().catch(()=>({}));
       if(d && d.ok && d.dxf){
+        _dwgDxfCache[itemId]=d.dxf;   // 변환결과 캐시
         await _loadDxfParser();
         _dxfRenderInto(box, name, itemId, _dxfParse(d.dxf), "DWG→DXF 변환");
         return;
@@ -4820,10 +4826,14 @@ async function cadPreview(box, itemId, name, driveId){
     return;
   }
   // DXF
+  if(_dwgDxfCache[itemId]){
+    try{ await _loadDxfParser(); _dxfRenderInto(box, name, itemId, _dxfParse(_dwgDxfCache[itemId])); return; }catch(_){}
+  }
   box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DXF 분석 중…</div>';
   try{
     await _loadDxfParser();
     const txt=await spFetchText(itemId, driveId);
+    _dwgDxfCache[itemId]=txt;
     _dxfRenderInto(box, name, itemId, _dxfParse(txt));
   }catch(e){
     box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>DXF 미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
