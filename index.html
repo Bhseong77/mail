@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v170</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v171</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -9020,12 +9020,23 @@ function poadvInit(){
 
         <!-- 발주 작성 목록 (구매품의 완료 → 발주 대기) -->
         <div class="acc-card" style="margin-bottom:14px;">
-          <div class="acc-card-header" style="display:flex;align-items:center;gap:10px;">
+          <div class="acc-card-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <div class="acc-card-title">📋 발주 작성 목록 <span style="font-size:12px;color:#7c3aed;font-weight:700;">(구매품의 완료)</span></div>
-            <input id="poadv-prop-q" oninput="poadvPropRender(this.value)" placeholder="🔍 품의번호·거래처·프로젝트·품명" style="padding:7px 11px;border:1px solid #e5e7eb;border-radius:8px;width:280px;font-size:13px;">
+            <input id="poadv-prop-q" oninput="poadvPropRender(this.value)" placeholder="🔍 품의번호·거래처·프로젝트·품명" style="padding:7px 11px;border:1px solid #e5e7eb;border-radius:8px;width:240px;font-size:13px;">
+            <span style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;">
+              <input type="date" id="poadv-prop-from" style="padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px;">
+              <span>~</span>
+              <input type="date" id="poadv-prop-to" style="padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px;">
+            </span>
+            <span style="display:flex;gap:3px;">
+              <button class="acc-period-btn" style="padding:5px 9px;font-size:12px;" onclick="poadvPropPreset(30)">1개월</button>
+              <button class="acc-period-btn" style="padding:5px 9px;font-size:12px;" onclick="poadvPropPreset(90)">3개월</button>
+              <button class="acc-period-btn" style="padding:5px 9px;font-size:12px;" onclick="poadvPropPreset(180)">6개월</button>
+              <button class="acc-period-btn" style="padding:5px 9px;font-size:12px;" onclick="poadvPropPreset(365)">1년</button>
+            </span>
             <span style="flex:1;"></span>
             <label style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="poadv-prop-onlydraft" checked onchange="poadvPropRender((document.getElementById('poadv-prop-q')||{}).value||'')"> 작성만</label>
-            <button class="acc-period-btn" onclick="poadvPropLoad()">↻ 새로고침</button>
+            <button class="acc-period-btn" onclick="poadvPropLoad()">↻ 조회</button>
             <span id="poadv-prop-cnt" style="color:#6b7280;font-size:13px;"></span>
           </div>
           <div style="overflow-x:auto;max-height:280px;overflow-y:auto;">
@@ -10516,12 +10527,33 @@ function poadvDelvSubmit(pono){
 //  발주 작성 목록 (구매품의 완료) — 프로젝트구매품의품목조회 진행상태
 // ════════════════════════════════════════════════════════════════
 let _poadvPropList = null;
+function poadvPropDefaultDates(){
+  const f=document.getElementById("poadv-prop-from"), t=document.getElementById("poadv-prop-to");
+  if(!f||!t) return;
+  if(!f.value || !t.value){
+    const today=new Date(), from=new Date(Date.now()-30*86400000);
+    const iso=d=>d.toISOString().slice(0,10);
+    if(!t.value) t.value=iso(today);
+    if(!f.value) f.value=iso(from);
+  }
+}
+function poadvPropPreset(days){
+  const f=document.getElementById("poadv-prop-from"), t=document.getElementById("poadv-prop-to");
+  const iso=d=>d.toISOString().slice(0,10);
+  if(t) t.value=iso(new Date());
+  if(f) f.value=iso(new Date(Date.now()-days*86400000));
+  poadvPropLoad();
+}
 async function poadvPropLoad(){
+  poadvPropDefaultDates();
+  const from=(document.getElementById("poadv-prop-from")||{}).value||"";
+  const to=(document.getElementById("poadv-prop-to")||{}).value||"";
   const tb=document.getElementById("poadv-prop-tbody");
-  if(tb) tb.innerHTML=erpLoadingRow(7,'프로젝트구매품의품목조회에서 불러오는 중…','진행상태 포함 ~25초');
+  if(tb) tb.innerHTML=erpLoadingRow(7,'프로젝트구매품의품목조회에서 불러오는 중…',`${from}~${to} · 진행상태 포함 ~25초`);
   try{
     if(typeof pLoadConfig==="function"){ try{ await pLoadConfig(); }catch(e){} }
-    const r=await fetch(`${SERVER}/api/erp/proposal-list`);
+    const qs=(from&&to)?`?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`:"";
+    const r=await fetch(`${SERVER}/api/erp/proposal-list${qs}`);
     const d=await r.json();
     _poadvPropList=d.rows||[];
     poadvPropRender((document.getElementById("poadv-prop-q")||{}).value||"");
