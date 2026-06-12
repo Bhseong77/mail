@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v171</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v172</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -4266,6 +4266,177 @@ async function ftPreviewFile(p,itemId,name){
   renderTabs(p);
   await _renderTabBody(p,{itemId,name});
 }
+// ── CAD(DXF) 미리보기 ──────────────────────────────────────────────
+let _dxfParserReady=null;
+function _loadDxfParser(){
+  if(window.DxfParser) return Promise.resolve();
+  if(_dxfParserReady) return _dxfParserReady;
+  _dxfParserReady=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js";
+    s.onload=()=>res(); s.onerror=()=>rej(new Error("dxf-parser 로드 실패(네트워크)"));
+    document.head.appendChild(s);
+  });
+  return _dxfParserReady;
+}
+// SharePoint 파일 본문(텍스트) 가져오기 — 인증 content (CORS 안전)
+async function spFetchText(itemId){
+  const t=await graphToken(); const d=await spDrive();
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/content`,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) throw new Error("파일 다운로드 실패 "+r.status);
+  return await r.text();
+}
+async function cadPreview(box, itemId, name){
+  if(/\.dwg$/i.test(name)){
+    box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+      <div class="big">📐</div>${esc(name)}<br><br>
+      <b>DWG(오토캐드 원본)</b>은 브라우저에서 직접 열 수 없습니다.<br>
+      <span style="font-size:12px;color:var(--t3)">오토캐드에서 <b>DXF로 저장(다른 이름으로 → *.dxf)</b>하면 여기서 바로 미리보기됩니다.</span><br><br>
+      <button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+    return;
+  }
+  box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DXF 분석 중…</div>';
+  let dxf;
+  try{
+    await _loadDxfParser();
+    const txt=await spFetchText(itemId);
+    const PR = (window.DxfParser && (window.DxfParser.default||window.DxfParser));
+    if(!PR) throw new Error("DXF 파서 초기화 실패");
+    const inst=new PR();
+    dxf = inst.parseSync ? inst.parseSync(txt) : inst.parse(txt);
+  }catch(e){
+    box.innerHTML=`<div class="rd-empty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="big">⚠️</div>DXF 미리보기 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn sm" onclick="spDownloadUrl('${itemId}').then(u=>window.open(u))">⬇ 다운로드</button></div>`;
+    return;
+  }
+  box.innerHTML=`<div class="pv-bar">📐 ${esc(name)}
+      <span style="float:right;font-size:12px">
+        <button class="btn sm" onclick="_dxfFit()">⤢ 맞춤</button>
+        <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="margin-left:8px">다운로드</a>
+        <span style="margin-left:8px;color:var(--t3)">휠=확대 · 드래그=이동</span>
+      </span></div>
+    <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
+  const cv=document.getElementById("dxfCanvas");
+  _dxfDraw(cv, dxf);
+}
+// 엔티티(블록 INSERT 전개) 수집
+function _dxfCollect(dxf){
+  const blocks=dxf.blocks||{};
+  const out=[];
+  function emit(ents, m, depth){
+    if(depth>4) return;
+    for(const e of (ents||[])){
+      if(e.type==="INSERT"){
+        const b=blocks[e.name]; if(!b) continue;
+        const px=(e.position&&e.position.x)||0, py=(e.position&&e.position.y)||0;
+        const sx=e.xScale||1, sy=e.yScale||1, rot=(e.rotation||0)*Math.PI/180;
+        const cos=Math.cos(rot), sin=Math.sin(rot);
+        const bx=(b.position&&b.position.x)||0, by=(b.position&&b.position.y)||0;
+        const m2=(x,y)=>{ const X=(x-bx)*sx, Y=(y-by)*sy; return m(px+X*cos-Y*sin, py+X*sin+Y*cos); };
+        emit(b.entities, m2, depth+1);
+      } else out.push({e, m});
+    }
+  }
+  emit(dxf.entities, (x,y)=>({x,y}), 0);
+  return out;
+}
+function _dxfEntityPts(e, m){
+  // 바운딩 계산용 대표 점들
+  const pts=[];
+  const P=(x,y)=>{ const q=m(x,y); pts.push(q); };
+  if(e.vertices){ for(const v of e.vertices) P(v.x,v.y); }
+  if(e.center){ const r=e.radius||0; P(e.center.x-r,e.center.y-r); P(e.center.x+r,e.center.y+r); }
+  if(e.position && e.type==="MTEXT"){ P(e.position.x,e.position.y); }
+  if(e.startPoint){ P(e.startPoint.x,e.startPoint.y); }
+  return pts;
+}
+let _dxfState=null;
+function _dxfDraw(cv, dxf){
+  const ents=_dxfCollect(dxf);
+  // 바운딩
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(const {e,m} of ents){ for(const q of _dxfEntityPts(e,m)){ if(q.x<minx)minx=q.x; if(q.y<miny)miny=q.y; if(q.x>maxx)maxx=q.x; if(q.y>maxy)maxy=q.y; } }
+  if(!isFinite(minx)){ minx=0;miny=0;maxx=100;maxy=100; }
+  _dxfState={cv,dxf,ents,bbox:{minx,miny,maxx,maxy},scale:1,ox:0,oy:0};
+  _dxfFit();
+  // 인터랙션
+  let drag=null;
+  cv.onwheel=(ev)=>{ ev.preventDefault(); const s=_dxfState; const f=ev.deltaY<0?1.15:1/1.15;
+    const rect=cv.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    s.ox=mx-(mx-s.ox)*f; s.oy=my-(my-s.oy)*f; s.scale*=f; _dxfRender(); };
+  cv.onmousedown=(ev)=>{ drag={x:ev.clientX,y:ev.clientY,ox:_dxfState.ox,oy:_dxfState.oy}; cv.style.cursor="grabbing"; };
+  window.addEventListener("mousemove",_dxfMove);
+  window.addEventListener("mouseup",()=>{ drag=null; if(cv)cv.style.cursor="grab"; });
+  function _dxfMove(ev){ if(!drag)return; _dxfState.ox=drag.ox+(ev.clientX-drag.x); _dxfState.oy=drag.oy+(ev.clientY-drag.y); _dxfRender(); }
+}
+function _dxfFit(){
+  const s=_dxfState; if(!s) return;
+  const cv=s.cv; const w=cv.clientWidth||cv.width, h=cv.clientHeight||cv.height;
+  cv.width=w*devicePixelRatio; cv.height=h*devicePixelRatio;
+  const bw=(s.bbox.maxx-s.bbox.minx)||1, bh=(s.bbox.maxy-s.bbox.miny)||1;
+  const pad=0.92; const sc=Math.min(w/bw, h/bh)*pad;
+  s.scale=sc;
+  // 중심 맞춤 (y축 뒤집기: CAD는 위가 +y)
+  const cx=(s.bbox.minx+s.bbox.maxx)/2, cy=(s.bbox.miny+s.bbox.maxy)/2;
+  s.ox=w/2 - cx*sc; s.oy=h/2 + cy*sc;
+  _dxfRender();
+}
+function _dxfRender(){
+  const s=_dxfState; if(!s) return;
+  const cv=s.cv, ctx=cv.getContext("2d");
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.lineWidth=0.7; ctx.strokeStyle="#9fd0ff"; ctx.fillStyle="#cfe3ff";
+  const T=(x,y)=>[ s.ox + x*s.scale, s.oy - y*s.scale ];   // y 뒤집기
+  for(const {e,m} of s.ents){
+    const col=_dxfColor(e);
+    ctx.strokeStyle=col; ctx.fillStyle=col;
+    try{ _dxfDrawEntity(ctx,e,m,T,s.scale); }catch(_){}
+  }
+}
+function _dxfColor(e){
+  // AutoCAD index color 일부 매핑 (없으면 연한 파랑)
+  const C={1:"#ff6b6b",2:"#ffd166",3:"#a0e7a0",4:"#6bd0ff",5:"#7aa2ff",6:"#ff9cf0",7:"#e6edf3"};
+  return C[e.color] || (e.colorIndex&&C[e.colorIndex]) || "#9fd0ff";
+}
+function _dxfDrawEntity(ctx,e,m,T,scale){
+  const t=e.type;
+  if(t==="LINE" && e.vertices && e.vertices.length>=2){
+    const a=m(e.vertices[0].x,e.vertices[0].y), b=m(e.vertices[1].x,e.vertices[1].y);
+    const A=T(a.x,a.y), B=T(b.x,b.y);
+    ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+  } else if((t==="LWPOLYLINE"||t==="POLYLINE") && e.vertices){
+    ctx.beginPath();
+    e.vertices.forEach((v,i)=>{ const q=m(v.x,v.y); const P=T(q.x,q.y); i?ctx.lineTo(P[0],P[1]):ctx.moveTo(P[0],P[1]); });
+    if(e.shape||e.closed) ctx.closePath();
+    ctx.stroke();
+  } else if(t==="CIRCLE"){
+    const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
+    ctx.beginPath(); ctx.arc(P[0],P[1], (e.radius||0)*scale, 0, Math.PI*2); ctx.stroke();
+  } else if(t==="ARC"){
+    const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
+    let a0=e.startAngle, a1=e.endAngle;   // dxf-parser: 라디안
+    // y 뒤집힘 → 각도 부호 반전, 방향 보정
+    ctx.beginPath(); ctx.arc(P[0],P[1],(e.radius||0)*scale, -a1, -a0); ctx.stroke();
+  } else if(t==="ELLIPSE"){
+    const c=m(e.center.x,e.center.y); const P=T(c.x,c.y);
+    const mx=e.majorAxisEndPoint||{x:1,y:0};
+    const rmaj=Math.hypot(mx.x,mx.y)*scale; const rmin=rmaj*(e.axisRatio||1);
+    const rot=Math.atan2(mx.y,mx.x);
+    ctx.beginPath(); ctx.ellipse(P[0],P[1],rmaj,rmin,-rot, -(e.endAngle||Math.PI*2), -(e.startAngle||0)); ctx.stroke();
+  } else if(t==="POINT"){
+    const c=m(e.position.x,e.position.y); const P=T(c.x,c.y);
+    ctx.beginPath(); ctx.arc(P[0],P[1],1.5,0,Math.PI*2); ctx.fill();
+  } else if(t==="TEXT"||t==="MTEXT"){
+    const pos=e.startPoint||e.position||{x:0,y:0}; const c=m(pos.x,pos.y); const P=T(c.x,c.y);
+    const hgt=Math.max(8,(e.textHeight||e.height||10)*scale);
+    ctx.save(); ctx.font=`${hgt}px sans-serif`; ctx.textBaseline="bottom";
+    ctx.fillText(String(e.text||"").replace(/\\[A-Za-z0-9.;]+/g,"").slice(0,120), P[0], P[1]); ctx.restore();
+  } else if((t==="SOLID"||t==="3DFACE") && e.points){
+    ctx.beginPath(); e.points.forEach((v,i)=>{ const q=m(v.x,v.y); const Pp=T(q.x,q.y); i?ctx.lineTo(Pp[0],Pp[1]):ctx.moveTo(Pp[0],Pp[1]); });
+    ctx.closePath(); ctx.globalAlpha=.5; ctx.fill(); ctx.globalAlpha=1;
+  }
+}
+
 async function _renderTabBody(p,t){
   const box=$('ftBody-'+p); if(!box) return;
   const {itemId,name}=t;
@@ -4275,6 +4446,8 @@ async function _renderTabBody(p,t){
     if(isImageFile(name)){
       const url=await spDownloadUrl(itemId);
       box.innerHTML=`<div class="pv-bar">👁 ${esc(name)}</div><div style="padding:10px;overflow:auto;height:calc(100% - 44px)"><img src="${esc(url)}" style="max-width:100%;display:block;margin:0 auto"></div>`;
+    } else if(/\.(dxf|dwg)$/i.test(name)){
+      await cadPreview(box, itemId, name);
     } else if(canPreview(name)){
       const pv=await spPreviewUrl(itemId);
       const editBtn=isOfficeFile(name)?`<button class="btn sm" onclick="ftEditNewWin('${itemId}')">✏ 편집 (새 창)</button>`:'';
