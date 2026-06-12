@@ -927,7 +927,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v169</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v170</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <button class="btn-spec-hdr" id="specHdrBtn" onclick="showPage('spec')">🏭 설비제작사양서 <span class="nav-ing">ing</span></button>
@@ -3528,7 +3528,34 @@ document.addEventListener('contextmenu',function(e){
   if(!row) return;                 // 트리 밖 우클릭은 브라우저 기본 메뉴 허용
   e.preventDefault(); e.stopPropagation();
   ftMenu(e, row.dataset.ftp, row.dataset.ftpath||'', row.dataset.ftfolder==='1', row.dataset.ftid||'', row.dataset.ftname||'', +(row.dataset.ftsize||0));
+  _renameTarget={kind:'tree', p:row.dataset.ftp, path:row.dataset.ftpath||'', isFolder:row.dataset.ftfolder==='1', itemId:row.dataset.ftid||'', name:row.dataset.ftname||''};
 }, true);
+
+// ── F2 / 우클릭 이름변경: 문서 트리(폴더·파일) + 분석탭 파일 공통 ──
+let _renameTarget=null;
+document.addEventListener('click',function(e){
+  const row=e.target.closest && e.target.closest('.ft-row[data-ftp]');
+  if(row){ _renameTarget={kind:'tree', p:row.dataset.ftp, path:row.dataset.ftpath||'', isFolder:row.dataset.ftfolder==='1', itemId:row.dataset.ftid||'', name:row.dataset.ftname||''}; return; }
+  const af=e.target.closest && e.target.closest('.an-file');
+  if(af){ _renameTarget={kind:'an', p:af.dataset.anp, fid:af.dataset.anfid, name:af.dataset.anname||''}; }
+}, true);
+document.addEventListener('keydown',function(e){
+  if(e.key!=='F2') return;
+  const ae=document.activeElement;
+  if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;   // 입력 중엔 무시
+  if(!_renameTarget) return;
+  e.preventDefault();
+  if(_renameTarget.kind==='tree'){
+    const t=_renameTarget;
+    if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
+    const nn=prompt(t.isFolder?'새 폴더 이름:':'새 파일 이름:', t.name);
+    if(!nn||nn===t.name) return;
+    spRenameItem(t.itemId,nn).then(()=>{ toast('이름 변경됨','ok'); try{actLog(`✏ 이름변경: ${t.name} → ${nn}`);}catch(_){}; FT_CHILDREN={}; renderFileTree(t.p); })
+      .catch(ex=>toast('실패: '+ex.message,'bad'));
+  }else if(_renameTarget.kind==='an'){
+    anRename(_renameTarget.p, _renameTarget.fid);
+  }
+});
 async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
@@ -3763,7 +3790,7 @@ function anRender(p){
       const ek=esc(k).replace(/'/g,"\\'");
       const _cat=g.category||guessCategory((g.company||'')+' '+(g.address||''));
       const catOpts=allCategories().map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
-      const fileChips=g.files.map(r=>`<span class="file-link" style="display:inline-block;margin:1px 4px 1px 0" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">📄 ${esc((r.fileName||'').slice(0,22))}</span><span class="an-mini" style="cursor:pointer" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</span><span class="an-mini del" style="cursor:pointer;margin-right:8px" onclick="anDelete('${p}','${r.fid}')">🗑</span>`).join('<br>');
+      const fileChips=g.files.map(r=>`<span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" style="display:inline-block;margin:1px 4px 1px 0" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">📄 ${esc((r.fileName||'').slice(0,22))}</span><span class="an-mini" style="cursor:pointer" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</span><span class="an-mini del" style="cursor:pointer;margin-right:8px" onclick="anDelete('${p}','${r.fid}')">🗑</span>`).join('<br>');
       h+=`<tr>
         <td><span class="an-co">${esc(g.company||'?')}</span></td>
         <td class="c"><select class="memo" style="width:92px" onchange="anVendorCat('${p}','${ek}',this)">${catOpts}</select></td>
@@ -3801,7 +3828,7 @@ function anRender(p){
           const cardOpts=`<option value="">-</option>`+cards.map(c=>{const n=_cardName(c);return `<option ${n===(r.card||'')?'selected':''}>${esc(n)}</option>`;}).join('');
           h+=`<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>`+
              `<td rowspan="${rowspan}" class="c"><select class="memo" style="width:112px" onchange="anField('${p}','${r.fid}','card',this.value)">${cardOpts}</select></td>`+
-             `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+             `<td rowspan="${rowspan}"><span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">${esc((r.fileName||'').slice(0,24))}</span></td>`+
              `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
         }
         h+=`</tr>`;
@@ -3833,7 +3860,7 @@ function anRender(p){
         }
         h+=`<td class="item">${esc(it.item||'')}</td><td class="c">${esc(String(it.qty||''))}</td><td class="r">${esc(fmtNum(it.price))}</td><td class="r">${esc(fmtNum(supply))}</td><td class="r">${esc(fmtNum(vat))}</td><td class="r" style="font-weight:700;color:#0f4c81;">${esc(fmtNum(supply+vat))}</td>`;
         if(ix===0){
-          h+=`<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+          h+=`<td rowspan="${rowspan}"><span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">${esc((r.fileName||'').slice(0,24))}</span></td>`+
              `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
         }
         h+=`</tr>`;
@@ -3868,7 +3895,7 @@ function anRender(p){
            `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.payment||'')}" onchange="anField('${p}','${r.fid}','payment',this.value)"></td>`+
            `<td rowspan="${rowspan}" class="c"><input class="memo" value="${esc(r.warranty||'')}" onchange="anField('${p}','${r.fid}','warranty',this.value)"></td>`+
            `<td rowspan="${rowspan}"><input class="memo" value="${esc(r.memo||'')}" onchange="anField('${p}','${r.fid}','memo',this.value)"></td>`+
-           `<td rowspan="${rowspan}"><span class="file-link" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anDownload('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭=다운로드">${esc((r.fileName||'').slice(0,24))}</span></td>`+
+           `<td rowspan="${rowspan}"><span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">${esc((r.fileName||'').slice(0,24))}</span></td>`+
            `<td rowspan="${rowspan}" class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>`;
       }
       h+=`</tr>`;
