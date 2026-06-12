@@ -228,6 +228,9 @@ body{display:flex;flex-direction:column;height:100vh}
 .mailsub:hover{color:var(--p);border-color:var(--p)}
 .mailsub.active{background:#2563eb;border-color:#2563eb;color:#fff}
 .msub-cnt{font-size:11px;opacity:.85;margin-left:2px}
+#composeFab{position:fixed;right:28px;bottom:28px;z-index:1000040;width:58px;height:58px;border:none;border-radius:50%;background:linear-gradient(135deg,#2563eb,#00b4d8);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
+#composeFab:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 10px 28px rgba(37,99,235,.55)}
+#composeFab .fab-plus{position:absolute;right:6px;bottom:6px;font-size:15px;font-weight:800;line-height:1;background:#fff;color:#2563eb;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
 tr.new-contact{background:#fffbeb}
 tr.new-contact:hover{background:#fef3c7}
@@ -964,7 +967,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v191</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v194</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1029,6 +1032,9 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 </div>
 <div class="mail-subtabs" id="mailSubtabs">
   <button class="mailsub active" id="msub-vendor" onclick="setMailSub('vendor')">🏢 거래처 <span class="msub-cnt" id="msubCntV"></span></button>
+  <button class="mailsub" id="msub-quote" onclick="setMailSub('quote')">📄 견적서 <span class="msub-cnt" id="msubCntQ"></span></button>
+  <button class="mailsub" id="msub-invoice" onclick="setMailSub('invoice')">🧾 거래명세서 <span class="msub-cnt" id="msubCntN"></span></button>
+  <button class="mailsub" id="msub-tax" onclick="setMailSub('tax')">💳 세금계산서 <span class="msub-cnt" id="msubCntT"></span></button>
   <button class="mailsub" id="msub-customer" onclick="setMailSub('customer')">👥 고객사 <span class="msub-cnt" id="msubCntC"></span></button>
 </div>
 <div class="main">
@@ -3786,7 +3792,7 @@ async function ftNodeHtml(p,path,depth){
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -4834,6 +4840,11 @@ async function ftPreviewFile(p,itemId,name){
   renderTabs(p);
   await _renderTabBody(p,{itemId,name});
 }
+// 폴더트리 더블클릭 → 미리보기 모달
+function ftPreviewModal(p,itemId,name){
+  if(canPreview(name)){ previewInModal({name, itemId}); }
+  else { spDownloadUrl(itemId).then(u=>{ if(u) window.open(u,'_blank'); else toast('미리보기 불가 파일','bad'); }).catch(()=>toast('열기 실패','bad')); }
+}
 // ── CAD(DXF) 미리보기 ──────────────────────────────────────────────
 let _dxfParserReady=null;
 function _loadDxfParser(){
@@ -5600,16 +5611,30 @@ function senderKey(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowe
 function contactFor(m){const a=mailParty(m);const e=(a[0]&&a[0].email||'').toLowerCase().trim();if(!e)return null;return CONTACTS.find(c=>(c.email||'').toLowerCase()===e)||null;}
 function labelHtml(m){const c=contactFor(m);if(!c)return'';let h='';if(c.company)h+=`<span class="mr-label co">🏢 ${esc(c.company)}</span>`;if(c.category)h+=`<span class="mr-label cat">${esc(c.category)}</span>`;return h;}
 let OPEN_GROUPS={};
-let MAIL_SUB='vendor';   // 'vendor'(거래처·기본) | 'customer'(고객사)
-// 메일이 '고객사'인지 판정: 주소록 분류가 '고객사'인 연락처에서 온 메일만 고객사
+let MAIL_SUB='vendor';   // vendor(거래처·기본) | quote(견적서) | invoice(거래명세서) | tax(세금계산서) | customer(고객사)
+// 메일이 '고객사'인지: 주소록 분류가 '고객사'인 연락처에서 온 메일
 function _mailIsCustomer(m){
   const c=contactFor(m);
   return !!(c && String(c.category||'').trim()==='고객사');
 }
+// 문서종류 판정: 서버 Copilot 분류(m.docKind) 우선 → 없으면 제목 키워드 폴백
+// 반환: 'quote'|'invoice'|'tax'|'' (일반)
+function _mailDocKind(m){
+  const k=String(m.docKind||m.doc_kind||'').toLowerCase();
+  if(k==='quote'||k==='견적서') return 'quote';
+  if(k==='invoice'||k==='거래명세서'||k==='명세서') return 'invoice';
+  if(k==='tax'||k==='세금계산서'||k==='계산서') return 'tax';
+  if(k==='none'||k==='일반'||k==='etc') return '';
+  // 폴백: 제목 키워드 (서버 분류 전 임시)
+  const s=(m.subject||'');
+  if(/세금\s*계산서|계산서|tax\s*invoice/i.test(s)) return 'tax';
+  if(/거래\s*명세|명세서|거래명세서|delivery\s*note/i.test(s)) return 'invoice';
+  if(/견적|quotation|estimate|\bRFQ\b/i.test(s)) return 'quote';
+  return '';
+}
 function setMailSub(s){
   MAIL_SUB=s;
-  $('msub-vendor')?.classList.toggle('active', s==='vendor');
-  $('msub-customer')?.classList.toggle('active', s==='customer');
+  ['vendor','quote','invoice','tax','customer'].forEach(k=>$('msub-'+k)?.classList.toggle('active', s===k));
   renderList();
 }
 function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
@@ -5618,16 +5643,25 @@ function renderList(){
   const q=$('q').value.trim().toLowerCase();
   let rows=MAILS;
   if(q){rows=MAILS.filter(m=>{const a=mailParty(m);return (m.subject||'').toLowerCase().includes(q)||partyName(m).toLowerCase().includes(q)||(a[0]&&a[0].email||'').toLowerCase().includes(q);});}
-  // 거래처/고객사 하위탭 분류 (임시저장 제외)
+  // 하위탭 분류 (임시저장 제외): 거래처(고객사 제외) → 견적서/거래명세서/세금계산서는 거래처 중 문서종류
   if(FOLDER!=='draft'){
-    const custN=rows.filter(_mailIsCustomer).length;
-    const venN=rows.length-custN;
-    const cv=$('msubCntV'), cc=$('msubCntC');
-    if(cv) cv.textContent=venN?`(${venN})`:''; if(cc) cc.textContent=custN?`(${custN})`:'';
-    rows=rows.filter(m=> MAIL_SUB==='customer' ? _mailIsCustomer(m) : !_mailIsCustomer(m));
+    const isCust=m=>_mailIsCustomer(m);
+    const vendorRows=rows.filter(m=>!isCust(m));
+    const custN=rows.length-vendorRows.length;
+    let nQ=0,nN=0,nT=0;
+    vendorRows.forEach(m=>{const d=_mailDocKind(m); if(d==='quote')nQ++; else if(d==='invoice')nN++; else if(d==='tax')nT++;});
+    const setC=(id,n)=>{const el=$(id); if(el) el.textContent=n?`(${n})`:'';};
+    setC('msubCntV',vendorRows.length); setC('msubCntQ',nQ); setC('msubCntN',nN); setC('msubCntT',nT); setC('msubCntC',custN);
+    if(MAIL_SUB==='customer') rows=rows.filter(isCust);
+    else if(MAIL_SUB==='quote') rows=vendorRows.filter(m=>_mailDocKind(m)==='quote');
+    else if(MAIL_SUB==='invoice') rows=vendorRows.filter(m=>_mailDocKind(m)==='invoice');
+    else if(MAIL_SUB==='tax') rows=vendorRows.filter(m=>_mailDocKind(m)==='tax');
+    else rows=vendorRows;   // 거래처(전체)
   }
   updateCount(rows.length);
-  if(!rows.length){$('list').innerHTML=`<div class="empty">${FOLDER==='draft'?'메일이 없습니다':(MAIL_SUB==='customer'?'고객사 메일이 없습니다':'거래처 메일이 없습니다')}</div>`;return;}
+  if(!rows.length){
+    const emptyMsg={customer:'고객사 메일이 없습니다',quote:'견적서 메일이 없습니다',invoice:'거래명세서 메일이 없습니다',tax:'세금계산서 메일이 없습니다',vendor:'거래처 메일이 없습니다'}[MAIL_SUB]||'메일이 없습니다';
+    $('list').innerHTML=`<div class="empty">${FOLDER==='draft'?'메일이 없습니다':emptyMsg}</div>`;return;}
   // 보낸사람 기준 그룹핑 (입력 순서 = 최신순 유지)
   const groups=new Map();
   for(const m of rows){const k=senderKey(m);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);}
@@ -12434,5 +12468,6 @@ async function prnewDoProposalSave(reqNo, cust){
   <button id="jobq-badge" onclick="_jobToggle()" style="border:none;color:#fff;background:#7c3aed;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);transition:transform .2s;">진행중 0</button>
   <div id="jobq-panel" style="display:none;position:absolute;top:42px;right:0;width:320px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);border:1px solid #e5e7eb;overflow:hidden;"></div>
 </div>
+<button id="composeFab" title="메일쓰기" onclick="openCompose('new')">✉<span class="fab-plus">＋</span></button>
 </body>
 </html>
