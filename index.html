@@ -43,6 +43,26 @@
   --shadow2:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06);
   --shadow3:0 10px 15px rgba(0,0,0,0.08),0 4px 6px rgba(0,0,0,0.05);
 }
+@media (prefers-color-scheme: dark) and (max-width: 640px){
+  :root:not(.force-light){
+    --bg:#0f141b; --bg2:#161c26; --bg3:#1b222e;
+    --p:#4d9bf0; --pd:#16304d; --p2:#2b6cb0;
+    --t1:#e6edf6; --t2:#aab6c5; --t3:#73808f;
+    --border:#2a3340; --border2:#3a4554;
+    --g:#34d399; --gd:#0f3b2e;
+    --r:#f87171; --rd:#3f1a1a;
+    --y:#fbbf24; --yd:#3a2e0f;
+    --shadow:0 1px 3px rgba(0,0,0,0.4); --shadow2:0 4px 8px rgba(0,0,0,0.45); --shadow3:0 10px 20px rgba(0,0,0,0.5);
+  }
+  :root:not(.force-light) .mob-nav,
+  :root:not(.force-light) .mob-sheet-card,
+  :root:not(.force-light) .ac-dd,
+  :root:not(.force-light) #compose .cbox{background:var(--bg2);color:var(--t1)}
+  :root:not(.force-light) .an-tbl th:first-child,
+  :root:not(.force-light) .an-tbl td:first-child,
+  :root:not(.force-light) .sch-tbl td:first-child{background:var(--bg2)!important}
+  :root:not(.force-light) img{filter:none}
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
 body{display:flex;flex-direction:column;height:100vh}
@@ -1095,7 +1115,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v202</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v203</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
