@@ -44,24 +44,8 @@
   --shadow3:0 10px 15px rgba(0,0,0,0.08),0 4px 6px rgba(0,0,0,0.05);
 }
 @media (prefers-color-scheme: dark) and (max-width: 640px){
-  :root:not(.force-light){
-    --bg:#0f141b; --bg2:#161c26; --bg3:#1b222e;
-    --p:#4d9bf0; --pd:#16304d; --p2:#2b6cb0;
-    --t1:#e6edf6; --t2:#aab6c5; --t3:#73808f;
-    --border:#2a3340; --border2:#3a4554;
-    --g:#34d399; --gd:#0f3b2e;
-    --r:#f87171; --rd:#3f1a1a;
-    --y:#fbbf24; --yd:#3a2e0f;
-    --shadow:0 1px 3px rgba(0,0,0,0.4); --shadow2:0 4px 8px rgba(0,0,0,0.45); --shadow3:0 10px 20px rgba(0,0,0,0.5);
-  }
-  :root:not(.force-light) .mob-nav,
-  :root:not(.force-light) .mob-sheet-card,
-  :root:not(.force-light) .ac-dd,
-  :root:not(.force-light) #compose .cbox{background:var(--bg2);color:var(--t1)}
-  :root:not(.force-light) .an-tbl th:first-child,
-  :root:not(.force-light) .an-tbl td:first-child,
-  :root:not(.force-light) .sch-tbl td:first-child{background:var(--bg2)!important}
-  :root:not(.force-light) img{filter:none}
+  /* 다크모드 비활성화: 라이트 고정 (가독성 우선) */
+  :root{ color-scheme: light; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
@@ -640,6 +624,15 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   table{font-size:11.5px}
   table td,table th{white-space:nowrap}
   /* 주소록/명세 테이블 컨테이너 가로 스크롤 */
+  .proj-board-h{flex-wrap:wrap;padding:10px 12px!important;gap:8px!important;row-gap:8px}
+  .proj-board-h b{flex:1 1 100%;font-size:15px}
+  .proj-board-path{flex:1 1 100%;order:5;word-break:break-all;font-size:11px}
+  .proj-board-h>span[style*="flex:1"]{display:none}
+  .proj-board-btn{flex:0 0 auto;white-space:nowrap;padding:9px 12px!important;font-size:13px!important}
+  .proj-board-btn .pbb-txt{display:inline}    /* 모바일에서도 글자 보이게(가로 wrap) */
+  #projPrevBox{min-height:46vh}
+  /* 프로젝트 사이드 버튼: 가로 칩, 글자 가로 */
+  .proj-side-btn{writing-mode:horizontal-tb!important;flex:0 0 auto;white-space:nowrap}
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .grid{min-width:760px}
   .grid th,.grid td{white-space:nowrap}
@@ -813,6 +806,52 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .psub{display:none}
 .psub.on{display:block}
 .pkpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+/* 조치필요 알림 */
+.palert-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.palert{flex:1;min-width:170px;background:var(--bg2);border-radius:12px;padding:13px 16px;box-shadow:var(--shadow);border-left:5px solid var(--r);cursor:pointer;transition:transform .12s}
+.palert:hover{transform:translateY(-2px)}
+.palert.y{border-left-color:var(--y)} .palert.p{border-left-color:#7c3aed} .palert.g{border-left-color:var(--g)}
+.palert-n{font-size:24px;font-weight:800;color:var(--t1)}.palert-n span{font-size:12px;font-weight:500;color:var(--t3);margin-left:3px}
+.palert-l{font-size:13px;font-weight:700;color:var(--t2);margin:2px 0}
+.palert-amt{font-size:12px;color:var(--t3)}
+/* 진행률 바 */
+.pbar{position:relative;height:20px;background:#eef1f5;border-radius:6px;overflow:hidden}
+.pbar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.pbar-fill.g{background:linear-gradient(90deg,#34d399,#10b981)}.pbar-fill.b{background:linear-gradient(90deg,#60a5fa,#3b82f6)}.pbar-fill.y{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.pbar-txt{position:absolute;right:6px;top:1px;font-size:11px;font-weight:700;color:var(--t2)}
+/* 2단 카드 */
+.pov-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:900px){.pov-2col{grid-template-columns:1fr}}
+.pcard-h .lg{font-weight:400;font-size:11px;color:var(--t3);margin-left:8px}
+.pcard-h .lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 3px 0 8px;vertical-align:middle}
+/* 거래처 Top */
+.ptop{display:flex;align-items:center;gap:10px;padding:6px 12px}
+.ptop-n{width:110px;font-size:12.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptop-bar{flex:1;height:14px;background:#eef1f5;border-radius:5px;overflow:hidden}.ptop-bar div{height:100%;background:linear-gradient(90deg,#60a5fa,#3b82f6);border-radius:5px}
+.ptop-a{font-size:12px;font-weight:700;color:var(--t2);width:84px;text-align:right}
+/* 퍼널 */
+.pfunnel{padding:8px 14px 14px}
+.pfn{position:relative;display:flex;align-items:center;gap:10px;margin:6px 0}
+.pfn-bar{height:26px;background:linear-gradient(90deg,#93c5fd,#3b82f6);border-radius:6px;min-width:14px}
+.pfn-l{font-size:13px;font-weight:600;color:var(--t2)}.pfn-n{font-size:14px;font-weight:800;color:var(--t1)}
+.pfn-arrow{color:#cbd5e1}
+/* 정체 구간 */
+.pstuck-row{display:flex;align-items:center;gap:8px;padding:10px 14px 16px;flex-wrap:wrap}
+.pstuck{flex:1;min-width:120px;text-align:center;background:#f1f5f9;border-radius:10px;padding:12px 8px;cursor:pointer;opacity:.6}
+.pstuck.on{opacity:1}.pstuck.on.r{background:#fee2e2}.pstuck.on.y{background:#fef3c7}.pstuck.on.p{background:#ede9fe}
+.pstuck b{display:block;font-size:22px;font-weight:800;color:var(--t1)}.pstuck span{font-size:12px;color:var(--t2)}
+.pstuck-arr{color:#cbd5e1;font-size:18px}
+.pstage.sel{outline:2px solid var(--p);background:var(--pd);color:var(--p)}
+/* 활동 피드 */
+.pfeed{padding:4px 6px 10px;max-height:360px;overflow:auto}
+.pfeed-i{display:flex;align-items:center;gap:9px;padding:7px 10px;border-bottom:1px solid var(--bg3);font-size:12.5px}
+.pfeed-d{color:var(--t3);width:74px;flex-shrink:0;font-size:11.5px}
+.pfeed-t{font-weight:700;padding:1px 8px;border-radius:99px;font-size:11px;flex-shrink:0;color:#fff}
+.pfeed-t.b{background:#3b82f6}.pfeed-t.g{background:#10b981}.pfeed-t.p{background:#7c3aed}.pfeed-t.y{background:#f59e0b}
+.pfeed-x{flex:1;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pfeed-a{font-weight:700;color:var(--t2);flex-shrink:0}
+.pfeed-w{color:var(--t3);flex-shrink:0;font-size:11.5px}
+@media(max-width:640px){.pfeed-w,.palert-amt{display:none}.pstuck-arr{display:none}}
 .pkpi{background:var(--bg2);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);border-left:4px solid var(--p)}
 .pkpi.g{border-left-color:var(--g)} .pkpi.y{border-left-color:var(--y)} .pkpi.p{border-left-color:var(--a)} .pkpi.b{border-left-color:var(--p)}
 .pkpi-label{font-size:12px;color:var(--t3);font-weight:700;margin-bottom:6px;letter-spacing:.3px}
@@ -1115,7 +1154,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v203</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v205</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1283,6 +1322,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
           <div class="pcard-h"><span class="pcard-title">📊 프로젝트별 진행 요약</span><span class="sp"></span>
             <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button></div>
           <div class="ptbl-wrap"><table class="ptbl" id="p-ovtbl"></table></div>
+        </div>
+        <div class="pov-2col">
+          <div class="pcard" id="p-trend"></div>
+          <div class="pcard" id="p-topvendor"></div>
         </div>
       </div>
 
@@ -2482,14 +2525,14 @@ async function projFileBoard(host, opts){
   }
   const inputId='projUp_'+Math.random().toString(36).slice(2,8);
   let h=`<div style="display:flex;flex-direction:column;height:100%">
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+    <div class="proj-board-h" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
       <b style="font-size:15px">${esc(opts.title)}</b>
-      <span style="font-size:12px;color:var(--t3)">${esc(folder)}</span>
+      <span class="proj-board-path" style="font-size:12px;color:var(--t3)">${esc(folder)}</span>
       <span style="flex:1"></span>
       <input type="file" id="${inputId}" style="display:none" ${opts.accept?`accept="${opts.accept}"`:''} onchange="projBoardUpload('${opts.code}','${esc(opts.rel)}',this.files[0])">
-      <button class="btn primary sm" onclick="document.getElementById('${inputId}').click()">⬆ 업로드</button>
-      <button class="btn sm" onclick="projImportTech('${opts.code}','${esc(opts.rel)}','${esc(opts.title)}')">📚 기술자료에서 가져오기</button>
-      <button class="btn sm" onclick="projBoardReload()">🔄</button>
+      <button class="btn primary sm proj-board-btn" onclick="document.getElementById('${inputId}').click()">⬆ 업로드</button>
+      <button class="btn sm proj-board-btn" onclick="projImportTech('${opts.code}','${esc(opts.rel)}','${esc(opts.title)}')">📚 <span class="pbb-txt">기술자료에서 가져오기</span></button>
+      <button class="btn sm proj-board-btn" onclick="projBoardReload()">🔄</button>
     </div>`;
   const latest=files[0];
   h+=`<div id="projPrevBox" style="flex:1;min-height:0;background:#0f1115;position:relative"></div>`;
@@ -7241,55 +7284,154 @@ function pFilterTable(key){
     return `<tr><td>${pPjBadge(pProjCode(r))}</td>${tds}</tr>`;}).join("");
 }
 
-// ── 전체 현황 (KPI + 프로젝트별 요약) ──
+// ── 전체 현황 (조치필요 + 금액 KPI + 프로젝트 진행률 + 월별추세 + 거래처Top) ──
+function _pNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+function _pMon(s){ const d=String(s||'').replace(/-/g,'').slice(0,6); return d.length===6?d:''; }
+function _pUnsettled(){ return (pData.rc||[]).filter(r=>!r.slip_id); }                    // 입고 미전표
+function _pOpenPO(){ return (pData.po||[]).filter(r=>!/완료|마감|입고완료/.test(String(r.status||''))); } // 발주 미완료
+function _pNoTax(){ return (pData.iv||[]).filter(r=>!/발행|완료|확정/.test(String(r.sm_progress_type_name||''))); } // 세금계산서 미발행
 function pRenderOverview(){
   const kpi=document.getElementById("p-kpi");
-  const prN=(pData.pr||[]).length, poN=(pData.po||[]).length, ppN=(pData.pp||[]).length;
-  const rcN=(pData.rc||[]).length, mrN=(pData.mr||[]).length;
-  const rcAmt=(pData.rc||[]).reduce((s,r)=>s+(Number(r.tot_dom_amt)||0),0);
-  const rcPending=(pData.rc||[]).filter(r=>!r.slip_id).length;
-  kpi.innerHTML = `
-    <div class="pkpi y"><div class="pkpi-label">구매요청</div><div class="pkpi-val">${prN}</div><div class="pkpi-sub">건</div></div>
-    <div class="pkpi b"><div class="pkpi-label">구매품의</div><div class="pkpi-val">${ppN}</div><div class="pkpi-sub">건</div></div>
-    <div class="pkpi b"><div class="pkpi-label">발주</div><div class="pkpi-val">${poN}</div><div class="pkpi-sub">건</div></div>
-    <div class="pkpi g"><div class="pkpi-label">입고정산</div><div class="pkpi-val">${rcN}</div><div class="pkpi-sub">${pAmt(rcAmt)}원 · 미전표 ${rcPending}</div></div>
-    <div class="pkpi p"><div class="pkpi-label">자재출고</div><div class="pkpi-val">${mrN}</div><div class="pkpi-sub">건</div></div>`;
-  // 프로젝트별 요약 표
+  const poAmt=(pData.po||[]).reduce((s,r)=>s+_pNum(r.amount),0);
+  const rcAmt=(pData.rc||[]).reduce((s,r)=>s+_pNum(r.tot_dom_amt),0);
+  const uns=_pUnsettled(); const unsAmt=uns.reduce((s,r)=>s+_pNum(r.tot_dom_amt),0);
+  const openPO=_pOpenPO(); const noTax=_pNoTax();
+  const remain=Math.max(0, poAmt-rcAmt);
+  // 조치 필요 알림
+  const alerts=[
+    {n:uns.length, amt:unsAmt, label:'입고 미전표', cls:'r', jump:'rc'},
+    {n:openPO.length, amt:openPO.reduce((s,r)=>s+_pNum(r.amount),0), label:'발주 미완료', cls:'y', jump:'po'},
+    {n:noTax.length, amt:noTax.reduce((s,r)=>s+_pNum(r.tot_amt),0), label:'세금계산서 미발행', cls:'p', jump:'iv'},
+  ].filter(a=>a.n>0);
+  const alertHtml = alerts.length ? `<div class="palert-row">`+alerts.map(a=>
+    `<div class="palert ${a.cls}" onclick="pShowPage('${a.jump}')"><div class="palert-n">${a.n}<span>건</span></div><div class="palert-l">⚠ ${a.label}</div><div class="palert-amt">${pAmt(a.amt)}원</div></div>`
+  ).join('')+`</div>` : `<div class="palert-row"><div class="palert g" style="cursor:default"><div class="palert-l">✅ 조치 필요 항목 없음</div></div></div>`;
+  // 금액 KPI
+  kpi.innerHTML = alertHtml + `<div class="pkpi-grid">
+    <div class="pkpi b"><div class="pkpi-label">발주 금액</div><div class="pkpi-val">${pAmt(poAmt)}</div><div class="pkpi-sub">${(pData.po||[]).length}건</div></div>
+    <div class="pkpi g"><div class="pkpi-label">입고 금액</div><div class="pkpi-val">${pAmt(rcAmt)}</div><div class="pkpi-sub">${(pData.rc||[]).length}건</div></div>
+    <div class="pkpi r"><div class="pkpi-label">미전표 금액</div><div class="pkpi-val">${pAmt(unsAmt)}</div><div class="pkpi-sub">${uns.length}건 미처리</div></div>
+    <div class="pkpi y"><div class="pkpi-label">잔여(발주−입고)</div><div class="pkpi-val">${pAmt(remain)}</div><div class="pkpi-sub">입고 진행률 ${poAmt?Math.round(rcAmt/poAmt*100):0}%</div></div>
+  </div>`;
+  // 프로젝트별 진행률
   const tbl=document.getElementById("p-ovtbl");
-  const head=`<thead><tr><th>프로젝트</th><th>구매요청</th><th>구매품의</th><th>발주</th><th>입고정산</th><th class="num">입고금액</th><th>자재출고</th></tr></thead>`;
-  const byCode = code => ({
-    pr:(pData.pr||[]).filter(r=>pProjCode(r)===code).length,
-    pp:(pData.pp||[]).filter(r=>pProjCode(r)===code).length,
-    po:(pData.po||[]).filter(r=>pProjCode(r)===code).length,
-    rc:(pData.rc||[]).filter(r=>pProjCode(r)===code).length,
-    rcAmt:(pData.rc||[]).filter(r=>pProjCode(r)===code).reduce((s,r)=>s+(Number(r.tot_dom_amt)||0),0),
-    mr:(pData.mr||[]).filter(r=>pProjCode(r)===code).length,
-  });
-  const body = pProjects.map(code=>{ const c=code.toUpperCase(); const s=byCode(c);
-    return `<tr><td>${pPjBadge(c)}</td><td>${s.pr}</td><td>${s.pp}</td><td>${s.po}</td><td>${s.rc}</td><td class="num">${Number(s.rcAmt).toLocaleString()}</td><td>${s.mr}</td></tr>`;
+  const head=`<thead><tr><th>프로젝트</th><th class="num">발주액</th><th class="num">입고액</th><th style="width:34%">입고 진행률</th><th class="num">미전표</th></tr></thead>`;
+  const body = pProjects.map(code=>{ const c=code.toUpperCase();
+    const po=(pData.po||[]).filter(r=>pProjCode(r)===c).reduce((s,r)=>s+_pNum(r.amount),0);
+    const rc=(pData.rc||[]).filter(r=>pProjCode(r)===c).reduce((s,r)=>s+_pNum(r.tot_dom_amt),0);
+    const un=(pData.rc||[]).filter(r=>pProjCode(r)===c&&!r.slip_id).length;
+    const pct=po?Math.min(100,Math.round(rc/po*100)):0;
+    const barCls=pct>=90?'g':(pct>=40?'b':'y');
+    return `<tr><td>${pPjBadge(c)}</td><td class="num">${pAmt(po)}</td><td class="num">${pAmt(rc)}</td>
+      <td><div class="pbar"><div class="pbar-fill ${barCls}" style="width:${pct}%"></div><span class="pbar-txt">${pct}%</span></div></td>
+      <td class="num">${un?`<span class="pbadge r">${un}</span>`:'-'}</td></tr>`;
   }).join("");
   tbl.innerHTML = head + "<tbody>" + body + "</tbody>";
+  // 월별 추세(SVG) + 거래처 Top
+  pRenderTrend(); pRenderTopVendors();
+}
+// 월별 발주/입고 금액 추세 (인라인 SVG, 최근 6개월)
+function pRenderTrend(){
+  const host=document.getElementById('p-trend'); if(!host) return;
+  const months=[]; const now=new Date();
+  for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push(`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`); }
+  const poM=months.map(m=>(pData.po||[]).filter(r=>_pMon(r.order_date)===m).reduce((s,r)=>s+_pNum(r.amount),0));
+  const rcM=months.map(m=>(pData.rc||[]).filter(r=>_pMon(r.delv_in_date)===m).reduce((s,r)=>s+_pNum(r.tot_dom_amt),0));
+  const max=Math.max(1,...poM,...rcM);
+  const W=560,H=180,pad=30, iw=W-pad*2, ih=H-pad*2;
+  const xx=i=>pad+iw*(months.length<2?0.5:i/(months.length-1));
+  const yy=v=>pad+ih*(1-v/max);
+  const line=(arr,col)=>`<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${arr.map((v,i)=>`${xx(i)},${yy(v)}`).join(' ')}"/>`+arr.map((v,i)=>`<circle cx="${xx(i)}" cy="${yy(v)}" r="3" fill="${col}"/>`).join('');
+  const xlab=months.map((m,i)=>`<text x="${xx(i)}" y="${H-8}" font-size="10" fill="#94a3b8" text-anchor="middle">${m.slice(4)}월</text>`).join('');
+  host.innerHTML=`<div class="pcard-h">📈 월별 추세 <span class="lg"><i style="background:#3b82f6"></i>발주 <i style="background:#10b981"></i>입고</span></div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#e5e7eb"/><line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#e5e7eb"/>
+      ${line(poM,'#3b82f6')}${line(rcM,'#10b981')}${xlab}
+      <text x="${pad}" y="${pad-8}" font-size="10" fill="#94a3b8">최대 ${pAmt(max)}원</text>
+    </svg>`;
+}
+// 거래처 Top5 (입고금액 기준)
+function pRenderTopVendors(){
+  const host=document.getElementById('p-topvendor'); if(!host) return;
+  const m={}; (pData.rc||[]).forEach(r=>{ const v=r.cust_name||'(미상)'; m[v]=(m[v]||0)+_pNum(r.tot_dom_amt); });
+  const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!top.length){ host.innerHTML=''; return; }
+  const max=top[0][1]||1;
+  host.innerHTML=`<div class="pcard-h">🏢 거래처 Top5 <span style="font-weight:400;color:var(--t3);font-size:11px">· 입고금액</span></div>`+
+    top.map(([v,a])=>`<div class="ptop"><span class="ptop-n">${pEsc(v)}</span><div class="ptop-bar"><div style="width:${Math.round(a/max*100)}%"></div></div><span class="ptop-a">${pAmt(a)}</span></div>`).join('');
 }
 
-// ── 구매활동 (프로젝트별 단계 파이프라인) ──
+// ── 구매활동 (퍼널 + 정체 + 단계 드릴다운 + 활동 피드) ──
+const _PSTAGES=[["pr","구매요청","req_date"],["pp","구매품의","appro_req_date"],["po","발주","order_date"],["rc","입고정산","delv_in_date"],["mr","자재출고","out_date"]];
+let _pActStage={};   // 프로젝트 인덱스 → 선택 단계
 function pRenderActivity(){
   const host=document.getElementById("p-act-list");
-  const stages=[["pr","구매요청"],["pp","구매품의"],["po","발주"],["rc","입고정산"],["mr","자재출고"]];
-  host.innerHTML = `<div class="pmeta">프로젝트별 구매 진행 단계 — 클릭하면 최근 항목이 펼쳐집니다.</div>` +
-    pProjects.map((code,i)=>{ const c=code.toUpperCase();
-      const counts = stages.map(([k])=>({k, n:(pData[k]||[]).filter(r=>pProjCode(r)===c).length}));
-      const chips = stages.map(([k,lbl])=>{ const n=counts.find(x=>x.k===k).n;
-        return `<span class="pstage ${n>0?'on':''}">${lbl} ${n}</span>`; }).join("");
-      const recent = (pData.rc||[]).filter(r=>pProjCode(r)===c).slice(0,8);
-      const det = recent.length ? `<table class="ptbl"><thead><tr><th>입고일</th><th>품명</th><th class="num">금액</th><th>거래처</th><th>전표</th></tr></thead><tbody>`+
-        recent.map(r=>`<tr><td>${pYmd(r.delv_in_date)}</td><td class="wrap">${pEsc(r.item_name)}</td><td class="num">${Number(r.tot_dom_amt||0).toLocaleString()}</td><td>${pEsc(r.cust_name)}</td><td>${r.slip_id?'<span class="pbadge g">완료</span>':'<span class="pbadge y">미처리</span>'}</td></tr>`).join("")+
-        `</tbody></table>` : `<div class="pempty">입고정산 내역 없음</div>`;
-      return `<div class="pacc" id="pacc-${i}">
-        <div class="pacc-h" onclick="document.getElementById('pacc-${i}').classList.toggle('open')">
-          ${pPjBadge(c)} <strong style="font-size:14px">${pEsc((pData.pp||pData.rc||[]).find(r=>pProjCode(r)===c)?.project_name || "")}</strong>
-          <span style="flex:1"></span><div class="pacc-stages">${chips}</div></div>
-        <div class="pacc-body"><div style="margin-top:10px"></div>${det}</div></div>`;
-    }).join("");
+  // 전체 퍼널
+  const tot=_PSTAGES.map(([k,lbl])=>({k,lbl,n:(pData[k]||[]).length}));
+  const fmax=Math.max(1,...tot.map(s=>s.n));
+  const funnel=`<div class="pcard"><div class="pcard-h">🔻 구매 파이프라인 <span style="font-weight:400;color:var(--t3);font-size:11px">· 전체 ${pProjects.length}개 프로젝트</span></div>
+    <div class="pfunnel">`+tot.map((s,i)=>`<div class="pfn"><div class="pfn-bar" style="width:${Math.round(s.n/fmax*100)}%"></div><span class="pfn-l">${s.lbl}</span><span class="pfn-n">${s.n}</span>${i<tot.length-1?'<span class="pfn-arrow">▸</span>':''}</div>`).join('')+`</div></div>`;
+  // 정체(막힌 단계)
+  const uns=_pUnsettled(), openPO=_pOpenPO(), noTax=_pNoTax();
+  const stuck=`<div class="pcard"><div class="pcard-h">🚧 정체 구간 <span style="font-weight:400;color:var(--t3);font-size:11px">· 클릭하면 해당 조회로 이동</span></div>
+    <div class="pstuck-row">
+      <div class="pstuck ${openPO.length?'on y':''}" onclick="pShowPage('po')"><b>${openPO.length}</b><span>발주 미완료</span></div>
+      <div class="pstuck-arr">▸</div>
+      <div class="pstuck ${uns.length?'on r':''}" onclick="pShowPage('rc')"><b>${uns.length}</b><span>입고 미전표</span></div>
+      <div class="pstuck-arr">▸</div>
+      <div class="pstuck ${noTax.length?'on p':''}" onclick="pShowPage('iv')"><b>${noTax.length}</b><span>세금계산서 미발행</span></div>
+    </div></div>`;
+  // 프로젝트별 단계 드릴다운
+  const projAcc = pProjects.map((code,i)=>{ const c=code.toUpperCase();
+    const counts=_PSTAGES.map(([k,lbl])=>({k,lbl,n:(pData[k]||[]).filter(r=>pProjCode(r)===c).length}));
+    const chips=counts.map(s=>`<span class="pstage ${s.n>0?'on':''} ${(_pActStage[i]||'rc')===s.k?'sel':''}" onclick="event.stopPropagation();pActPick(${i},'${c}','${s.k}')">${s.lbl} ${s.n}</span>`).join("");
+    const nm=(pData.pp||pData.rc||pData.po||[]).find(r=>pProjCode(r)===c)?.project_name||"";
+    return `<div class="pacc open" id="pacc-${i}">
+      <div class="pacc-h" onclick="document.getElementById('pacc-${i}').classList.toggle('open')">
+        ${pPjBadge(c)} <strong style="font-size:14px">${pEsc(nm)}</strong><span style="flex:1"></span><div class="pacc-stages">${chips}</div></div>
+      <div class="pacc-body"><div id="pact-tbl-${i}">${pActStageTable(c,_pActStage[i]||'rc')}</div></div></div>`;
+  }).join("");
+  // 최근 활동 피드
+  const feed=pBuildFeed(25);
+  const feedHtml=`<div class="pcard"><div class="pcard-h">🕐 최근 활동</div><div class="pfeed">`+
+    (feed.length?feed.map(e=>`<div class="pfeed-i"><span class="pfeed-d">${pYmd(e.date)}</span><span class="pfeed-t ${e.cls}">${e.type}</span><span class="pfeed-x">${pEsc(e.label)}</span>${e.amt?`<span class="pfeed-a">${pAmt(e.amt)}</span>`:''}${e.who?`<span class="pfeed-w">${pEsc(e.who)}</span>`:''}</div>`).join(''):'<div class="pempty">활동 없음</div>')+
+    `</div></div>`;
+  host.innerHTML = funnel + stuck + `<div class="pmeta" style="margin:14px 0 6px">📁 프로젝트별 — 단계 칩을 누르면 그 단계 내역이 펼쳐집니다.</div>` + projAcc + feedHtml;
+}
+function pActPick(i, code, stage){
+  _pActStage[i]=stage;
+  const box=document.getElementById('pact-tbl-'+i); if(box) box.innerHTML=pActStageTable(code,stage);
+  // 칩 sel 갱신
+  const acc=document.getElementById('pacc-'+i); if(acc) acc.querySelectorAll('.pstage').forEach(el=>el.classList.toggle('sel', el.textContent.trim().startsWith(_PSTAGES.find(s=>s[0]===stage)[1])));
+}
+function pActStageTable(code, stage){
+  const rows=(pData[stage]||[]).filter(r=>pProjCode(r)===code).slice(0,12);
+  if(!rows.length) return `<div class="pempty">${_PSTAGES.find(s=>s[0]===stage)[1]} 내역 없음</div>`;
+  const cfg={
+    pr:[["요청일","req_date","ymd"],["품명","item_name","wrap"],["품번","item_no"]],
+    pp:[["품의일","appro_req_date","ymd"],["품의번호","appro_req_no"],["품명","item_name","wrap"]],
+    po:[["발주일","order_date","ymd"],["거래처","vendor"],["품명","item_name","wrap"],["수량","qty","num"],["금액","amount","amt"],["상태","status","badge"]],
+    rc:[["입고일","delv_in_date","ymd"],["품명","item_name","wrap"],["금액","tot_dom_amt","amt"],["거래처","cust_name"],["전표","slip_id","slip"]],
+    mr:[["출고일","out_date","ymd"],["품명","item_name","wrap"],["수량","qty","num"],["창고","wh_name"],["담당","emp_name"]],
+  }[stage];
+  const head=`<thead><tr>${cfg.map(c=>`<th class="${c[2]==='num'||c[2]==='amt'?'num':''}">${c[0]}</th>`).join('')}</tr></thead>`;
+  const body=rows.map(r=>`<tr>${cfg.map(c=>{ let v=r[c[1]];
+    if(c[2]==='ymd')v=pYmd(v); else if(c[2]==='num')return `<td class="num">${_pNum(v).toLocaleString()}</td>`;
+    else if(c[2]==='amt')return `<td class="num">${pAmt(_pNum(v))}</td>`;
+    else if(c[2]==='badge')return `<td>${pStatusBadge(v)}</td>`;
+    else if(c[2]==='slip')return `<td>${r.slip_id?'<span class="pbadge g">완료</span>':'<span class="pbadge y">미처리</span>'}</td>`;
+    return `<td class="${c[2]==='wrap'?'wrap':''}">${pEsc(v==null?'':v)}</td>`;
+  }).join('')}</tr>`).join('');
+  return `<table class="ptbl">${head}<tbody>${body}</tbody></table>`;
+}
+// 최근 활동 피드(발주/입고/출고/명세서 통합 시간순)
+function pBuildFeed(limit){
+  const ev=[];
+  (pData.po||[]).forEach(r=>ev.push({date:r.order_date,type:'발주',cls:'b',label:r.item_name,amt:_pNum(r.amount),who:r.emp,code:pProjCode(r)}));
+  (pData.rc||[]).forEach(r=>ev.push({date:r.delv_in_date,type:'입고',cls:'g',label:r.item_name,amt:_pNum(r.tot_dom_amt),who:'',code:pProjCode(r)}));
+  (pData.mr||[]).forEach(r=>ev.push({date:r.out_date,type:'출고',cls:'p',label:r.item_name,amt:0,who:r.emp_name,code:pProjCode(r)}));
+  (pData.iv||[]).forEach(r=>ev.push({date:r.invoice_date,type:'명세서',cls:'y',label:r.item_name,amt:_pNum(r.tot_amt),who:'',code:pProjCode(r)}));
+  return ev.filter(e=>e.date).sort((a,b)=>String(b.date).replace(/-/g,'').localeCompare(String(a.date).replace(/-/g,''))).slice(0,limit);
 }
 
 // ── 작성 페이지 (준비중 안내) ──
