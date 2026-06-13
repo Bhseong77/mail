@@ -230,12 +230,92 @@ body{display:flex;flex-direction:column;height:100vh}
 .msub-cnt{font-size:11px;opacity:.85;margin-left:2px}
 .mr-dk{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle;white-space:nowrap}
 .mr-new{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle}
+.mr-av{display:none}
+@media(max-width:640px){
+  .mr-av{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;color:#fff;font-weight:700;font-size:17px;flex-shrink:0;margin-right:12px}
+  .mailrow .mr-chk{display:none}
+  .mailrow{padding:12px 14px}
+  .mr-row{align-items:center}
+  .mr-from{font-size:14.5px}
+  .mr-subj{font-size:13px;margin-top:2px}
+  .grp-child .mr-av{display:none}
+  .grp-children{padding-left:54px}
+  .grp{overflow:hidden}
+  .mailrow{will-change:transform;touch-action:pan-y}
+}
 .mr-from.new{font-weight:800;color:var(--t1)}
 .f-newcnt{display:inline-block;margin-left:6px;min-width:18px;padding:1px 6px;font-size:11px;font-weight:800;color:#fff;background:#ef4444;border-radius:10px;text-align:center;vertical-align:middle}
 .ti-row:hover{background:#f0f7ff}
+.ac-wrap{position:relative}
+.ac-dd{display:none;position:absolute;left:0;right:0;top:100%;z-index:1000050;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:240px;overflow:auto;margin-top:2px}
+.ac-dd.on{display:block}
+.ac-item{padding:8px 12px;cursor:pointer;font-size:13px;display:flex;flex-direction:column;gap:1px}
+.ac-item:hover,.ac-item.sel{background:#eaf2ff}
+.ac-item .ac-nm{font-weight:600;color:var(--t1)}
+.ac-item .ac-sub{font-size:11px;color:var(--t3)}
 #composeFab{position:fixed;right:28px;bottom:28px;z-index:1000040;width:58px;height:58px;border:none;border-radius:50%;background:linear-gradient(135deg,#2563eb,#00b4d8);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
 #composeFab:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 10px 28px rgba(37,99,235,.55)}
 #composeFab .fab-plus{position:absolute;right:6px;bottom:6px;font-size:15px;font-weight:800;line-height:1;background:#fff;color:#2563eb;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+/* ── 모바일 하단 탭바 + 바텀시트 (PC 숨김) ── */
+.mob-nav{display:none}
+.mob-sheet{display:none}
+@media(max-width:640px){
+  .mob-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:1000030;background:#fff;border-top:1px solid var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.08);padding-bottom:env(safe-area-inset-bottom)}
+  .mob-nav button{flex:1;border:none;background:none;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 7px;font-size:10.5px;font-weight:600;color:#94a3b8;cursor:pointer}
+  .mob-nav button .mn-ic{font-size:20px;line-height:1}
+  .mob-nav button.active{color:#2563eb}
+  .mob-sheet.on{display:block;position:fixed;inset:0;z-index:1000035}
+  .mob-sheet-bg{position:absolute;inset:0;background:rgba(15,23,42,.45)}
+  .mob-sheet-card{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;max-height:70vh;display:flex;flex-direction:column;animation:sheetUp .22s ease;padding-bottom:env(safe-area-inset-bottom)}
+  @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .mob-sheet-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;font-size:16px;color:var(--t1)}
+  #mobSheetBody{overflow-y:auto;padding:4px 10px 14px}
+  .ms-item{display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:12px;font-size:15px;color:var(--t1);cursor:pointer}
+  .ms-item:active{background:#eef2f7}
+  .ms-item .ms-ic{font-size:21px;width:26px;text-align:center}
+  .ms-item .ms-cnt{margin-left:auto;font-size:12px;color:#fff;background:#ef4444;border-radius:10px;padding:1px 8px;font-weight:700}
+  /* 하단바 높이만큼 컨텐츠 여백 + FAB 위로 */
+  .main,.page{padding-bottom:64px}
+  #composeFab{bottom:74px}
+  /* 모바일은 상단 네비 숨김(하단바로 대체) */
+  .topnav{display:none}
+}
+
+/* ── 모바일 페이지별 최적화 (PC 영향 없음) ── */
+@media(max-width:640px){
+  /* 부드러운 스크롤·탭 하이라이트 제거 */
+  *{-webkit-tap-highlight-color:transparent}
+  .list,.reader,.doc-files,.doc-analysis,.sch-panel,#mobSheetBody{-webkit-overflow-scrolling:touch}
+  /* 와이드 데이터 테이블: 첫 열 고정(스크롤해도 항목 보임) */
+  .an-tbl{min-width:760px}
+  .an-tbl th:first-child,.an-tbl td:first-child{position:sticky;left:0;background:#fff;z-index:2;box-shadow:1px 0 0 var(--border)}
+  .an-tbl thead th:first-child{z-index:3;background:#f1f5f9}
+  /* 문서 페이지: 트리 위(접이식 느낌)·파일/분석 아래, 탭 가로스크롤 */
+  .doc-tree{width:100%!important;max-width:none!important;max-height:34vh;border-radius:0}
+  .ft-tabs{overflow-x:auto;scrollbar-width:none}.ft-tabs::-webkit-scrollbar{display:none}
+  /* 주소록: 표 대신 읽기 쉬운 큰 행 */
+  .grid{min-width:680px}
+  .grid th,.grid td{padding:10px 8px}
+  /* 구매 사이드바 = 가로 칩바 */
+  #page-purchase .psidebar{position:sticky;top:0;z-index:5;background:var(--bg2)}
+  /* 일정: 통계 2열, 테이블 첫 열 고정 */
+  .sch-stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .sch-tbl th:first-child,.sch-tbl td:first-child{position:sticky;left:0;background:#fff;z-index:2}
+  /* 메일 본문 액션(답장/전달 등): 하단 고정 바 */
+  body.reading-mail .rd-actions{position:fixed;left:0;right:0;bottom:0;z-index:1000020;background:#fff;border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 10px rgba(0,0,0,.08);justify-content:space-around}
+  body.reading-mail .rd-actions .btn{flex:1;justify-content:center}
+  body.reading-mail .rd-body{padding-bottom:74px}
+  body.reading-mail #composeFab,body.reading-mail .mob-nav{display:none}  /* 읽는 중엔 하단바 숨겨 본문 집중 */
+  /* 모달 헤더 고정 */
+  .mbox-h{position:sticky;top:0;z-index:2}
+  /* 토스트 위치(하단바 위로) */
+  #toast,.toast{bottom:80px!important}
+  /* 카드/패널 모서리·여백 모바일 친화 */
+  .panel,.adm-card{border-radius:12px}
+  /* 입력창 확대(터치) */
+  input[type=text],input[type=search],input[type=time],textarea,select{font-size:16px}  /* iOS 줌 방지 */
+  .memo{font-size:14px}
+}
 .nav-badge{display:inline-block;background:var(--r);color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:0 6px;margin-left:5px;vertical-align:middle;min-width:16px;text-align:center}
 tr.new-contact{background:#fffbeb}
 tr.new-contact:hover{background:#fef3c7}
@@ -560,6 +640,49 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   .topnav button{font-size:12px;padding:10px 8px}
   .hdr-title{font-size:15px}
   .an-tbl{font-size:11px}
+}
+
+/* ── 모바일 그룹웨어 앱 최적화 (PC 영향 없음) ── */
+@media(max-width:640px){
+  /* 헤더 컴팩트 */
+  .hdr{padding:9px 12px 10px;position:sticky;top:0;z-index:60}
+  .hdr-clock{font-size:10px;gap:8px;margin-top:3px}
+  .hdr-clock b{font-weight:600}
+  .btn-hdr{padding:5px 8px;font-size:11.5px;border-radius:7px}
+  .btn-hdr.hide-mobile{display:none}          /* 메일쓰기는 FAB로 대체 */
+  /* 상단 네비 가로 스크롤 + 고정 */
+  .topnav{position:sticky;top:0;z-index:50;scrollbar-width:none}
+  .topnav::-webkit-scrollbar{display:none}
+  /* 메일 하위탭 가로 스크롤(스크롤바 숨김) */
+  .mail-subtabs{overflow-x:auto;flex-wrap:nowrap;gap:5px;padding:7px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .mail-subtabs::-webkit-scrollbar{display:none}
+  .mailsub{flex:0 0 auto;font-size:12px;padding:5px 11px}
+  .msub-cnt{font-size:10px}
+  /* 폴더 탭(받은/보낸/임시/쓰기) 가로 스크롤 */
+  .folders{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .folders::-webkit-scrollbar{display:none}
+  .folders button{flex:0 0 auto}
+  /* 메일 행: 라벨/배지 줄바꿈, 탭 영역 확대 */
+  .mr-dk{font-size:9.5px;padding:1px 5px;margin-left:4px}
+  .mr-top{flex-wrap:wrap;gap:2px}
+  /* FAB */
+  #composeFab{right:18px;bottom:20px;width:54px;height:54px;font-size:22px}
+  /* 작성 모달 풀스크린(앱 느낌) */
+  #compose .cbox{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;margin:0;display:flex;flex-direction:column}
+  #compose .mbox-b{flex:1;overflow-y:auto}
+  #compose .cbox textarea{min-height:30vh}
+  .ac-item{padding:11px 13px}
+  .ac-dd{max-height:46vh}
+  /* 대시보드 자료/기술자료 첨부 모달 풀폭 */
+  #spAttOv>div,#techImpOv>div{width:96vw!important;max-height:88dvh!important}
+  /* 프로젝트 보드: 세로 스택, 사이드 가로바 */
+  .proj-layout{flex-direction:column}
+  .proj-side{width:100%!important;flex-direction:row;overflow-x:auto;gap:6px;padding:8px;border-right:none;border-bottom:1px solid var(--border);scrollbar-width:none}
+  .proj-side::-webkit-scrollbar{display:none}
+  .proj-side-btn{flex:0 0 auto;white-space:nowrap;font-size:12.5px;padding:9px 12px}
+  #projPrevBox{min-height:44vh}
+  /* 주소록 칩/버튼 탭 확대 */
+  .ti-row{padding:11px 16px}
 }
 
 /* 관리자 설정 */
@@ -972,7 +1095,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v197</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v202</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -984,7 +1107,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     <button class="btn-hdr" id="permNavBtn" style="display:none" onclick="showPage('perm')">🔐 권한설정</button>
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
-    <button class="btn-hdr" onclick="openCompose('new')">✏ 메일쓰기</button>
+    <button class="btn-hdr hide-mobile" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
     <button class="btn-hdr" onclick="logout()">로그아웃</button>
   </div>
@@ -1734,14 +1857,14 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     <div class="mbox-h" onclick="composeHeaderClick()"><span id="cTitle">새 메일</span><div style="display:flex;align-items:center"><button class="cmin" title="내리기 / 올리기" onclick="event.stopPropagation();composeToggleMin()">▁</button><button class="x" onclick="event.stopPropagation();closeCompose()">✕</button></div></div>
     <div class="mbox-b">
       <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span> <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cTo')">📇 주소록</button></label>
-      <input id="cTo" type="text" placeholder="someone@enjet.co.kr, ...">
+      <div class="ac-wrap"><input id="cTo" type="text" placeholder="someone@enjet.co.kr, ..." autocomplete="off" oninput="composeAC('cTo')" onkeydown="composeACKey(event,'cTo')" onblur="composeACHide('cTo')"><div class="ac-dd" id="cToAC"></div></div>
       <label>참조 (CC) <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cCc')">📇 주소록</button></label>
-      <input id="cCc" type="text" placeholder="(선택)">
+      <div class="ac-wrap"><input id="cCc" type="text" placeholder="(선택)" autocomplete="off" oninput="composeAC('cCc')" onkeydown="composeACKey(event,'cCc')" onblur="composeACHide('cCc')"><div class="ac-dd" id="cCcAC"></div></div>
       <label>제목</label>
       <input id="cSubj" type="text">
       <label>내용</label>
       <textarea id="cBody" rows="11"></textarea>
-      <label>첨부파일</label>
+      <label>첨부파일 <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="composeSPAttach()">📎 대시보드 자료 첨부</button></label>
       <input id="cFiles" type="file" multiple onchange="onFiles()">
       <div id="cFileList" class="cfiles"></div>
       <div id="cMsg" class="cmsg"></div>
@@ -2207,6 +2330,39 @@ async function spDeleteByPath(path){
 
 // ── 페이지 전환 ──
 let curPage='mail';
+// ── 모바일 하단 탭바 + 바텀시트 ──
+function mobNavGo(p){ mobSheetClose(); showPage(p); }
+function mobNavActive(){
+  const map={mail:'mail', contacts:'vendor','doc-vendor':'vendor', 'doc-quote':'pdocs','doc-order':'pdocs','doc-invoice':'pdocs','doc-tax':'pdocs', project:'project', spec:'project'};
+  const g=map[curPage]||'more';
+  document.querySelectorAll('#mobNav button').forEach(b=>b.classList.toggle('active', b.dataset.mn===g));
+}
+const _MOB_SHEETS={
+  vendor:{title:'🏢 거래처', items:[['👥','주소록','contacts'],['🏢','거래처','doc-vendor']]},
+  pdocs:{title:'📦 구매자료', items:[['📄','견적서','doc-quote'],['📦','발주서','doc-order'],['🧾','거래명세서','doc-invoice'],['💳','세금계산서','doc-tax'],['📚','기술자료','doc-tech']]},
+  more:{title:'☰ 더보기', items:[['📚','기술자료','doc-tech'],['📎','첨부파일','attach'],['📅','통합일정관리','schedule'],['🛒','구매','purchase'],['💳','법인카드','corpcard']]}
+};
+function mobSheetOpen(group){
+  const sh=$('mobSheet'); const body=$('mobSheetBody'); const ttl=$('mobSheetTitle'); if(!sh) return;
+  if(group==='project'){
+    ttl.textContent='📁 프로젝트';
+    const codes=(typeof pProjects!=='undefined'?pProjects:[])||[];
+    body.innerHTML = codes.length ? codes.map(c=>`<div class="ms-item" onclick="mobOpenProject('${esc(c)}')"><span class="ms-ic">📁</span>${esc(c)}</div>`).join('')
+      : '<div style="padding:20px;text-align:center;color:#94a3b8">프로젝트가 없습니다</div>';
+  } else {
+    let cfg=JSON.parse(JSON.stringify(_MOB_SHEETS[group]||_MOB_SHEETS.more));
+    // 권한 페이지 추가(슈퍼관리자)
+    if(group==='more'){
+      const upn=((_account&&_account.username)||'').toLowerCase();
+      if(upn==='baekhoon@enjet.co.kr'){ cfg.items.push(['🔐','권한설정','perm'],['⚙️','관리자설정','admin']); }
+    }
+    ttl.textContent=cfg.title;
+    body.innerHTML=cfg.items.map(([ic,label,pg])=>`<div class="ms-item" onclick="mobNavGo('${pg}')"><span class="ms-ic">${ic}</span>${label}</div>`).join('');
+  }
+  sh.classList.add('on');
+}
+function mobSheetClose(){ $('mobSheet')?.classList.remove('on'); }
+function mobOpenProject(code){ mobSheetClose(); showPage('project'); if(typeof projOpen==='function') projOpen(code); }
 function showPage(p){
   curPage=p;
   // 권한설정 = 슈퍼관리자 전용 / 관리자설정 = 관리자
@@ -2240,6 +2396,7 @@ function showPage(p){
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
   else if(p==='corpcard'){ ccInit(); }
+  if(typeof mobNavActive==='function') mobNavActive();
 }
 
 // ── 프로젝트 (드롭다운 + 좌측 사이드탭) ──
@@ -5681,6 +5838,12 @@ async function refreshEndpoint(){ toast('SharePoint에서 서버 주소 확인 �
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
 async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();if(DEEPLINK_UID){const tgt=DEEPLINK_UID;DEEPLINK_UID=null;const exists=MAILS.find(x=>String(x.uid)===String(tgt));if(exists){openMail(exists.uid);}else{openMail(tgt);}}setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function mailParty(m){return (FOLDER==='sent')?(m.to||[]):(m.from||[]);}
+const _AV_COLORS=['#ef4444','#f97316','#f59e0b','#10b981','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#ec4899','#14b8a6','#0ea5e9','#84cc16'];
+function avatarFor(name){
+  const s=String(name||'?').trim(); const ch=s ? s[0].toUpperCase() : '?';
+  let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  return {ch, color:_AV_COLORS[h%_AV_COLORS.length]};
+}
 function partyName(m){
   const a=mailParty(m);
   if(!a||!a.length) return FOLDER==='sent'?'(받는사람 없음)':'(보낸사람 없음)';
@@ -5787,10 +5950,12 @@ function renderList(){
     const caret=multi?`<span class="mr-caret">▶</span>`:'';
     const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
     const hck=SELECTED_UIDS.has(String(head.uid))?'checked':'';
+    const _av=avatarFor(partyName(head));
+    const avHtml=`<div class="mr-av" style="background:${_av.color}">${esc(_av.ch)}</div>`;
     html+=`<div class="grp${open}" data-k="${esc(k)}">
       <div class="mailrow${sel}" ${onclick}>
         <div class="mr-row">
-          <input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
+          ${avHtml}<input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
           <div class="mr-body">
             <div class="mr-top"><span class="mr-from${isNew?' new':''}">${newDot}${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
             <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
@@ -5805,6 +5970,7 @@ function renderList(){
   $('list').innerHTML=html;
   updateDelBtn();
   _updateNewBadge();
+  bindMailSwipe();
 }
 // 그룹 대표 클릭: 카드 토글 + 최신메일 열기
 function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
@@ -5845,6 +6011,36 @@ async function deleteSelected(){
   b.disabled=false; b.innerHTML=old; updateDelBtn();
 }
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
+// 단일 메일 휴지통 이동 (스와이프용)
+async function deleteOne(uid){
+  try{
+    const r=await fetch(`${SERVER}/api/mail/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:FOLDER,uids:[String(uid)]})});
+    const d=await r.json();
+    if(d.ok){ toast('휴지통으로 이동','ok'); if(String(SELECTED)===String(uid)){ SELECTED=null; renderReaderEmpty(); } loadList(); }
+    else toast('삭제 실패: '+(d.error||''),'bad');
+  }catch(e){ toast('삭제 오류: '+e.message,'bad'); }
+}
+// ── 모바일 스와이프 (행: ← 삭제 / → 읽음표시) ──
+function bindMailSwipe(){
+  if(!window.matchMedia||!window.matchMedia('(max-width:640px)').matches) return;
+  document.querySelectorAll('#list .mailrow').forEach(row=>{
+    if(row._sw) return; row._sw=true;
+    let x0=0,y0=0,dx=0,drag=false;
+    row.addEventListener('touchstart',e=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; dx=0; drag=false; row.style.transition='none'; },{passive:true});
+    row.addEventListener('touchmove',e=>{ const t=e.touches[0]; dx=t.clientX-x0; const dy=t.clientY-y0;
+      if(!drag && Math.abs(dx)>14 && Math.abs(dx)>Math.abs(dy)){ drag=true; }
+      if(drag){ e.preventDefault(); row.style.transform=`translateX(${dx}px)`; row.style.background = dx<0?'#fee2e2':'#dcfce7'; }
+    },{passive:false});
+    row.addEventListener('touchend',()=>{
+      row.style.transition='transform .2s,background .2s';
+      const uid=(row.getAttribute('onclick')||'').match(/openMail\('([^']+)'\)|groupHeadClick\([^,]+,[^,]+,'([^']+)'\)/);
+      const id=uid?(uid[1]||uid[2]):null;
+      if(drag && dx<-90 && id){ row.style.transform='translateX(-100%)'; setTimeout(()=>deleteOne(id),160); }
+      else if(drag && dx>90 && id){ _markSeen(id); row.style.transform=''; row.style.background=''; _updateNewBadge(); renderList(); }
+      else { row.style.transform=''; row.style.background=''; }
+    });
+  });
+}
 function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
 async function openMail(uid){SELECTED=uid;_markSeen(uid);renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 조회 실패: ${esc(d.error||'')}</div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div class="err">본문 로드 실패: ${esc(e.message)}</div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
@@ -6049,6 +6245,118 @@ function applyContactPicker(){
   for(const e of _ctPickSel){ if(!cur.includes(e)) cur.push(e); }
   inp.value=cur.join(', ');
   closeContactPicker();
+}
+// ── 받는사람/참조 자동완성 (주소록 매칭) ──
+let _acIdx={};
+function _acLastToken(val){ const parts=val.split(','); return {pre:parts.slice(0,-1).join(','), q:parts[parts.length-1].trim()}; }
+function composeAC(inputId){
+  const el=$(inputId), dd=$(inputId+'AC'); if(!el||!dd) return;
+  const {q}=_acLastToken(el.value);
+  if(q.length<1){ dd.classList.remove('on'); dd.innerHTML=''; return; }
+  const ql=q.toLowerCase(); const seen=new Set();
+  const hits=(CONTACTS||[]).filter(c=>{
+    const em=(c.email||'').toLowerCase(); if(!em||seen.has(em)) return false;
+    const hit=(c.name||'').toLowerCase().includes(ql)||(c.company||'').toLowerCase().includes(ql)||em.includes(ql);
+    if(hit) seen.add(em); return hit;
+  }).slice(0,8);
+  if(!hits.length){ dd.classList.remove('on'); dd.innerHTML=''; return; }
+  _acIdx[inputId]=0;
+  dd.innerHTML=hits.map((c,i)=>`<div class="ac-item ${i===0?'sel':''}" data-em="${esc(c.email)}" onmousedown="event.preventDefault();composeACPick('${inputId}','${esc(c.email).replace(/'/g,"\\'")}')">
+    <span class="ac-nm">${esc(c.name||c.email)}${c.company?` · ${esc(c.company)}`:''}</span>
+    <span class="ac-sub">${esc(c.email)}${c.category?` · ${esc(c.category)}`:''}</span></div>`).join('');
+  dd.classList.add('on');
+}
+function composeACPick(inputId, email){
+  const el=$(inputId); if(!el) return;
+  const {pre}=_acLastToken(el.value);
+  el.value=(pre?pre.replace(/,\s*$/,'')+', ':'')+email+', ';
+  $(inputId+'AC').classList.remove('on'); el.focus();
+}
+function composeACKey(ev, inputId){
+  const dd=$(inputId+'AC'); if(!dd||!dd.classList.contains('on')) return;
+  const items=[...dd.querySelectorAll('.ac-item')]; if(!items.length) return;
+  let i=_acIdx[inputId]||0;
+  if(ev.key==='ArrowDown'){ ev.preventDefault(); i=(i+1)%items.length; }
+  else if(ev.key==='ArrowUp'){ ev.preventDefault(); i=(i-1+items.length)%items.length; }
+  else if(ev.key==='Enter'){ ev.preventDefault(); composeACPick(inputId, items[i].dataset.em); return; }
+  else if(ev.key==='Escape'){ dd.classList.remove('on'); return; }
+  else return;
+  _acIdx[inputId]=i; items.forEach((it,k)=>it.classList.toggle('sel',k===i)); items[i].scrollIntoView({block:'nearest'});
+}
+function composeACHide(inputId){ setTimeout(()=>{ const dd=$(inputId+'AC'); if(dd) dd.classList.remove('on'); }, 150); }
+
+// ── 대시보드(SharePoint) 자료 첨부 ──
+let _spAtt=null;
+function composeSPAttach(){
+  _spAtt={path:'', sel:new Set(), names:{}};
+  let ov=document.getElementById('spAttOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='spAttOv';
+  ov.style.cssText="position:fixed;inset:0;z-index:1000070;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(760px,94vw);max-height:84vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff">
+      <b>📎 대시보드 자료 첨부 <span style="font-weight:400;font-size:12px;opacity:.85">기술자료·구매자료 등</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('spAttOv').remove()">✕</span></div>
+    <div id="spAttCrumb" style="padding:8px 16px;font-size:12px;color:#64748b;border-bottom:1px solid #eef0f3"></div>
+    <div id="spAttList" style="flex:1;overflow:auto;min-height:240px"><div style="padding:30px;text-align:center;color:#94a3b8">불러오는 중…</div></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid #eef0f3">
+      <span id="spAttSel" style="font-size:12px;color:#64748b">선택 0개</span><span style="flex:1"></span>
+      <button class="btn sm" onclick="document.getElementById('spAttOv').remove()">취소</button>
+      <button class="btn primary sm" id="spAttGo" onclick="composeSPAttachGo()">📎 첨부</button></div>
+  </div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  composeSPAttachNav('');
+}
+async function composeSPAttachNav(path){
+  _spAtt.path=path;
+  const crumb=document.getElementById('spAttCrumb'), list=document.getElementById('spAttList'); if(!list) return;
+  list.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8">불러오는 중…</div>';
+  const parts=path?path.split('/'):[]; let acc='';
+  let cr=`<span style="cursor:pointer;color:#2563eb" onclick="composeSPAttachNav('')">전체</span>`+parts.map(p=>{ acc=acc?acc+'/'+p:p; const a=acc; return ` / <span style="cursor:pointer;color:#2563eb" onclick="composeSPAttachNav('${esc(a).replace(/'/g,"\\'")}')">${esc(p)}</span>`; }).join('');
+  if(crumb) crumb.innerHTML='📁 '+cr;
+  const items=await spList(path);
+  const folders=items.filter(x=>x.folder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  const files=items.filter(x=>x.file).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  let h='<div style="padding:6px 0">';
+  if(path){ h+=`<div class="ti-row" style="padding:8px 16px;cursor:pointer;color:#64748b" onclick="composeSPAttachNav('${esc(parts.slice(0,-1).join('/')).replace(/'/g,"\\'")}')">⬆ 상위 폴더</div>`; }
+  folders.forEach(f=>{ const np=path?path+'/'+f.name:f.name; h+=`<div class="ti-row" style="padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="composeSPAttachNav('${esc(np).replace(/'/g,"\\'")}')"><span>📂</span><span>${esc(f.name)}</span></div>`; });
+  files.forEach(f=>{ const ck=_spAtt.sel.has(f.id)?'checked':''; const kb=f.size?(f.size>1048576?(f.size/1048576).toFixed(1)+'MB':Math.round(f.size/1024)+'KB'):''; const big=(f.size||0)>10*1048576; h+=`<div class="ti-row" style="padding:8px 16px;display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck} onchange="composeSPAttachToggle('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0},this.checked)"><span>${typeof taIcon==='function'?taIcon(f.name):'📄'}</span><span style="flex:1">${esc(f.name)}</span>${big?'<span style="font-size:10px;color:#2563eb;background:#dbeafe;padding:1px 6px;border-radius:8px">링크</span>':''}<span style="font-size:11px;color:#94a3b8">${kb}</span></div>`; });
+  if(!folders.length && !files.length) h+='<div style="padding:30px;text-align:center;color:#94a3b8">폴더가 비어있습니다</div>';
+  h+='</div>'; list.innerHTML=h;
+}
+function composeSPAttachToggle(id,name,size,on){ if(on){_spAtt.sel.add(id);_spAtt.names[id]=name;_spAtt.sizes=_spAtt.sizes||{};_spAtt.sizes[id]=size||0;} else _spAtt.sel.delete(id); const s=document.getElementById('spAttSel'); if(s)s.textContent='선택 '+_spAtt.sel.size+'개'; }
+async function composeSPAttachGo(){
+  if(!_spAtt||!_spAtt.sel.size){ toast('첨부할 파일을 선택하세요','bad'); return; }
+  const btn=document.getElementById('spAttGo'); if(btn){btn.disabled=true;btn.textContent='가져오는 중…';}
+  const drive=await spDrive().catch(()=>null);
+  const LARGE=10*1048576;   // 10MB 초과 → 공유링크
+  const links=[]; let ok=0,fail=0;
+  for(const id of _spAtt.sel){
+    const nm=_spAtt.names[id]; const sz=(_spAtt.sizes&&_spAtt.sizes[id])||0;
+    try{
+      if(sz>LARGE){
+        // 대용량 → SharePoint 공유링크 (30일)
+        const lk=await spCreateShareLink(id, 30);
+        if(!lk||!lk.url) throw new Error('공유링크 생성 실패');
+        links.push({name:nm, url:lk.url, scope:lk.scope, exp:lk.exp, size:sz}); ok++;
+      } else {
+        if(COMPOSE_ATT.some(a=>a.filename===nm)){ ok++; continue; }
+        const blob=await spFetchBlob(id, drive);
+        const b64=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]); fr.onerror=rej; fr.readAsDataURL(blob); });
+        COMPOSE_ATT.push({filename:nm, content_type:blob.type||'application/octet-stream', b64}); ok++;
+      }
+    }catch(_){ fail++; }
+  }
+  document.getElementById('spAttOv')?.remove();
+  renderFileChips();
+  // 대용량 링크는 본문에 다운로드 블록 추가
+  if(links.length){
+    const body=$('cBody');
+    let block='\n\n──────────\n📎 대용량 첨부 (다운로드 링크)\n';
+    links.forEach(l=>{ const scopeTxt=l.scope==='anonymous'?'누구나 열람':'조직 내부(로그인 필요)'; const expTxt=l.exp?` · ${new Date(l.exp).toLocaleDateString('ko-KR')}까지`:''; block+=`\n• ${l.name} (${(l.size/1048576).toFixed(1)}MB · ${scopeTxt}${expTxt})\n  ${l.url}\n`; });
+    body.value=(body.value||'')+block;
+  }
+  toast(`첨부 완료: 직접 ${ok-links.length>0?ok-links.length:0}개${links.length?` · 링크 ${links.length}개`:''}${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok');
 }
 async function onFiles(){
   const files=Array.from($('cFiles').files||[]);
@@ -12582,5 +12890,13 @@ async function prnewDoProposalSave(reqNo, cust){
   <div id="jobq-panel" style="display:none;position:absolute;top:42px;right:0;width:320px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);border:1px solid #e5e7eb;overflow:hidden;"></div>
 </div>
 <button id="composeFab" title="메일쓰기" onclick="openCompose('new')">✉<span class="fab-plus">＋</span></button>
+<nav id="mobNav" class="mob-nav">
+  <button data-mn="mail" onclick="mobNavGo('mail')"><span class="mn-ic">📧</span>메일</button>
+  <button data-mn="vendor" onclick="mobSheetOpen('vendor')"><span class="mn-ic">🏢</span>거래처</button>
+  <button data-mn="pdocs" onclick="mobSheetOpen('pdocs')"><span class="mn-ic">📦</span>구매자료</button>
+  <button data-mn="project" onclick="mobSheetOpen('project')"><span class="mn-ic">📁</span>프로젝트</button>
+  <button data-mn="more" onclick="mobSheetOpen('more')"><span class="mn-ic">☰</span>더보기</button>
+</nav>
+<div id="mobSheet" class="mob-sheet"><div class="mob-sheet-bg" onclick="mobSheetClose()"></div><div class="mob-sheet-card"><div class="mob-sheet-h"><b id="mobSheetTitle"></b><span onclick="mobSheetClose()" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span></div><div id="mobSheetBody"></div></div></div>
 </body>
 </html>
