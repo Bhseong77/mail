@@ -1154,7 +1154,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v208</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v210</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10693,7 +10693,11 @@ function poadvInit(){
         <!-- 품목 -->
         <div class="acc-card">
           <div class="acc-card-header">
-            <div class="acc-card-title">② 발주 품목</div>
+            <div class="acc-card-title">② 발주 품목
+              <label id="poadv-manual-wrap" title="체크하면 품의 매칭 없이 영림원에 신규 발주로 직접 생성합니다" style="display:none;margin-left:14px;font-size:13px;font-weight:600;color:#7c3aed;cursor:pointer;vertical-align:middle;">
+                <input type="checkbox" id="poadv-manual" style="vertical-align:middle;transform:scale(1.15);margin-right:5px;" onchange="poadvManualToggle()"> 수동입력(신규 생성)
+              </label>
+            </div>
             <div class="acc-card-subtitle">규격·제조사 외 모든 칸이 입력되어야 저장됩니다 · 단위 EA 고정</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
@@ -10787,6 +10791,7 @@ function poadvInit(){
 
 function poadvAddRow(prefill){
   poadvSourceProposal = null;   // 수동으로 행 추가 = 직접입력 발주 (품의 연계 해제)
+  if(typeof poadvUpdateManualUI==="function") poadvUpdateManualUI();
   poadvRows.push(Object.assign({
     pjt_name:"", pjt_no:"", item_name:"", item_no:"", spec:"", unit:"EA",
     maker:"", delv:poadvTomorrow(), qty:1, price:0,
@@ -10821,6 +10826,7 @@ function poadvDraftLoad(id){
   set("poadv-dept",h.dept); set("poadv-emp",h.emp); set("poadv-cur",h.cur); set("poadv-rate",h.rate); set("poadv-note",h.note);
   poadvRows=(h.rows||[]).map(r=>Object.assign({},r));
   poadvSourceProposal=null;   // 임시저장본은 직접입력 발주
+  if(typeof poadvUpdateManualUI==="function") poadvUpdateManualUI();
   if(!poadvRows.length) poadvAddRow();
   poadvRenderRows();
   const ov=document.getElementById("poadv-draft-ov"); if(ov) ov.remove();
@@ -10973,7 +10979,7 @@ function poadvRenderRows(){
       <td style="text-align:center;color:#9ca3af;">${i+1}</td>
       <td><select data-r="${i}" data-f="pjt_no" onchange="poadvRowInput(${i},'pjt_no',this)" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">${projOpts(r.pjt_no||"")}</select></td>
       <td><input data-r="${i}" data-f="item_name" value="${esc(r.item_name||"")}" oninput="poadvRowInput(${i},'item_name',this)" placeholder="품명"></td>
-      <td><input data-r="${i}" data-f="item_no" value="${esc(r.item_no||"")}" oninput="poadvRowInput(${i},'item_no',this)" placeholder="품번"></td>
+      <td><input data-r="${i}" data-f="item_no" value="${esc(r.item_no||"")}" readonly tabindex="-1" placeholder="자동" title="품번은 영림원에서 품명 기준으로 자동기입됩니다" style="background:#f1f5f9;color:#94a3b8;cursor:not-allowed;"></td>
       <td><input data-r="${i}" data-f="spec" value="${esc(r.spec||"")}" oninput="poadvRowInput(${i},'spec',this)" placeholder="-"></td>
       <td><input value="${esc(r.unit||"EA")}" readonly style="text-align:center;color:#6b7280;"></td>
       <td><input data-r="${i}" data-f="maker" value="${esc(r.maker||"")}" oninput="poadvRowInput(${i},'maker',this)" placeholder="-"></td>
@@ -11076,20 +11082,20 @@ function poadvValidate(){
   if(!h.emp)  errs.push("발주담당자");
   if(!h.cur)  errs.push("통화");
   if(!h.rate) errs.push("환율");
-  // 행 필수: 프로젝트명/번호/품명/품번/납기/수량/단가 (규격·제조사 제외)
-  const rowsValid = h.rows.filter(r=>r.pjt_no||r.item_no);
+  // 행 필수: 프로젝트번호/품명/납기/수량 (품번=영림원 자동기입, 규격·제조사·단가 제외)
+  const rowsValid = h.rows.filter(r=>r.pjt_no||r.item_name||r.item_no);
   if(!rowsValid.length) errs.push("발주 품목(최소 1행)");
   let rowErr=0;
   document.querySelectorAll("#poadv-tbody input, #poadv-tbody select").forEach(el=>el.classList.remove("miss"));
   // 새 컬럼 순서: [0]#, [1]프로젝트번호(select), [2]품명, [3]품번, [4]규격, [5]단위, [6]제조사, [7]납기, [8]수량, [9]단가
   // input 인덱스(select 제외): 품명0·품번1·규격2·단위3·제조사4·납기5·수량6·단가7
   h.rows.forEach((r,i)=>{
-    const need=["pjt_no","item_name","item_no","delv","qty"];  // 단가는 0 허용 → 필수 제외
+    const need=["pjt_no","item_name","delv","qty"];  // 품번=자동기입 제외, 단가 0 허용
     need.forEach(f=>{
       const bad = (f==="qty") ? !(poadvNum(r.qty)>0) : !String(r[f]||"").trim();
       if(bad){ rowErr++; const tr=document.querySelectorAll("#poadv-tbody tr")[i];
         if(tr){ if(f==="pjt_no"){ const s=tr.querySelector("select"); if(s) s.classList.add("miss"); }
-          else { const map={item_name:0,item_no:1,delv:5,qty:6}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } } }
+          else { const map={item_name:0,delv:5,qty:6}; const inp=tr.querySelectorAll("input")[map[f]]; if(inp) inp.classList.add("miss"); } } }
     });
   });
   if(rowErr) errs.push(`품목 필수입력 ${rowErr}칸`);
@@ -11115,6 +11121,18 @@ async function poadvPollSaveJob(jobId, msg){
   }
 }
 
+// 수동입력 체크박스: 품의 불러온 경우에만 노출(직접발주는 항상 신규라 불필요)
+function poadvUpdateManualUI(){
+  const wrap=document.getElementById("poadv-manual-wrap");
+  if(wrap) wrap.style.display = poadvSourceProposal ? "inline-block" : "none";
+}
+function poadvManualToggle(){
+  const on=!!(document.getElementById("poadv-manual")||{}).checked;
+  const msg=document.getElementById("poadv-msg");
+  if(msg){ msg.style.color="#7c3aed"; msg.textContent = on
+    ? "✏️ 수동입력 모드: 품의 매칭 없이 영림원에 신규 발주로 직접 생성합니다."
+    : "🔗 행 불러오기 모드: 품의의 해당 품목을 매칭해 발주입력합니다."; }
+}
 async function poadvSave(){
   const v = poadvValidate();
   const msg=document.getElementById("poadv-msg");
@@ -11124,7 +11142,8 @@ async function poadvSave(){
   const _j = (typeof _J==="function") ? _J("발주 저장: "+v.header.cust) : null;
   try{
     let r;
-    if(poadvSourceProposal){
+    const manual = !!(document.getElementById("poadv-manual")||{}).checked;
+    if(poadvSourceProposal && !manual){
       // 품의 불러온 발주: 재타이핑 X. 남긴 품목(품명)만 영림원 521295에서 선택 → 발주입력 → 저장만.
       const keep = poadvRows.filter(x=>String(x.item_name||"").trim()).map(x=>x.item_name);
       if(!keep.length){ msg.style.color="#dc2626"; msg.textContent="⚠️ 발주 품목이 없습니다."; btn.disabled=false; btn.textContent=ot; return; }
@@ -11811,6 +11830,7 @@ async function poadvPoInput(proposalNo, custName){
     }));
     poadvRenderRows();
     poadvSourceProposal = proposalNo;   // 품의 불러온 발주 → 저장 시 행선택→발주입력→저장만
+    poadvUpdateManualUI();
     const dateEl=document.getElementById("poadv-date"); if(dateEl && !dateEl.value) dateEl.value=poadvToday();
     if(custName){
       const custEl=document.getElementById("poadv-cust");
