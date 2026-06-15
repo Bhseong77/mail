@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v247</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v248</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1627,6 +1627,34 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
             <div>
               <div class="acc-page-title">✏️ 납품확인 신규 작성</div>
               <div class="acc-page-subtitle">작성 상태 발주 선택 → 영림원 납품(입고) 자동 생성 (BETA)</div>
+            </div>
+          </div>
+
+          <!-- 입고정산처리 조회 목록 (프로젝트구매입고정산처리) -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">📥 입고 내역 (프로젝트구매입고정산처리)</div>
+              <div class="acc-card-subtitle">관리자설정 프로젝트 · 입고일 기준 조회</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <label style="font-size:13px;color:#475569;">입고일</label>
+              <input type="date" id="rcp-from" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <span style="color:#9ca3af;">~</span>
+              <input type="date" id="rcp-to" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <button class="acc-period-btn today" onclick="rcpLoad()">🔍 조회</button>
+              <select id="rcp-f-proj" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">프로젝트 전체</option></select>
+              <select id="rcp-f-cust" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">거래처 전체</option></select>
+              <select id="rcp-f-cls" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">분류 전체</option></select>
+              <input id="rcp-f-q" oninput="rcpRender()" placeholder="🔍 품명·품번·입고번호" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:200px;">
+              <span id="rcp-cnt" style="font-size:12px;color:#9ca3af;margin-left:auto;"></span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="acc-table" style="width:100%;font-size:13px;">
+                <thead><tr>
+                  <th>프로젝트번호</th><th>입고일</th><th>입고번호</th><th>구매거래처</th><th>품목분류</th><th>품명</th><th>품번</th><th style="text-align:right;">금액계</th>
+                </tr></thead>
+                <tbody id="rcp-tbody"><tr><td colspan="8" style="padding:18px;text-align:center;color:#9ca3af;">[🔍 조회]를 눌러 입고 내역을 불러오세요 (기본 최근 한 달)</td></tr></tbody>
+              </table>
             </div>
           </div>
 
@@ -9025,7 +9053,7 @@ function pRenderCurrent(){
   if(n==="cust") return (typeof custPageInit==="function") ? custPageInit() : pRenderSoon(n);
   if(n==="pr_new") return (typeof prnewInit==="function") ? prnewInit() : pRenderSoon(n);
   if(n==="po_adv") return (typeof poadvInit==="function") ? poadvInit() : pRenderSoon(n);
-  if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)) return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n);
+  if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)){ if(n==="dv_new"){ setTimeout(()=>{ try{ rcpDefaultDates(); if(!_rcpData.length) rcpLoad(); }catch(_){} },300); } return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n); }
 }
 
 // ── 테이블 컬럼 구성 (실제 영림원 DB 스키마 기반) ──
@@ -10047,6 +10075,65 @@ async function bgSave(label, url, payload, onDone){
 let dvnewDrafts = [];
 let dvnewSelected = null;
 let dvnewDone = new Set(JSON.parse(localStorage.getItem('dvnewDoneOrders') || '[]'));
+
+// ── 입고정산처리(프로젝트구매입고정산처리) 조회 목록 ──
+let _rcpData=[];
+function rcpDefaultDates(){
+  const to=new Date(); const fr=new Date(); fr.setMonth(fr.getMonth()-1);
+  const f=document.getElementById("rcp-from"), t=document.getElementById("rcp-to");
+  if(f && !f.value) f.value=fr.toISOString().slice(0,10);
+  if(t && !t.value) t.value=to.toISOString().slice(0,10);
+}
+async function rcpLoad(){
+  rcpDefaultDates();
+  const tb=document.getElementById("rcp-tbody"); if(tb) tb.innerHTML='<tr><td colspan="8" style="padding:18px;text-align:center;color:#9ca3af;">불러오는 중…</td></tr>';
+  try{
+    const r=await fetch(`${SERVER}/api/purchase/receipt-processing`);
+    const all=await r.json();
+    // 관리자설정 프로젝트만
+    const codes=(typeof pProjects!=='undefined'?pProjects:[]).map(c=>String(c).toUpperCase());
+    const fr=document.getElementById("rcp-from").value, to=document.getElementById("rcp-to").value;
+    _rcpData=(all||[]).filter(x=>{
+      const pc=String(x.project_code||"").toUpperCase();
+      if(codes.length && !codes.some(c=>pc.includes(c))) return false;
+      const d=(x.delv_in_date||"").slice(0,10);
+      if(fr && d<fr) return false; if(to && d>to) return false;
+      return true;
+    });
+    rcpFillFilters(); rcpRender();
+  }catch(e){ if(tb) tb.innerHTML=`<tr><td colspan="8" style="padding:18px;text-align:center;color:#dc2626;">조회 실패: ${esc(e.message)}</td></tr>`; }
+}
+function rcpFillFilters(){
+  const projs=new Set(), custs=new Set(), clss=new Set();
+  _rcpData.forEach(x=>{ if(x.project_code)projs.add(x.project_code); if(x.cust_name)custs.add(x.cust_name); if(x.item_class_name)clss.add(x.item_class_name); });
+  const fill=(id,set,label)=>{ const s=document.getElementById(id); if(!s)return; const v=s.value; s.innerHTML=`<option value="">${label}</option>`+[...set].sort().map(o=>`<option ${o===v?"selected":""}>${esc(o)}</option>`).join(""); };
+  fill("rcp-f-proj",projs,"프로젝트 전체"); fill("rcp-f-cust",custs,"거래처 전체"); fill("rcp-f-cls",clss,"분류 전체");
+}
+function rcpRender(){
+  const tb=document.getElementById("rcp-tbody"); if(!tb) return;
+  const fp=document.getElementById("rcp-f-proj").value, fc=document.getElementById("rcp-f-cust").value, fcl=document.getElementById("rcp-f-cls").value;
+  const q=(document.getElementById("rcp-f-q").value||"").trim().toLowerCase();
+  let rows=_rcpData.filter(x=>{
+    if(fp && x.project_code!==fp) return false;
+    if(fc && x.cust_name!==fc) return false;
+    if(fcl && x.item_class_name!==fcl) return false;
+    if(q){ const blob=`${x.item_name||""} ${x.item_no||""} ${x.delv_in_no||""}`.toLowerCase(); if(!blob.includes(q)) return false; }
+    return true;
+  });
+  const cnt=document.getElementById("rcp-cnt"); if(cnt) cnt.textContent=`${rows.length}건`;
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="8" style="padding:18px;text-align:center;color:#9ca3af;">조회 결과 없음</td></tr>'; return; }
+  const comma=n=>Number(n||0).toLocaleString("en-US");
+  tb.innerHTML=rows.map(x=>`<tr>
+    <td style="font-family:monospace;">${esc(x.project_code||"-")}</td>
+    <td>${esc((x.delv_in_date||"").slice(0,10)||"-")}</td>
+    <td style="font-family:monospace;">${esc(x.delv_in_no||"-")}</td>
+    <td title="${esc(x.cust_name||'')}">${esc(x.cust_name||"-")}</td>
+    <td style="font-size:12px;">${esc(x.item_class_name||"-")}</td>
+    <td title="${esc(x.item_name||'')}">${esc(x.item_name||"-")}</td>
+    <td style="font-size:12px;font-family:monospace;" title="${esc(x.item_no||'')}">${esc(x.item_no||"-")}</td>
+    <td style="text-align:right;">${comma(x.tot_dom_amt)}</td>
+  </tr>`).join("");
+}
 
 async function dvnewLoadDrafts(refresh){
   const list = document.getElementById('dvnew-list');
