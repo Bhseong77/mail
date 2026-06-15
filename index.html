@@ -806,6 +806,39 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .psub{display:none}
 .psub.on{display:block}
 .pkpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+/* ── 업무계획 ── */
+.wp-lgbtn,.wp-vbtn{border:none;background:transparent;padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--t3);cursor:pointer;font-family:inherit}
+.wp-lgbtn.on,.wp-vbtn.on{background:var(--bg2);color:var(--t1);box-shadow:var(--shadow)}
+.wp-proj{background:var(--pd);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:9px;cursor:pointer;margin-top:12px}
+.wp-proj:first-child{margin-top:0}
+.wp-grp{background:var(--bg3);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:5px}
+.wp-task{display:flex;align-items:center;gap:7px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer}
+.wp-task:hover{background:var(--bg3)}
+.wp-task.sel{background:var(--pd)}
+.wp-task.locked{opacity:.55}
+.wp-grip{opacity:.4}
+.wp-grp:hover .wp-grip,.wp-task:hover .wp-grip{opacity:1}
+.wp-drop-top{box-shadow:inset 0 2px 0 var(--p)}
+.wp-drop-bot{box-shadow:inset 0 -2px 0 var(--p)}
+.wp-drop-in{outline:2px dashed var(--p);outline-offset:-2px;background:var(--pd)!important}
+.wp-ctx{position:fixed;z-index:1000090;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:4px;min-width:210px}
+.wp-ctx-item{display:flex;align-items:center;gap:6px;padding:8px 12px;font-size:13px;color:var(--t1);cursor:pointer;border-radius:7px}
+.wp-ctx-item:hover{background:var(--pd)}
+.wp-ctx-sep{height:1px;background:var(--border);margin:4px 6px}
+.wp-id{font-size:11px;color:var(--t3);font-family:monospace}
+.wp-rolebadge{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:600}
+.wp-bar{height:5px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.wp-bar>div{height:100%;border-radius:99px}
+.wp-detail{margin:0 0 6px 30px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px}
+.wp-detail .wp-sec{font-size:11.5px;font-weight:700;color:var(--t2);margin:10px 0 5px}
+.wp-fchip{display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;font-size:12px}
+.wp-hist{display:flex;gap:8px;font-size:11.5px;padding:3px 0}
+.wp-cmt{display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--border)}
+.wp-cmt-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;background:var(--p);color:#fff}
+.wp-gtask{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wp-gbar{height:15px;border-radius:5px;position:relative;overflow:hidden;background:var(--bg3)}
+.wp-gbar>div{position:absolute;inset:0;border-radius:5px}
+@media(max-width:640px){.wp-detail{margin-left:8px}.wp-proj h2{font-size:15px}}
 /* 조치필요 알림 */
 .palert-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .palert{flex:1;min-width:170px;background:var(--bg2);border-radius:12px;padding:13px 16px;box-shadow:var(--shadow);border-left:5px solid var(--r);cursor:pointer;transition:transform .12s}
@@ -1154,7 +1187,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v210</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v215</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1194,6 +1227,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     <button class="navgrp-btn" id="navgrp-project" onclick="navToggle(event,'project')">📁 프로젝트 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-project"></div>
   </div>
+  <button id="nav-workplan" onclick="showPage('workplan')">📋 업무계획</button>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
@@ -1288,6 +1322,42 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
 </div>
 
+
+<!-- 업무계획 페이지 -->
+<div class="page" id="page-workplan">
+  <div style="max-width:1280px;margin:0 auto;padding:18px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+      <h2 style="margin:0;font-size:20px;">📋 주간 업무계획 <span style="font-size:13px;font-weight:400;color:var(--t3)">(프로젝트별 작업 트리 · 간트 · 의존성)</span></h2>
+      <span style="flex:1"></span>
+      <button class="btn sm" onclick="wpPrevWeek()">◀ 이전주</button>
+      <select id="wp-week" onchange="wpLoad()" style="height:34px;font-size:13px;"></select>
+      <button class="btn sm" onclick="wpNextWeek()">다음주 ▶</button>
+      <div style="display:flex;gap:3px;background:var(--bg3);padding:3px;border-radius:8px;">
+        <button id="wp-lg-ko" class="wp-lgbtn on" onclick="wpLang('ko')">한국어</button>
+        <button id="wp-lg-en" class="wp-lgbtn" onclick="wpLang('en')">EN</button>
+      </div>
+    </div>
+    <div id="wp-meta" style="font-size:12px;color:var(--t3);margin-bottom:12px;"></div>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <div style="display:flex;gap:4px;background:var(--bg3);padding:3px;border-radius:8px;">
+        <button id="wp-v-tree" class="wp-vbtn on" onclick="wpView('tree')">🌲 트리</button>
+        <button id="wp-v-gantt" class="wp-vbtn" onclick="wpView('gantt')">📊 간트</button>
+        <button id="wp-v-order" class="wp-vbtn" onclick="wpView('order')">📝 업무지시</button>
+      </div>
+      <span style="flex:1"></span>
+      <button class="btn sm" onclick="wpExpandAll(true)">모두 펼치기</button>
+      <button class="btn sm" onclick="wpExpandAll(false)">모두 접기</button>
+      <button class="btn primary sm" id="wp-addgrp" onclick="wpAddGroup()" style="display:none;">＋ 할일 추가</button>
+    </div>
+
+    <div id="wp-legend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--t2);margin-bottom:12px;">
+      <span>✅ 완료</span><span>🔵 진행중</span><span>🔒 대기(선행 미완)</span><span>⚠️ 블로커</span><span>📎 첨부</span>
+    </div>
+
+    <div id="wp-body"><div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+  </div>
+</div>
 
 <!-- 구매 페이지 -->
 <div class="page" id="page-purchase">
@@ -2396,14 +2466,14 @@ let curPage='mail';
 // ── 모바일 하단 탭바 + 바텀시트 ──
 function mobNavGo(p){ mobSheetClose(); showPage(p); }
 function mobNavActive(){
-  const map={mail:'mail', contacts:'vendor','doc-vendor':'vendor', 'doc-quote':'pdocs','doc-order':'pdocs','doc-invoice':'pdocs','doc-tax':'pdocs', project:'project', spec:'project'};
+  const map={mail:'mail', contacts:'vendor','doc-vendor':'vendor', 'doc-quote':'pdocs','doc-order':'pdocs','doc-invoice':'pdocs','doc-tax':'pdocs', project:'project', spec:'project', workplan:'more'};
   const g=map[curPage]||'more';
   document.querySelectorAll('#mobNav button').forEach(b=>b.classList.toggle('active', b.dataset.mn===g));
 }
 const _MOB_SHEETS={
   vendor:{title:'🏢 거래처', items:[['👥','주소록','contacts'],['🏢','거래처','doc-vendor']]},
   pdocs:{title:'📦 구매자료', items:[['📄','견적서','doc-quote'],['📦','발주서','doc-order'],['🧾','거래명세서','doc-invoice'],['💳','세금계산서','doc-tax'],['📚','기술자료','doc-tech']]},
-  more:{title:'☰ 더보기', items:[['📚','기술자료','doc-tech'],['📎','첨부파일','attach'],['📅','통합일정관리','schedule'],['🛒','구매','purchase'],['💳','법인카드','corpcard']]}
+  more:{title:'☰ 더보기', items:[['📋','업무계획','workplan'],['📚','기술자료','doc-tech'],['📎','첨부파일','attach'],['📅','통합일정관리','schedule'],['🛒','구매','purchase'],['💳','법인카드','corpcard']]}
 };
 function mobSheetOpen(group){
   const sh=$('mobSheet'); const body=$('mobSheetBody'); const ttl=$('mobSheetTitle'); if(!sh) return;
@@ -2459,6 +2529,7 @@ function showPage(p){
   else if(p==='perm'){ permInit(); }
   else if(p==='purchase'){ pInit(); }
   else if(p==='corpcard'){ ccInit(); }
+  else if(p==='workplan'){ wpInit(); }
   if(typeof mobNavActive==='function') mobNavActive();
 }
 
@@ -7040,6 +7111,8 @@ function startApp(){
   }catch(e){}
   if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
   showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
+  // 업무계획 딥링크 (?page=workplan&proj=&task=&week=) → 바로 열기
+  try{ if(new URLSearchParams(location.search).get('page')==='workplan'){ showPage('workplan'); } }catch(_){}
   // 딥링크: ?tab=spec / schedule / contacts / doc-tech 등 → 해당 탭 바로 열기 (팀즈 채널 게시용)
   try{
     const _tab=new URLSearchParams(location.search).get('tab');
@@ -7134,6 +7207,628 @@ function pPjBadge(code){ const c=String(code||"").toUpperCase();
   const cls = c.startsWith("BP") ? "ppjt bp" : "ppjt"; return `<span class="${cls}">${pEsc(c)}</span>`; }
 
 // ── 데이터 로드 (100.ERP에서) ──
+// ═══════════════ 업무계획 (주간 작업 트리 + 간트 + 의존성) ═══════════════
+const WP_ROLES=["설계","전장","제어","생산","구매","경영지원"];
+const WP_ROLE_EN={설계:"Design",전장:"Electrical",제어:"Control",생산:"Production",구매:"Purchasing",경영지원:"Admin"};
+const WP_ROLECOLOR={설계:"#185fa5",전장:"#854f0b",제어:"#534ab7",생산:"#0f6e56",구매:"#993c1d",경영지원:"#5f5e5a"};
+const WP_ROLEBG={설계:"#e6f1fb",전장:"#faeeda",제어:"#eeedfe",생산:"#e1f5ee",구매:"#faece7",경영지원:"#f1efe8"};
+const WP_FOLDERS=["01.장비컨셉","02.설비제작사양서","03.기능명세서","04.일정","견적서","발주서","거래명세서","기술자료"];
+let WP_LANG="ko", WP_VIEW="tree", WP_SEL=null, WP_ATTACH=null;
+let WP_WEEK=null, WP_PLAN=null, WP_DIRTY=false, WP_MEMBERS=[], WP_LOADED_PROJ=[];
+const WP_OPEN={};
+
+function wpIsPM(){ return _isSuperAdmin && _isSuperAdmin(); }   // PM = 슈퍼관리자(추후 PM지정 확장 가능)
+function wpMe(){ try{ return (msalApp().getAllAccounts()[0]||{}).name || "사용자"; }catch(_){ return "사용자"; } }
+function wpMeEmail(){ try{ return ((msalApp().getAllAccounts()[0]||{}).username||"").toLowerCase(); }catch(_){ return ""; } }
+
+// ISO 주차
+function wpISOWeek(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=x.getUTCDay()||7; x.setUTCDate(x.getUTCDate()+4-day); const ys=new Date(Date.UTC(x.getUTCFullYear(),0,1)); const wk=Math.ceil((((x-ys)/86400000)+1)/7); return {year:x.getUTCFullYear(), week:wk}; }
+function wpMonday(year,week){ const simple=new Date(Date.UTC(year,0,1+(week-1)*7)); const dow=simple.getUTCDay(); const mon=new Date(simple); if(dow<=4)mon.setUTCDate(simple.getUTCDate()-simple.getUTCDay()+1); else mon.setUTCDate(simple.getUTCDate()+8-simple.getUTCDay()); return mon; }
+function wpWeekKey(year,week){ return `${year}-W${String(week).padStart(2,'0')}`; }
+function wpFileName(){ return `plan-${WP_WEEK.year}-W${String(WP_WEEK.week).padStart(2,'0')}.json`; }
+
+async function wpInit(){
+  // 주차 셀렉터 채우기 (현재~과거 12주)
+  const sel=document.getElementById("wp-week"); if(sel && !sel.options.length){
+    const now=wpISOWeek(new Date());
+    let y=now.year,w=now.week;
+    for(let i=0;i<14;i++){ const k=wpWeekKey(y,w); const mon=wpMonday(y,w); const lbl=`${y}년 ${w}주차 (${mon.getUTCMonth()+1}/${mon.getUTCDate()}~)`; const o=document.createElement("option"); o.value=k; o.textContent=lbl+(i===0?" · 이번주":""); sel.appendChild(o); w--; if(w<1){y--; const lastWk=wpISOWeek(new Date(Date.UTC(y,11,28))).week; w=lastWk;} }
+    WP_WEEK={year:now.year,week:now.week}; sel.value=wpWeekKey(now.year,now.week);
+  }
+  document.getElementById("wp-addgrp").style.display = wpIsPM()?"inline-block":"none";
+  // 멤버 로드 (백그라운드, 실패 무시)
+  if(!WP_MEMBERS.length){ try{ WP_MEMBERS=await loadTicMembers(); }catch(_){ WP_MEMBERS=[]; } }
+  if(await wpHandleDeepLink()) return;
+  await wpLoad();
+}
+
+function wpProjects(){ return (typeof pProjects!=="undefined" && pProjects.length) ? pProjects : ["BR26002","BP26009"]; }
+
+async function wpLoad(){
+  const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
+  document.getElementById("wp-body").innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  WP_SEL=null; WP_ATTACH=null;
+  // 각 프로젝트의 04.일정/plan-YYYY-Wxx.json 읽기 (없으면 빈 프로젝트)
+  const projs=wpProjects(); const out=[];
+  for(const code of projs){
+    let proj={id:code, name:code, prog:0, children:[]};
+    try{
+      const data=await wpReadPlan(code);
+      if(data && data.project){ proj=data.project; proj.id=code; }
+    }catch(_){}
+    out.push(proj);
+  }
+  WP_LOADED_PROJ=out;
+  // open 기본값
+  out.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true; (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=true; if(n.children) seed(n.children); }); })(p.children); });
+  document.getElementById("wp-meta").innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
+  wpRender();
+}
+
+// 04.일정 폴더에서 계획 JSON 읽기
+async function wpReadPlan(code){
+  const t=await graphToken(); const c=await projChannelInfo(code);
+  const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+wpFileName())}:/content`;
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) return null;
+  return await r.json();
+}
+// 04.일정 폴더에 계획 JSON 저장
+async function wpSavePlan(code, projObj){
+  await projChanEnsure(code, "04.일정");
+  const body=JSON.stringify({project:projObj, week:wpWeekKey(WP_WEEK.year,WP_WEEK.week), updated:new Date().toISOString(), updated_by:wpMe()}, null, 2);
+  await projChanUpload(code, "04.일정", wpFileName(), new Blob([body],{type:"application/json"}), "application/json");
+}
+async function wpSaveProject(projId){
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return;
+  try{ await wpSavePlan(projId, p); toast("저장됨: "+projId,"ok"); }
+  catch(e){ toast("저장 실패: "+e.message,"bad"); }
+}
+
+function wpLang(l){ WP_LANG=l; document.getElementById("wp-lg-ko").classList.toggle("on",l==="ko"); document.getElementById("wp-lg-en").classList.toggle("on",l==="en"); if(l==="en") wpTranslateAll(); else wpRender(); }
+function wpView(v){ WP_VIEW=v; document.getElementById("wp-v-tree").classList.toggle("on",v==="tree"); document.getElementById("wp-v-gantt").classList.toggle("on",v==="gantt"); document.getElementById("wp-v-order").classList.toggle("on",v==="order"); wpRender(); }
+function wpExpandAll(o){ Object.keys(WP_OPEN).forEach(k=>WP_OPEN[k]=o); wpRender(); }
+function wpToggle(id){ WP_OPEN[id]=!WP_OPEN[id]; wpRender(); }
+function wpSelect(id){ if(WP_JUST_DRAGGED){ WP_JUST_DRAGGED=false; return; } WP_SEL=WP_SEL===id?null:id; WP_ATTACH=null; wpRender(); }
+let WP_JUST_DRAGGED=false;
+function wpPrevWeek(){ const s=document.getElementById("wp-week"); if(s.selectedIndex<s.options.length-1){ s.selectedIndex++; wpLoad(); } }
+function wpNextWeek(){ const s=document.getElementById("wp-week"); if(s.selectedIndex>0){ s.selectedIndex--; wpLoad(); } }
+
+function wpNm(n){ return (WP_LANG==="en" && n.en) ? n.en : (n.name||""); }
+function wpRl(n){ return WP_LANG==="en" ? (WP_ROLE_EN[n.role]||n.role||"") : (n.role||""); }
+function wpBk(n){ return WP_LANG==="en" ? (n.blocker_en||n.blocker||"") : (n.blocker||""); }
+
+// 트리 평탄화 (작업만)
+function wpFlatten(ns, parentNotDone, out){
+  (ns||[]).forEach(n=>{
+    if(!n.group) out.push({n, locked: parentNotDone});
+    if(n.children) wpFlatten(n.children, n.group?false:((n.prog||0)<100), out);
+  });
+  return out;
+}
+function wpStatus(n, locked){ if(n.group) return "group"; if(locked) return "locked"; if(n.blocker) return "blocker"; if((n.prog||0)>=100) return "done"; return "active"; }
+const WP_STIC={done:["✅","var(--g)"],active:["🔵","var(--p)"],locked:["🔒","var(--t3)"],blocker:["⚠️","var(--r)"]};
+
+function wpRender(){ if(WP_VIEW==="gantt") wpRenderGantt(); else if(WP_VIEW==="order") wpRenderOrder(); else wpRenderTree(); }
+
+// ── 업무지시 (PM 서술형 → Copilot이 과거+현재 대조 → 작업 제안 → 임시저장 → 확정) ──
+let WP_ORDER_DRAFT=null;   // {projId, mode, tasks:[...], rawText}
+function wpRenderOrder(){
+  const projs=wpProjects();
+  const pmGate = wpIsPM();
+  let h=`<div style="max-width:860px">`;
+  if(!pmGate){ h+=`<div style="padding:30px;text-align:center;color:var(--t3)">📝 업무지시는 PM 전용입니다.</div></div>`; document.getElementById("wp-body").innerHTML=h; return; }
+  h+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <b style="font-size:14px">📝 업무지시 입력</b>
+      <span style="font-size:11.5px;color:var(--t3)">Copilot이 최근 2~3주차+현재를 대조해 작업으로 정리합니다</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <label style="font-size:12px;color:var(--t2)">프로젝트
+        <select id="wp-ord-proj" style="height:32px;font-size:13px;margin-left:4px">${projs.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label>
+      <label style="font-size:12px;color:var(--t2)">방식
+        <select id="wp-ord-mode" style="height:32px;font-size:13px;margin-left:4px">
+          <option value="append">기존 트리에 이어붙임</option>
+          <option value="new">이번주 새로 제안</option></select></label>
+    </div>
+    <textarea id="wp-ord-text" rows="5" placeholder="예) 이번주는 제어반 배선을 마무리하고, 가공품 입고되면 조립 착수. PLC 시퀀스는 다음주까지. 시운전은 조립·로직 끝난 뒤." style="width:100%;font-size:13.5px;padding:10px;box-sizing:border-box;border:1px solid var(--border);border-radius:8px"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+      <button class="btn primary sm" id="wp-ord-gen" onclick="wpOrderGenerate()">🤖 Copilot으로 작업 생성</button>
+      <span id="wp-ord-msg" style="font-size:12px;color:var(--t3)"></span>
+    </div>
+  </div>`;
+  // 임시저장 미리보기
+  if(WP_ORDER_DRAFT){
+    const d=WP_ORDER_DRAFT;
+    h+=`<div style="background:var(--bg2);border:1px solid var(--y);border-radius:12px;padding:16px;margin-top:14px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <b style="font-size:14px;color:var(--y)">📋 임시저장 — 확인 후 저장</b>
+        <span style="font-size:11.5px;color:var(--t3)">${esc(d.projId)} · ${d.mode==="append"?"기존에 이어붙임":"새로 제안"} · ${d.tasks.length}개 작업</span>
+        <span style="flex:1"></span>
+        <button class="btn sm" onclick="wpOrderDiscard()">버리기</button>
+        <button class="btn primary sm" onclick="wpOrderCommit()">✅ 확정 저장</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        ${d.groups.map(g=>`<div style="background:var(--bg3);padding:8px 10px;font-size:13px;font-weight:600">📂 ${esc(g.name)}</div>`+
+          g.tasks.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px 7px 24px;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;font-weight:600">${esc(t.name)}</span>
+            ${t.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[t.role]||'#eee'};color:${WP_ROLECOLOR[t.role]||'#555'}">${esc(t.role)}</span>`:""}
+            ${t.owner?`<span style="font-size:11px;color:var(--t2)">${esc(t.owner)}</span>`:""}
+            ${t.start||t.end?`<span style="font-size:10.5px;color:var(--t3)">${esc(t.start||"")}~${esc(t.end||"")}</span>`:""}
+            ${t.deps&&t.deps.length?`<span style="font-size:10.5px;color:var(--t3)">←${t.deps.join(",")}</span>`:""}
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:var(--t3)">${t.prog||0}%</span>
+          </div>`).join("")
+        ).join("")}
+      </div>
+      <div style="font-size:11.5px;color:var(--t3);margin-top:8px">확정하면 ${esc(d.projId)}의 04.일정 / ${esc(wpFileName())}에 반영됩니다. 저장 후 트리에서 세부 수정 가능.</div>
+    </div>`;
+  }
+  h+=`</div>`;
+  document.getElementById("wp-body").innerHTML=h;
+}
+
+// 최근 2~3주차 + 현재 JSON 수집
+async function wpGatherContext(projId){
+  const ctx=[]; let y=WP_WEEK.year, w=WP_WEEK.week;
+  for(let i=0;i<3;i++){
+    const fn=`plan-${y}-W${String(w).padStart(2,'0')}.json`;
+    try{
+      const t=await graphToken(); const c=await projChannelInfo(projId);
+      const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+fn)}:/content`,{headers:{Authorization:"Bearer "+t}});
+      if(r.ok){ const j=await r.json(); ctx.push({week:`${y}-W${w}`, project:j.project}); }
+    }catch(_){}
+    w--; if(w<1){ y--; w=wpISOWeek(new Date(Date.UTC(y,11,28))).week; }
+  }
+  return ctx;
+}
+function wpSummarizeTree(proj){
+  const out=[]; (function walk(ns,d){ (ns||[]).forEach(n=>{ out.push(`${"  ".repeat(d)}${n.group?"[할일] ":""}${n.id||""} ${n.name}${n.role?` (${n.role}/${n.owner||""})`:""}${n.prog?` ${n.prog}%`:""}${n.deps&&n.deps.length?` 선행:${n.deps.join(",")}`:""}${n.blocker?` ⚠${n.blocker}`:""}`); if(n.children)walk(n.children,d+1); }); })(proj&&proj.children,0);
+  return out.join("\n")||"(작업 없음)";
+}
+
+async function wpOrderGenerate(){
+  const projId=document.getElementById("wp-ord-proj").value;
+  const mode=document.getElementById("wp-ord-mode").value;
+  const text=(document.getElementById("wp-ord-text").value||"").trim();
+  const msg=document.getElementById("wp-ord-msg"); const btn=document.getElementById("wp-ord-gen");
+  if(!text){ msg.textContent="지시 내용을 입력하세요"; msg.style.color="var(--r)"; return; }
+  btn.disabled=true; msg.style.color="var(--t3)"; msg.textContent="🤖 과거+현재 대조해 작업 생성 중…";
+  try{
+    const ctx=await wpGatherContext(projId);
+    const ctxText=ctx.map(c=>`### ${c.week}\n${wpSummarizeTree(c.project)}`).join("\n\n")||"(과거 데이터 없음)";
+    const members=WP_MEMBERS.map(m=>m.name).join(", ")||"미지정";
+    const monday=wpMonday(WP_WEEK.year,WP_WEEK.week);
+    const prompt=`너는 장비제작 PM 보조다. 아래 [과거~현재 작업현황]을 참고해 PM의 [업무지시]를 이번주 작업 계획으로 정리하라.
+직무는 반드시 다음 중 하나: 설계, 전장, 제어, 생산, 구매, 경영지원.
+담당 후보: ${members}.
+이번주 월요일=${monday.toISOString().slice(0,10)}. 날짜는 YYYY-MM-DD.
+선행관계(deps)는 같은 응답 내 task의 임시 id(t1,t2...)로 표기. 앞 작업이 끝나야 하는 것만.
+모드=${mode==="append"?"기존에 이어붙일 새 작업만":"이번주 전체를 새로 제안"}.
+출력은 JSON만(설명·코드펜스 금지):
+{"groups":[{"name":"할일 그룹명","tasks":[{"tid":"t1","name":"작업명","role":"직무","owner":"담당(후보중,모르면 빈칸)","start":"YYYY-MM-DD","end":"YYYY-MM-DD","prog":0,"deps":["t0"]}]}]}
+
+[과거~현재 작업현황]
+${ctxText}
+
+[업무지시]
+${text}`;
+    let raw=await callCopilot(prompt); raw=(raw||"").replace(/```json|```/g,"").trim();
+    const parsed=JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}")+1));
+    // tid→실제 표시용 정규화
+    const groups=(parsed.groups||[]).map(g=>({name:g.name||"신규 작업", tasks:(g.tasks||[]).map(t=>({tid:t.tid,name:t.name,role:WP_ROLES.includes(t.role)?t.role:"설계",owner:t.owner||"",start:t.start||"",end:t.end||"",prog:t.prog||0,deps:t.deps||[]}))}));
+    const allTasks=groups.flatMap(g=>g.tasks);
+    WP_ORDER_DRAFT={projId,mode,rawText:text,groups,tasks:allTasks};
+    msg.textContent=`✅ ${allTasks.length}개 작업 생성 — 아래에서 확인 후 저장`;
+    msg.style.color="var(--g)";
+    wpRenderOrder();
+  }catch(e){ msg.textContent="생성 실패: "+e.message; msg.style.color="var(--r)"; }
+  finally{ btn.disabled=false; }
+}
+function wpOrderDiscard(){ WP_ORDER_DRAFT=null; wpRenderOrder(); }
+async function wpOrderCommit(){
+  const d=WP_ORDER_DRAFT; if(!d) return;
+  const p=WP_LOADED_PROJ.find(x=>x.id===d.projId); if(!p){ toast("프로젝트 없음","bad"); return; }
+  // tid → 실제 id 매핑
+  const idMap={}; const baseExisting=[]; 
+  // 새 작업 id 발급
+  function newId(){ let max=0; (function w(ns){ (ns||[]).forEach(n=>{ const m=String(n.id).match(/T(\d+)/); if(m)max=Math.max(max,+m[1]); if(n.children)w(n.children); }); })(p.children); idMap._max=(idMap._max||max); idMap._max++; return "T"+idMap._max; }
+  d.groups.forEach(g=>g.tasks.forEach(t=>{ idMap[t.tid]=newId(); }));
+  const newGroups=d.groups.map(g=>({
+    id:"G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99),
+    name:g.name, group:true, children:g.tasks.map(t=>{
+      const node={id:idMap[t.tid]||newId(), name:t.name, role:t.role, owner:t.owner, owner_email:(WP_MEMBERS.find(m=>m.name===t.owner)||{}).email||"", prog:t.prog||0, start:t.start||"", end:t.end||"", deps:(t.deps||[]).map(x=>idMap[x]||x).filter(Boolean), files:[], comments:[], history:[], children:[]};
+      wpLog(node, `업무지시로 생성 (PM)`);
+      return node;
+    })
+  }));
+  if(d.mode==="new"){ p.children=newGroups; }
+  else { p.children=(p.children||[]).concat(newGroups); }
+  newGroups.forEach(g=>{ WP_OPEN[g.id]=true; });
+  WP_ORDER_DRAFT=null;
+  await wpSaveProject(d.projId);
+  toast("업무지시 반영 완료 → 트리에서 확인","ok");
+  WP_VIEW="tree"; document.getElementById("wp-v-tree").classList.add("on"); document.getElementById("wp-v-order").classList.remove("on");
+  wpRender();
+}
+
+function wpRenderTree(){
+  let h="";
+  WP_LOADED_PROJ.forEach(p=>{
+    const open=WP_OPEN[p.id]!==false;
+    const prog=wpAggProg(p);
+    h+=`<div class="wp-proj" onclick="wpToggle('${p.id}')">
+      <span style="font-size:16px">${open?"▾":"▸"}</span>
+      <b style="font-family:monospace;font-size:15px;color:var(--p2)">${esc(p.id)}</b>
+      <span style="font-size:12.5px;color:var(--p2)">${esc(p.name&&p.name!==p.id?p.name:"")}</span>
+      <span style="flex:1"></span>
+      ${wpIsPM()?`<button class="btn sm" onclick="event.stopPropagation();wpAddGroup('${p.id}')" style="padding:3px 9px">＋ 할일</button>`:""}
+      <div class="wp-bar" style="width:90px"><div style="width:${prog}%;background:var(--p)"></div></div>
+      <span style="font-size:12px;color:var(--p2);min-width:32px;text-align:right">${prog}%</span>
+    </div>`;
+    if(open) h+=`<div>${(p.children||[]).map(n=>wpRowHtml(p.id,n,0,false)).join("")}</div>`;
+  });
+  if(!WP_LOADED_PROJ.length) h='<div style="padding:30px;text-align:center;color:var(--t3)">프로젝트가 없습니다 (관리자설정에서 추가)</div>';
+  document.getElementById("wp-body").innerHTML=h+`<div style="margin-top:10px;font-size:12px;color:var(--t3)">프로젝트가 트리 최상위 · 부모 작업이 끝나야 자식 잠금 해제 · 작업 클릭 → 첨부·이력·댓글</div>`;
+}
+
+function wpAggProg(node){
+  const flat=wpFlatten(node.children||[],false,[]); if(!flat.length) return node.prog||0;
+  return Math.round(flat.reduce((s,x)=>s+(x.n.prog||0),0)/flat.length);
+}
+
+function wpRowHtml(projId, n, depth, parentNotDone){
+  const kids=n.children&&n.children.length, open=WP_OPEN[n.id]!==false, ind=depth*20;
+  const dnd = wpIsPM() ? `draggable="true" ondragstart="wpDragStart(event,'${projId}','${n.id}')" ondragend="wpDragEnd(event)" ondragover="wpDragOver(event,'${n.id}',${n.group?1:0})" ondragleave="wpDragLeave(event,'${n.id}')" ondrop="wpDrop(event,'${projId}','${n.id}',${n.group?1:0})"` : "";
+  const handle = wpIsPM() ? `<span class="wp-grip" title="드래그로 이동" style="cursor:grab;color:var(--t3);font-size:13px">⠿</span>` : "";
+  if(n.group){
+    const prog=wpAggProg(n);
+    let h=`<div class="wp-grp" id="wprow-${n.id}" style="margin-left:${ind}px" ${dnd} onclick="wpToggle('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
+      ${handle}<span style="font-size:14px">${open?"▾":"▸"}</span>📂
+      <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
+      <span style="font-size:11px;color:var(--t3)">${(n.children||[]).length}작업</span>
+      <span style="flex:1"></span>
+      ${wpIsPM()?`<button class="btn sm" onclick="event.stopPropagation();wpAddTask('${projId}','${n.id}')" style="padding:2px 8px">＋</button>`:""}
+      <span style="font-size:11px;color:var(--t2)">${prog}%</span></div>`;
+    if(open && kids) h+=(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,false)).join("");
+    return h;
+  }
+  const st=wpStatus(n,parentNotDone), locked=st==="locked", ic=WP_STIC[st], sel=WP_SEL===n.id;
+  const fc=(n.files||[]).length, cc=(n.comments||[]).length;
+  let h=`<div class="wp-task${sel?' sel':''}${locked?' locked':''}" id="wprow-${n.id}" style="padding-left:${10+ind}px" ${dnd} onclick="wpSelect('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
+    ${handle}<span style="width:15px" onclick="event.stopPropagation();${kids?`wpToggle('${n.id}')`:''}">${kids?(open?"▾":"▸"):"·"}</span>
+    <span style="font-size:15px">${ic[0]}</span>
+    <span class="wp-id">${esc(n.id)}</span>
+    <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
+    ${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span>`:""}
+    <span style="font-size:11px;color:var(--t2)">${esc(n.owner||"")}</span>
+    ${n.start||n.end?`<span style="font-size:10.5px;color:var(--t3)">${esc(n.start||"")}~${esc(n.end||"")}</span>`:""}
+    ${fc?`<span style="font-size:10.5px;color:var(--t2)">📎${fc}</span>`:""}
+    ${cc?`<span style="font-size:10.5px;color:var(--t2)">💬${cc}</span>`:""}
+    <span style="flex:1"></span>
+    ${locked?`<span style="font-size:10.5px;color:var(--t3)">선행 대기</span>`:`<div class="wp-bar" style="width:54px"><div style="width:${n.prog||0}%;background:${ic[1]}"></div></div><span style="font-size:10.5px;color:var(--t2);min-width:28px;text-align:right">${n.prog||0}%</span>`}
+  </div>`;
+  if(sel) h+=wpDetailHtml(projId,n,ind);
+  if(open && kids){ const pnd=(n.prog||0)<100; h+=`<div style="border-left:1.5px solid var(--border);margin-left:${17+ind}px">`+(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,pnd)).join("")+`</div>`; }
+  return h;
+}
+
+// ── 행 우클릭 컨텍스트 메뉴 (링크복사/복사/붙여넣기/수정/삭제) ──
+let WP_CLIP=null;   // 복사한 노드(깊은 복제)
+function wpCtxMenu(e, projId, id){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById("wp-ctx")?.remove();
+  const n=wpFind(projId,id); if(!n) return;
+  const canEdit = wpIsPM() || (n.owner_email && n.owner_email===wpMeEmail()) || !n.owner_email;
+  const items=[];
+  items.push(["🔗","링크 복사 (Teams 공유)",`wpCopyLink('${projId}','${id}')`]);
+  items.push(["📋","복사",`wpCopyNode('${projId}','${id}')`]);
+  if(WP_CLIP){
+    items.push(["📥","위에 붙여넣기",`wpPaste('${projId}','${id}','top')`]);
+    items.push(["📥","아래 붙여넣기",`wpPaste('${projId}','${id}','bot')`]);
+    items.push(["📥","안에 붙여넣기(자식)",`wpPaste('${projId}','${id}','in')`]);
+  }
+  if(canEdit){
+    items.push(["sep"]);
+    if(!n.group){ items.push(["✏️","수정",`wpSelectThenEdit('${projId}','${id}')`]); }
+    if(wpIsPM()) items.push(["＋","하위작업 추가",`wpAddTask('${projId}','${id}')`]);
+    items.push(["📑","복제(바로 아래)",`wpDuplicate('${projId}','${id}')`]);
+    items.push(["🗑","삭제",`wpDeleteTask('${projId}','${id}')`]);
+  }
+  const menu=document.createElement("div"); menu.id="wp-ctx"; menu.className="wp-ctx";
+  menu.innerHTML=items.map(it=> it[0]==="sep" ? `<div class="wp-ctx-sep"></div>` :
+    `<div class="wp-ctx-item" onclick="document.getElementById('wp-ctx').remove();${it[2]}"><span style="width:18px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join("");
+  document.body.appendChild(menu);
+  const vw=window.innerWidth, vh=window.innerHeight, mw=230, mh=items.length*34+8;
+  menu.style.left=Math.min(e.clientX, vw-mw-8)+"px";
+  menu.style.top=Math.min(e.clientY, vh-mh-8)+"px";
+  setTimeout(()=>document.addEventListener("click", wpCtxClose, {once:true}), 0);
+}
+function wpCtxClose(){ document.getElementById("wp-ctx")?.remove(); }
+
+async function wpCopyLink(projId, id){
+  const n=wpFind(projId,id);
+  const url=`${location.origin}${location.pathname}?page=workplan&proj=${encodeURIComponent(projId)}&task=${encodeURIComponent(id)}&week=${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}`;
+  const text=`📋 [${projId}] ${n.name} (${n.owner||"미지정"}${n.role?"·"+n.role:""}, ${n.prog||0}%)\n${url}`;
+  try{ await navigator.clipboard.writeText(text); toast("링크 복사됨 · Teams에 붙여넣기","ok"); }
+  catch(_){ // 폴백
+    const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("링크 복사됨","ok");}catch(__){toast("복사 실패 — 수동 복사: "+url,"bad");} ta.remove();
+  }
+}
+function wpCopyNode(projId, id){ const n=wpFind(projId,id); WP_CLIP=JSON.parse(JSON.stringify(n)); toast(`복사됨: ${n.name} (붙여넣기 가능)`,"ok"); }
+function wpReId(node, projId){ // 붙여넣을 때 새 id 부여(자손 포함)
+  const map={};
+  (function w(n){ const nid=wpNewId(projId); map[n.id]=nid; n.id=nid; n.history=(n.history||[]); (n.children||[]).forEach(w); })(node);
+  // deps도 복사본 내부 참조면 갱신
+  (function w(n){ if(n.deps) n.deps=n.deps.map(d=>map[d]||d); (n.children||[]).forEach(w); })(node);
+  return node;
+}
+function wpPaste(projId, targetId, pos){
+  if(!WP_CLIP) return;
+  const node=wpReId(JSON.parse(JSON.stringify(WP_CLIP)), projId);
+  wpLog(node, "붙여넣기");
+  if(pos==="in"){ const t=wpFind(projId,targetId); (t.children=t.children||[]).push(node); WP_OPEN[targetId]=true; }
+  else { const par=wpFindParent(projId,targetId); const arr=par.children; const idx=arr.findIndex(c=>c.id===targetId); arr.splice(pos==="top"?idx:idx+1,0,node); }
+  wpSaveProject(projId); wpRender();
+}
+function wpDuplicate(projId, id){
+  const n=wpFind(projId,id); const copy=wpReId(JSON.parse(JSON.stringify(n)), projId); copy.name=(copy.name||"")+" (복사)";
+  wpLog(copy,"복제 생성");
+  const par=wpFindParent(projId,id); const arr=par.children; const idx=arr.findIndex(c=>c.id===id); arr.splice(idx+1,0,copy);
+  wpSaveProject(projId); wpRender();
+}
+function wpSelectThenEdit(projId, id){ WP_SEL=id; WP_ATTACH={id,mode:"edit"}; wpRender(); setTimeout(()=>{ const el=document.getElementById("wprow-"+id); if(el) el.scrollIntoView({block:"center"}); },50); }
+
+// 딥링크: ?page=workplan&proj=..&task=..&week=.. → 해당 주차 로드 후 작업 선택
+async function wpHandleDeepLink(){
+  const q=new URLSearchParams(location.search);
+  if(q.get("page")!=="workplan") return false;
+  const proj=q.get("proj"), task=q.get("task"), week=q.get("week");
+  if(week){ const sel=document.getElementById("wp-week"); if(sel){ if(![...sel.options].some(o=>o.value===week)){ const o=document.createElement("option"); o.value=week; o.textContent=week; sel.appendChild(o);} sel.value=week; const m=week.match(/(\d+)-W(\d+)/); if(m)WP_WEEK={year:+m[1],week:+m[2]}; } }
+  await wpLoad();
+  if(task){ WP_SEL=task; if(proj){ const p=WP_LOADED_PROJ.find(x=>x.id===proj); if(p)WP_OPEN[p.id]=true; } wpRender(); setTimeout(()=>{ const el=document.getElementById("wprow-"+task); if(el) el.scrollIntoView({block:"center"}); },200); }
+  return true;
+}
+let WP_DRAG=null;   // {projId, id}
+function wpDragStart(e,projId,id){ WP_DRAG={projId,id}; e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",id);}catch(_){} e.stopPropagation(); }
+function wpDragEnd(e){ WP_DRAG=null; document.querySelectorAll(".wp-drop-top,.wp-drop-bot,.wp-drop-in").forEach(el=>el.classList.remove("wp-drop-top","wp-drop-bot","wp-drop-in")); }
+function wpDragOver(e,id,isGroup){
+  if(!WP_DRAG || WP_DRAG.id===id) return;
+  e.preventDefault(); e.dataTransfer.dropEffect="move";
+  const row=document.getElementById("wprow-"+id); if(!row) return;
+  const r=row.getBoundingClientRect(); const y=e.clientY-r.top; const h=r.height;
+  row.classList.remove("wp-drop-top","wp-drop-bot","wp-drop-in");
+  if(isGroup && y>h*0.3 && y<h*0.7){ row.classList.add("wp-drop-in"); }   // 그룹 가운데 = 안으로
+  else if(y<h/2) row.classList.add("wp-drop-top");
+  else row.classList.add("wp-drop-bot");
+}
+function wpDragLeave(e,id){ const row=document.getElementById("wprow-"+id); if(row) row.classList.remove("wp-drop-top","wp-drop-bot","wp-drop-in"); }
+function wpDrop(e,projId,targetId,isGroup){
+  e.preventDefault(); e.stopPropagation();
+  if(!WP_DRAG || WP_DRAG.id===targetId){ wpDragEnd(e); return; }
+  if(WP_DRAG.projId!==projId){ toast("다른 프로젝트로는 이동할 수 없습니다","bad"); wpDragEnd(e); return; }
+  const row=document.getElementById("wprow-"+targetId);
+  let pos="bot"; if(row.classList.contains("wp-drop-top"))pos="top"; else if(row.classList.contains("wp-drop-in"))pos="in";
+  const moved=wpMoveNode(projId, WP_DRAG.id, targetId, pos);
+  WP_JUST_DRAGGED=true; setTimeout(()=>{WP_JUST_DRAGGED=false;},300);
+  wpDragEnd(e);
+  if(moved){ wpSaveProject(projId); wpRender(); }
+}
+// 노드 이동: dragId를 targetId 기준 top/bot(형제) 또는 in(자식)으로
+function wpMoveNode(projId, dragId, targetId, pos){
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return false;
+  // 자기 자손으로 이동 방지
+  const dragNode=wpFind(projId,dragId);
+  if(!dragNode) return false;
+  let isDesc=false; (function w(ns){ (ns||[]).forEach(n=>{ if(n.id===targetId)isDesc=true; if(n.children)w(n.children); }); })(dragNode.children||[]);
+  if(isDesc){ toast("자기 하위로는 이동할 수 없습니다","bad"); return false; }
+  // 떼어내기
+  const par=wpFindParent(projId,dragId); if(!par) return false;
+  par.children=(par.children||[]).filter(c=>c.id!==dragId);
+  // 끼워넣기
+  if(pos==="in"){
+    const tgt=wpFind(projId,targetId); (tgt.children=tgt.children||[]).push(dragNode); WP_OPEN[targetId]=true;
+  } else {
+    const tpar=wpFindParent(projId,targetId); const arr=tpar.children;
+    const idx=arr.findIndex(c=>c.id===targetId);
+    arr.splice(pos==="top"?idx:idx+1, 0, dragNode);
+  }
+  wpLog(dragNode, `위치 이동 (드래그)`);
+  return true;
+}
+
+function wpDetailHtml(projId, n, ind){
+  const canEdit = wpIsPM() || (n.owner_email && n.owner_email===wpMeEmail()) || !n.owner_email;
+  const files=(n.files||[]).map((f,i)=>`<div class="wp-fchip">📄 <span style="flex:1">${esc(f.name)}</span><span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px">${esc(f.folder||"")}</span>${f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--p)">열기</a>`:""}${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`).join("") || `<span style="font-size:11.5px;color:var(--t3)">첨부파일 없음</span>`;
+  const hist=(n.history||[]).slice(-8).reverse().map(x=>`<div class="wp-hist"><span style="color:var(--t3);min-width:96px">${esc(x.when)}</span><span style="color:var(--t2)"><b style="color:var(--t1)">${esc(x.who)}</b> · ${esc(x.act)}</span></div>`).join("") || `<div style="font-size:11.5px;color:var(--t3)">이력 없음</div>`;
+  const cmts=(n.comments||[]).map(c=>`<div class="wp-cmt"><div class="wp-cmt-av">${esc((c.who||"?").slice(0,1))}</div><div><div style="font-size:11.5px"><b>${esc(c.who)}</b> <span style="color:var(--t3)">${esc(c.when)}</span></div><div style="font-size:12.5px;color:var(--t2)">${esc(c.txt)}</div></div></div>`).join("") || `<div style="font-size:11.5px;color:var(--t3);padding:4px 0">아직 댓글이 없습니다</div>`;
+
+  let attachPanel="";
+  if(WP_ATTACH && WP_ATTACH.id===n.id){
+    if(WP_ATTACH.mode==="upload"){
+      attachPanel=`<div style="margin-top:8px;padding:10px;background:var(--bg2);border:1px dashed var(--border2);border-radius:8px">
+        <div style="font-size:11.5px;color:var(--t2);margin-bottom:6px">대시보드 폴더에 업로드 후 작업에 연결</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <select id="wp-upfolder" style="height:32px;font-size:12px">${WP_FOLDERS.map(f=>`<option>${f}</option>`).join("")}</select>
+          <input type="file" id="wp-upfile" style="font-size:12px">
+          <button class="btn primary sm" onclick="wpDoUpload('${projId}','${n.id}')">⬆ 업로드+첨부</button>
+        </div></div>`;
+    } else if(WP_ATTACH.mode==="existing"){
+      attachPanel=`<div style="margin-top:8px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:11.5px;color:var(--t2);margin-bottom:6px">기존 폴더 자료에서 선택</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <select id="wp-exfolder" onchange="wpExistingList('${projId}','${n.id}')" style="height:32px;font-size:12px">${WP_FOLDERS.map(f=>`<option>${f}</option>`).join("")}</select>
+        </div>
+        <div id="wp-exlist" style="max-height:200px;overflow:auto"><div style="font-size:11.5px;color:var(--t3)">폴더를 선택하세요</div></div>
+      </div>`;
+    }
+  }
+
+  const editPanel = WP_ATTACH && WP_ATTACH.id===n.id && WP_ATTACH.mode==="edit" ? wpEditFormHtml(projId,n) : "";
+
+  return `<div class="wp-detail" style="margin-left:${30+ind}px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+      ${canEdit?`<button class="btn sm" onclick="wpAttachMode('${n.id}','edit')">✏️ 수정</button>`:`<span style="font-size:11px;color:var(--t3)">읽기 전용</span>`}
+      ${canEdit&&wpIsPM()?`<button class="btn sm" onclick="wpAddTask('${projId}','${n.id}')">＋ 하위작업</button>`:""}
+      ${canEdit?`<button class="btn sm" onclick="wpDeleteTask('${projId}','${n.id}')" style="color:var(--r)">🗑</button>`:""}
+      <span style="font-size:10.5px;color:var(--t3)">👥 PM·담당자 수정 가능 · 변경 시 이력 기록</span>
+    </div>
+    ${editPanel}
+    <div class="wp-sec">📎 첨부파일</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">${files}</div>
+    ${canEdit?`<div style="display:flex;gap:6px"><button class="btn sm" onclick="wpAttachMode('${n.id}','upload')">⬆ 새 업로드</button><button class="btn sm" onclick="wpAttachMode('${n.id}','existing')">📂 기존 자료</button></div>`:""}
+    ${attachPanel}
+    <div class="wp-sec">🕘 수정 이력</div>${hist}
+    <div class="wp-sec">💬 댓글</div>${cmts}
+    <div style="display:flex;gap:6px;margin-top:8px"><input id="wp-cmt-${n.id}" placeholder="댓글 입력…" style="flex:1;height:32px;font-size:12.5px"><button class="btn primary sm" onclick="wpAddComment('${projId}','${n.id}')">등록</button></div>
+  </div>`;
+}
+
+function wpEditFormHtml(projId,n){
+  const memOpts=`<option value="">담당자 선택</option>`+WP_MEMBERS.map(m=>`<option value="${esc(m.email)}" ${n.owner_email===m.email?"selected":""}>${esc(m.name)}</option>`).join("");
+  const roleOpts=WP_ROLES.map(r=>`<option ${n.role===r?"selected":""}>${r}</option>`).join("");
+  const allTasks=wpFlatten((WP_LOADED_PROJ.find(p=>p.id===projId)||{}).children||[],false,[]).filter(x=>x.n.id!==n.id);
+  const depOpts=allTasks.map(x=>`<option value="${x.n.id}" ${(n.deps||[]).includes(x.n.id)?"selected":""}>${x.n.id} ${esc(x.n.name)}</option>`).join("");
+  return `<div style="padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label style="font-size:11px;color:var(--t2)">작업명<input id="wpe-name" value="${esc(n.name||"")}" style="width:100%;height:30px;font-size:13px"></label>
+      <label style="font-size:11px;color:var(--t2)">직무<select id="wpe-role" style="width:100%;height:30px">${roleOpts}</select></label>
+      <label style="font-size:11px;color:var(--t2)">담당자<select id="wpe-owner" style="width:100%;height:30px">${memOpts}</select></label>
+      <label style="font-size:11px;color:var(--t2)">진행률 %<input id="wpe-prog" type="number" min="0" max="100" value="${n.prog||0}" style="width:100%;height:30px"></label>
+      <label style="font-size:11px;color:var(--t2)">시작일<input id="wpe-start" type="date" value="${esc(n.start||"")}" style="width:100%;height:30px"></label>
+      <label style="font-size:11px;color:var(--t2)">마감일<input id="wpe-end" type="date" value="${esc(n.end||"")}" style="width:100%;height:30px"></label>
+      <label style="font-size:11px;color:var(--t2);grid-column:1/3">선행작업(여러개 Ctrl)<select id="wpe-deps" multiple style="width:100%;height:54px">${depOpts}</select></label>
+      <label style="font-size:11px;color:var(--t2);grid-column:1/3">블로커<input id="wpe-blocker" value="${esc(n.blocker||"")}" placeholder="없으면 비움" style="width:100%;height:30px"></label>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px"><button class="btn primary sm" onclick="wpSaveTask('${projId}','${n.id}')">💾 저장</button><button class="btn sm" onclick="wpAttachMode('${n.id}','edit')">취소</button></div>
+  </div>`;
+}
+
+function wpAttachMode(id,mode){ WP_ATTACH=(WP_ATTACH&&WP_ATTACH.id===id&&WP_ATTACH.mode===mode)?null:{id,mode}; wpRender(); }
+
+// 노드 찾기
+function wpFind(projId, id){ const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return null; let r=null; (function w(ns){ for(const n of (ns||[])){ if(n.id===id){r=n;return;} if(n.children)w(n.children); if(r)return; } })(p.children); return r; }
+function wpFindParent(projId, id){ const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return null; let par=null; (function w(ns,parent){ for(const n of (ns||[])){ if(n.id===id){par=parent;return;} if(n.children)w(n.children,n); if(par!==null)return; } })(p.children, p); return par; }
+function wpLog(n, act){ (n.history=n.history||[]).push({who:wpMe(),when:new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}),act}); }
+function wpNewId(projId){ const p=WP_LOADED_PROJ.find(x=>x.id===projId); let max=0; (function w(ns){ (ns||[]).forEach(n=>{ const m=String(n.id).match(/T(\d+)/); if(m)max=Math.max(max,+m[1]); if(n.children)w(n.children); }); })(p.children); return "T"+(max+1); }
+
+function wpAddGroup(projId){
+  if(!projId){ projId=wpProjects()[0]; }
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return;
+  const name=prompt("할일(상위 그룹) 이름:"); if(!name) return;
+  const gid="G"+Date.now().toString().slice(-5);
+  (p.children=p.children||[]).push({id:gid,name,group:true,children:[]});
+  WP_OPEN[gid]=true; wpSaveProject(projId); wpRender();
+}
+function wpAddTask(projId, parentId){
+  const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
+  const name=prompt("작업명:"); if(!name) return;
+  const id=wpNewId(projId);
+  const t={id,name,role:"설계",owner:"",owner_email:"",prog:0,start:"",end:"",deps:[],files:[],history:[],comments:[],children:[]};
+  wpLog(t,"작업 생성"); (parent.children=parent.children||[]).push(t); WP_OPEN[parentId]=true;
+  WP_SEL=id; WP_ATTACH={id,mode:"edit"}; wpSaveProject(projId); wpRender();
+}
+function wpSaveTask(projId,id){
+  const n=wpFind(projId,id); if(!n) return;
+  const g=x=>document.getElementById(x); const changes=[];
+  const nv=g("wpe-name").value.trim(); if(nv!==n.name){ changes.push(`작업명→${nv}`); n.name=nv; n.en=""; }
+  const rv=g("wpe-role").value; if(rv!==n.role){ changes.push(`직무→${rv}`); n.role=rv; }
+  const ovEmail=g("wpe-owner").value; const ovName=(WP_MEMBERS.find(m=>m.email===ovEmail)||{}).name||""; if(ovEmail!==n.owner_email){ changes.push(`담당→${ovName||"미지정"}`); n.owner_email=ovEmail; n.owner=ovName; }
+  const pv=Math.max(0,Math.min(100,+g("wpe-prog").value||0)); if(pv!==(n.prog||0)){ changes.push(`진행률 ${n.prog||0}%→${pv}%`); n.prog=pv; }
+  const sv=g("wpe-start").value, ev=g("wpe-end").value; if(sv!==n.start){ changes.push(`시작 ${sv}`); n.start=sv; } if(ev!==n.end){ changes.push(`마감 ${ev}`); n.end=ev; }
+  const dv=[...g("wpe-deps").selectedOptions].map(o=>o.value); if(JSON.stringify(dv)!==JSON.stringify(n.deps||[])){ changes.push(`선행→${dv.join(",")||"없음"}`); n.deps=dv; }
+  const bv=g("wpe-blocker").value.trim(); if(bv!==(n.blocker||"")){ changes.push(bv?`블로커:${bv}`:"블로커 해제"); n.blocker=bv; n.blocker_en=""; }
+  if(changes.length) wpLog(n, changes.join(", "));
+  WP_ATTACH=null; wpSaveProject(projId); wpRender();
+}
+function wpDeleteTask(projId,id){
+  if(!confirm("이 작업을 삭제할까요?")) return;
+  const par=wpFindParent(projId,id); if(!par) return;
+  par.children=(par.children||[]).filter(c=>c.id!==id); WP_SEL=null; wpSaveProject(projId); wpRender();
+}
+function wpAddComment(projId,id){
+  const inp=document.getElementById("wp-cmt-"+id); const txt=(inp.value||"").trim(); if(!txt) return;
+  const n=wpFind(projId,id); (n.comments=n.comments||[]).push({who:wpMe(),when:new Date().toLocaleDateString("ko-KR",{month:"2-digit",day:"2-digit"}),txt});
+  wpSaveProject(projId); wpRender();
+}
+function wpRemoveFile(projId,id,idx){ const n=wpFind(projId,id); (n.files||[]).splice(idx,1); wpLog(n,"첨부 삭제"); wpSaveProject(projId); wpRender(); }
+
+// 첨부 업로드 (대시보드 폴더트리에 올리고 링크 연결)
+async function wpDoUpload(projId,id){
+  const folder=document.getElementById("wp-upfolder").value;
+  const fi=document.getElementById("wp-upfile"); const file=fi.files&&fi.files[0];
+  if(!file){ toast("파일을 선택하세요","bad"); return; }
+  toast("업로드 중…");
+  try{
+    const buf=await file.arrayBuffer();
+    let item, url="";
+    if(folder.startsWith("0")){ // 채널 폴더(01.장비컨셉 등) → 프로젝트 채널에 업로드
+      item=await projChanUpload(projId, folder, file.name, buf, file.type);
+    }else{ // 공용 SP 폴더(견적서/발주서/기술자료 등)
+      const drive=await spDrive(); const t=await graphToken();
+      const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${drive}/root:/${encPath(folder+"/"+file.name)}:/content`,{method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":file.type||"application/octet-stream"},body:buf});
+      item=await r.json();
+    }
+    url=item.webUrl||"";
+    const n=wpFind(projId,id); (n.files=n.files||[]).push({name:file.name,folder,url,itemId:item.id});
+    wpLog(n,`첨부 업로드: ${file.name} (${folder})`);
+    WP_ATTACH=null; await wpSaveProject(projId); wpRender();
+  }catch(e){ toast("업로드 실패: "+e.message,"bad"); }
+}
+async function wpExistingList(projId,id){
+  const folder=document.getElementById("wp-exfolder").value; const box=document.getElementById("wp-exlist");
+  box.innerHTML='<div style="font-size:11.5px;color:var(--t3)">불러오는 중…</div>';
+  try{
+    let files=[];
+    if(folder.startsWith("0")) files=(await projChanList(projId, folder)).filter(x=>x.file);
+    else files=(await spList(folder)).filter(x=>x.file);
+    if(!files.length){ box.innerHTML='<div style="font-size:11.5px;color:var(--t3)">파일 없음</div>'; return; }
+    box.innerHTML=files.slice(0,50).map(f=>`<div class="wp-fchip" style="cursor:pointer;margin-bottom:4px" onclick='wpAttachExisting("${projId}","${id}",${JSON.stringify({name:f.name,folder,url:f.webUrl||"",itemId:f.id}).replace(/'/g,"&#39;")})'>📄 <span style="flex:1">${esc(f.name)}</span><span style="color:var(--p);font-size:11px">+ 첨부</span></div>`).join("");
+  }catch(e){ box.innerHTML=`<div style="font-size:11.5px;color:var(--r)">${esc(e.message)}</div>`; }
+}
+function wpAttachExisting(projId,id,f){ const n=wpFind(projId,id); (n.files=n.files||[]).push(f); wpLog(n,`기존자료 첨부: ${f.name}`); WP_ATTACH=null; wpSaveProject(projId); wpRender(); }
+
+// ── 간트 (날짜 기반) ──
+function wpRenderGantt(){
+  let h="";
+  WP_LOADED_PROJ.forEach(p=>{
+    const flat=wpFlatten(p.children||[],false,[]).filter(x=>x.n.start&&x.n.end);
+    // 날짜 범위
+    let min=null,max=null; flat.forEach(({n})=>{ if(!min||n.start<min)min=n.start; if(!max||n.end>max)max=n.end; });
+    h+=`<div style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--pd);border-radius:8px 8px 0 0"><span style="font-family:monospace;font-weight:600;color:var(--p2)">${esc(p.id)}</span><span style="font-size:11.5px;color:var(--p2)">${esc(p.name&&p.name!==p.id?p.name:"")}</span></div>`;
+    if(!flat.length){ h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:16px;text-align:center;color:var(--t3);font-size:12px">시작/마감일이 지정된 작업이 없습니다 (작업 수정에서 날짜 지정)</div></div>`; return; }
+    const d0=new Date(min), d1=new Date(max); const days=Math.max(1,Math.round((d1-d0)/86400000)+1);
+    const dayCols=[]; for(let i=0;i<days;i++){ const d=new Date(d0); d.setDate(d0.getDate()+i); dayCols.push(d); }
+    const head=`<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border)"><div style="padding:6px 10px;font-size:11px;color:var(--t2)">작업 / 담당</div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${dayCols.map(d=>`<div style="padding:6px 0;text-align:center;font-size:9.5px;color:var(--t3);border-left:1px solid var(--border)">${d.getMonth()+1}/${d.getDate()}</div>`).join("")}</div></div>`;
+    const rows=flat.map(({n,locked})=>{
+      const st=wpStatus(n,locked), ic=WP_STIC[st];
+      const s=Math.round((new Date(n.start)-d0)/86400000), e=Math.round((new Date(n.end)-d0)/86400000);
+      const cells=dayCols.map((d,i)=>{ const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border)"></div>`; const isS=i===s,isE=i===e; return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center"><div class="wp-gbar" style="width:100%;border-radius:${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}"><div style="width:${isS?Math.min(100,n.prog||0):0}%;background:${ic[1]};opacity:.85"></div></div></div>`; }).join("");
+      return `<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);${locked?'opacity:.55':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${ic[0]} ${esc(wpNm(n))}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(n.owner||"")}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
+    }).join("");
+    h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:auto">${head}${rows}</div></div>`;
+  });
+  document.getElementById("wp-body").innerHTML=h+`<div style="font-size:12px;color:var(--t3)">프로젝트별 간트 · 막대 채움=진행률 · 작업 수정에서 시작/마감일 지정</div>`;
+}
+
+// ── Copilot 자동 번역 (캐시) ──
+async function wpTranslateAll(){
+  const todo=[];
+  WP_LOADED_PROJ.forEach(p=>{ (function w(ns){ (ns||[]).forEach(n=>{ if(n.name && !n.en) todo.push(n); if(n.blocker && !n.blocker_en) todo.push({_bk:n}); if(n.children)w(n.children); }); })(p.children); });
+  if(!todo.length){ wpRender(); return; }
+  document.getElementById("wp-meta").insertAdjacentHTML("beforeend",` <span id="wp-tr" style="color:var(--p)">🌐 번역 중…</span>`);
+  try{
+    const names=[...new Set(WP_LOADED_PROJ.flatMap(p=>{ const a=[]; (function w(ns){(ns||[]).forEach(n=>{ if(n.name&&!n.en)a.push(n.name); if(n.blocker&&!n.blocker_en)a.push(n.blocker); if(n.children)w(n.children);});})(p.children); return a; }))];
+    const prompt=`다음 한국어 작업명/문구를 영어로 자연스럽게 번역. JSON 객체만 출력(키=원문, 값=영문), 다른 말 없이:\n${JSON.stringify(names)}`;
+    let txt=await callCopilot(prompt); txt=(txt||"").replace(/```json|```/g,"").trim();
+    const map=JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}")+1));
+    WP_LOADED_PROJ.forEach(p=>{ (function w(ns){ (ns||[]).forEach(n=>{ if(n.name&&map[n.name])n.en=map[n.name]; if(n.blocker&&map[n.blocker])n.blocker_en=map[n.blocker]; if(n.children)w(n.children); }); })(p.children); });
+    // 번역 캐시 저장
+    for(const p of WP_LOADED_PROJ){ try{ await wpSavePlan(p.id,p); }catch(_){}}
+  }catch(e){ toast("번역 실패: "+e.message,"bad"); }
+  wpRender();
+}
+
 async function pInit(){
   if(!pConfigLoaded){ await pLoadConfig(); }
   if(!pLoaded){ await pLoadAll(false); }
