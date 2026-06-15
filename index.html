@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v254</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v255</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6753,10 +6753,221 @@ function schParseWb(wb){
   return sheets;
 }
 
-async function schInit(){
-  $('schToday').textContent=(()=>{const t=schToday();return `오늘 ${t.getFullYear()}.${String(t.getMonth()+1).padStart(2,"0")}.${String(t.getDate()).padStart(2,"0")}`;})();
-  if(!_schLoaded){ await schLoad(); _schLoaded=true; } else schRender();
+async function schInit(){ return schxInit(); }
+
+// ════════════════════════════════════════════════════════════════
+//  통합일정관리 v2 — 프로젝트 생애주기(제작·설치·CS) · 업무일정 연동
+//  · 프로젝트 탭 = 관리자설정(pProjects) 자동 반영
+//  · 저장: 각 프로젝트 채널 04.일정/schedule-master.json
+// ════════════════════════════════════════════════════════════════
+const SCHX_TPL = {
+  mfg:   { name:"🏭 제작", note:"설계 → 포장·운송·통관", stages:[
+            {id:"design", name:"설계 (기구·전장·제어)", sub:true},
+            {id:"order",  name:"가공품·구매품 발주"},
+            {id:"assy",   name:"조립·배선"},
+            {id:"io",     name:"I/O · 모터 · 티칭"},
+            {id:"fat",    name:"FAT (드라이런)"},
+            {id:"pack",   name:"포장 · 운송 · 통관"},
+          ]},
+  setup: { name:"🛠 설치 (Setup)", country:true, stages:[
+            {id:"arrive",  name:"현장 도착"},
+            {id:"install", name:"현장 설치"},
+            {id:"sat",     name:"SAT 완료"},
+          ]},
+  cs:    { name:"🤝 CS", stages:[ {id:"cs", name:"CS (사후관리)"} ] },
+};
+const SCHX_PHORDER=["mfg","setup","cs"];
+const SCHX_PHCOLOR={mfg:"#534AB7", setup:"#1FA89B", cs:"#E0921E"};
+let _schxData={}, _schxView="__main__", _schxGroupCache={};
+
+function schxKey(ph,st){ return ph+"."+st; }
+function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}}; }
+function schxPhLabel(ph){ return SCHX_TPL[ph].name.replace(/^\S+\s/,""); }
+
+async function schxRead(proj){
+  try{
+    const t=await graphToken(); const c=await projChannelInfo(proj);
+    const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/schedule-master.json")}:/content`;
+    const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+    if(!r.ok) return null; return await r.json();
+  }catch(e){ return null; }
 }
+async function schxWrite(proj){
+  await projChanEnsure(proj, "04.일정");
+  const body=JSON.stringify(Object.assign({project:proj},_schxData[proj],{updated:new Date().toISOString(),updated_by:wpMe()}),null,2);
+  await projChanUpload(proj, "04.일정", "schedule-master.json", new Blob([body],{type:"application/json"}), "application/json");
+}
+async function schxEnsure(proj){
+  if(_schxData[proj]) return;
+  const j=await schxRead(proj);
+  const d = j ? Object.assign(schxBlank(), j) : schxBlank();
+  d.st=d.st||{}; d.groups=d.groups||{}; d.subs=d.subs||{}; if(d.country==null) d.country="";
+  _schxData[proj]=d;
+}
+async function schxGroups(proj){
+  if(_schxGroupCache[proj]) return _schxGroupCache[proj];
+  let arr=[];
+  try{ const j=await wpReadPlan(proj); const ch=(j&&j.project&&j.project.children)||[]; arr=ch.filter(c=>c.group||c.children).map(c=>({id:c.id,name:c.name||c.id})); }catch(e){}
+  _schxGroupCache[proj]=arr; return arr;
+}
+async function schxSave(proj){
+  const ind=document.getElementById("schx-save"); if(ind) ind.textContent="저장 중…";
+  try{ await schxWrite(proj); if(ind) ind.textContent="✓ 저장됨"; }
+  catch(e){ if(ind) ind.textContent="저장 실패"; toast("저장 실패: "+e.message,"bad"); }
+}
+
+async function schxInit(){
+  const root=document.getElementById("page-schedule");
+  root.innerHTML=`<div style="padding:14px 18px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0;font-size:19px">📅 통합일정관리 <span style="font-size:12px;font-weight:400;color:var(--t3)">제작 · 설치 · CS 생애주기 · 업무일정 연동</span></h2>
+      <span style="flex:1"></span>
+      <span id="schx-save" style="font-size:12px;color:var(--t3)">✓ 저장됨</span>
+    </div>
+    <div id="schx-tabs" style="display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px"></div>
+    <div id="schx-body"></div>
+  </div>`;
+  schxRenderTabs(); schxRenderBody();
+}
+function schxRenderTabs(){
+  const wrap=document.getElementById("schx-tabs"); if(!wrap) return;
+  const tab=(id,label)=>{ const on=_schxView===id; return `<div onclick="schxSwitch('${esc(id)}')" style="padding:7px 14px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:${on?700:500};${on?'background:#0f4c81;color:#fff':'background:var(--bg2);color:var(--t2)'}">${esc(label)}</div>`; };
+  wrap.innerHTML = tab("__main__","🗂 메인(전체)") + wpProjects().map(p=>tab(p,p)).join("");
+}
+function schxSwitch(v){ _schxView=v; schxRenderTabs(); schxRenderBody(); }
+async function schxRenderBody(){
+  const body=document.getElementById("schx-body"); if(!body) return;
+  body.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3)">불러오는 중…</div>`;
+  if(_schxView==="__main__") await schxRenderMain(body);
+  else await schxRenderProject(body, _schxView);
+}
+
+async function schxRenderMain(body){
+  const projs=wpProjects();
+  let h=`<div style="font-size:12px;color:var(--t3);margin-bottom:10px">관리자설정 프로젝트 ${projs.length}개 · 제작/설치/CS 기간 요약 (프로젝트 탭에서 입력) · 카드 클릭=상세</div>`;
+  for(const p of projs){
+    await schxEnsure(p); const D=_schxData[p];
+    const range=(ph)=>{ let s=null,e=null; SCHX_TPL[ph].stages.forEach(stg=>{ const k=schxKey(ph,stg.id); const d=D.st[k]||{}; if(d.start&&(!s||d.start<s))s=d.start; if(d.end&&(!e||d.end>e))e=d.end; (D.subs[k]||[]).forEach(su=>{ if(su.start&&(!s||su.start<s))s=su.start; if(su.end&&(!e||su.end>e))e=su.end; }); }); return {s,e}; };
+    h+=`<div onclick="schxSwitch('${esc(p)}')" style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><b style="font-family:monospace;color:#0f4c81">${esc(p)}</b>${D.country?`<span style="font-size:11px;color:var(--t3)">🌍 ${esc(D.country)}</span>`:""}<span style="flex:1"></span><span style="font-size:11px;color:var(--p)">열기 →</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${SCHX_PHORDER.map(ph=>{ const r=range(ph); const c=SCHX_PHCOLOR[ph]; return `<span style="font-size:11.5px;background:${c}1a;color:${c};padding:3px 9px;border-radius:6px">${esc(schxPhLabel(ph))} · ${r.s?esc(r.s):"–"} ~ ${r.e?esc(r.e):"–"}</span>`; }).join("")}</div>
+    </div>`;
+  }
+  body.innerHTML=h;
+}
+
+async function schxRenderProject(body, proj){
+  await schxEnsure(proj);
+  const D=_schxData[proj];
+  const groups=await schxGroups(proj);
+  const gName=gid=>{ const g=groups.find(x=>x.id===gid); return g?g.name:gid; };
+  let h="";
+  for(const ph of SCHX_PHORDER){
+    const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
+    h+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${col}14;border-left:4px solid ${col}">
+        <b style="font-size:14px;color:${col}">${esc(T.name)}</b>${T.note?`<span style="font-size:11px;color:var(--t3)">${esc(T.note)}</span>`:""}
+        ${T.country?`<span style="margin-left:auto;font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px">🌍 국가 <input value="${esc(D.country||"")}" onchange="schxSetCountry('${esc(proj)}',this.value)" placeholder="예: 베트남" style="height:26px;font-size:12px;width:120px"></span>`:""}
+      </div>
+      <div style="padding:4px 0">`;
+    for(const stg of T.stages){
+      const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid #f3f4f6;flex-wrap:wrap">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex:none"></span>
+        <b style="font-size:13px;min-width:160px">${esc(stg.name)}</b>
+        <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(sd.start||"")}" onchange="schxSetDate('${esc(proj)}','${key}','start',this.value)" style="height:26px;font-size:12px">
+        <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(sd.end||"")}" onchange="schxSetDate('${esc(proj)}','${key}','end',this.value)" style="height:26px;font-size:12px">
+        ${stg.sub?`<button class="btn sm" onclick="schxAddSub('${esc(proj)}','${key}')">＋ 하위(기초설계 등)</button>`:""}
+        <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','')">🔗 업무일정 연결</button>
+      </div>`;
+      const gl=D.groups[key]||[];
+      if(gl.length) h+=`<div style="padding:0 14px 6px 44px;display:flex;flex-wrap:wrap;gap:6px">${gl.map(gid=>schxChip(proj,key,"",gid,gName(gid))).join("")}</div>`;
+      (D.subs[key]||[]).forEach((s,si)=>{
+        h+=`<div style="margin:2px 14px 8px 38px;border:1px dashed var(--border2);border-radius:8px;padding:7px 10px;background:var(--bg2)">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span>📂</span><input value="${esc(s.name||"")}" onchange="schxSubName('${esc(proj)}','${key}',${si},this.value)" style="height:24px;font-size:12px;font-weight:600;border:none;background:none;min-width:120px">
+            <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(s.start||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'start',this.value)" style="height:24px;font-size:11px">
+            <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(s.end||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'end',this.value)" style="height:24px;font-size:11px">
+            <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','${si}')">🔗 연결</button>
+            <span onclick="schxDelSub('${esc(proj)}','${key}',${si})" title="하위 삭제" style="cursor:pointer;color:var(--r)">🗑</span>
+          </div>
+          ${(s.groups||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${(s.groups||[]).map(gid=>schxChip(proj,key,String(si),gid,gName(gid))).join("")}</div>`:`<div style="font-size:11px;color:var(--t3);margin-top:4px">연결된 업무일정 그룹 없음 — [🔗 연결]</div>`}
+        </div>`;
+      });
+    }
+    h+=`</div></div>`;
+  }
+  h+=`<div style="font-size:11.5px;color:var(--t3);padding:6px 2px">💡 [🔗 연결]로 업무일정 그룹을 단계에 묶고, 칩의 ↔로 다른 단계로 이동합니다. (업무일정 트리 반영·Copilot 서술입력은 다음 단계)</div>`;
+  body.innerHTML=h;
+}
+function schxChip(proj,key,subIdx,gid,name){
+  return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:#eef2ff;color:#3730a3;padding:3px 8px;border-radius:99px">📋 ${esc(name)}<span onclick="schxMoveGroup('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="다른 단계로 이동" style="cursor:pointer">↔</span><span onclick="schxUnlink('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="연결 해제" style="cursor:pointer;color:#7c3aed">✕</span></span>`;
+}
+
+// 핸들러
+function schxSetCountry(p,v){ _schxData[p].country=v; schxSave(p); }
+function schxSetDate(p,key,f,v){ (_schxData[p].st[key]=_schxData[p].st[key]||{})[f]=v; schxSave(p); }
+function schxAddSub(p,key){ const name=(prompt("하위 단계 이름:", "기초설계")||"").trim(); if(!name) return; (_schxData[p].subs[key]=_schxData[p].subs[key]||[]).push({id:"S"+Date.now().toString(36),name,start:"",end:"",groups:[]}); schxSave(p); schxRenderBody(); }
+function schxSubName(p,key,si,v){ _schxData[p].subs[key][si].name=v; schxSave(p); }
+function schxSubDate(p,key,si,f,v){ _schxData[p].subs[key][si][f]=v; schxSave(p); }
+function schxDelSub(p,key,si){ if(!confirm("이 하위 단계를 삭제할까요? (연결만 해제됩니다)")) return; _schxData[p].subs[key].splice(si,1); schxSave(p); schxRenderBody(); }
+function schxAllLinked(p){ const D=_schxData[p]; const out=[]; Object.values(D.groups||{}).forEach(a=>out.push(...a)); Object.values(D.subs||{}).forEach(arr=>arr.forEach(s=>out.push(...(s.groups||[])))); return out; }
+async function schxLinkGroup(p,key,subIdx){
+  const groups=await schxGroups(p);
+  if(!groups.length){ toast("이 프로젝트 업무일정에 그룹(할일)이 없습니다","bad"); return; }
+  const used=schxAllLinked(p);
+  schxPickModal(p,key,subIdx, groups.filter(g=>!used.includes(g.id)));
+}
+function schxAddLink(p,key,subIdx,gid){
+  const D=_schxData[p];
+  if(subIdx===""||subIdx==null){ (D.groups[key]=D.groups[key]||[]).push(gid); }
+  else { const s=D.subs[key][+subIdx]; (s.groups=s.groups||[]).push(gid); }
+  document.getElementById("schxPickOv")?.remove(); schxSave(p); schxRenderBody();
+}
+function schxUnlink(p,key,subIdx,gid){
+  const D=_schxData[p];
+  if(subIdx===""||subIdx==null){ D.groups[key]=(D.groups[key]||[]).filter(x=>x!==gid); }
+  else { const s=D.subs[key][+subIdx]; s.groups=(s.groups||[]).filter(x=>x!==gid); }
+  schxSave(p); schxRenderBody();
+}
+function schxDestinations(p){
+  const D=_schxData[p]; const out=[];
+  for(const ph of SCHX_PHORDER){ for(const stg of SCHX_TPL[ph].stages){ const key=schxKey(ph,stg.id);
+    out.push({key,subIdx:"",label:`${schxPhLabel(ph)} › ${stg.name}`});
+    (D.subs[key]||[]).forEach((s,si)=>out.push({key,subIdx:String(si),label:`${stg.name} › ${s.name}`}));
+  } }
+  return out;
+}
+function schxMoveGroup(p,key,subIdx,gid){
+  const dests=schxDestinations(p);
+  let ov=document.getElementById("schxPickOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="schxPickOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(460px,94vw);max-height:80vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between"><b>↔ 이동할 단계 선택</b><span style="cursor:pointer" onclick="document.getElementById('schxPickOv').remove()">✕</span></div>
+    <div style="overflow:auto;padding:6px">${dests.map(d=>`<div onclick="schxDoMove('${esc(p)}','${key}','${subIdx}','${esc(gid)}','${d.key}','${d.subIdx}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''">${esc(d.label)}</div>`).join("")}</div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+function schxDoMove(p,srcKey,srcSub,gid,dstKey,dstSub){
+  const D=_schxData[p];
+  if(srcSub===""||srcSub==null){ D.groups[srcKey]=(D.groups[srcKey]||[]).filter(x=>x!==gid); }
+  else { const s=D.subs[srcKey][+srcSub]; s.groups=(s.groups||[]).filter(x=>x!==gid); }
+  if(dstSub===""||dstSub==null){ (D.groups[dstKey]=D.groups[dstKey]||[]).push(gid); }
+  else { const s=D.subs[dstKey][+dstSub]; (s.groups=s.groups||[]).push(gid); }
+  document.getElementById("schxPickOv")?.remove(); schxSave(p); schxRenderBody();
+}
+function schxPickModal(p,key,subIdx,avail){
+  let ov=document.getElementById("schxPickOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="schxPickOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(460px,94vw);max-height:80vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between"><b>🔗 업무일정 그룹 연결</b><span style="cursor:pointer" onclick="document.getElementById('schxPickOv').remove()">✕</span></div>
+    <div style="overflow:auto;padding:6px">${avail.length?avail.map(g=>`<div onclick="schxAddLink('${esc(p)}','${key}','${subIdx}','${esc(g.id)}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''">📋 ${esc(g.name)}</div>`).join(""):'<div style="padding:18px;text-align:center;color:#94a3b8;font-size:13px">연결할 수 있는 그룹이 없습니다<br>(모두 연결됨 또는 업무일정에 그룹 없음)</div>'}</div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 async function schReload(){ _schLoaded=false; await schInit(); }
 async function schDrive(){
   if(_schDriveId) return _schDriveId;
