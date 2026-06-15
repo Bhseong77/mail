@@ -1188,7 +1188,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v229</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v231</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7299,7 +7299,7 @@ async function wpSaveProject(projId){
 const WP_SHARE_FIELDS=["name","en","role","owner","owners","owner_email","owner_emails","prog","start","end","blocker","blocker_en","files","comments"];
 async function wpSyncShared(srcProjId){
   const src=WP_LOADED_PROJ.find(x=>x.id===srcProjId); if(!src) return [];
-  const shared=[]; (function w(ns){ (ns||[]).forEach(n=>{ if(n.shareId && Array.isArray(n.shareProjects) && n.shareProjects.length>1) shared.push(n); if(n.children)w(n.children); }); })(src.children);
+  const shared=[]; (function w(ns){ (ns||[]).forEach(n=>{ if(!n.group && n.shareId && Array.isArray(n.shareProjects) && n.shareProjects.length>1) shared.push(n); if(n.children)w(n.children); }); })(src.children);
   const touched=new Set();
   for(const node of shared){
     for(const tgtId of node.shareProjects){
@@ -7324,6 +7324,58 @@ async function wpSyncShared(srcProjId){
 }
 
 function wpLang(l){ WP_LANG=l; document.getElementById("wp-lg-ko").classList.toggle("on",l==="ko"); document.getElementById("wp-lg-en").classList.toggle("on",l==="en"); if(l==="en") wpTranslateAll(); else wpRender(); }
+// ── 다른 프로젝트로 연결복제 (공동연결) ──
+function wpNewShareId(){ return "S"+Date.now().toString(36)+Math.floor(Math.random()*9999); }
+// 대상 프로젝트 로드 보장
+async function wpEnsureProjLoaded(projId){
+  let p=WP_LOADED_PROJ.find(x=>x.id===projId);
+  if(!p){ try{ const data=await wpReadPlan(projId); p={id:projId,name:projId,children:(data&&data.project&&data.project.children)||[]}; WP_LOADED_PROJ.push(p); }catch(_){ p={id:projId,name:projId,children:[]}; WP_LOADED_PROJ.push(p); } }
+  return p;
+}
+function wpNewIdFor(proj){ let max=0; (function w(ns){ (ns||[]).forEach(n=>{ const m=String(n.id).match(/T(\d+)/); if(m)max=Math.max(max,+m[1]); if(n.children)w(n.children); }); })(proj.children); return "T"+(max+1); }
+// 작업+상위폴더+후행연쇄를 대상 프로젝트들에 연결복제
+async function wpLinkCopy(srcProjId, taskId, targetProjs){
+  const src=WP_LOADED_PROJ.find(x=>x.id===srcProjId); if(!src) return;
+  const task=wpFind(srcProjId,taskId); if(!task) return;
+  const folder=wpFindParent(srcProjId,taskId);   // 상위 폴더(할일)
+  const folderIsGroup = folder && folder.group;
+  // 후행 연쇄 수집 (후행의 후행까지)
+  const chainIds=[]; const seen=new Set();
+  (function collect(id){ if(seen.has(id))return; seen.add(id); chainIds.push(id); wpSuccessors(srcProjId,id).forEach(s=>collect(s.id)); })(taskId);
+  const chainTasks=chainIds.map(id=>wpFind(srcProjId,id)).filter(Boolean);
+  // 각 작업/폴더에 shareId 부여(없으면)
+  if(folderIsGroup && !folder.shareId) folder.shareId=wpNewShareId();
+  chainTasks.forEach(t=>{ if(!t.shareId) t.shareId=wpNewShareId(); });
+  // shareProjects = 본인 + 대상들
+  const allProjs=[srcProjId, ...targetProjs];
+  if(folderIsGroup) folder.shareProjects=[...new Set([...(folder.shareProjects||[srcProjId]), ...allProjs])];
+  chainTasks.forEach(t=>{ t.shareProjects=[...new Set([...(t.shareProjects||[srcProjId]), ...allProjs])]; });
+
+  for(const tp of targetProjs){
+    const tgt=await wpEnsureProjLoaded(tp);
+    // 대상 폴더 확보 (shareId 매칭 → 없으면 생성)
+    let tgtFolder=null;
+    if(folderIsGroup){
+      (function w(ns){ (ns||[]).forEach(n=>{ if(n.shareId===folder.shareId)tgtFolder=n; if(n.children)w(n.children); }); })(tgt.children);
+      if(!tgtFolder){ tgtFolder={id:"G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99),name:folder.name,group:true,shareId:folder.shareId,shareProjects:folder.shareProjects.slice(),files:JSON.parse(JSON.stringify(folder.files||[])),memo:folder.memo||"",children:[]}; (tgt.children=tgt.children||[]).push(tgtFolder); WP_OPEN[tgtFolder.id]=true; }
+    } else {
+      tgtFolder=(tgt.children||[]).find(x=>x.group&&x.name==="🔗 공유 작업");
+      if(!tgtFolder){ tgtFolder={id:"Gshare"+Date.now().toString().slice(-5),name:"🔗 공유 작업",group:true,children:[]}; (tgt.children=tgt.children||[]).push(tgtFolder); WP_OPEN[tgtFolder.id]=true; }
+    }
+    // 체인 작업들 생성 + 내부 deps 리맵 (shareId 기준)
+    const idByShare={};   // srcShareId → 대상 새 id
+    chainTasks.forEach(t=>{
+      let twin=null; (function w(ns){ (ns||[]).forEach(n=>{ if(n.shareId===t.shareId)twin=n; if(n.children)w(n.children); }); })(tgt.children);
+      if(!twin){ const nid=wpNewIdFor(tgt); twin={id:nid,shareId:t.shareId,shareProjects:t.shareProjects.slice(),name:t.name,en:t.en||"",role:t.role,owner:t.owner||"",owners:(t.owners||[]).slice(),owner_email:t.owner_email||"",owner_emails:(t.owner_emails||[]).slice(),prog:t.prog||0,start:t.start||"",end:t.end||"",blocker:t.blocker||"",deps:[],files:JSON.parse(JSON.stringify(t.files||[])),comments:JSON.parse(JSON.stringify(t.comments||[])),history:[{who:wpMe(),when:new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}),act:`${srcProjId}에서 연결복제`}],children:[]}; tgtFolder.children.push(twin); }
+      idByShare[t.shareId]=twin;
+    });
+    // 내부 선행관계 리맵 (체인 안에서만)
+    chainTasks.forEach(t=>{ const twin=idByShare[t.shareId]; if(!twin)return; const inDeps=(t.deps||[]).map(did=>{ const dt=wpFind(srcProjId,did); return dt&&idByShare[dt.shareId]?idByShare[dt.shareId].id:null; }).filter(Boolean); twin.deps=inDeps; });
+  }
+  // 저장 (원본 + 대상들)
+  await wpSaveProject(srcProjId);
+  for(const tp of targetProjs){ try{ await wpSavePlan(tp, WP_LOADED_PROJ.find(x=>x.id===tp)); }catch(_){} }
+}
 function wpView(v){ WP_VIEW=v; document.getElementById("wp-v-tree").classList.toggle("on",v==="tree"); document.getElementById("wp-v-gantt").classList.toggle("on",v==="gantt"); document.getElementById("wp-v-order").classList.toggle("on",v==="order"); wpRender(); }
 function wpExpandAll(o){ Object.keys(WP_OPEN).forEach(k=>WP_OPEN[k]=o); wpRender(); }
 function wpToggle(id){ WP_OPEN[id]=!WP_OPEN[id]; wpRender(); }
@@ -7820,16 +7872,19 @@ function wpRowHtml(projId, n, depth, parentNotDone){
   const handle = wpIsPM() ? `<span class="wp-grip" title="드래그로 이동" style="cursor:grab;color:var(--t3);font-size:13px">⠿</span>` : "";
   if(n.group){
     const prog=wpAggProg(n);
+    const refFiles=(n.files||[]); const hasRef=refFiles.length||n.memo;
     let h=`<div class="wp-grp" id="wprow-${n.id}" style="margin-left:${ind}px" ${dnd} onclick="wpToggle('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
       ${handle}<span style="font-size:14px">${open?"▾":"▸"}</span>📂
       <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
       <span style="font-size:11px;color:var(--t3)">${(n.children||[]).length}작업</span>
-      ${(n.files||[]).length?`<span title="참고자료 ${(n.files||[]).length}건" style="font-size:10.5px;color:var(--p2);background:var(--pd);padding:1px 6px;border-radius:99px">📎 자료 ${(n.files||[]).length}</span>`:""}
+      ${(!open && refFiles.length)?refFiles.slice(0,2).map(f=>`<a href="${esc(f.url||'#')}" target="_blank" onclick="event.stopPropagation()" title="${esc(f.name)}" style="font-size:10.5px;color:var(--p2);background:var(--pd);padding:1px 7px;border-radius:99px;text-decoration:none;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">📎 ${esc(f.name)}</a>`).join("")+(refFiles.length>2?`<span style="font-size:10px;color:var(--t3)">+${refFiles.length-2}</span>`:""):""}
+      ${(!open && n.memo)?`<span title="${esc(n.memo)}" style="font-size:10.5px;color:var(--t3)">📝</span>`:""}
       <span style="flex:1"></span>
-      <button class="btn sm" onclick="event.stopPropagation();wpFolderRef('${projId}','${n.id}')" style="padding:2px 8px" title="참고자료(하위 트리 공유)">📎</button>
+      <button class="btn sm" onclick="event.stopPropagation();wpFolderRef('${projId}','${n.id}')" style="padding:2px 8px" title="참고자료 관리">📎</button>
       ${wpIsPM()?`<button class="btn sm" onclick="event.stopPropagation();wpAddTask('${projId}','${n.id}')" style="padding:2px 8px">＋</button>`:""}
       <span style="font-size:11px;color:var(--t2)">${prog}%</span></div>`;
-    if(WP_SEL===n.id && WP_ATTACH && WP_ATTACH.mode==="folderref") h+=wpFolderRefPanel(projId,n,ind);
+    // 펼쳐졌을 때: 참고자료·설명 자동 표시 (자료 있거나 편집모드일 때)
+    if(open && (hasRef || (WP_SEL===n.id && WP_ATTACH && WP_ATTACH.mode==="folderref"))) h+=wpFolderRefPanel(projId,n,ind);
     if(open && kids) h+=(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,false)).join("");
     return h;
   }
@@ -7960,6 +8015,7 @@ function wpCtxMenu(e, projId, id){
     if(n.group){ items.push(["📎","참고자료 관리",`wpFolderRef('${projId}','${id}')`]); }
     if(wpIsPM()) items.push(["＋", n.group?"작업 추가":"하위작업 추가",`wpAddTask('${projId}','${id}')`]);
     items.push(["📑","복제(바로 아래)",`wpDuplicate('${projId}','${id}')`]);
+    if(!n.group && wpProjects().length>1) items.push(["🔗","다른 프로젝트에 연결복제",`wpLinkCopyPicker('${projId}','${id}')`]);
     items.push(["🗑","삭제",`wpDeleteTask('${projId}','${id}')`]);
   }
   const menu=document.createElement("div"); menu.id="wp-ctx"; menu.className="wp-ctx";
@@ -8004,21 +8060,66 @@ function wpDuplicate(projId, id){
   const par=wpFindParent(projId,id); const arr=par.children; const idx=arr.findIndex(c=>c.id===id); arr.splice(idx+1,0,copy);
   wpSaveProject(projId); wpRender();
 }
+// 다른 프로젝트에 연결복제 — 대상 선택 모달
+function wpLinkCopyPicker(projId, id){
+  const n=wpFind(projId,id); if(!n) return;
+  const others=wpProjects().filter(c=>c!==projId);
+  const sucCount=(function(){ const s=new Set(); (function c(i){ if(s.has(i))return; s.add(i); wpSuccessors(projId,i).forEach(x=>c(x.id)); })(id); return s.size-1; })();
+  const folder=wpFindParent(projId,id); const folderName=(folder&&folder.group)?folder.name:null;
+  let ov=document.getElementById("wpLinkOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="wpLinkOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000088;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(480px,94vw);background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#4338ca;color:#fff">
+      <b>🔗 다른 프로젝트에 연결복제</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpLinkOv').remove()">✕</span></div>
+    <div style="padding:14px 18px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">📋 ${esc(n.id)} ${esc(n.name||"")}</div>
+      <div style="font-size:11.5px;color:#64748b;margin-bottom:10px;line-height:1.6">
+        함께 연결됨: ${folderName?`📂 상위폴더 「${esc(folderName)}」 · `:""}➡ 후행 ${sucCount}개(연쇄)<br>
+        연결되면 내용(이름·담당·진행률·일정·첨부·보고)이 동기화됩니다. 선행관계는 프로젝트별로 따로 유지됩니다.
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">연결할 프로젝트 (복수 선택)</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${others.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer"><input type="checkbox" value="${esc(c)}" class="wp-link-cb" style="width:16px;height:16px"><span style="font-family:monospace;font-weight:600">${esc(c)}</span></label>`).join("")}
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 18px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('wpLinkOv').remove()">취소</button>
+      <button class="btn primary sm" id="wp-link-go" onclick="wpDoLinkCopy('${projId}','${id}')">🔗 연결복제</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function wpDoLinkCopy(projId, id){
+  const ov=document.getElementById("wpLinkOv");
+  const targets=[...ov.querySelectorAll(".wp-link-cb:checked")].map(c=>c.value);
+  if(!targets.length){ toast("연결할 프로젝트를 선택하세요","bad"); return; }
+  const btn=document.getElementById("wp-link-go"); btn.disabled=true; btn.textContent="연결 중…";
+  try{ await wpLinkCopy(projId, id, targets); ov.remove(); toast(`${targets.join(", ")}에 연결복제 완료`,"ok"); wpRender(); }
+  catch(e){ toast("실패: "+e.message,"bad"); btn.disabled=false; btn.textContent="🔗 연결복제"; }
+}
 function wpSelectThenEdit(projId, id){ WP_SEL=id; WP_ATTACH={id,mode:"edit"}; wpRender(); setTimeout(()=>{ const el=document.getElementById("wprow-"+id); if(el) el.scrollIntoView({block:"center"}); },50); }
 // 이름 변경 (작업·폴더 공통)
-function wpRename(projId, id){
+async function wpRename(projId, id){
   const n=wpFind(projId,id); if(!n) return;
   const nv=prompt(n.group?"폴더(할일) 이름:":"작업 이름:", n.name||""); if(nv===null) return;
   const t=nv.trim(); if(!t || t===n.name) return;
   const old=n.name; n.name=t; n.en="";
   wpLog(n, `이름 변경: ${old} → ${t}`);
+  // 연결된 폴더면 다른 프로젝트에도 적용할지 질문
+  if(n.group && n.shareId && (n.shareProjects||[]).filter(x=>x!==projId).length>0){
+    const others=n.shareProjects.filter(x=>x!==projId);
+    if(confirm(`연결된 ${others.join(", ")}의 폴더 이름도 "${t}"로 변경할까요?`)){
+      for(const tp of others){ const tgt=WP_LOADED_PROJ.find(x=>x.id===tp); if(!tgt)continue; let tw=null; (function w(ns){ (ns||[]).forEach(x=>{ if(x.shareId===n.shareId)tw=x; if(x.children)w(x.children); }); })(tgt.children); if(tw){ tw.name=t; tw.en=""; try{ await wpSavePlan(tp, tgt); }catch(_){} } }
+    }
+  }
   wpSaveProject(projId); wpRender();
 }
 // 폴더(할일) 참고자료 패널 토글 — 하위 트리 보는 사람들이 참고
 function wpFolderRef(projId, id){
-  WP_SEL = (WP_SEL===id && WP_ATTACH && WP_ATTACH.mode==="folderref") ? null : id;
-  WP_ATTACH = WP_SEL===id ? {id, mode:"folderref"} : null;
-  WP_OPEN[id]=true; wpRender();
+  WP_OPEN[id]=true;
+  WP_SEL=id; WP_ATTACH={id, mode:"folderref"};   // 편집 패널 표시 보장
+  wpRender();
   setTimeout(()=>{ const el=document.getElementById("wprow-"+id); if(el) el.scrollIntoView({block:"center"}); },50);
 }
 // 폴더 참고자료 패널 (하위 트리 공유) — 첨부 + 설명, 작업 첨부 함수 재사용
@@ -8276,12 +8377,20 @@ function wpAddGroup(projId){
   (p.children=p.children||[]).push({id:gid,name,group:true,children:[]});
   WP_OPEN[gid]=true; wpSaveProject(projId); wpRender();
 }
-function wpAddTask(projId, parentId){
+async function wpAddTask(projId, parentId){
   const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
   const name=prompt("작업명:"); if(!name) return;
   const id=wpNewId(projId);
   const t={id,name,role:"설계",owner:"",owners:[],owner_email:"",owner_emails:[],prog:0,start:"",end:"",deps:[],files:[],history:[],comments:[],children:[]};
   wpLog(t,"작업 생성"); (parent.children=parent.children||[]).push(t); WP_OPEN[parentId]=true;
+  // 상위 폴더가 다른 프로젝트와 연결돼 있으면, 이 새 작업도 연결할지 질문
+  if(parent && parent.group && parent.shareId && (parent.shareProjects||[]).filter(x=>x!==projId).length>0){
+    const others=parent.shareProjects.filter(x=>x!==projId);
+    if(confirm(`상위 폴더가 ${others.join(", ")}와 연결되어 있습니다.\n이 새 작업도 연결할까요?`)){
+      t.shareId=wpNewShareId(); t.shareProjects=parent.shareProjects.slice();
+      for(const tp of others){ const tgt=await wpEnsureProjLoaded(tp); let tf=null; (function w(ns){ (ns||[]).forEach(x=>{ if(x.shareId===parent.shareId)tf=x; if(x.children)w(x.children); }); })(tgt.children); if(!tf){ tf=(tgt.children||[]).find(x=>x.group&&x.name==="🔗 공유 작업")||{children:tgt.children}; } const nid=wpNewIdFor(tgt); (tf.children=tf.children||[]).push({id:nid,shareId:t.shareId,shareProjects:t.shareProjects.slice(),name:t.name,role:t.role,owner:"",owners:[],prog:0,start:"",end:"",deps:[],files:[],comments:[],history:[{who:wpMe(),when:new Date().toLocaleString("ko-KR"),act:`${projId}에서 연결 생성`}],children:[]}); try{ await wpSavePlan(tp, tgt); }catch(_){} }
+    }
+  }
   WP_SEL=id; WP_ATTACH={id,mode:"edit"}; wpSaveProject(projId); wpRender();
 }
 function wpSaveTask(projId,id){
@@ -8319,7 +8428,22 @@ function wpSaveTask(projId,id){
   if(triggerCascade){ const mv=wpCascade(projId, id); if(mv.length) toast(`후행 ${mv.length}개 일정 자동 조정됨`,"ok"); }
   WP_ATTACH=null; wpSaveProject(projId); wpRender();
 }
-function wpDeleteTask(projId,id){
+async function wpDeleteTask(projId,id){
+  const n=wpFind(projId,id); if(!n) return;
+  const linked = n.shareId && Array.isArray(n.shareProjects) && n.shareProjects.filter(x=>x!==projId).length>0;
+  if(linked){
+    const others=n.shareProjects.filter(x=>x!==projId);
+    const yes=confirm(`이 작업은 ${others.join(", ")}와(과) 연결되어 있습니다.\n\n[확인] = 연결된 프로젝트에서도 모두 삭제\n[취소] = 이 프로젝트에서만 삭제(연결 해제)`);
+    if(yes){
+      // 모든 연결 프로젝트에서 같은 shareId 삭제
+      for(const tp of n.shareProjects){ const tgt=await wpEnsureProjLoaded(tp); (function rm(parent){ parent.children=(parent.children||[]).filter(c=>c.shareId!==n.shareId); (parent.children||[]).forEach(rm); })(tgt); if(tp!==projId){ try{ await wpSavePlan(tp, tgt); }catch(_){} } }
+    } else {
+      // 이 프로젝트만 삭제 + 다른 프로젝트 트윈에서 이 프로젝트 연결 제거
+      for(const tp of others){ const tgt=WP_LOADED_PROJ.find(x=>x.id===tp); if(!tgt)continue; let twin=null; (function w(ns){ (ns||[]).forEach(x=>{ if(x.shareId===n.shareId)twin=x; if(x.children)w(x.children); }); })(tgt.children); if(twin){ twin.shareProjects=(twin.shareProjects||[]).filter(x=>x!==projId); if((twin.shareProjects||[]).length<=1){ twin.shareId=undefined; twin.shareProjects=undefined; } try{ await wpSavePlan(tp, tgt); }catch(_){} } }
+      const par=wpFindParent(projId,id); if(par) par.children=(par.children||[]).filter(c=>c.id!==id);
+    }
+    WP_SEL=null; wpSaveProject(projId); wpRender(); return;
+  }
   if(!confirm("이 작업을 삭제할까요?")) return;
   const par=wpFindParent(projId,id); if(!par) return;
   par.children=(par.children||[]).filter(c=>c.id!==id); WP_SEL=null; wpSaveProject(projId); wpRender();
