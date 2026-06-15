@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v238</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v240</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1359,6 +1359,8 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <span style="flex:1"></span>
       <button class="btn sm" onclick="wpExpandAll(true)">모두 펼치기</button>
       <button class="btn sm" onclick="wpExpandAll(false)">모두 접기</button>
+      <button class="btn sm" id="wp-renum" onclick="wpRenumberAll()" style="display:none;" title="T번호를 트리 순서대로 다시 매기고 전체 저장">🔢 T번호 정렬+저장</button>
+      <button class="btn sm" id="wp-snap" onclick="wpSnapshotModal()" style="display:none;" title="일정 백업/복원">💾 백업/복원</button>
       <button class="btn primary sm" id="wp-addgrp" onclick="wpAddGroup()" style="display:none;">＋ 할일 추가</button>
     </div>
 
@@ -7247,6 +7249,8 @@ async function wpInit(){
     WP_WEEK={year:now.year,week:now.week}; sel.value=wpWeekKey(now.year,now.week);
   }
   document.getElementById("wp-addgrp").style.display = wpIsPM()?"inline-block":"none";
+  document.getElementById("wp-renum").style.display = wpIsPM()?"inline-block":"none";
+  document.getElementById("wp-snap").style.display = wpIsPM()?"inline-block":"none";
   // 멤버 로드 (백그라운드, 실패 무시)
   if(!WP_MEMBERS.length){ try{ WP_MEMBERS=await loadTicMembers(); }catch(_){ WP_MEMBERS=[]; } }
   if(await wpHandleDeepLink()) return;
@@ -7256,6 +7260,28 @@ async function wpInit(){
 function wpProjects(){ return (typeof pProjects!=="undefined" && pProjects.length) ? pProjects : ["BR26002","BP26009"]; }
 // 화면에 그릴 프로젝트 = 설정된 코드 순서로만 (WP_LOADED_PROJ엔 동기화용 stale 프로젝트가 섞일 수 있어 제외)
 function wpDisplayProjects(){ const codes=wpProjects(); return codes.map(c=>WP_LOADED_PROJ.find(p=>p.id===c)).filter(Boolean); }
+// T번호를 트리 순서대로 재정렬 + 선행관계(deps) 보정
+function wpRenumberProject(projId){
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return 0;
+  // 트리 순서대로 작업 수집(그룹 제외)
+  const tasks=[]; (function w(ns){ (ns||[]).forEach(n=>{ if(!n.group) tasks.push(n); if(n.children)w(n.children); }); })(p.children);
+  const map={};   // 옛 id → 새 id
+  tasks.forEach((t,i)=>{ map[t.id]="T"+(i+1); });
+  // id 변경 + deps 보정 (한 번에)
+  tasks.forEach(t=>{ t._newid=map[t.id]; });
+  tasks.forEach(t=>{ if(t.deps&&t.deps.length) t.deps=t.deps.map(d=>map[d]||d); });
+  tasks.forEach(t=>{ t.id=t._newid; delete t._newid; });
+  return tasks.length;
+}
+async function wpRenumberAll(){
+  if(!confirm("T번호를 트리 순서대로 다시 매기고 전체 저장합니다.\n선행관계는 자동 보정됩니다. 진행할까요?")) return;
+  let total=0;
+  for(const p of wpDisplayProjects()){ total+=wpRenumberProject(p.id); }
+  // 전체 저장
+  for(const p of wpDisplayProjects()){ try{ await wpSaveProject(p.id); }catch(_){} }
+  toast(`T번호 정렬 완료 (${total}개) · 전체 저장됨`,"ok");
+  WP_SEL=null; wpRender();
+}
 
 async function wpLoad(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
@@ -7295,6 +7321,95 @@ async function wpSavePlan(code, projObj){
   await projChanEnsure(code, "04.일정");
   const body=JSON.stringify({project:projObj, week:wpWeekKey(WP_WEEK.year,WP_WEEK.week), updated:new Date().toISOString(), updated_by:wpMe()}, null, 2);
   await projChanUpload(code, "04.일정", wpFileName(), new Blob([body],{type:"application/json"}), "application/json");
+}
+// ════════ 일정 스냅샷(백업) / 복원 ════════
+// 각 프로젝트 채널의 04.일정 폴더에서 모든 plan-*.json 읽기
+async function wpListPlanFiles(code){
+  const items=await projChanList(code, "04.일정");
+  return (items||[]).filter(x=>x.file && /^plan-\d{4}-W\d{2}\.json$/i.test(x.name));
+}
+async function wpReadPlanFile(code, filename){
+  const t=await graphToken(); const c=await projChannelInfo(code);
+  const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+filename)}:/content`;
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
+  if(!r.ok) return null; return await r.json();
+}
+// 스냅샷 저장: 모든 프로젝트 × 모든 주차 plan을 하나의 JSON으로 묶어 _백업 폴더에 저장
+async function wpSnapshotSave(){
+  const note=prompt("스냅샷 메모(선택) — 예: '레이아웃 재배치 전'","");
+  if(note===null) return;
+  toast("스냅샷 저장 중…");
+  const ts=new Date(); const stamp=ts.getFullYear()+String(ts.getMonth()+1).padStart(2,"0")+String(ts.getDate()).padStart(2,"0")+"-"+String(ts.getHours()).padStart(2,"0")+String(ts.getMinutes()).padStart(2,"0")+String(ts.getSeconds()).padStart(2,"0");
+  const snap={ type:"workplan-snapshot", created:ts.toISOString(), by:wpMe(), note:note||"", projects:{} };
+  try{
+    for(const code of wpProjects()){
+      const files=await wpListPlanFiles(code); snap.projects[code]={};
+      for(const f of files){ const data=await wpReadPlanFile(code, f.name); if(data) snap.projects[code][f.name]=data; }
+    }
+    // 각 프로젝트 채널 _백업 폴더에 동일 스냅샷 저장(어느 프로젝트에서든 복원 가능)
+    const body=new Blob([JSON.stringify(snap,null,2)],{type:"application/json"});
+    const fname=`snapshot-${stamp}.json`;
+    for(const code of wpProjects()){ await projChanEnsure(code, "04.일정/_백업"); await projChanUpload(code, "04.일정/_백업", fname, body, "application/json"); }
+    toast("스냅샷 저장 완료","ok");
+  }catch(e){ toast("스냅샷 실패: "+e.message,"bad"); }
+}
+// 스냅샷 목록 (첫 프로젝트의 _백업 폴더 기준)
+async function wpSnapshotList(){
+  const code=wpProjects()[0];
+  const items=await projChanList(code, "04.일정/_백업");
+  return (items||[]).filter(x=>x.file && /^snapshot-.*\.json$/i.test(x.name)).sort((a,b)=>(b.lastModifiedDateTime||"").localeCompare(a.lastModifiedDateTime||""));
+}
+// 스냅샷 복원: 묶인 plan-*.json들을 각 프로젝트 04.일정에 다시 써넣음
+async function wpSnapshotRestore(filename){
+  const code0=wpProjects()[0];
+  const t=await graphToken(); const c=await projChannelInfo(code0);
+  toast("복원 중…");
+  try{
+    const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/_백업/"+filename)}:/content`;
+    const r=await fetch(url,{headers:{Authorization:"Bearer "+t}}); if(!r.ok) throw new Error("스냅샷 읽기 실패 "+r.status);
+    const snap=await r.json();
+    let cnt=0;
+    for(const code of Object.keys(snap.projects||{})){
+      for(const fname of Object.keys(snap.projects[code]||{})){
+        const data=snap.projects[code][fname];
+        await projChanEnsure(code, "04.일정");
+        await projChanUpload(code, "04.일정", fname, new Blob([JSON.stringify(data,null,2)],{type:"application/json"}), "application/json");
+        cnt++;
+      }
+    }
+    toast(`복원 완료 (${cnt}개 파일) · 새로고침합니다`,"ok");
+    setTimeout(()=>wpLoad(), 800);
+  }catch(e){ toast("복원 실패: "+e.message,"bad"); }
+}
+// 스냅샷 관리 모달
+async function wpSnapshotModal(){
+  let ov=document.getElementById("wpSnapOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="wpSnapOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000092;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(560px,94vw);max-height:82vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 16px;background:#0f766e;color:#fff;display:flex;justify-content:space-between;align-items:center"><b>💾 일정 백업 / 복원</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpSnapOv').remove()">✕</span></div>
+    <div style="padding:14px 16px;border-bottom:1px solid #eef0f3">
+      <button class="btn primary sm" onclick="wpSnapshotSave().then(()=>wpSnapshotModal())">📸 지금 상태 스냅샷 저장</button>
+      <div style="font-size:11.5px;color:#64748b;margin-top:6px">모든 프로젝트·모든 주차 일정을 한 번에 백업합니다.</div>
+    </div>
+    <div style="padding:10px 16px;font-size:12px;color:#64748b">📂 저장된 스냅샷 (복원할 항목 선택)</div>
+    <div id="wp-snap-list" style="overflow:auto;padding:0 12px 12px;flex:1"><div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">불러오는 중…</div></div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  try{
+    const list=await wpSnapshotList();
+    const box=document.getElementById("wp-snap-list");
+    if(!list.length){ box.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">스냅샷이 없습니다. 위에서 먼저 저장하세요.</div>'; return; }
+    box.innerHTML=list.map(f=>{
+      const m=f.name.match(/snapshot-(\d{8})-(\d{6})/); let when=f.name;
+      if(m){ const d=m[1],t=m[2]; when=`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} ${t.slice(0,2)}:${t.slice(2,4)}`; }
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">🕘 ${esc(when)}</div><div style="font-size:11px;color:#94a3b8">${esc(f.name)}</div></div>
+        <button class="btn sm" onclick="if(confirm('이 스냅샷으로 복원할까요? 현재 일정이 이 시점으로 덮어쓰여집니다.')) wpSnapshotRestore('${esc(f.name)}').then(()=>document.getElementById('wpSnapOv').remove())">↩ 복원</button>
+      </div>`;
+    }).join("");
+  }catch(e){ document.getElementById("wp-snap-list").innerHTML=`<div style="padding:16px;color:#dc2626;font-size:12px">${esc(e.message)}</div>`; }
 }
 async function wpSaveProject(projId){
   const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return;
