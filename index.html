@@ -1187,7 +1187,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v220</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v222</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7333,6 +7333,10 @@ function wpRenderOrder(){
         <select id="wp-ord-mode" style="height:32px;font-size:13px;margin-left:4px">
           <option value="append">기존 트리에 이어붙임</option>
           <option value="new">이번주 새로 제안</option></select></label>
+      <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="wp-ord-usechat" onchange="wpOrderToggleChat()" style="width:15px;height:15px"> 💬 채팅방 대화 참고
+      </label>
+      <select id="wp-ord-chat" style="height:32px;font-size:12px;display:none"></select>
     </div>
     <textarea id="wp-ord-text" rows="5" placeholder="예) 이번주는 제어반 배선을 마무리하고, 가공품 입고되면 조립 착수. PLC 시퀀스는 다음주까지. 시운전은 조립·로직 끝난 뒤." style="width:100%;font-size:13.5px;padding:10px;box-sizing:border-box;border:1px solid var(--border);border-radius:8px"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
@@ -7414,6 +7418,15 @@ function wpSummarizeTree(proj){
   return out.join("\n")||"(작업 없음)";
 }
 
+async function wpOrderToggleChat(){
+  const on=document.getElementById("wp-ord-usechat").checked;
+  const sel=document.getElementById("wp-ord-chat"); sel.style.display=on?"inline-block":"none";
+  if(on && !sel.options.length){
+    if(typeof ADMIN_CFG==="undefined" || !ADMIN_CFG.channels || !ADMIN_CFG.channels.length){ try{ if(typeof admLoad==="function") await admLoad(); }catch(_){} }
+    const chans=(typeof ADMIN_CFG!=="undefined" && ADMIN_CFG.channels)?ADMIN_CFG.channels.filter(c=>c.sourceChatId):[];
+    sel.innerHTML = chans.length ? chans.map(c=>`<option value="${esc(c.sourceChatId)}">${esc(c.name||c.sourceChatId)}</option>`).join("") : `<option value="">채팅방 없음(관리자설정)</option>`;
+  }
+}
 async function wpOrderGenerate(){
   const projId=document.getElementById("wp-ord-proj").value;
   const mode=document.getElementById("wp-ord-mode").value;
@@ -7423,7 +7436,15 @@ async function wpOrderGenerate(){
   btn.disabled=true; msg.style.color="var(--t3)"; msg.textContent="🤖 과거+현재 대조해 작업 생성 중…";
   try{
     const ctx=await wpGatherContext(projId);
-    const ctxText=ctx.map(c=>`### ${c.week}\n${wpSummarizeTree(c.project)}`).join("\n\n")||"(과거 데이터 없음)";
+    let ctxText=ctx.map(c=>`### ${c.week}\n${wpSummarizeTree(c.project)}`).join("\n\n")||"(과거 데이터 없음)";
+    // 채팅방 대화 참고 옵션
+    let chatBlock="";
+    if(document.getElementById("wp-ord-usechat") && document.getElementById("wp-ord-usechat").checked){
+      const chatId=(document.getElementById("wp-ord-chat").value||"").trim();
+      if(chatId){
+        try{ const cr=await fetch(`${SERVER}/api/workplan/chat-context`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:chatId})}); const cd=await cr.json(); if(cd.ok && cd.lines && cd.lines.length){ chatBlock=`\n\n[채팅방 최근 대화 — 관련 이슈/요청 반영]\n${cd.lines.join("\n")}`; msg.textContent="🤖 채팅방 대화 반영해 작업 생성 중…"; } }catch(_){}
+      }
+    }
     const members=WP_MEMBERS.map(m=>m.name).join(", ")||"미지정";
     const monday=wpMonday(WP_WEEK.year,WP_WEEK.week);
     const prompt=`너는 장비제작 PM 보조다. 아래 [과거~현재 작업현황]을 참고해 PM의 [업무지시]를 이번주 작업 계획으로 정리하라.
@@ -7436,7 +7457,7 @@ async function wpOrderGenerate(){
 {"groups":[{"name":"할일 그룹명","tasks":[{"tid":"t1","name":"작업명","role":"직무","owner":"담당(후보중,모르면 빈칸)","start":"YYYY-MM-DD","end":"YYYY-MM-DD","prog":0,"deps":["t0"]}]}]}
 
 [과거~현재 작업현황]
-${ctxText}
+${ctxText}${chatBlock}
 
 [업무지시]
 ${text}`;
@@ -7698,9 +7719,7 @@ async function wpSendTeams(projId){
       <div style="font-size:12px;color:#64748b;margin-bottom:6px">전송 대상 채팅방 (관리자설정 · 요약 대상)</div>
       <select id="wp-teams-chan" style="width:100%;height:36px;font-size:13px;margin-bottom:6px">${chanOpts}</select>
       <input id="wp-teams-customid" placeholder="또는 채팅방 ID 직접 입력 (19:...@thread.v2)" style="width:100%;height:34px;font-size:12px;margin-bottom:12px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px">
-      <div style="font-size:12px;color:#64748b;margin-bottom:4px;display:flex;align-items:center;gap:8px">미리보기 (담당자별 요약)
-        <button class="btn sm" id="wp-teams-ai" onclick="wpTeamsAISummary('${projId}')" style="padding:3px 10px">🤖 Copilot 요약(채팅방 반영)</button>
-        <span id="wp-teams-aimsg" style="font-size:11px;color:#94a3b8"></span></div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">미리보기 (담당자별 요약) <span style="font-size:11px;color:#94a3b8">· 필요시 직접 수정</span></div>
       <textarea id="wp-teams-preview" rows="9" style="width:100%;font-size:13px;padding:10px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;white-space:pre-wrap">${esc(previewText)}</textarea>
       <div style="font-size:11px;color:#94a3b8;margin-top:6px">필요하면 위 내용을 직접 수정 후 전송할 수 있습니다.</div>
     </div>
@@ -8043,12 +8062,17 @@ function wpRenderGantt(){
     const rows=flat.map(({n,locked})=>{
       const st=wpStatus(n,locked), ic=WP_STIC[st];
       const s=Math.round((new Date(n.start)-d0)/86400000), e=Math.round((new Date(n.end)-d0)/86400000);
-      const cells=dayCols.map((d,i)=>{ const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border)"></div>`; const isS=i===s,isE=i===e; return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center"><div class="wp-gbar" style="width:100%;border-radius:${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}"><div style="width:${isS?Math.min(100,n.prog||0):0}%;background:${ic[1]};opacity:.85"></div></div></div>`; }).join("");
+      const roleCol = WP_ROLECOLOR[n.role] || "#64748b";
+      const cells=dayCols.map((d,i)=>{ const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border)"></div>`; const isS=i===s,isE=i===e; const rad=`${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}`;
+        // 막대 = 직무색 솔리드 (완료=진한 / 진행중=중간 / 0%도 보이게 연한 직무색)
+        const fill = (n.prog>=100) ? roleCol : (n.prog>0 ? roleCol+"cc" : roleCol+"66");
+        return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center"><div style="width:100%;height:16px;border-radius:${rad};background:${fill};display:flex;align-items:center;justify-content:center">${isS&&(e>s||n.prog)?`<span style="font-size:9px;color:#fff;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,.3)">${n.prog||0}%</span>`:""}</div></div>`; }).join("");
       return `<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);${locked?'opacity:.55':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${ic[0]} ${esc(wpNm(n))}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(wpOwnerText(n))}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
     }).join("");
     h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:auto">${head}${rows}</div></div>`;
   });
-  document.getElementById("wp-body").innerHTML=h+`<div style="font-size:12px;color:var(--t3)">프로젝트별 간트 · 막대 채움=진행률 · 작업 수정에서 시작/마감일 지정</div>`;
+  document.getElementById("wp-body").innerHTML=h+`<div style="font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span>직무색:</span>${WP_ROLES.map(r=>`<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:11px;height:11px;border-radius:3px;background:${WP_ROLECOLOR[r]};display:inline-block"></i>${r}</span>`).join("")}</div>
+  <div style="font-size:11.5px;color:var(--t3);margin-top:6px">막대 채움: 진한=완료 · 중간=진행중 · 연한=미착수(0%) · 막대 안 숫자=진행률</div>`;
 }
 
 // ── Copilot 자동 번역 (캐시) ──
