@@ -1199,7 +1199,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v258</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v259</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6833,7 +6833,7 @@ const SCHX_PHCOLOR={mfg:"#534AB7", setup:"#1FA89B", cs:"#E0921E"};
 let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0;
 
 function schxKey(ph,st){ return ph+"."+st; }
-function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}}; }
+function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}, extra:{}}; }
 function schxPhLabel(ph){ return SCHX_TPL[ph].name.replace(/^\S+\s/,""); }
 
 async function schxRead(proj){
@@ -6862,11 +6862,22 @@ async function schxGroups(proj){
   try{ const j=await wpReadPlan(proj); const ch=(j&&j.project&&j.project.children)||[]; arr=ch.filter(c=>c.group||c.children).map(c=>({id:c.id,name:c.name||c.id})); }catch(e){}
   _schxGroupCache[proj]=arr; return arr;
 }
-// 업무일정 전체 폴더트리 (재귀) — 모달용
+// 업무일정 전체 폴더트리 (재귀) — 모달용. 최신 주차 plan 파일을 읽어 비지 않게.
 async function schxTreeRaw(proj){
   if(_schxTreeCache[proj]) return _schxTreeCache[proj];
   let ch=[];
-  try{ const j=await wpReadPlan(proj); ch=(j&&j.project&&j.project.children)||[]; }catch(e){}
+  try{
+    let data=null;
+    try{
+      const files=await wpListPlanFiles(proj);          // 04.일정/plan-YYYY-Wxx.json 목록
+      if(files && files.length){
+        files.sort((a,b)=> a.name<b.name?1:-1);          // 최신 주차 우선
+        data=await wpReadPlanFile(proj, files[0].name);
+      }
+    }catch(_){}
+    if(!data){ try{ if(WP_WEEK) data=await wpReadPlan(proj); }catch(_){} }  // 폴백
+    ch=(data&&data.project&&data.project.children)||[];
+  }catch(e){}
   _schxTreeCache[proj]=ch; return ch;
 }
 // 트리 전체 노드 id→name (칩 이름 해석용)
@@ -6911,7 +6922,7 @@ async function schxRenderMain(body){
   let h=`<div style="font-size:12px;color:var(--t3);margin-bottom:10px">관리자설정 프로젝트 ${projs.length}개 · 제작/설치/CS 기간 요약 (프로젝트 탭에서 입력) · 카드 클릭=상세</div>`;
   for(const p of projs){
     await schxEnsure(p); const D=_schxData[p];
-    const range=(ph)=>{ let s=null,e=null; SCHX_TPL[ph].stages.forEach(stg=>{ const k=schxKey(ph,stg.id); const d=D.st[k]||{}; if(d.start&&(!s||d.start<s))s=d.start; if(d.end&&(!e||d.end>e))e=d.end; (D.subs[k]||[]).forEach(su=>{ if(su.start&&(!s||su.start<s))s=su.start; if(su.end&&(!e||su.end>e))e=su.end; }); }); return {s,e}; };
+    const range=(ph)=>{ let s=null,e=null; SCHX_TPL[ph].stages.concat((D.extra&&D.extra[ph])||[]).forEach(stg=>{ const k=schxKey(ph,stg.id); const d=D.st[k]||{}; if(d.start&&(!s||d.start<s))s=d.start; if(d.end&&(!e||d.end>e))e=d.end; (D.subs[k]||[]).forEach(su=>{ if(su.start&&(!s||su.start<s))s=su.start; if(su.end&&(!e||su.end>e))e=su.end; }); }); return {s,e}; };
     h+=`<div onclick="schxSwitch('${esc(p)}')" style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><b style="font-family:monospace;color:#0f4c81">${esc(p)}</b>${D.country?`<span style="font-size:11px;color:var(--t3)">🌍 ${esc(D.country)}</span>`:""}<span style="flex:1"></span><span style="font-size:11px;color:var(--p)">열기 →</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${SCHX_PHORDER.map(ph=>{ const r=range(ph); const c=SCHX_PHCOLOR[ph]; return `<span style="font-size:11.5px;background:${c}1a;color:${c};padding:3px 9px;border-radius:6px">${esc(schxPhLabel(ph))} · ${r.s?esc(r.s):"–"} ~ ${r.e?esc(r.e):"–"}</span>`; }).join("")}</div>
@@ -6931,34 +6942,12 @@ async function schxRenderProject(body, proj){
     h+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${col}14;border-left:4px solid ${col}">
         <b style="font-size:14px;color:${col}">${esc(T.name)}</b>${T.note?`<span style="font-size:11px;color:var(--t3)">${esc(T.note)}</span>`:""}
-        ${T.country?`<span style="margin-left:auto;font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px">🌍 국가 <input value="${esc(D.country||"")}" onchange="schxSetCountry('${esc(proj)}',this.value)" placeholder="예: 베트남" style="height:26px;font-size:12px;width:120px"></span>`:""}
+        <button class="btn sm" onclick="schxAddStage('${esc(proj)}','${ph}')" style="margin-left:auto">＋ 단계 추가</button>
+        ${T.country?`<span style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px">🌍 국가 <input value="${esc(D.country||"")}" onchange="schxSetCountry('${esc(proj)}',this.value)" placeholder="예: 베트남" style="height:26px;font-size:12px;width:120px"></span>`:""}
       </div>
       <div style="padding:4px 0">`;
-    for(const stg of T.stages){
-      const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid #f3f4f6;flex-wrap:wrap">
-        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex:none"></span>
-        <b style="font-size:13px;min-width:160px">${esc(stg.name)}</b>
-        <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(sd.start||"")}" onchange="schxSetDate('${esc(proj)}','${key}','start',this.value)" style="height:26px;font-size:12px">
-        <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(sd.end||"")}" onchange="schxSetDate('${esc(proj)}','${key}','end',this.value)" style="height:26px;font-size:12px">
-        ${stg.sub?`<button class="btn sm" onclick="schxAddSub('${esc(proj)}','${key}')">＋ 하위(기초설계 등)</button>`:""}
-        <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','')">🔗 업무일정 연결</button>
-      </div>`;
-      const gl=D.groups[key]||[];
-      if(gl.length) h+=`<div style="padding:0 14px 6px 44px;display:flex;flex-wrap:wrap;gap:6px">${gl.map(gid=>schxChip(proj,key,"",gid,gName(gid))).join("")}</div>`;
-      (D.subs[key]||[]).forEach((s,si)=>{
-        h+=`<div style="margin:2px 14px 8px 38px;border:1px dashed var(--border2);border-radius:8px;padding:7px 10px;background:var(--bg2)">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span>📂</span><input value="${esc(s.name||"")}" onchange="schxSubName('${esc(proj)}','${key}',${si},this.value)" style="height:24px;font-size:12px;font-weight:600;border:none;background:none;min-width:120px">
-            <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(s.start||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'start',this.value)" style="height:24px;font-size:11px">
-            <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(s.end||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'end',this.value)" style="height:24px;font-size:11px">
-            <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','${si}')">🔗 연결</button>
-            <span onclick="schxDelSub('${esc(proj)}','${key}',${si})" title="하위 삭제" style="cursor:pointer;color:var(--r)">🗑</span>
-          </div>
-          ${(s.groups||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${(s.groups||[]).map(gid=>schxChip(proj,key,String(si),gid,gName(gid))).join("")}</div>`:`<div style="font-size:11px;color:var(--t3);margin-top:4px">연결된 업무일정 그룹 없음 — [🔗 연결]</div>`}
-        </div>`;
-      });
-    }
+    for(const stg of T.stages){ h+=schxStageBlock(proj,ph,stg,col,gName,D,false); }
+    ((D.extra&&D.extra[ph])||[]).forEach(stg=>{ h+=schxStageBlock(proj,ph,stg,col,gName,D,true); });
     h+=`</div></div>`;
   }
   h+=`<div style="font-size:11.5px;color:var(--t3);padding:6px 2px">💡 [🔗 연결]로 업무일정 그룹을 단계에 묶고, 칩의 ↔로 다른 단계로 이동합니다. (업무일정 트리 반영·Copilot 서술입력은 다음 단계)</div>`;
@@ -6966,6 +6955,53 @@ async function schxRenderProject(body, proj){
 }
 function schxChip(proj,key,subIdx,gid,name){
   return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:#eef2ff;color:#3730a3;padding:3px 8px;border-radius:99px">📋 ${esc(name)}<span onclick="schxMoveGroup('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="다른 단계로 이동" style="cursor:pointer">↔</span><span onclick="schxUnlink('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="연결 해제" style="cursor:pointer;color:#7c3aed">✕</span></span>`;
+}
+// 단계 1개 렌더 (템플릿 단계 + 커스텀 단계 공통). isCustom=true면 이름 편집/삭제 가능
+function schxStageBlock(proj,ph,stg,col,gName,D,isCustom){
+  const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
+  const nameHtml=isCustom
+    ? `<input value="${esc(stg.name||"")}" onchange="schxStageName('${esc(proj)}','${ph}','${esc(stg.id)}',this.value)" style="height:26px;font-size:13px;font-weight:700;min-width:150px">`
+    : `<b style="font-size:13px;min-width:160px">${esc(stg.name)}</b>`;
+  let h=`<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid #f3f4f6;flex-wrap:wrap">
+    <span style="width:8px;height:8px;border-radius:50%;background:${col};flex:none"></span>
+    ${nameHtml}
+    <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(sd.start||"")}" onchange="schxSetDate('${esc(proj)}','${key}','start',this.value)" style="height:26px;font-size:12px">
+    <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(sd.end||"")}" onchange="schxSetDate('${esc(proj)}','${key}','end',this.value)" style="height:26px;font-size:12px">
+    <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','')">🔗 업무일정 연결</button>
+    <button class="btn sm" onclick="schxAddSub('${esc(proj)}','${key}')">＋ 하위</button>
+    ${isCustom?`<span onclick="schxDelStage('${esc(proj)}','${ph}','${esc(stg.id)}')" title="단계 삭제" style="cursor:pointer;color:var(--r)">🗑</span>`:""}
+  </div>`;
+  const gl=D.groups[key]||[];
+  if(gl.length) h+=`<div style="padding:0 14px 6px 44px;display:flex;flex-wrap:wrap;gap:6px">${gl.map(gid=>schxChip(proj,key,"",gid,gName(gid))).join("")}</div>`;
+  (D.subs[key]||[]).forEach((s,si)=>{
+    h+=`<div style="margin:2px 14px 8px 38px;border:1px dashed var(--border2);border-radius:8px;padding:7px 10px;background:var(--bg2)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>📂</span><input value="${esc(s.name||"")}" onchange="schxSubName('${esc(proj)}','${key}',${si},this.value)" style="height:24px;font-size:12px;font-weight:600;border:none;background:none;min-width:120px">
+        <span style="font-size:11px;color:var(--t3)">시작</span><input type="date" value="${esc(s.start||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'start',this.value)" style="height:24px;font-size:11px">
+        <span style="font-size:11px;color:var(--t3)">완료</span><input type="date" value="${esc(s.end||"")}" onchange="schxSubDate('${esc(proj)}','${key}',${si},'end',this.value)" style="height:24px;font-size:11px">
+        <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','${si}')">🔗 연결</button>
+        <span onclick="schxDelSub('${esc(proj)}','${key}',${si})" title="하위 삭제" style="cursor:pointer;color:var(--r)">🗑</span>
+      </div>
+      ${(s.groups||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${(s.groups||[]).map(gid=>schxChip(proj,key,String(si),gid,gName(gid))).join("")}</div>`:`<div style="font-size:11px;color:var(--t3);margin-top:4px">연결된 업무일정 그룹 없음 — [🔗 연결]</div>`}
+    </div>`;
+  });
+  return h;
+}
+// 페이즈(제작/설치/CS)에 커스텀 단계 추가/이름변경/삭제
+function schxAddStage(p,ph){
+  const name=(prompt("새 단계 이름:","")||"").trim(); if(!name) return;
+  const D=_schxData[p]; D.extra=D.extra||{}; (D.extra[ph]=D.extra[ph]||[]).push({id:"X"+Date.now().toString(36),name});
+  schxSave(p); schxRenderBody();
+}
+function schxStageName(p,ph,id,v){
+  const D=_schxData[p]; const arr=(D.extra&&D.extra[ph])||[]; const s=arr.find(x=>x.id===id); if(s){ s.name=v; schxSave(p); }
+}
+function schxDelStage(p,ph,id){
+  if(!confirm("이 단계를 삭제할까요? (날짜·연결도 함께 제거됩니다)")) return;
+  const D=_schxData[p]; const key=schxKey(ph,id);
+  if(D.extra&&D.extra[ph]) D.extra[ph]=D.extra[ph].filter(x=>x.id!==id);
+  delete D.st[key]; delete D.subs[key]; delete D.groups[key];
+  schxSave(p); schxRenderBody();
 }
 
 // 핸들러
@@ -6977,9 +7013,10 @@ function schxSubDate(p,key,si,f,v){ _schxData[p].subs[key][si][f]=v; schxSave(p)
 function schxDelSub(p,key,si){ if(!confirm("이 하위 단계를 삭제할까요? (연결만 해제됩니다)")) return; _schxData[p].subs[key].splice(si,1); schxSave(p); schxRenderBody(); }
 function schxAllLinked(p){ const D=_schxData[p]; const out=[]; Object.values(D.groups||{}).forEach(a=>out.push(...a)); Object.values(D.subs||{}).forEach(arr=>arr.forEach(s=>out.push(...(s.groups||[])))); return out; }
 async function schxLinkGroup(p,key,subIdx){
-  await schxTreeRaw(p);                 // 트리 캐시 확보
+  delete _schxTreeCache[p];            // 매번 최신 업무일정 다시 읽기 (입력 즉시 반영)
+  await schxTreeRaw(p);
   const tree=_schxTreeCache[p]||[];
-  if(!tree.length){ toast("이 프로젝트 업무일정에 항목이 없습니다","bad"); return; }
+  if(!tree.length){ toast("이 프로젝트의 업무일정(주차계획)에 항목이 없습니다 — 업무일정 탭에서 작업을 먼저 등록하세요","bad"); return; }
   schxTreeModal(p,key,subIdx);
 }
 // 업무일정 폴더트리 그대로 모달 — 폴더 선택 시 하위까지 전체 연결
