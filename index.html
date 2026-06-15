@@ -1188,7 +1188,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v233</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v234</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7244,6 +7244,8 @@ async function wpInit(){
 }
 
 function wpProjects(){ return (typeof pProjects!=="undefined" && pProjects.length) ? pProjects : ["BR26002","BP26009"]; }
+// 화면에 그릴 프로젝트 = 설정된 코드 순서로만 (WP_LOADED_PROJ엔 동기화용 stale 프로젝트가 섞일 수 있어 제외)
+function wpDisplayProjects(){ const codes=wpProjects(); return codes.map(c=>WP_LOADED_PROJ.find(p=>p.id===c)).filter(Boolean); }
 
 async function wpLoad(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
@@ -7724,7 +7726,7 @@ async function wpOrderCommit(){
 
 function wpRenderTree(){
   let h="";
-  WP_LOADED_PROJ.forEach(p=>{
+  wpDisplayProjects().forEach(p=>{
     const open=WP_OPEN[p.id]!==false;
     const prog=wpAggProg(p);
     h+=`<div class="wp-proj" onclick="wpToggle('${p.id}')">
@@ -8605,7 +8607,7 @@ function wpAttachExisting(projId,id,f){ const n=wpFind(projId,id); (n.files=n.fi
 // ── 간트 (날짜 기반) ──
 function wpRenderGantt(){
   let h="";
-  WP_LOADED_PROJ.forEach(p=>{
+  wpDisplayProjects().forEach(p=>{
     const flat=wpFlatten(p.children||[],false,[]).filter(x=>x.n.start&&x.n.end);
     // 날짜 범위
     let min=null,max=null; flat.forEach(({n})=>{ if(!min||n.start<min)min=n.start; if(!max||n.end>max)max=n.end; });
