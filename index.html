@@ -826,6 +826,16 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .wp-ctx-item:hover{background:var(--pd)}
 .wp-ctx-sep{height:1px;background:var(--border);margin:4px 6px}
 .wp-exrow:hover{background:var(--pd)}
+/* 작업 수정 폼 */
+.wpef{padding:14px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:12px;margin-bottom:10px}
+.wpef-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.wpef-fld{display:flex;flex-direction:column;gap:4px}
+.wpef-fld>span{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.02em}
+.wpef-fld input,.wpef-fld select{height:34px;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:0 10px;background:var(--bg2);transition:border-color .15s}
+.wpef-fld input:focus,.wpef-fld select:focus{outline:none;border-color:var(--p)}
+.wpef-pick{height:34px;display:flex;align-items:center;gap:6px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:0 10px;background:var(--bg2);cursor:pointer;text-align:left;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit}
+.wpef-pick:hover{border-color:var(--p)}
+.wpef-foot{display:flex;gap:8px;margin-top:12px}
 .wp-id{font-size:11px;color:var(--t3);font-family:monospace}
 .wp-rolebadge{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:600}
 .wp-bar{height:5px;background:var(--bg3);border-radius:99px;overflow:hidden}
@@ -1188,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v234</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v236</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7313,10 +7323,20 @@ async function wpSyncShared(srcProjId){
       // 대상에서 같은 shareId 찾기
       let twin=null; (function w(ns){ (ns||[]).forEach(n=>{ if(n.shareId===node.shareId)twin=n; if(n.children)w(n.children); }); })(tgt.children);
       if(twin){ WP_SHARE_FIELDS.forEach(f=>{ if(node[f]!==undefined) twin[f]=JSON.parse(JSON.stringify(node[f])); }); }
-      else { // 대상에 없으면 "공유 작업" 그룹에 추가
-        let g=(tgt.children||[]).find(x=>x.group&&x.name==="🔗 공유 작업");
-        if(!g){ g={id:"Gshare"+Date.now().toString().slice(-5),name:"🔗 공유 작업",group:true,children:[]}; (tgt.children=tgt.children||[]).push(g); WP_OPEN[g.id]=true; }
-        const clone=JSON.parse(JSON.stringify(node)); clone.children=[]; clone.deps=[]; // 공유본은 선행관계 제외(프로젝트마다 다름)
+      else {
+        // 원본의 부모 폴더와 같은 폴더에 배치 (shareId 매칭 → 이름 매칭 → 생성)
+        const srcFolder=wpFindParent(srcProjId, node.id);
+        let g=null;
+        if(srcFolder && srcFolder.group){
+          if(srcFolder.shareId){ (function w(ns){ (ns||[]).forEach(n=>{ if(n.group && n.shareId===srcFolder.shareId)g=n; if(n.children)w(n.children); }); })(tgt.children); }
+          if(!g){ g=(tgt.children||[]).find(x=>x.group && x.name===srcFolder.name); }
+          if(!g){ g={id:"G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99),name:srcFolder.name,group:true,shareId:srcFolder.shareId||undefined,shareProjects:srcFolder.shareId?(srcFolder.shareProjects||[]).slice():undefined,children:[]}; (tgt.children=tgt.children||[]).push(g); WP_OPEN[g.id]=true; }
+        } else {
+          // 부모가 프로젝트 루트인 경우만 공유 작업 그룹
+          g=(tgt.children||[]).find(x=>x.group&&x.name==="🔗 공유 작업");
+          if(!g){ g={id:"Gshare"+Date.now().toString().slice(-5),name:"🔗 공유 작업",group:true,children:[]}; (tgt.children=tgt.children||[]).push(g); WP_OPEN[g.id]=true; }
+        }
+        const clone=JSON.parse(JSON.stringify(node)); clone.children=[]; clone.deps=[]; // 공유본은 선행관계 제외
         g.children.push(clone);
       }
       touched.add(tgtId);
@@ -8372,27 +8392,67 @@ function wpDetailHtml(projId, n, ind){
 
 function wpEditFormHtml(projId,n){
   const curOwners=wpOwners(n);
-  const memChips=`<div id="wpe-owners" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:30px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--bg2)">${curOwners.map(o=>`<span class="wp-ownchip" data-nm="${esc(o)}" style="font-size:11.5px;background:var(--pd);color:var(--p2);padding:2px 7px;border-radius:99px">${esc(o)} <span onclick="this.closest('.wp-ownchip').remove()" style="cursor:pointer">✕</span></span>`).join("")}<select onchange="wpEditAddOwner(this)" style="border:none;background:none;height:24px;font-size:12px;flex:1;min-width:90px"><option value="">+ 담당 추가</option>${WP_MEMBERS.filter(m=>!curOwners.includes(m.name)).map(m=>`<option>${esc(m.name)}</option>`).join("")}</select></div>`;
+  const memChips=`<div id="wpe-owners" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:34px;border:1px solid var(--border);border-radius:8px;padding:4px 8px;background:var(--bg2)">${curOwners.map(o=>`<span class="wp-ownchip" data-nm="${esc(o)}" style="font-size:11.5px;background:var(--pd);color:var(--p2);padding:2px 8px;border-radius:99px;font-weight:500">${esc(o)} <span onclick="this.closest('.wp-ownchip').remove()" style="cursor:pointer">✕</span></span>`).join("")}<select onchange="wpEditAddOwner(this)" style="border:none;background:none;height:24px;font-size:12px;flex:1;min-width:90px;outline:none"><option value="">+ 담당 추가</option>${WP_MEMBERS.filter(m=>!curOwners.includes(m.name)).map(m=>`<option>${esc(m.name)}</option>`).join("")}</select></div>`;
   const roleOpts=WP_ROLES.map(r=>`<option ${n.role===r?"selected":""}>${r}</option>`).join("");
-  const allTasks=wpFlatten((WP_LOADED_PROJ.find(p=>p.id===projId)||{}).children||[],false,[]).filter(x=>x.n.id!==n.id);
-  const depOpts=allTasks.map(x=>`<option value="${x.n.id}" ${(n.deps||[]).includes(x.n.id)?"selected":""}>${x.n.id} ${esc(x.n.name)}</option>`).join("");
-  return `<div style="padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <label style="font-size:11px;color:var(--t2)">작업명<input id="wpe-name" value="${esc(n.name||"")}" style="width:100%;height:30px;font-size:13px"></label>
-      <label style="font-size:11px;color:var(--t2)">직무<select id="wpe-role" style="width:100%;height:30px">${roleOpts}</select></label>
-      <label style="font-size:11px;color:var(--t2)">담당자(여러명 가능)${memChips}</label>
-      <label style="font-size:11px;color:var(--t2)">진행률 %<input id="wpe-prog" type="number" min="0" max="100" value="${n.prog||0}" style="width:100%;height:30px"></label>
-      <label style="font-size:11px;color:var(--t2)">시작일<input id="wpe-start" type="date" value="${esc(n.start||"")}" style="width:100%;height:30px"></label>
-      <label style="font-size:11px;color:var(--t2)">마감일<input id="wpe-end" type="date" value="${esc(n.end||"")}" style="width:100%;height:30px"></label>
-      <label style="font-size:11px;color:var(--t2);grid-column:1/3">선행작업(여러개 Ctrl)<select id="wpe-deps" multiple style="width:100%;height:54px">${depOpts}</select></label>
-      <label style="font-size:11px;color:var(--t2);grid-column:1/3">블로커<input id="wpe-blocker" value="${esc(n.blocker||"")}" placeholder="없으면 비움" style="width:100%;height:30px"></label>
-      ${wpIsPM()?`<div style="grid-column:1/3;font-size:11px;color:var(--t2)">🔗 공유 프로젝트 <span style="color:var(--t3)">(체크한 프로젝트에 같은 작업이 자동 동기화)</span>
-        <div id="wpe-share" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2)">
-        ${wpProjects().map(c=>{ const checked=(n.shareProjects||[]).includes(c)||c===projId; const isSelf=c===projId; return `<label style="display:flex;align-items:center;gap:4px;font-size:12px;${isSelf?'opacity:.6':''}"><input type="checkbox" value="${esc(c)}" ${checked?"checked":""} ${isSelf?"disabled checked":""} class="wpe-share-cb"> ${esc(c)}${isSelf?" (현재)":""}</label>`; }).join("")}
+  // 선행작업: 칩 + 모달 버튼
+  const depNames=(n.deps||[]).map(d=>{ const t=wpFind(projId,d); return t?`${t.id} ${t.name}`:d; });
+  const depLabel = depNames.length ? `🔗 ${depNames.join(", ")}` : "+ 선행작업 지정";
+  return `<div class="wpef">
+    <div class="wpef-grid">
+      <label class="wpef-fld" style="grid-column:1/3"><span>📝 작업명</span><input id="wpe-name" value="${esc(n.name||"")}"></label>
+      <label class="wpef-fld"><span>🏷️ 직무</span><select id="wpe-role">${roleOpts}</select></label>
+      <label class="wpef-fld"><span>📊 진행률 %</span><input id="wpe-prog" type="number" min="0" max="100" value="${n.prog||0}"></label>
+      <div class="wpef-fld" style="grid-column:1/3"><span>👤 담당자 (여러 명 가능)</span>${memChips}</div>
+      <label class="wpef-fld"><span>📅 시작일</span><input id="wpe-start" type="date" value="${esc(n.start||"")}"></label>
+      <label class="wpef-fld"><span>🏁 마감일</span><input id="wpe-end" type="date" value="${esc(n.end||"")}"></label>
+      <div class="wpef-fld" style="grid-column:1/3"><span>🔗 선행작업 (먼저 끝나야 함)</span>
+        <input type="hidden" id="wpe-deps-val" value="${esc((n.deps||[]).join(","))}">
+        <button type="button" class="wpef-pick" id="wpe-deps-btn" title="${esc(depNames.join(', '))}" onclick="wpEditDepPicker('${projId}','${n.id}')" style="color:${depNames.length?'var(--t1)':'var(--t3)'}">${esc(depLabel)}</button></div>
+      <label class="wpef-fld" style="grid-column:1/3"><span>⚠️ 블로커</span><input id="wpe-blocker" value="${esc(n.blocker||"")}" placeholder="없으면 비움"></label>
+      ${wpIsPM()?`<div class="wpef-fld" style="grid-column:1/3"><span>🔗 공유 프로젝트 <span style="font-weight:400;color:var(--t3)">· 체크하면 같은 작업이 자동 동기화</span></span>
+        <div id="wpe-share" style="display:flex;gap:14px;flex-wrap:wrap;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2)">
+        ${wpProjects().map(c=>{ const checked=(n.shareProjects||[]).includes(c)||c===projId; const isSelf=c===projId; return `<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;${isSelf?'opacity:.55':''}"><input type="checkbox" value="${esc(c)}" ${checked?"checked":""} ${isSelf?"disabled checked":""} class="wpe-share-cb" style="width:15px;height:15px"> <span style="font-family:monospace;font-weight:600">${esc(c)}</span>${isSelf?" (현재)":""}</label>`; }).join("")}
         </div></div>`:""}
     </div>
-    <div style="display:flex;gap:6px;margin-top:8px"><button class="btn primary sm" onclick="wpSaveTask('${projId}','${n.id}')">💾 저장</button><button class="btn sm" onclick="wpAttachMode('${n.id}','edit')">취소</button></div>
+    <div class="wpef-foot"><button class="btn primary sm" onclick="wpSaveTask('${projId}','${n.id}')">💾 저장</button><button class="btn sm" onclick="wpAttachMode('${n.id}','edit')">취소</button></div>
   </div>`;
+}
+// 트리 작업 수정 — 선행작업 모달 선택 (업무지시처럼 작업명 표시)
+function wpEditDepPicker(projId, id){
+  const cur=wpFind(projId,id); const curDeps=new Set(cur.deps||[]);
+  const all=wpFlatten((WP_LOADED_PROJ.find(p=>p.id===projId)||{}).children||[],false,[]).filter(x=>x.n.id!==id).map(x=>x.n);
+  let ov=document.getElementById("wpEDepOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="wpEDepOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000090;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(520px,94vw);max-height:80vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 16px;background:#4b53bc;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:14px">🔗 선행작업 선택 <span style="font-weight:400;font-size:12px;opacity:.85">· "${esc(cur.name||"이 작업")}"보다 먼저 끝나야 할 작업</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpEDepOv').remove()">✕</span></div>
+    <div style="padding:8px 14px;border-bottom:1px solid #eef0f3"><input id="wp-edep-q" placeholder="🔍 작업명 검색" oninput="wpEditDepFilter(this.value)" style="width:100%;height:32px;font-size:13px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px"></div>
+    <div id="wp-edep-list" style="overflow:auto;padding:8px">
+      ${all.length?all.map(t=>`<label class="wp-edep-item" data-nm="${esc(t.name)}" style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer" onmouseover="this.style.background='var(--pd)'" onmouseout="this.style.background=''">
+        <input type="checkbox" value="${esc(t.id)}" ${curDeps.has(t.id)?"checked":""} style="width:16px;height:16px">
+        <span style="font-size:11px;color:#94a3b8;font-family:monospace;min-width:26px">${esc(t.id)}</span>
+        <span style="font-size:13px;font-weight:600;flex:1">${esc(t.name)}</span>
+        ${t.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[t.role]||'#eee'};color:${WP_ROLECOLOR[t.role]||'#555'}">${esc(t.role)}</span>`:""}
+        <span style="font-size:11px;color:#64748b">${esc(wpOwnerText(t))}</span>
+      </label>`).join(""):'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">선택할 다른 작업이 없습니다</div>'}
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 16px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('wpEDepOv').remove()">취소</button>
+      <button class="btn primary sm" onclick="wpEditDepApply('${projId}','${id}')">적용</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+function wpEditDepFilter(q){ q=(q||"").toLowerCase(); document.querySelectorAll("#wp-edep-list .wp-edep-item").forEach(el=>{ el.style.display=(el.dataset.nm||"").toLowerCase().includes(q)?"flex":"none"; }); }
+function wpEditDepApply(projId, id){
+  const ov=document.getElementById("wpEDepOv");
+  const picked=[...ov.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+  document.getElementById("wpe-deps-val").value=picked.join(",");
+  const names=picked.map(d=>{ const t=wpFind(projId,d); return t?`${t.id} ${t.name}`:d; });
+  const btn=document.getElementById("wpe-deps-btn"); btn.textContent=names.length?`🔗 ${names.join(", ")}`:"+ 선행작업 지정"; btn.title=names.join(", "); btn.style.color=names.length?"var(--t1)":"var(--t3)";
+  ov.remove();
 }
 
 function wpAttachMode(id,mode){ WP_ATTACH=(WP_ATTACH&&WP_ATTACH.id===id&&WP_ATTACH.mode===mode)?null:{id,mode}; wpRender(); if(WP_ATTACH&&WP_ATTACH.mode==="existing"){ const pid=(wpFindProjectOf(id)||{}).id||wpProjects()[0]; setTimeout(()=>wpExBrowse(pid,id,""),30); } }
@@ -8439,7 +8499,7 @@ function wpSaveTask(projId,id){
   if(JSON.stringify(ownChips)!==JSON.stringify(prevOwners)){ changes.push(`담당→${ownChips.join(", ")||"미지정"}`); n.owners=ownChips; n.owner=ownChips.join(", "); n.owner_email=ownEmails[0]||""; n.owner_emails=ownEmails; }
   const pv=Math.max(0,Math.min(100,+g("wpe-prog").value||0)); if(pv!==(n.prog||0)){ changes.push(`진행률 ${n.prog||0}%→${pv}%`); n.prog=pv; if(pv>=100){ if(!n.done_date) n.done_date=wpDateToYmd(wpToday()); } else { n.done_date=""; } }
   const sv=g("wpe-start").value, ev=g("wpe-end").value; if(sv!==n.start){ changes.push(`시작 ${sv}`); n.start=sv; } if(ev!==n.end){ changes.push(`마감 ${ev}`); n.end=ev; }
-  const dv=[...g("wpe-deps").selectedOptions].map(o=>o.value); if(JSON.stringify(dv)!==JSON.stringify(n.deps||[])){ changes.push(`선행→${dv.join(",")||"없음"}`); n.deps=dv; }
+  const dv=(g("wpe-deps-val").value||"").split(",").map(s=>s.trim()).filter(Boolean); if(JSON.stringify(dv)!==JSON.stringify(n.deps||[])){ changes.push(`선행→${dv.join(",")||"없음"}`); n.deps=dv; }
   const bv=g("wpe-blocker").value.trim(); if(bv!==(n.blocker||"")){ changes.push(bv?`블로커:${bv}`:"블로커 해제"); n.blocker=bv; n.blocker_en=""; }
   // 공유 프로젝트 설정
   const shareCbs=document.querySelectorAll("#wpe-share .wpe-share-cb");
