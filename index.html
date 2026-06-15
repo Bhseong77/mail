@@ -1242,7 +1242,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v265</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v266</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7095,16 +7095,24 @@ function schxGanttHtml(proj,D){
   const ppd=15, labelW=220;
   const phases=[]; let minD=null,maxD=null;
   const ext=(s,e)=>{ const a=schxYmd(s),b=schxYmd(e); if(a&&(!minD||a<minD))minD=a; if(b&&(!maxD||b>maxD))maxD=b; };
+  const tree=_schxTreeCache[proj]||[];
+  const linkedRows=(ids,baseDepth,arr)=>{
+    if(!ids||!ids.length)return;
+    const set=new Set(ids); const lr=[]; schxGanttLinkedRows(set, tree, 0, lr);
+    lr.forEach(r=>{ arr.push({name:r.name,start:r.start,end:r.end,type:r.folder?'lfolder':'ltask',icon:r.icon,depth:baseDepth+r.depth}); ext(r.start,r.end); });
+  };
   for(const ph of SCHX_PHORDER){
     const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
     const stages=T.stages.concat((D.extra&&D.extra[ph])||[]);
-    const rows=[]; let pMin=null,pMax=null;
+    const rows=[];
     for(const stg of stages){
       const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
-      if(sd.start||sd.end){ ext(sd.start||sd.end, sd.end||sd.start); const a=schxYmd(sd.start),b=schxYmd(sd.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; }
-      rows.push({name:stg.name,start:sd.start,end:sd.end,sub:false});
-      (D.subs[key]||[]).forEach(s=>{ if(s.start||s.end){ ext(s.start||s.end,s.end||s.start); const a=schxYmd(s.start),b=schxYmd(s.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; } rows.push({name:'└ '+(s.name||''),start:s.start,end:s.end,sub:true}); });
+      rows.push({name:stg.name,start:sd.start,end:sd.end,type:'stage',depth:0}); ext(sd.start,sd.end);
+      linkedRows(D.groups[key], 1, rows);
+      (D.subs[key]||[]).forEach(s=>{ rows.push({name:s.name,start:s.start,end:s.end,type:'sub',depth:1}); ext(s.start,s.end); linkedRows(s.groups, 2, rows); });
     }
+    let pMin=null,pMax=null;
+    rows.forEach(r=>{ const a=schxYmd(r.start),b=schxYmd(r.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; });
     phases.push({ph,name:T.name,col,pMin,pMax,rows});
   }
   const today=schxToday();
@@ -7134,15 +7142,39 @@ function schxGanttHtml(proj,D){
     const pbar=(P.pMin&&P.pMax)?`<div class="sxg-pbar" style="left:${di(P.pMin)*ppd}px;width:${Math.max(6,(di(P.pMax)-di(P.pMin)+1)*ppd)}px;background:${P.col}"></div>`:'';
     h+=`<div class="sxg-row phase"><div class="sxg-label" style="color:${P.col}">${esc(P.name)}</div><div class="sxg-track" style="width:${trackW}px;height:24px">${pbar}${todayLine}</div></div>`;
     for(const r of P.rows){
+      const indent=12+(r.depth||0)*14;
+      const lblStyle=`padding-left:${indent}px;`+(r.type==='stage'?'font-weight:700':(r.type==='lfolder'?'font-weight:600;color:var(--t2)':(r.type==='sub'?'color:var(--t2)':'color:var(--t2);font-size:11.5px')));
+      const labelTxt=(r.icon?r.icon+' ':'')+(r.name||'');
       let bar='';
-      if(r.start||r.end){ const x=xOf(r.start||r.end); const w=wOf(r.start,r.end); const lbl=(r.start||'')+(r.end?('~'+r.end):''); bar=`<div class="sxg-bar" style="left:${x}px;width:${w}px;background:${P.col}${r.sub?';opacity:.7':''}" title="${esc(r.name)} ${esc(lbl)}">${esc(r.name)}</div>`; }
-      h+=`<div class="sxg-row"><div class="sxg-label" style="${r.sub?'padding-left:26px;color:var(--t2);font-size:11.5px':''}">${esc(r.name)}</div><div class="sxg-track" style="width:${trackW}px">${todayLine}${bar}</div></div>`;
+      if(r.start||r.end){
+        const x=xOf(r.start||r.end); const w=wOf(r.start,r.end);
+        const op=r.type==='lfolder'?0.3:(r.type==='ltask'?0.72:(r.type==='sub'?0.82:1));
+        const showLbl=(r.type==='stage'||r.type==='sub');
+        bar=`<div class="sxg-bar" style="left:${x}px;width:${w}px;background:${P.col};opacity:${op}" title="${esc(r.name||'')} ${esc((r.start||'')+'~'+(r.end||''))}">${showLbl?esc(r.name||''):''}</div>`;
+      }
+      h+=`<div class="sxg-row"><div class="sxg-label" style="${lblStyle}">${esc(labelTxt)}</div><div class="sxg-track" style="width:${trackW}px">${todayLine}${bar}</div></div>`;
     }
   }
   h+=`</div></div>`;
   const ts=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  h+=`<div style="font-size:11.5px;color:var(--t3);padding:8px 2px">💡 단계의 시작·완료일을 입력하면 막대로 표시됩니다 · 빨간 선 = 오늘(${ts}) · 페이즈(제작·설치·CS)는 색으로 구분</div>`;
+  h+=`<div style="font-size:11.5px;color:var(--t3);padding:8px 2px">💡 단계 일정 + 연결된 업무일정 항목을 모두 표시 · 빨간 선 = 오늘(${ts}) · 페이즈(제작·설치·CS)는 색 구분 · 옅은 막대=폴더/연결</div>`;
   return h;
+}
+// 연결된 업무일정 트리를 간트 행으로 (폴더=하위 집계 막대, 작업=자기 날짜)
+function schxGanttLinkedRows(set, nodes, depth, out){
+  for(const n of nodes){
+    const hasChild=n.children&&n.children.length;
+    const childOut=[]; if(hasChild) schxGanttLinkedRows(set, n.children, depth+1, childOut);
+    const inSet=set.has(n.id);
+    if(!inSet && !childOut.length) continue;
+    if(hasChild){
+      let s=null,e=null; (function w(x){ if(x.start&&(!s||x.start<s))s=x.start; if(x.end&&(!e||x.end>e))e=x.end; (x.children||[]).forEach(w); })(n);
+      out.push({name:n.name||n.id, start:s, end:e, folder:true, icon:'📂', depth});
+      childOut.forEach(r=>out.push(r));
+    } else {
+      out.push({name:n.name||n.id, start:n.start, end:n.end, folder:false, icon:schxWpIcon(n), depth});
+    }
+  }
 }
 // 워크플랜 작업 노드의 상태 아이콘 / 메타(직무·담당자·기간·지연) — 업무일정과 동일하게
 function schxWpIcon(n){
