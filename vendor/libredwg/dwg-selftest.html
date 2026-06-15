@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>libredwg-web self-host 테스트</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Malgun Gothic","맑은 고딕",system-ui,sans-serif; color:#1f2933; }
+  header { padding:10px 14px; background:#0b2545; color:#fff; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0; font-weight:600; }
+  header .ver { font-size:11px; opacity:.7; }
+  .bar { padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#f8fafc; }
+  .bar input[type=file] { font-size:13px; }
+  button { font-size:13px; padding:6px 12px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; }
+  button:hover { background:#f1f5f9; }
+  button:disabled { opacity:.4; cursor:default; }
+  #status { padding:8px 14px; font-size:12.5px; white-space:pre-wrap; line-height:1.55; }
+  #status .ok { color:#047857; font-weight:600; }
+  #status .err { color:#b91c1c; font-weight:600; }
+  #status .dim { color:#64748b; }
+  #stage { position:relative; height:calc(100vh - 200px); min-height:360px; margin:0 14px 14px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#ffffff; touch-action:none; }
+  #pan { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+  #pan svg { display:block; }
+  #hint { position:absolute; right:10px; bottom:8px; font-size:11px; color:#94a3b8; background:rgba(255,255,255,.85); padding:3px 8px; border-radius:6px; pointer-events:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>libredwg-web · self-host 테스트</h1>
+  <span class="ver">v0.7.2 · 브라우저에서 DWG 직접 렌더 (서버 변환 없음)</span>
+</header>
+
+<div class="bar">
+  <input type="file" id="file" accept=".dwg">
+  <button id="fit" disabled>화면맞춤</button>
+  <button id="zin" disabled>＋</button>
+  <button id="zout" disabled>－</button>
+  <button id="dl" disabled>SVG 다운로드</button>
+</div>
+
+<div id="status"><span class="dim">DWG 파일을 선택하세요. (이 페이지·wasm 파일이 같은 폴더에서 로드되는지 = 회사망 self-host 검증)</span></div>
+
+<div id="stage">
+  <div id="pan"></div>
+  <div id="hint">휠=확대/축소 · 드래그=이동</div>
+</div>
+
+<script type="module">
+import { LibreDwg, Dwg_File_Type } from './libredwg-web.js';
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status');
+const panEl = $('pan');
+const stageEl = $('stage');
+let lib = null;          // libredwg 인스턴스 (1회 생성 후 재사용)
+let curSvgText = '';     // 다운로드용
+
+function log(html){ statusEl.innerHTML = html; }
+function fmt(ms){ return (ms<1000) ? Math.round(ms)+'ms' : (ms/1000).toFixed(2)+'s'; }
+
+// ---- wasm 로드 (최종 통합과 동일: create() 가 같은 폴더의 .wasm 를 import.meta.url 로 찾음) ----
+async function ensureLib(){
+  if (lib) return lib;
+  const t0 = performance.now();
+  log('<span class="dim">libredwg-web 로딩 중… (최초 1회, 약 14MB · 이후 브라우저 캐시)</span>');
+  lib = await LibreDwg.create();   // 인자 없음 → libredwg-web.wasm 을 이 js 옆에서 자동 탐색
+  log(`<span class="ok">✓ libredwg 로드 완료</span> <span class="dim">(${fmt(performance.now()-t0)})</span>`);
+  return lib;
+}
+
+// ---- 줌/팬 ----
+let scale = 1, tx = 0, ty = 0, svgW = 0, svgH = 0;
+function applyTransform(){ panEl.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; }
+function fit(){
+  if (!svgW || !svgH) return;
+  const r = stageEl.getBoundingClientRect();
+  const pad = 24;
+  const s = Math.min((r.width-pad)/svgW, (r.height-pad)/svgH);
+  scale = (s>0 && isFinite(s)) ? s : 1;
+  tx = (r.width  - svgW*scale)/2;
+  ty = (r.height - svgH*scale)/2;
+  applyTransform();
+}
+stageEl.addEventListener('wheel', (e)=>{
+  if (!svgW) return;
+  e.preventDefault();
+  const r = stageEl.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const factor = e.deltaY < 0 ? 1.15 : 1/1.15;
+  const ns = Math.min(Math.max(scale*factor, 0.01), 200);
+  // 커서 기준 확대
+  tx = mx - (mx - tx) * (ns/scale);
+  ty = my - (my - ty) * (ns/scale);
+  scale = ns;
+  applyTransform();
+}, { passive:false });
+let drag = null;
+stageEl.addEventListener('pointerdown', (e)=>{ drag = { x:e.clientX, y:e.clientY, tx, ty }; stageEl.setPointerCapture(e.pointerId); });
+stageEl.addEventListener('pointermove', (e)=>{ if(!drag) return; tx = drag.tx + (e.clientX-drag.x); ty = drag.ty + (e.clientY-drag.y); applyTransform(); });
+stageEl.addEventListener('pointerup',   ()=>{ drag = null; });
+stageEl.addEventListener('pointercancel',()=>{ drag = null; });
+$('fit').onclick = fit;
+$('zin').onclick  = ()=>{ scale=Math.min(scale*1.25,200); applyTransform(); };
+$('zout').onclick = ()=>{ scale=Math.max(scale/1.25,0.01); applyTransform(); };
+window.addEventListener('resize', fit);
+
+// ---- 파일 선택 → 렌더 ----
+$('file').addEventListener('change', async (e)=>{
+  const f = e.target.files[0];
+  if (!f) return;
+  panEl.innerHTML = ''; curSvgText='';
+  ['fit','zin','zout','dl'].forEach(id=>$(id).disabled=true);
+  try {
+    const L = await ensureLib();
+    const tRead0 = performance.now();
+    const buf = new Uint8Array(await f.arrayBuffer());
+
+    // 파싱
+    let res = L.dwg_read_data(buf, Dwg_File_Type.DWG);
+    let dwg = (res && typeof res==='object' && 'data' in res && !('header' in res)) ? res.data : res;
+    if (res && res.error){ throw new Error('DWG 읽기 오류 (code '+res.error+')'); }
+
+    const db = L.convert(dwg);
+    const tParse = performance.now()-tRead0;
+    const entCount = (db && db.entities && db.entities.length!=null) ? db.entities.length : '?';
+
+    // SVG 변환
+    const tSvg0 = performance.now();
+    const out = L.dwg_to_svg(db);
+    const svgText = (out && out.element) ? out.element : (typeof out==='string'? out : '');
+    const tSvg = performance.now()-tSvg0;
+    if (!svgText || svgText.indexOf('<svg')<0){ throw new Error('SVG 변환 결과가 비어있음'); }
+
+    // 주입
+    const tIn0 = performance.now();
+    panEl.innerHTML = svgText;
+    curSvgText = svgText;
+    const svgEl = panEl.querySelector('svg');
+    // viewBox 로 도면 크기 파악 → 픽셀 크기 고정 (transform 으로 줌)
+    const vb = (svgEl.getAttribute('viewBox')||'').trim().split(/\s+/).map(Number);
+    if (vb.length===4 && vb[2]>0 && vb[3]>0){ svgW=vb[2]; svgH=vb[3]; }
+    else { svgW=parseFloat(svgEl.getAttribute('width'))||1000; svgH=parseFloat(svgEl.getAttribute('height'))||1000; }
+    svgEl.removeAttribute('width'); svgEl.removeAttribute('height');
+    svgEl.style.width = svgW+'px'; svgEl.style.height = svgH+'px';
+    const tIn = performance.now()-tIn0;
+
+    try { L.dwg_free(dwg); } catch(_){}
+
+    ['fit','zin','zout','dl'].forEach(id=>$(id).disabled=false);
+    fit();
+
+    log(
+      `<span class="ok">✓ 렌더 성공</span>  <b>${f.name}</b>\n`+
+      `<span class="dim">엔티티 ${entCount}개 · 파싱 ${fmt(tParse)} · SVG생성 ${fmt(tSvg)} · 화면주입 ${fmt(tIn)}</span>\n`+
+      `<span class="dim">→ 도면이 제대로 보이고 한글 텍스트가 안 깨지면, 대시보드 통합으로 진행합니다.</span>`
+    );
+  } catch(err){
+    console.error(err);
+    log(`<span class="err">✗ 실패: ${(err&&err.message)||err}</span>\n`+
+        `<span class="dim">콘솔(F12) 메시지와 함께 알려주세요. 이 도면은 ODA 폴백으로 처리하면 됩니다.</span>`);
+  }
+});
+
+// 다운로드
+$('dl').addEventListener('click', ()=>{
+  if (!curSvgText) return;
+  const blob = new Blob([curSvgText], {type:'image/svg+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'dwg.svg'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body>
+</html>
