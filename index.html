@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v246</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v247</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -13616,12 +13616,14 @@ function poadvListRender(q){
     }else if(isCancel){
       actionCell = `<span style="color:#dc2626;font-size:12px;font-weight:700;">✖ ${esc(st)}</span>`;
     }else if(isDone){
-      actionCell = `<span style="color:#16a34a;font-size:12px;font-weight:700;">🏁 완료</span>`;
+      actionCell = `<span style="color:#16a34a;font-size:12px;font-weight:700;">📥 입고완료</span>`;
     }else{
       actionCell = `<span style="color:#2563eb;font-size:12px;font-weight:700;">⏳ 진행</span>`;
     }
+    // 상태 라벨: 작성 → 납품진행중
+    const stLabel = isDraft ? "납품진행중" : (st||"-");
     const rowBg = isDraft ? 'background:#faf5ff;' : (isDone ? 'background:#f0fdf4;' : (isStopped||isCancel ? 'background:#f8fafc;opacity:.75;' : ''));
-    return `<tr style="cursor:pointer;${rowBg}" onclick="poadvOrderDetail('${esc(o.po_no).replace(/'/g,"\\'")}')">
+    return `<tr style="cursor:pointer;${rowBg}" onclick="poadvOrderDetail('${esc(o.po_no).replace(/'/g,"\\'")}')" oncontextmenu="poadvRowMenu(event,'${esc(o.po_no).replace(/'/g,"\\'")}')">
       <td>${poCell}</td>
       <td>${esc(o.date||"-")}</td>
       <td title="${esc(o.cust||'')}">${esc(o.cust||"-")}</td>
@@ -13630,10 +13632,42 @@ function poadvListRender(q){
       <td style="text-align:right;">${poadvComma(totQty)}</td>
       <td style="text-align:right;">${poadvComma(totAmt)}</td>
       <td>${delvBadge}</td>
-      <td style="font-size:12px;">${esc(st||"-")}</td>
+      <td style="font-size:12px;">${esc(stLabel||"-")}</td>
       <td style="text-align:center;">${actionCell}</td>
     </tr>`;
   }).join("");
+}
+// 발주 행 우클릭 → 보고자료 복사
+function poadvRowMenu(e, poNo){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById("poadv-rowctx")?.remove();
+  const menu=document.createElement("div"); menu.id="poadv-rowctx"; menu.className="wp-ctx";
+  menu.innerHTML=`<div class="wp-ctx-item" onclick="document.getElementById('poadv-rowctx').remove();poadvCopyReport('${esc(poNo).replace(/'/g,"\\'")}')"><span style="width:18px;display:inline-block">📋</span>보고자료 복사 (채팅·업무일정용)</div>
+    <div class="wp-ctx-item" onclick="document.getElementById('poadv-rowctx').remove();poadvOrderDetail('${esc(poNo).replace(/'/g,"\\'")}')"><span style="width:18px;display:inline-block">🔍</span>상세 보기</div>`;
+  document.body.appendChild(menu);
+  const vw=window.innerWidth,vh=window.innerHeight;
+  menu.style.left=Math.min(e.clientX,vw-280)+"px"; menu.style.top=Math.min(e.clientY,vh-90)+"px";
+  const close=()=>{ menu.remove(); document.removeEventListener("click",close); };
+  setTimeout(()=>document.addEventListener("click",close),50);
+}
+// [발주번호][거래처][프로젝트][품목][수량][납품예정일] 형식으로 복사
+function poadvCopyReport(poNo){
+  const o=(_poadvOrders||[]).find(x=>String(x.po_no)===String(poNo)); if(!o){ toast("발주를 찾을 수 없음","bad"); return; }
+  const first=o.items[0]||{};
+  const totQty=o.items.reduce((s,i)=>s+poadvNum(i.qty),0);
+  const itemLabel=first.item_name+(o.items.length>1?` 외 ${o.items.length-1}건`:"");
+  const pjtLabel=[...new Set(o.items.map(i=>i.pjt_no).filter(Boolean))].join(", ");
+  const chg=(_poadvDelvChg&&_poadvDelvChg[o.po_no]||[]);
+  const curDelv=chg.length? chg[chg.length-1].to : (first.delv||"");
+  const txt=`[발주번호] ${o.po_no||"-"}\n[거래처] ${o.cust||"-"}\n[프로젝트] ${pjtLabel||"-"}\n[품목] ${itemLabel||"-"}\n[수량] ${poadvComma(totQty)}\n[납품예정일] ${curDelv||"-"}`;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast("보고자료 복사됨 (붙여넣기 가능)","ok")).catch(()=>poadvCopyFallback(txt));
+  } else poadvCopyFallback(txt);
+}
+function poadvCopyFallback(txt){
+  const ta=document.createElement("textarea"); ta.value=txt; ta.style.cssText="position:fixed;left:-9999px"; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("보고자료 복사됨","ok"); }catch(_){ toast("복사 실패 — 수동 복사하세요","bad"); prompt("복사할 내용:",txt); }
+  ta.remove();
 }
 
 let _poadvDetailLoading=false;
