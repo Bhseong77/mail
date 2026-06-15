@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v245</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v246</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2129,6 +2129,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
   <div class="ci" onclick="ftAct('upload')">⬆ 여기에 업로드</div>
   <div class="ci" onclick="ftAct('rename')">✏ 이름 변경</div>
+  <div class="ci" onclick="ftAct('move')">📂 다른 폴더·문서함으로 이동</div>
   <div class="sep"></div>
   <div class="ci del" onclick="ftAct('delete')">🗑 삭제</div>
 </div>
@@ -4254,14 +4255,14 @@ async function ftNodeHtml(p,path,depth){
     html+=`<div class="ft-node"><div class="ft-row ${sel}" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
       ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
-      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+      onclick="ftToggle('${p}','${esc(childPath)}')" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -4394,9 +4395,13 @@ async function ftAct(action){
     if(!t.itemId || !/\.zip$/i.test(t.name)){ toast('zip 파일만 가능','bad'); return; }
     await ftUnzipExisting(p, t.itemId, t.name, t.path);
   }
+  else if(action==='move'){
+    if(!t.itemId){ toast('루트는 이동 불가','bad'); return; }
+    _moveCtx={ name:t.name, itemId:t.itemId, mode:'move', isFolder:t.isFolder, onDone: async()=>{ FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); } };
+    const sel=$('taMoveDest'); if(sel) sel.value=p;   // 기본은 현재 문서함, 모달에서 다른 문서함 선택 가능
+    _openMoveModal();
+  }
   else if(action==='rename'){
-    if(!t.itemId){ toast('루트는 이름변경 불가','bad'); return; }
-    const nn=prompt('새 이름:', t.name);
     if(!nn||nn===t.name) return;
     try{ await spRenameItem(t.itemId,nn); toast('이름 변경됨','ok'); actLog(`✏ 이름변경: ${t.name} → ${nn}`); FT_CHILDREN={}; renderFileTree(p); }
     catch(ex){ toast('실패: '+ex.message,'bad'); }
