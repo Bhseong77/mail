@@ -1187,7 +1187,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v215</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v218</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7340,28 +7340,42 @@ function wpRenderOrder(){
   // 임시저장 미리보기
   if(WP_ORDER_DRAFT){
     const d=WP_ORDER_DRAFT;
+    const memOpts=(sel)=>`<option value="">담당 선택</option>`+WP_MEMBERS.map(m=>`<option ${m.name===sel?"selected":""}>${esc(m.name)}</option>`).join("")+(sel&&!WP_MEMBERS.some(m=>m.name===sel)?`<option selected>${esc(sel)}</option>`:"");
+    const roleOpts=(sel)=>WP_ROLES.map(r=>`<option ${r===sel?"selected":""}>${r}</option>`).join("");
+    const allTids=d.groups.flatMap(g=>g.tasks.map(t=>t.tid)).filter(Boolean);
+    const depOpts=(t)=>allTids.filter(x=>x!==t.tid).map(x=>`<option value="${x}" ${(t.deps||[]).includes(x)?"selected":""}>${x}</option>`).join("");
     h+=`<div style="background:var(--bg2);border:1px solid var(--y);border-radius:12px;padding:16px;margin-top:14px">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-        <b style="font-size:14px;color:var(--y)">📋 임시저장 — 확인 후 저장</b>
+        <b style="font-size:14px;color:var(--y)">📋 임시저장 — 편집 후 확정 저장</b>
         <span style="font-size:11.5px;color:var(--t3)">${esc(d.projId)} · ${d.mode==="append"?"기존에 이어붙임":"새로 제안"} · ${d.tasks.length}개 작업</span>
         <span style="flex:1"></span>
         <button class="btn sm" onclick="wpOrderDiscard()">버리기</button>
-        <button class="btn primary sm" onclick="wpOrderCommit()">✅ 확정 저장</button>
+        <button class="btn primary sm" onclick="wpOrderCommitEdited('${esc(d.projId)}')">✅ 확정 저장</button>
       </div>
       <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        ${d.groups.map(g=>`<div style="background:var(--bg3);padding:8px 10px;font-size:13px;font-weight:600">📂 ${esc(g.name)}</div>`+
-          g.tasks.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px 7px 24px;border-bottom:1px solid var(--border)">
-            <span style="font-size:13px;font-weight:600">${esc(t.name)}</span>
-            ${t.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[t.role]||'#eee'};color:${WP_ROLECOLOR[t.role]||'#555'}">${esc(t.role)}</span>`:""}
-            ${t.owner?`<span style="font-size:11px;color:var(--t2)">${esc(t.owner)}</span>`:""}
-            ${t.start||t.end?`<span style="font-size:10.5px;color:var(--t3)">${esc(t.start||"")}~${esc(t.end||"")}</span>`:""}
-            ${t.deps&&t.deps.length?`<span style="font-size:10.5px;color:var(--t3)">←${t.deps.join(",")}</span>`:""}
-            <span style="flex:1"></span>
-            <span style="font-size:11px;color:var(--t3)">${t.prog||0}%</span>
+        ${d.groups.map((g,gi)=>`
+          <div style="background:var(--bg3);padding:7px 10px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">📂</span>
+            <input value="${esc(g.name)}" oninput="wpDraftSet(${gi},-1,'name',this.value)" style="flex:1;height:30px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:0 8px;background:var(--bg2)">
+            <button class="btn sm" onclick="wpDraftAddTask(${gi})" style="padding:2px 8px">＋작업</button>
+            <button class="btn sm" onclick="wpDraftDelGroup(${gi})" style="padding:2px 7px;color:var(--r)">🗑</button>
+          </div>`+
+          g.tasks.map((t,ti)=>`<div style="display:grid;grid-template-columns:1fr 86px 92px 122px 122px 70px 56px 28px;gap:5px;align-items:center;padding:6px 10px 6px 24px;border-bottom:1px solid var(--border)">
+            <input value="${esc(t.name)}" oninput="wpDraftSet(${gi},${ti},'name',this.value)" placeholder="작업명" style="height:30px;font-size:12.5px;border:1px solid var(--border);border-radius:6px;padding:0 7px">
+            <select onchange="wpDraftSet(${gi},${ti},'role',this.value)" style="height:30px;font-size:12px">${roleOpts(t.role)}</select>
+            <select onchange="wpDraftSet(${gi},${ti},'owner',this.value)" style="height:30px;font-size:12px">${memOpts(t.owner)}</select>
+            <input type="date" value="${esc(t.start||"")}" onchange="wpDraftSet(${gi},${ti},'start',this.value)" style="height:30px;font-size:11.5px">
+            <input type="date" value="${esc(t.end||"")}" onchange="wpDraftSet(${gi},${ti},'end',this.value)" style="height:30px;font-size:11.5px">
+            <select multiple onchange="wpDraftSetDeps(${gi},${ti},this)" title="선행작업(Ctrl로 다중)" style="height:30px;font-size:11px">${depOpts(t)}</select>
+            <input type="number" min="0" max="100" value="${t.prog||0}" onchange="wpDraftSet(${gi},${ti},'prog',this.value)" style="height:30px;font-size:12px;text-align:right">
+            <button onclick="wpDraftDelTask(${gi},${ti})" style="border:none;background:none;color:var(--r);cursor:pointer;font-size:14px">✕</button>
           </div>`).join("")
         ).join("")}
       </div>
-      <div style="font-size:11.5px;color:var(--t3);margin-top:8px">확정하면 ${esc(d.projId)}의 04.일정 / ${esc(wpFileName())}에 반영됩니다. 저장 후 트리에서 세부 수정 가능.</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn sm" onclick="wpDraftAddGroup()">＋ 할일 그룹 추가</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--t3);margin-top:8px">컬럼: 작업명 · 직무 · 담당 · 시작 · 마감 · 선행(tid) · % · 삭제 — 모두 수정 가능. 확정하면 ${esc(d.projId)}의 04.일정 / ${esc(wpFileName())}에 반영됩니다.</div>
     </div>`;
   }
   h+=`</div>`;
@@ -7426,6 +7440,32 @@ ${text}`;
   finally{ btn.disabled=false; }
 }
 function wpOrderDiscard(){ WP_ORDER_DRAFT=null; wpRenderOrder(); }
+// 임시저장 편집 (그룹 gi, 작업 ti=-1이면 그룹자체)
+function wpDraftSet(gi,ti,key,val){
+  const d=WP_ORDER_DRAFT; if(!d) return;
+  if(ti<0){ d.groups[gi][key]=val; }
+  else { if(key==="prog")val=Math.max(0,Math.min(100,+val||0)); d.groups[gi].tasks[ti][key]=val; }
+}
+function wpDraftSetDeps(gi,ti,selEl){ WP_ORDER_DRAFT.groups[gi].tasks[ti].deps=[...selEl.selectedOptions].map(o=>o.value); }
+function wpDraftAddTask(gi){
+  const d=WP_ORDER_DRAFT; const n=d.groups[gi].tasks.length;
+  let max=0; d.groups.forEach(g=>g.tasks.forEach(t=>{ const m=String(t.tid||"").match(/t(\d+)/); if(m)max=Math.max(max,+m[1]); }));
+  d.groups[gi].tasks.push({tid:"t"+(max+1),name:"",role:"설계",owner:"",start:"",end:"",prog:0,deps:[]});
+  wpRenderOrder();
+}
+function wpDraftDelTask(gi,ti){ WP_ORDER_DRAFT.groups[gi].tasks.splice(ti,1); wpRenderOrder(); }
+function wpDraftAddGroup(){ WP_ORDER_DRAFT.groups.push({name:"새 할일",tasks:[]}); wpRenderOrder(); }
+function wpDraftDelGroup(gi){ if(!confirm("이 그룹과 하위 작업을 삭제할까요?"))return; WP_ORDER_DRAFT.groups.splice(gi,1); wpRenderOrder(); }
+// 편집본 반영 (tasks 동기화 후 커밋)
+function wpOrderCommitEdited(projId){
+  const d=WP_ORDER_DRAFT; if(!d) return;
+  d.tasks=d.groups.flatMap(g=>g.tasks);
+  // 작업명 비어있는 행 제거
+  d.groups.forEach(g=>g.tasks=g.tasks.filter(t=>String(t.name||"").trim()));
+  d.groups=d.groups.filter(g=>g.tasks.length);
+  if(!d.groups.length){ toast("저장할 작업이 없습니다","bad"); return; }
+  wpOrderCommit();
+}
 async function wpOrderCommit(){
   const d=WP_ORDER_DRAFT; if(!d) return;
   const p=WP_LOADED_PROJ.find(x=>x.id===d.projId); if(!p){ toast("프로젝트 없음","bad"); return; }
@@ -7463,6 +7503,7 @@ function wpRenderTree(){
       <span style="font-size:12.5px;color:var(--p2)">${esc(p.name&&p.name!==p.id?p.name:"")}</span>
       <span style="flex:1"></span>
       ${wpIsPM()?`<button class="btn sm" onclick="event.stopPropagation();wpAddGroup('${p.id}')" style="padding:3px 9px">＋ 할일</button>`:""}
+      ${wpIsPM()?`<button class="btn sm" onclick="event.stopPropagation();wpSendTeams('${p.id}')" style="padding:3px 9px">💬 Teams 전달</button>`:""}
       <div class="wp-bar" style="width:90px"><div style="width:${prog}%;background:var(--p)"></div></div>
       <span style="font-size:12px;color:var(--p2);min-width:32px;text-align:right">${prog}%</span>
     </div>`;
@@ -7511,6 +7552,90 @@ function wpRowHtml(projId, n, depth, parentNotDone){
   if(sel) h+=wpDetailHtml(projId,n,ind);
   if(open && kids){ const pnd=(n.prog||0)<100; h+=`<div style="border-left:1.5px solid var(--border);margin-left:${17+ind}px">`+(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,pnd)).join("")+`</div>`; }
   return h;
+}
+
+// ── 업무계획 → Teams 채팅방 전달 (담당자별 요약) ──
+async function wpSendTeams(projId){
+  // 채팅방 소스: 관리자설정(ADMIN_CFG)의 채널별 sourceChatId
+  if(typeof ADMIN_CFG==="undefined" || !ADMIN_CFG.channels || !ADMIN_CFG.channels.length){
+    try{ if(typeof admLoad==="function") await admLoad(); }catch(_){}
+  }
+  const chans=(typeof ADMIN_CFG!=="undefined" && ADMIN_CFG.channels)?ADMIN_CFG.channels.filter(c=>c.sourceChatId):[];
+  // 담당자별 요약 작성
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p){ toast("프로젝트 없음","bad"); return; }
+  const flat=wpFlatten(p.children||[],false,[]).map(x=>x.n);
+  if(!flat.length){ toast("전달할 작업이 없습니다","bad"); return; }
+  const byOwner={};
+  flat.forEach(t=>{ const o=(t.owner||"").trim()||"미지정"; (byOwner[o]=byOwner[o]||[]).push(t); });
+  const lines=Object.entries(byOwner).map(([owner,items],i)=>{
+    const desc=items.map(t=>{ const ex=[]; if(t.end)ex.push("~"+t.end); if(t.blocker)ex.push("⚠"+t.blocker); return t.name+(ex.length?` (${ex.join(", ")})`:""); }).join(", ");
+    return `${i+1}. 담당자(${owner}): ${desc}`;
+  });
+  const previewText=`📋 [${projId}] 업무 배정 · ${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}\n`+lines.join("\n");
+
+  // 모달
+  let ov=document.getElementById("wpTeamsOv"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="wpTeamsOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000085;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  const chanOpts = chans.length
+    ? chans.map((c,i)=>`<option value="${i}">${esc(c.name||c.sourceChatId)}</option>`).join("")
+    : `<option value="-1">관리자설정에 채팅방이 없습니다</option>`;
+  ov.innerHTML=`<div style="width:min(620px,94vw);max-height:84vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#4b53bc;color:#fff">
+      <b>💬 Teams 채팅방으로 업무 전달</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpTeamsOv').remove()">✕</span></div>
+    <div style="padding:14px 18px;overflow:auto">
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px">전송 대상 채팅방 (관리자설정 · 요약 대상)</div>
+      <select id="wp-teams-chan" style="width:100%;height:36px;font-size:13px;margin-bottom:6px">${chanOpts}</select>
+      <input id="wp-teams-customid" placeholder="또는 채팅방 ID 직접 입력 (19:...@thread.v2)" style="width:100%;height:34px;font-size:12px;margin-bottom:12px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px">
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px;display:flex;align-items:center;gap:8px">미리보기 (담당자별 요약)
+        <button class="btn sm" id="wp-teams-ai" onclick="wpTeamsAISummary('${projId}')" style="padding:3px 10px">🤖 Copilot 요약(채팅방 반영)</button>
+        <span id="wp-teams-aimsg" style="font-size:11px;color:#94a3b8"></span></div>
+      <textarea id="wp-teams-preview" rows="9" style="width:100%;font-size:13px;padding:10px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;white-space:pre-wrap">${esc(previewText)}</textarea>
+      <div style="font-size:11px;color:#94a3b8;margin-top:6px">필요하면 위 내용을 직접 수정 후 전송할 수 있습니다.</div>
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 18px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('wpTeamsOv').remove()">취소</button>
+      <button class="btn primary sm" id="wp-teams-send" onclick="wpDoSendTeams('${projId}')">📤 전송</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  ov._chans=chans;
+}
+async function wpTeamsAISummary(projId){
+  const ov=document.getElementById("wpTeamsOv"); const chans=ov._chans||[];
+  const custom=(document.getElementById("wp-teams-customid").value||"").trim();
+  const sel=document.getElementById("wp-teams-chan").value;
+  let chatId=custom; if(!chatId){ const c=chans[+sel]; chatId=c?c.sourceChatId:""; }
+  const msg=document.getElementById("wp-teams-aimsg"); const btn=document.getElementById("wp-teams-ai");
+  const p=WP_LOADED_PROJ.find(x=>x.id===projId); if(!p) return;
+  const tasks=wpFlatten(p.children||[],false,[]).map(x=>({name:x.n.name,owner:x.n.owner,role:x.n.role,start:x.n.start,end:x.n.end,blocker:x.n.blocker}));
+  btn.disabled=true; msg.style.color="#64748b"; msg.textContent="🤖 채팅방 읽고 요약 중…";
+  try{
+    const r=await fetch(`${SERVER}/api/workplan/ai-summary`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:chatId, project:projId, week:wpWeekKey(WP_WEEK.year,WP_WEEK.week), tasks})});
+    const d=await r.json();
+    if(d.ok){ document.getElementById("wp-teams-preview").value=d.summary; msg.style.color="#16a34a"; msg.textContent=`✅ 반영 완료 (대화 ${d.chat_used||0}건 참고)`; }
+    else { msg.style.color="#dc2626"; msg.textContent="실패: "+(d.error||""); }
+  }catch(e){ msg.style.color="#dc2626"; msg.textContent="오류: "+e.message; }
+  finally{ btn.disabled=false; }
+}
+async function wpDoSendTeams(projId){
+  const ov=document.getElementById("wpTeamsOv"); const chans=ov._chans||[];
+  const custom=(document.getElementById("wp-teams-customid").value||"").trim();
+  const sel=document.getElementById("wp-teams-chan").value;
+  let chatId=custom;
+  if(!chatId){ const c=chans[+sel]; chatId=c?c.sourceChatId:""; }
+  if(!chatId){ toast("전송할 채팅방을 선택하거나 ID를 입력하세요","bad"); return; }
+  const text=(document.getElementById("wp-teams-preview").value||"").trim();
+  const html=esc(text).replace(/\n/g,"<br>");
+  const btn=document.getElementById("wp-teams-send"); btn.disabled=true; btn.textContent="전송 중…";
+  try{
+    const r=await fetch(`${SERVER}/api/workplan/send-teams`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:chatId, project:projId, week:wpWeekKey(WP_WEEK.year,WP_WEEK.week), html})});
+    const d=await r.json();
+    if(d.ok){ toast("Teams 채팅방으로 전달 완료","ok"); ov.remove(); }
+    else { toast("전송 실패: "+(d.error||""),"bad"); btn.disabled=false; btn.textContent="📤 전송"; }
+  }catch(e){ toast("전송 오류: "+e.message,"bad"); btn.disabled=false; btn.textContent="📤 전송"; }
 }
 
 // ── 행 우클릭 컨텍스트 메뉴 (링크복사/복사/붙여넣기/수정/삭제) ──
