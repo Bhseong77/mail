@@ -1242,7 +1242,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v267</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v270</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5570,7 +5570,7 @@ async function _loadO3DV(){
     let lastErr=null;
     for(const base of O3DV_CDNS){
       try{
-        await _tryScript(`${base}/build/o3dv.min.js`);
+        await _tryScript(`${base}/build/engine/o3dv.min.js`);
         if(window.OV && window.OV.EmbeddedViewer){
           try{ OV.SetExternalLibLocation(`${base}/libs/`); }catch(e){}   // STEP용 occt wasm 등
           return;
@@ -6873,7 +6873,7 @@ const SCHX_TPL = {
 };
 const SCHX_PHORDER=["mfg","setup","cs"];
 const SCHX_PHCOLOR={mfg:"#534AB7", setup:"#1FA89B", cs:"#E0921E"};
-let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0, _schxOpen={}, _schxLtN=0, _schxForceReload=false, _schxMode="edit";
+let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0, _schxOpen={}, _schxLtN=0, _schxForceReload=false, _schxMode="edit", _schxLang="ko", _schxEn={};
 
 function schxKey(ph,st){ return ph+"."+st; }
 function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}, extra:{}}; }
@@ -6961,7 +6961,7 @@ function schxRenderTabs(){
 function schxSwitch(v){ _schxView=v; _schxForceReload=true; schxRenderTabs(); schxRenderBody(); }
 async function schxRenderBody(){
   const body=document.getElementById("schx-body"); if(!body) return;
-  const tt=document.getElementById("schx-title"); if(tt) tt.textContent=(_schxView==="__main__")?"📅 전체 일정":("📅 "+_schxView+" 통합일정");
+  const tt=document.getElementById("schx-title"); if(tt) tt.textContent=(_schxView==="__main__")?(_schxLang==="en"?"📅 All Projects Schedule":"📅 전체 일정"):("📅 "+_schxView+(_schxLang==="en"?" Schedule":" 통합일정"));
   body.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3)">불러오는 중…</div>`;
   if(_schxView==="__main__") await schxRenderMain(body);
   else await schxRenderProject(body, _schxView);
@@ -7090,6 +7090,30 @@ function schxFolderSummary(n){
 }
 // ── 통합일정 간트 ──
 function schxSetMode(m){ _schxMode=m; schxRenderBody(); }
+// ── 통합일정 영문(EN) — Copilot 번역 (간트 뷰) ──
+function schxT(s){ if(_schxLang!=="en"||!s) return s; return _schxEn[s]||s; }
+function schxLang(l){ _schxLang=l; if(l==="en") schxTranslateAll(); else schxRenderBody(); }
+async function schxTranslateAll(){
+  const set=new Set();
+  for(const ph of SCHX_PHORDER){ const T=SCHX_TPL[ph]; if(T.name)set.add(T.name); (T.stages||[]).forEach(s=>s.name&&set.add(s.name)); }
+  const proj=_schxView, D=(proj&&proj!=="__main__")?_schxData[proj]:null;
+  if(D){
+    Object.keys(D.extra||{}).forEach(ph=>(D.extra[ph]||[]).forEach(s=>s.name&&set.add(s.name)));
+    Object.keys(D.subs||{}).forEach(k=>(D.subs[k]||[]).forEach(s=>s.name&&set.add(s.name)));
+    (function w(ns){ (ns||[]).forEach(n=>{ if(n.name)set.add(n.name); if(n.children)w(n.children); }); })(_schxTreeCache[proj]||[]);
+  }
+  const todo=[...set].filter(s=>!_schxEn[s] && /[가-힣]/.test(s));
+  if(!todo.length){ schxRenderBody(); return; }
+  toast("🌐 영문 번역 중…");
+  try{
+    const prompt=`다음 한국어 일정/단계/작업명을 영어로 자연스럽게 번역. 앞의 이모지는 그대로 두고 텍스트만 번역. JSON 객체만 출력(키=원문, 값=영문), 다른 말 없이:\n${JSON.stringify(todo)}`;
+    let txt=await callCopilot(prompt); txt=(txt||"").replace(/```json|```/g,"").trim();
+    const map=JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}")+1));
+    Object.keys(map).forEach(k=>{ if(map[k])_schxEn[k]=map[k]; });
+    toast("✅ 영문 번역 완료","good");
+  }catch(e){ toast("번역 실패: "+e.message,"bad"); }
+  schxRenderBody();
+}
 function schxYmd(s){ if(!s) return null; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); return m?new Date(+m[1],+m[2]-1,+m[3]):null; }
 function schxToday(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
 function schxGanttHtml(proj,D){
@@ -7100,7 +7124,7 @@ function schxGanttHtml(proj,D){
   const linkedRows=(ids,baseDepth,arr)=>{
     if(!ids||!ids.length)return;
     const set=new Set(ids); const lr=[]; schxGanttLinkedRows(set, tree, 0, lr);
-    lr.forEach(r=>{ arr.push({name:r.name,start:r.start,end:r.end,type:r.folder?'lfolder':'ltask',icon:r.icon,depth:baseDepth+r.depth}); ext(r.start,r.end); });
+    lr.forEach(r=>{ arr.push({name:schxT(r.name),start:r.start,end:r.end,type:r.folder?'lfolder':'ltask',icon:r.icon,depth:baseDepth+r.depth}); ext(r.start,r.end); });
   };
   for(const ph of SCHX_PHORDER){
     const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
@@ -7108,13 +7132,13 @@ function schxGanttHtml(proj,D){
     const rows=[];
     for(const stg of stages){
       const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
-      rows.push({name:stg.name,start:sd.start,end:sd.end,type:'stage',depth:0}); ext(sd.start,sd.end);
+      rows.push({name:schxT(stg.name),start:sd.start,end:sd.end,type:'stage',depth:0}); ext(sd.start,sd.end);
       linkedRows(D.groups[key], 1, rows);
-      (D.subs[key]||[]).forEach(s=>{ rows.push({name:s.name,start:s.start,end:s.end,type:'sub',depth:1}); ext(s.start,s.end); linkedRows(s.groups, 2, rows); });
+      (D.subs[key]||[]).forEach(s=>{ rows.push({name:schxT(s.name),start:s.start,end:s.end,type:'sub',depth:1}); ext(s.start,s.end); linkedRows(s.groups, 2, rows); });
     }
     let pMin=null,pMax=null;
     rows.forEach(r=>{ const a=schxYmd(r.start),b=schxYmd(r.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; });
-    phases.push({ph,name:T.name,col,pMin,pMax,rows});
+    phases.push({ph,name:schxT(T.name),col,pMin,pMax,rows});
   }
   const today=schxToday();
   if(!minD){ minD=new Date(today); minD.setDate(minD.getDate()-14); }
@@ -7128,17 +7152,19 @@ function schxGanttHtml(proj,D){
   const xOf=s=>{ const d=schxYmd(s); return d?di(d)*ppd:0; };
   const wOf=(s,e)=>{ const a=schxYmd(s),b=schxYmd(e); const ai=a?di(a):(b?di(b):0); const bi=b?di(b):(a?di(a):0); return Math.max(6,(bi-ai+1)*ppd); };
   const todayX=di(today)*ppd+ppd/2;
+  const EN=(_schxLang==="en"); const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   // 눈금
   let ticks=''; let d=new Date(minD);
   while(d<=maxD){ const x=di(d)*ppd;
-    if(d.getDate()===1){ ticks+=`<div class="sxg-tick" style="left:${x}px;background:var(--border2)"></div><div class="sxg-tickname" style="left:${x}px;color:var(--t2);font-weight:700">${d.getMonth()+1}월</div>`; }
+    if(d.getDate()===1){ ticks+=`<div class="sxg-tick" style="left:${x}px;background:var(--border2)"></div><div class="sxg-tickname" style="left:${x}px;color:var(--t2);font-weight:700">${EN?MON[d.getMonth()]:(d.getMonth()+1)+"월"}</div>`; }
     else if(d.getDay()===1){ ticks+=`<div class="sxg-tick" style="left:${x}px"></div>`; }
     d.setDate(d.getDate()+1);
   }
   ticks+=`<div class="sxg-tickname" style="left:2px;color:var(--t3)">${minD.getMonth()+1}/${minD.getDate()}</div>`;
   const todayLine=`<div class="sxg-today" style="left:${todayX}px"></div>`;
-  let h=`<div class="sxg-wrap"><div style="min-width:${labelW+trackW}px">`;
-  h+=`<div class="sxg-row sxg-head"><div class="sxg-label" style="color:var(--t3);font-weight:700">단계 / 일정</div><div class="sxg-track" style="width:${trackW}px">${ticks}${todayLine}<div class="sxg-today-lbl" style="left:${todayX}px">오늘</div></div></div>`;
+  const lgBar=`<div class="sx-mode" style="justify-content:flex-end;margin-bottom:8px"><span style="font-size:12px;color:var(--t3);align-self:center;margin-right:2px">🌐</span><button class="wp-lgbtn ${EN?'':'on'}" onclick="schxLang('ko')">KO</button><button class="wp-lgbtn ${EN?'on':''}" onclick="schxLang('en')">EN</button></div>`;
+  let h=lgBar+`<div class="sxg-wrap"><div style="min-width:${labelW+trackW}px">`;
+  h+=`<div class="sxg-row sxg-head"><div class="sxg-label" style="color:var(--t3);font-weight:700">${EN?'Stage / Schedule':'단계 / 일정'}</div><div class="sxg-track" style="width:${trackW}px">${ticks}${todayLine}<div class="sxg-today-lbl" style="left:${todayX}px">${EN?'Today':'오늘'}</div></div></div>`;
   for(const P of phases){
     const pbar=(P.pMin&&P.pMax)?`<div class="sxg-pbar" style="left:${di(P.pMin)*ppd}px;width:${Math.max(6,(di(P.pMax)-di(P.pMin)+1)*ppd)}px;background:${P.col}"></div>`:'';
     h+=`<div class="sxg-row phase"><div class="sxg-label" style="color:${P.col}">${esc(P.name)}</div><div class="sxg-track" style="width:${trackW}px;height:24px">${pbar}${todayLine}</div></div>`;
@@ -7158,7 +7184,7 @@ function schxGanttHtml(proj,D){
   }
   h+=`</div></div>`;
   const ts=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  h+=`<div style="font-size:11.5px;color:var(--t3);padding:8px 2px">💡 단계 일정 + 연결된 업무일정 항목을 모두 표시 · 빨간 선 = 오늘(${ts}) · 페이즈(제작·설치·CS)는 색 구분 · 옅은 막대=폴더/연결</div>`;
+  h+=`<div style="font-size:11.5px;color:var(--t3);padding:8px 2px">${EN?`💡 Stage schedule + all linked workplan items · Red line = Today (${ts}) · Phases (Mfg·Setup·CS) by color · Faded bars = folder/linked`:`💡 단계 일정 + 연결된 업무일정 항목을 모두 표시 · 빨간 선 = 오늘(${ts}) · 페이즈(제작·설치·CS)는 색 구분 · 옅은 막대=폴더/연결`}</div>`;
   return h;
 }
 // 연결된 업무일정 트리를 간트 행으로 (폴더=하위 집계 막대, 작업=자기 날짜)
@@ -8870,6 +8896,7 @@ async function wpSendTeams(projId){
     return `${i+1}. 담당자(${owner}): ${desc}`;
   });
   const previewText=`📋 [${projId}] 업무 배정 · ${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}\n`+lines.join("\n");
+  const todayText=wpTodayPlanText(p, projId);
 
   // 모달
   let ov=document.getElementById("wpTeamsOv"); if(ov) ov.remove();
@@ -8885,8 +8912,12 @@ async function wpSendTeams(projId){
       <div style="font-size:12px;color:#64748b;margin-bottom:6px">전송 대상 채팅방 (관리자설정 · 요약 대상)</div>
       <select id="wp-teams-chan" style="width:100%;height:36px;font-size:13px;margin-bottom:6px">${chanOpts}</select>
       <input id="wp-teams-customid" placeholder="또는 채팅방 ID 직접 입력 (19:...@thread.v2)" style="width:100%;height:34px;font-size:12px;margin-bottom:12px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px">
-      <div style="font-size:12px;color:#64748b;margin-bottom:4px">미리보기 (담당자별 요약) <span style="font-size:11px;color:#94a3b8">· 필요시 직접 수정</span></div>
-      <textarea id="wp-teams-preview" rows="9" style="width:100%;font-size:13px;padding:10px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;white-space:pre-wrap">${esc(previewText)}</textarea>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button type="button" class="wp-lgbtn on" id="wptt-sum" onclick="wpTeamsTab('sum')">📋 담당자별 요약(주간)</button>
+        <button type="button" class="wp-lgbtn" id="wptt-today" onclick="wpTeamsTab('today')">📅 금일 업무예정</button>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px"><span id="wp-teams-pvlabel">미리보기 (담당자별 요약 · 주간)</span> <span style="font-size:11px;color:#94a3b8">· 필요시 직접 수정</span></div>
+      <textarea id="wp-teams-preview" rows="11" style="width:100%;font-size:13px;padding:10px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;white-space:pre-wrap">${esc(previewText)}</textarea>
       <div style="font-size:11px;color:#94a3b8;margin-top:6px">필요하면 위 내용을 직접 수정 후 전송할 수 있습니다.</div>
     </div>
     <div style="display:flex;gap:10px;padding:12px 18px;border-top:1px solid #eef0f3;justify-content:flex-end">
@@ -8896,6 +8927,61 @@ async function wpSendTeams(projId){
   ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
   ov._chans=chans;
+  ov._txt={sum:previewText, today:todayText};
+}
+function wpTeamsTab(which){
+  const ov=document.getElementById("wpTeamsOv"); if(!ov||!ov._txt) return;
+  const ta=document.getElementById("wp-teams-preview"); if(ta) ta.value=ov._txt[which]||"";
+  const bs=document.getElementById("wptt-sum"), bt=document.getElementById("wptt-today");
+  if(bs)bs.classList.toggle("on",which==="sum"); if(bt)bt.classList.toggle("on",which==="today");
+  const lb=document.getElementById("wp-teams-pvlabel"); if(lb) lb.textContent=which==="today"?"미리보기 (금일 업무예정 · 담당자별)":"미리보기 (담당자별 요약 · 주간)";
+}
+// 금일(오늘) 업무예정 — 담당자별 · 지연/선행완료→착수 강조
+function wpTodayPlanText(p, projId){
+  const today=wpToday();
+  const ts=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const dow=["일","월","화","수","목","금","토"][today.getDay()];
+  const isDone=n=>(n.prog||0)>=100;
+  const sameDay=s=>{ const d=wpYmdToDate(s); return !!d && d.getTime()===today.getTime(); };
+  const inRange=n=>{ const s=wpYmdToDate(n.start), e=wpYmdToDate(n.end); if(s&&e)return s<=today&&today<=e; if(s)return s<=today; if(e)return today<=e; return false; };
+  const depsAllDone=n=>{ const ds=(n.deps||[]); if(!ds.length)return false; return ds.every(did=>{ const d=wpFind(projId,did); return d&&isDone(d); }); };
+  const rows=[];
+  wpFlatten(p.children||[],false,[]).forEach(({n})=>{
+    if(isDone(n))return;
+    const delay=wpDelayDays(n);
+    const ready=depsAllDone(n)&&(n.prog||0)===0;   // 선행 전부 완료 + 미착수
+    const dueToday=sameDay(n.end), startToday=sameDay(n.start), active=inRange(n);
+    let kind=null,pr=9;
+    if(delay>0){kind="delay";pr=0;}
+    else if(ready){kind="ready";pr=1;}
+    else if(dueToday){kind="due";pr=2;}
+    else if(startToday){kind="start";pr=3;}
+    else if(active){kind="active";pr=4;}
+    if(!kind)return;
+    const os=wpOwners(n); (os.length?os:["미지정"]).forEach(o=>rows.push({owner:o,n,kind,delay,pr}));
+  });
+  if(!rows.length) return `📅 [${projId}] 금일 업무예정 · ${ts}(${dow})\n\n오늘 예정·대상 작업이 없습니다. 👍`;
+  const byO={}; rows.forEach(r=>{ (byO[r.owner]=byO[r.owner]||[]).push(r); });
+  const owners=Object.keys(byO).sort((a,b)=>Math.min(...byO[a].map(x=>x.pr))-Math.min(...byO[b].map(x=>x.pr)));
+  const nDelay=rows.filter(r=>r.kind==="delay").length, nReady=rows.filter(r=>r.kind==="ready").length;
+  let out=`📅 [${projId}] 금일 업무예정 · ${ts}(${dow})\n`;
+  if(nDelay||nReady) out+=`※ `+[nDelay?`🔴 지연 ${nDelay}건`:"",nReady?`🟢 착수필요 ${nReady}건`:""].filter(Boolean).join(" · ")+`\n`;
+  owners.forEach(o=>{
+    out+=`\n👤 ${o}\n`;
+    byO[o].sort((a,b)=>a.pr-b.pr).forEach(r=>{
+      const n=r.n, rng=(n.start||"?")+(n.end?`~${n.end}`:"");
+      const pre=(n.deps||[]).map(d=>{const x=wpFind(projId,d);return x?x.name:null;}).filter(Boolean);
+      let line;
+      if(r.kind==="delay")      line=`🔴【지연 ${r.delay}일】${n.name} (마감 ${n.end||"-"})`;
+      else if(r.kind==="ready") line=`🟢▶【선행완료·착수】${n.name}${pre.length?` ← 「${pre.join("·")}」 완료`:""}${n.start?` · 시작 ${n.start}`:""}`;
+      else if(r.kind==="due")   line=`🏁【오늘마감】${n.name} (${rng})`;
+      else if(r.kind==="start") line=`▶【오늘시작】${n.name} (${rng})`;
+      else                      line=`🔵【진행중】${n.name} (${rng}${n.prog?` · ${n.prog}%`:""})`;
+      if(n.blocker) line+=` ⚠${n.blocker}`;
+      out+=`  ${line}\n`;
+    });
+  });
+  return out;
 }
 async function wpTeamsAISummary(projId){
   const ov=document.getElementById("wpTeamsOv"); const chans=ov._chans||[];
