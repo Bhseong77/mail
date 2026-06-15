@@ -1187,7 +1187,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v218</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v219</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7353,29 +7353,39 @@ function wpRenderOrder(){
         <button class="btn primary sm" onclick="wpOrderCommitEdited('${esc(d.projId)}')">✅ 확정 저장</button>
       </div>
       <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        ${d.groups.map((g,gi)=>`
+        <div style="display:grid;grid-template-columns:26px 1fr 86px 96px 120px 120px 1fr 52px 26px;gap:5px;align-items:center;padding:7px 10px;background:var(--p);color:#fff;font-size:11px;font-weight:600">
+          <span title="작업 번호">#</span><span>작업명</span><span>직무</span><span>담당자</span><span>시작일</span><span>마감일</span><span>선행작업(먼저 끝나야 함)</span><span style="text-align:right">진행%</span><span></span>
+        </div>
+        ${(function(){ let gi0=-1; let seq=0; return d.groups.map((g,gi)=>{
+          const gh=`
           <div style="background:var(--bg3);padding:7px 10px;display:flex;align-items:center;gap:8px">
             <span style="font-size:14px">📂</span>
-            <input value="${esc(g.name)}" oninput="wpDraftSet(${gi},-1,'name',this.value)" style="flex:1;height:30px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:0 8px;background:var(--bg2)">
+            <input value="${esc(g.name)}" oninput="wpDraftSet(${gi},-1,'name',this.value)" placeholder="할일 그룹명" style="flex:1;height:30px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:0 8px;background:var(--bg2)">
             <button class="btn sm" onclick="wpDraftAddTask(${gi})" style="padding:2px 8px">＋작업</button>
             <button class="btn sm" onclick="wpDraftDelGroup(${gi})" style="padding:2px 7px;color:var(--r)">🗑</button>
-          </div>`+
-          g.tasks.map((t,ti)=>`<div style="display:grid;grid-template-columns:1fr 86px 92px 122px 122px 70px 56px 28px;gap:5px;align-items:center;padding:6px 10px 6px 24px;border-bottom:1px solid var(--border)">
-            <input value="${esc(t.name)}" oninput="wpDraftSet(${gi},${ti},'name',this.value)" placeholder="작업명" style="height:30px;font-size:12.5px;border:1px solid var(--border);border-radius:6px;padding:0 7px">
-            <select onchange="wpDraftSet(${gi},${ti},'role',this.value)" style="height:30px;font-size:12px">${roleOpts(t.role)}</select>
-            <select onchange="wpDraftSet(${gi},${ti},'owner',this.value)" style="height:30px;font-size:12px">${memOpts(t.owner)}</select>
-            <input type="date" value="${esc(t.start||"")}" onchange="wpDraftSet(${gi},${ti},'start',this.value)" style="height:30px;font-size:11.5px">
-            <input type="date" value="${esc(t.end||"")}" onchange="wpDraftSet(${gi},${ti},'end',this.value)" style="height:30px;font-size:11.5px">
-            <select multiple onchange="wpDraftSetDeps(${gi},${ti},this)" title="선행작업(Ctrl로 다중)" style="height:30px;font-size:11px">${depOpts(t)}</select>
-            <input type="number" min="0" max="100" value="${t.prog||0}" onchange="wpDraftSet(${gi},${ti},'prog',this.value)" style="height:30px;font-size:12px;text-align:right">
-            <button onclick="wpDraftDelTask(${gi},${ti})" style="border:none;background:none;color:var(--r);cursor:pointer;font-size:14px">✕</button>
-          </div>`).join("")
-        ).join("")}
+          </div>`;
+          const rows=g.tasks.map((t,ti)=>{ seq++; const num=seq;
+            const depNames=(t.deps||[]).map(tid=>{ const f=wpDraftFindByTid(tid); return f?`#${f.num} ${f.name}`:tid; });
+            const depLabel = depNames.length ? depNames.join(", ") : "없음";
+            return `<div style="display:grid;grid-template-columns:26px 1fr 86px 96px 120px 120px 1fr 52px 26px;gap:5px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)">
+              <span style="font-size:11px;color:var(--t3);font-family:monospace;text-align:center">#${num}</span>
+              <input value="${esc(t.name)}" oninput="wpDraftSet(${gi},${ti},'name',this.value)" placeholder="작업명" style="height:30px;font-size:12.5px;border:1px solid var(--border);border-radius:6px;padding:0 7px">
+              <select onchange="wpDraftSet(${gi},${ti},'role',this.value)" style="height:30px;font-size:12px">${roleOpts(t.role)}</select>
+              <select onchange="wpDraftSet(${gi},${ti},'owner',this.value)" style="height:30px;font-size:12px">${memOpts(t.owner)}</select>
+              <input type="date" value="${esc(t.start||"")}" onchange="wpDraftSet(${gi},${ti},'start',this.value)" style="height:30px;font-size:11.5px">
+              <input type="date" value="${esc(t.end||"")}" onchange="wpDraftSet(${gi},${ti},'end',this.value)" style="height:30px;font-size:11.5px">
+              <button onclick="wpDraftDepPicker(${gi},${ti})" title="${esc(depLabel)}" style="height:30px;font-size:11px;text-align:left;border:1px solid var(--border);border-radius:6px;background:var(--bg2);cursor:pointer;padding:0 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${depNames.length?'var(--t1)':'var(--t3)'}">${depNames.length?'🔗 '+esc(depLabel):'+ 선행 지정'}</button>
+              <input type="number" min="0" max="100" value="${t.prog||0}" onchange="wpDraftSet(${gi},${ti},'prog',this.value)" style="height:30px;font-size:12px;text-align:right">
+              <button onclick="wpDraftDelTask(${gi},${ti})" style="border:none;background:none;color:var(--r);cursor:pointer;font-size:14px">✕</button>
+            </div>`;
+          }).join("");
+          return gh+rows;
+        }).join(""); })()}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn sm" onclick="wpDraftAddGroup()">＋ 할일 그룹 추가</button>
       </div>
-      <div style="font-size:11.5px;color:var(--t3);margin-top:8px">컬럼: 작업명 · 직무 · 담당 · 시작 · 마감 · 선행(tid) · % · 삭제 — 모두 수정 가능. 확정하면 ${esc(d.projId)}의 04.일정 / ${esc(wpFileName())}에 반영됩니다.</div>
+      <div style="font-size:11.5px;color:var(--t3);margin-top:8px">컬럼: # · 작업명 · 직무 · 담당 · 시작 · 마감 · 선행작업 · 진행% · 삭제 — 모두 수정 가능. 선행작업은 「+ 선행 지정」을 눌러 작업명으로 고릅니다. 확정하면 ${esc(d.projId)}의 04.일정 / ${esc(wpFileName())}에 반영됩니다.</div>
     </div>`;
   }
   h+=`</div>`;
@@ -7447,6 +7457,46 @@ function wpDraftSet(gi,ti,key,val){
   else { if(key==="prog")val=Math.max(0,Math.min(100,+val||0)); d.groups[gi].tasks[ti][key]=val; }
 }
 function wpDraftSetDeps(gi,ti,selEl){ WP_ORDER_DRAFT.groups[gi].tasks[ti].deps=[...selEl.selectedOptions].map(o=>o.value); }
+// tid로 작업 찾기 (번호+이름)
+function wpDraftFindByTid(tid){
+  const d=WP_ORDER_DRAFT; if(!d) return null; let num=0;
+  for(const g of d.groups){ for(const t of g.tasks){ num++; if(t.tid===tid) return {num,name:t.name||"(이름없음)",t}; } }
+  return null;
+}
+// 선행작업 지정 모달 (작업명 표시 + 체크)
+function wpDraftDepPicker(gi,ti){
+  const d=WP_ORDER_DRAFT; const cur=d.groups[gi].tasks[ti]; const curDeps=new Set(cur.deps||[]);
+  let num=0; const rows=[];
+  d.groups.forEach(g=>g.tasks.forEach(t=>{ num++; if(t!==cur) rows.push({num,tid:t.tid,name:t.name||"(이름없음)",role:t.role,owner:t.owner}); }));
+  let ov=document.getElementById("wpDepOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="wpDepOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000088;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(520px,94vw);max-height:80vh;background:#fff;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 16px;background:#4b53bc;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:14px">🔗 선행작업 선택 <span style="font-weight:400;font-size:12px;opacity:.85">· "${esc(cur.name||"이 작업")}" 보다 먼저 끝나야 할 작업</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpDepOv').remove()">✕</span></div>
+    <div style="overflow:auto;padding:8px">
+      ${rows.length?rows.map(r=>`<label style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer" onmouseover="this.style.background='var(--pd)'" onmouseout="this.style.background=''">
+        <input type="checkbox" value="${r.tid}" ${curDeps.has(r.tid)?"checked":""} style="width:16px;height:16px">
+        <span style="font-size:11px;color:#94a3b8;font-family:monospace;min-width:26px">#${r.num}</span>
+        <span style="font-size:13px;font-weight:600;flex:1">${esc(r.name)}</span>
+        ${r.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[r.role]||'#eee'};color:${WP_ROLECOLOR[r.role]||'#555'}">${esc(r.role)}</span>`:""}
+        <span style="font-size:11px;color:#64748b">${esc(r.owner||"")}</span>
+      </label>`).join(""):'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">선택할 다른 작업이 없습니다</div>'}
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 16px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('wpDepOv').remove()">취소</button>
+      <button class="btn primary sm" onclick="wpDraftDepApply(${gi},${ti})">적용</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+function wpDraftDepApply(gi,ti){
+  const ov=document.getElementById("wpDepOv");
+  const picked=[...ov.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+  WP_ORDER_DRAFT.groups[gi].tasks[ti].deps=picked;
+  ov.remove(); wpRenderOrder();
+}
 function wpDraftAddTask(gi){
   const d=WP_ORDER_DRAFT; const n=d.groups[gi].tasks.length;
   let max=0; d.groups.forEach(g=>g.tasks.forEach(t=>{ const m=String(t.tid||"").match(/t(\d+)/); if(m)max=Math.max(max,+m[1]); }));
