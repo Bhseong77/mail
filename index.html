@@ -1199,7 +1199,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v257</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v258</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1239,12 +1239,11 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
     <button class="navgrp-btn" id="navgrp-project" onclick="navToggle(event,'project')">📁 프로젝트 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-project"></div>
   </div>
-  <button id="nav-workplan" onclick="showPage('workplan')">📋 업무일정</button>
-  <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <div class="nav-group">
-    <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정관리 <span class="navgrp-caret">▾</span></button>
+    <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-schedule"></div>
   </div>
+  <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
 </div>
@@ -2528,7 +2527,7 @@ function mobNavActive(){
 const _MOB_SHEETS={
   vendor:{title:'🏢 거래처', items:[['👥','주소록','contacts'],['🏢','거래처','doc-vendor']]},
   pdocs:{title:'📦 구매자료', items:[['📄','견적서','doc-quote'],['📦','발주서','doc-order'],['🧾','거래명세서','doc-invoice'],['💳','세금계산서','doc-tax'],['📚','기술자료','doc-tech']]},
-  more:{title:'☰ 더보기', items:[['📋','업무일정','workplan'],['📚','기술자료','doc-tech'],['📎','첨부파일','attach'],['📅','통합일정관리','schedule'],['🛒','구매','purchase'],['💳','법인카드','corpcard']]}
+  more:{title:'☰ 더보기', items:[['📋','업무일정','workplan'],['📚','기술자료','doc-tech'],['📎','첨부파일','attach'],['📅','전체 일정','schedule'],['🛒','구매','purchase'],['💳','법인카드','corpcard']]}
 };
 function mobSheetOpen(group){
   const sh=$('mobSheet'); const body=$('mobSheetBody'); const ttl=$('mobSheetTitle'); if(!sh) return;
@@ -2570,7 +2569,7 @@ function showPage(p){
   $('page-'+p).classList.add('on');
   $('nav-'+p)?.classList.add('active');
   // 드롭다운 그룹 버튼 active 표시
-  const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax'], schedule:['schedule']};
+  const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax'], schedule:['schedule','workplan']};
   for(const [g,pages] of Object.entries(NAVGROUPS)){ $('navgrp-'+g)?.classList.toggle('active', pages.includes(p)); }
   $('specHdrBtn')?.classList.toggle('active', p==='spec');
   if(p==='contacts'){ loadContacts(); loadAnConfig().then(()=>{ if(curPage==='contacts'&&typeof renderContacts==='function'&&CONTACTS&&CONTACTS.length) renderContacts(); }); }
@@ -2897,8 +2896,9 @@ async function schedDropdownRender(){
   if(typeof pLoadConfig==='function' && !(pConfig&&pConfig.projects&&pConfig.projects.length)){ try{ await pLoadConfig(); }catch(e){} }
   const list=(pConfig&&pConfig.projects&&pConfig.projects.length)? pConfig.projects
     : (typeof pProjects!=='undefined'?pProjects.map(c=>({code:c,label:''})):[]);
-  let h=`<button onclick="schedPick('__main__')">🗂 메인(전체)</button>`;
-  if(!list.length){ dd.innerHTML=h; return; }
+  let h=`<button onclick="navPick('workplan')">📋 업무일정</button>`;
+  h+=`<div style="height:1px;background:var(--border);margin:2px 0"></div>`;
+  h+=`<button onclick="schedPick('__main__')">📅 전체 일정</button>`;
   h+=list.map(p=>{ const code=(typeof p==='string'?p:p.code)||''; const label=(typeof p==='object'&&p.label)?p.label:'';
     return `<button onclick="schedPick('${esc(code)}')">📅 ${esc(code)}${label?` <span style="color:var(--t3);font-weight:400">${esc(label)}</span>`:''}</button>`; }).join('');
   dd.innerHTML=h;
@@ -6885,7 +6885,7 @@ async function schxInit(){
   const root=document.getElementById("page-schedule");
   root.innerHTML=`<div style="padding:14px 18px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <h2 style="margin:0;font-size:19px">📅 통합일정관리 <span style="font-size:12px;font-weight:400;color:var(--t3)">제작 · 설치 · CS 생애주기 · 업무일정 연동</span></h2>
+      <h2 style="margin:0;font-size:19px">📅 통합일정 <span style="font-size:12px;font-weight:400;color:var(--t3)">제작 · 설치 · CS 생애주기 · 업무일정 연동</span></h2>
       <span style="flex:1"></span>
       <span id="schx-save" style="font-size:12px;color:var(--t3)">✓ 저장됨</span>
     </div>
