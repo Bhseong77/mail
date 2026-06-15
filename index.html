@@ -1187,7 +1187,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v219</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v220</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7295,6 +7295,9 @@ function wpPrevWeek(){ const s=document.getElementById("wp-week"); if(s.selected
 function wpNextWeek(){ const s=document.getElementById("wp-week"); if(s.selectedIndex>0){ s.selectedIndex--; wpLoad(); } }
 
 function wpNm(n){ return (WP_LANG==="en" && n.en) ? n.en : (n.name||""); }
+// 담당자 표시 (여러 명 지원): owners 배열 우선, 없으면 owner 문자열
+function wpOwners(n){ if(Array.isArray(n.owners)&&n.owners.length) return n.owners; if(n.owner) return String(n.owner).split(/\s*,\s*/).filter(Boolean); return []; }
+function wpOwnerText(n){ const a=wpOwners(n); return a.length?a.join(", "):""; }
 function wpRl(n){ return WP_LANG==="en" ? (WP_ROLE_EN[n.role]||n.role||"") : (n.role||""); }
 function wpBk(n){ return WP_LANG==="en" ? (n.blocker_en||n.blocker||"") : (n.blocker||""); }
 
@@ -7371,7 +7374,7 @@ function wpRenderOrder(){
               <span style="font-size:11px;color:var(--t3);font-family:monospace;text-align:center">#${num}</span>
               <input value="${esc(t.name)}" oninput="wpDraftSet(${gi},${ti},'name',this.value)" placeholder="작업명" style="height:30px;font-size:12.5px;border:1px solid var(--border);border-radius:6px;padding:0 7px">
               <select onchange="wpDraftSet(${gi},${ti},'role',this.value)" style="height:30px;font-size:12px">${roleOpts(t.role)}</select>
-              <select onchange="wpDraftSet(${gi},${ti},'owner',this.value)" style="height:30px;font-size:12px">${memOpts(t.owner)}</select>
+              <button onclick="wpDraftOwnerPicker(${gi},${ti})" title="${esc(wpOwnerText(t)||"담당 선택")}" style="height:30px;font-size:11.5px;text-align:left;border:1px solid var(--border);border-radius:6px;background:var(--bg2);cursor:pointer;padding:0 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${wpOwners(t).length?'var(--t1)':'var(--t3)'}">${wpOwners(t).length?'👤 '+esc(wpOwnerText(t)):'+ 담당 선택'}</button>
               <input type="date" value="${esc(t.start||"")}" onchange="wpDraftSet(${gi},${ti},'start',this.value)" style="height:30px;font-size:11.5px">
               <input type="date" value="${esc(t.end||"")}" onchange="wpDraftSet(${gi},${ti},'end',this.value)" style="height:30px;font-size:11.5px">
               <button onclick="wpDraftDepPicker(${gi},${ti})" title="${esc(depLabel)}" style="height:30px;font-size:11px;text-align:left;border:1px solid var(--border);border-radius:6px;background:var(--bg2);cursor:pointer;padding:0 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${depNames.length?'var(--t1)':'var(--t3)'}">${depNames.length?'🔗 '+esc(depLabel):'+ 선행 지정'}</button>
@@ -7440,7 +7443,7 @@ ${text}`;
     let raw=await callCopilot(prompt); raw=(raw||"").replace(/```json|```/g,"").trim();
     const parsed=JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}")+1));
     // tid→실제 표시용 정규화
-    const groups=(parsed.groups||[]).map(g=>({name:g.name||"신규 작업", tasks:(g.tasks||[]).map(t=>({tid:t.tid,name:t.name,role:WP_ROLES.includes(t.role)?t.role:"설계",owner:t.owner||"",start:t.start||"",end:t.end||"",prog:t.prog||0,deps:t.deps||[]}))}));
+    const groups=(parsed.groups||[]).map(g=>({name:g.name||"신규 작업", tasks:(g.tasks||[]).map(t=>{ const ow=Array.isArray(t.owner)?t.owner.join(", "):(t.owner||""); return {tid:t.tid,name:t.name,role:WP_ROLES.includes(t.role)?t.role:"설계",owner:ow,owners:ow?ow.split(/\s*,\s*/).filter(Boolean):[],start:t.start||"",end:t.end||"",prog:t.prog||0,deps:t.deps||[]}; })}));
     const allTasks=groups.flatMap(g=>g.tasks);
     WP_ORDER_DRAFT={projId,mode,rawText:text,groups,tasks:allTasks};
     msg.textContent=`✅ ${allTasks.length}개 작업 생성 — 아래에서 확인 후 저장`;
@@ -7497,6 +7500,62 @@ function wpDraftDepApply(gi,ti){
   WP_ORDER_DRAFT.groups[gi].tasks[ti].deps=picked;
   ov.remove(); wpRenderOrder();
 }
+// 담당자 다중 선택 모달 (임시저장 편집)
+function wpDraftOwnerPicker(gi,ti){
+  const t=WP_ORDER_DRAFT.groups[gi].tasks[ti]; const cur=new Set(wpOwners(t));
+  let ov=document.getElementById("wpOwnOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="wpOwnOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000088;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  const list=(WP_MEMBERS&&WP_MEMBERS.length)?WP_MEMBERS:[...cur].map(n=>({name:n,email:""}));
+  ov.innerHTML=`<div style="width:min(460px,94vw);max-height:80vh;background:#fff;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 16px;background:#4b53bc;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:14px">👤 담당자 선택 <span style="font-weight:400;font-size:12px;opacity:.85">· 여러 명 가능</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpOwnOv').remove()">✕</span></div>
+    <div style="padding:8px 14px;border-bottom:1px solid #eef0f3"><input id="wp-own-q" placeholder="🔍 이름 검색" oninput="wpOwnFilter(this.value)" style="width:100%;height:32px;font-size:13px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px"></div>
+    <div id="wp-own-list" style="overflow:auto;padding:6px">
+      ${list.map(m=>`<label class="wp-own-item" data-nm="${esc(m.name)}" style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer" onmouseover="this.style.background='var(--pd)'" onmouseout="this.style.background=''">
+        <input type="checkbox" value="${esc(m.name)}" ${cur.has(m.name)?"checked":""} style="width:16px;height:16px">
+        <span style="font-size:13px;font-weight:600;flex:1">${esc(m.name)}</span>
+        ${m.email?`<span style="font-size:11px;color:#94a3b8">${esc(m.email)}</span>`:""}
+      </label>`).join("")}
+    </div>
+    <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid #eef0f3;align-items:center">
+      <input id="wp-own-add" placeholder="목록에 없으면 직접 입력" style="flex:1;height:32px;font-size:12px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px">
+      <button class="btn sm" onclick="wpOwnAddCustom()">추가</button>
+    </div>
+    <div style="display:flex;gap:10px;padding:10px 16px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('wpOwnOv').remove()">취소</button>
+      <button class="btn primary sm" onclick="wpDraftOwnerApply(${gi},${ti})">적용</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+function wpOwnFilter(q){ q=(q||"").toLowerCase(); document.querySelectorAll("#wp-own-list .wp-own-item").forEach(el=>{ el.style.display=(el.dataset.nm||"").toLowerCase().includes(q)?"flex":"none"; }); }
+function wpOwnAddCustom(){
+  const inp=document.getElementById("wp-own-add"); const nm=(inp.value||"").trim(); if(!nm) return;
+  const list=document.getElementById("wp-own-list");
+  const lbl=document.createElement("label"); lbl.className="wp-own-item"; lbl.dataset.nm=nm;
+  lbl.style.cssText="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer";
+  lbl.innerHTML=`<input type="checkbox" value="${esc(nm)}" checked style="width:16px;height:16px"><span style="font-size:13px;font-weight:600;flex:1">${esc(nm)}</span>`;
+  list.appendChild(lbl); inp.value="";
+}
+function wpDraftOwnerApply(gi,ti){
+  const ov=document.getElementById("wpOwnOv");
+  const picked=[...ov.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+  const t=WP_ORDER_DRAFT.groups[gi].tasks[ti];
+  t.owners=picked; t.owner=picked.join(", ");
+  ov.remove(); wpRenderOrder();
+}
+// 트리 수정 폼: 담당 칩 추가
+function wpEditAddOwner(sel){
+  const nm=sel.value; if(!nm) return; sel.value="";
+  const box=document.getElementById("wpe-owners");
+  const chip=document.createElement("span"); chip.className="wp-ownchip"; chip.dataset.nm=nm;
+  chip.style.cssText="font-size:11.5px;background:var(--pd);color:var(--p2);padding:2px 7px;border-radius:99px";
+  chip.innerHTML=`${esc(nm)} <span onclick="this.closest('.wp-ownchip').remove()" style="cursor:pointer">✕</span>`;
+  box.insertBefore(chip, sel);
+  [...sel.options].forEach(o=>{ if(o.value===nm) o.remove(); });
+}
 function wpDraftAddTask(gi){
   const d=WP_ORDER_DRAFT; const n=d.groups[gi].tasks.length;
   let max=0; d.groups.forEach(g=>g.tasks.forEach(t=>{ const m=String(t.tid||"").match(/t(\d+)/); if(m)max=Math.max(max,+m[1]); }));
@@ -7527,7 +7586,9 @@ async function wpOrderCommit(){
   const newGroups=d.groups.map(g=>({
     id:"G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99),
     name:g.name, group:true, children:g.tasks.map(t=>{
-      const node={id:idMap[t.tid]||newId(), name:t.name, role:t.role, owner:t.owner, owner_email:(WP_MEMBERS.find(m=>m.name===t.owner)||{}).email||"", prog:t.prog||0, start:t.start||"", end:t.end||"", deps:(t.deps||[]).map(x=>idMap[x]||x).filter(Boolean), files:[], comments:[], history:[], children:[]};
+      const ownersArr = Array.isArray(t.owners)&&t.owners.length ? t.owners : (t.owner?String(t.owner).split(/\s*,\s*/).filter(Boolean):[]);
+      const ownerEmails = ownersArr.map(nm=>(WP_MEMBERS.find(m=>m.name===nm)||{}).email||"").filter(Boolean);
+      const node={id:idMap[t.tid]||newId(), name:t.name, role:t.role, owner:ownersArr.join(", "), owners:ownersArr, owner_email:ownerEmails[0]||"", owner_emails:ownerEmails, prog:t.prog||0, start:t.start||"", end:t.end||"", deps:(t.deps||[]).map(x=>idMap[x]||x).filter(Boolean), files:[], comments:[], history:[], children:[]};
       wpLog(node, `업무지시로 생성 (PM)`);
       return node;
     })
@@ -7592,7 +7653,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     <span class="wp-id">${esc(n.id)}</span>
     <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
     ${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span>`:""}
-    <span style="font-size:11px;color:var(--t2)">${esc(n.owner||"")}</span>
+    <span style="font-size:11px;color:var(--t2)">${esc(wpOwnerText(n))}</span>
     ${n.start||n.end?`<span style="font-size:10.5px;color:var(--t3)">${esc(n.start||"")}~${esc(n.end||"")}</span>`:""}
     ${fc?`<span style="font-size:10.5px;color:var(--t2)">📎${fc}</span>`:""}
     ${cc?`<span style="font-size:10.5px;color:var(--t2)">💬${cc}</span>`:""}
@@ -7616,7 +7677,7 @@ async function wpSendTeams(projId){
   const flat=wpFlatten(p.children||[],false,[]).map(x=>x.n);
   if(!flat.length){ toast("전달할 작업이 없습니다","bad"); return; }
   const byOwner={};
-  flat.forEach(t=>{ const o=(t.owner||"").trim()||"미지정"; (byOwner[o]=byOwner[o]||[]).push(t); });
+  flat.forEach(t=>{ const arr=wpOwners(t); const owners=arr.length?arr:["미지정"]; owners.forEach(o=>{ (byOwner[o]=byOwner[o]||[]).push(t); }); });
   const lines=Object.entries(byOwner).map(([owner,items],i)=>{
     const desc=items.map(t=>{ const ex=[]; if(t.end)ex.push("~"+t.end); if(t.blocker)ex.push("⚠"+t.blocker); return t.name+(ex.length?` (${ex.join(", ")})`:""); }).join(", ");
     return `${i+1}. 담당자(${owner}): ${desc}`;
@@ -7860,7 +7921,8 @@ function wpDetailHtml(projId, n, ind){
 }
 
 function wpEditFormHtml(projId,n){
-  const memOpts=`<option value="">담당자 선택</option>`+WP_MEMBERS.map(m=>`<option value="${esc(m.email)}" ${n.owner_email===m.email?"selected":""}>${esc(m.name)}</option>`).join("");
+  const curOwners=wpOwners(n);
+  const memChips=`<div id="wpe-owners" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:30px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--bg2)">${curOwners.map(o=>`<span class="wp-ownchip" data-nm="${esc(o)}" style="font-size:11.5px;background:var(--pd);color:var(--p2);padding:2px 7px;border-radius:99px">${esc(o)} <span onclick="this.closest('.wp-ownchip').remove()" style="cursor:pointer">✕</span></span>`).join("")}<select onchange="wpEditAddOwner(this)" style="border:none;background:none;height:24px;font-size:12px;flex:1;min-width:90px"><option value="">+ 담당 추가</option>${WP_MEMBERS.filter(m=>!curOwners.includes(m.name)).map(m=>`<option>${esc(m.name)}</option>`).join("")}</select></div>`;
   const roleOpts=WP_ROLES.map(r=>`<option ${n.role===r?"selected":""}>${r}</option>`).join("");
   const allTasks=wpFlatten((WP_LOADED_PROJ.find(p=>p.id===projId)||{}).children||[],false,[]).filter(x=>x.n.id!==n.id);
   const depOpts=allTasks.map(x=>`<option value="${x.n.id}" ${(n.deps||[]).includes(x.n.id)?"selected":""}>${x.n.id} ${esc(x.n.name)}</option>`).join("");
@@ -7868,7 +7930,7 @@ function wpEditFormHtml(projId,n){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <label style="font-size:11px;color:var(--t2)">작업명<input id="wpe-name" value="${esc(n.name||"")}" style="width:100%;height:30px;font-size:13px"></label>
       <label style="font-size:11px;color:var(--t2)">직무<select id="wpe-role" style="width:100%;height:30px">${roleOpts}</select></label>
-      <label style="font-size:11px;color:var(--t2)">담당자<select id="wpe-owner" style="width:100%;height:30px">${memOpts}</select></label>
+      <label style="font-size:11px;color:var(--t2)">담당자(여러명 가능)${memChips}</label>
       <label style="font-size:11px;color:var(--t2)">진행률 %<input id="wpe-prog" type="number" min="0" max="100" value="${n.prog||0}" style="width:100%;height:30px"></label>
       <label style="font-size:11px;color:var(--t2)">시작일<input id="wpe-start" type="date" value="${esc(n.start||"")}" style="width:100%;height:30px"></label>
       <label style="font-size:11px;color:var(--t2)">마감일<input id="wpe-end" type="date" value="${esc(n.end||"")}" style="width:100%;height:30px"></label>
@@ -7899,7 +7961,7 @@ function wpAddTask(projId, parentId){
   const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
   const name=prompt("작업명:"); if(!name) return;
   const id=wpNewId(projId);
-  const t={id,name,role:"설계",owner:"",owner_email:"",prog:0,start:"",end:"",deps:[],files:[],history:[],comments:[],children:[]};
+  const t={id,name,role:"설계",owner:"",owners:[],owner_email:"",owner_emails:[],prog:0,start:"",end:"",deps:[],files:[],history:[],comments:[],children:[]};
   wpLog(t,"작업 생성"); (parent.children=parent.children||[]).push(t); WP_OPEN[parentId]=true;
   WP_SEL=id; WP_ATTACH={id,mode:"edit"}; wpSaveProject(projId); wpRender();
 }
@@ -7908,7 +7970,10 @@ function wpSaveTask(projId,id){
   const g=x=>document.getElementById(x); const changes=[];
   const nv=g("wpe-name").value.trim(); if(nv!==n.name){ changes.push(`작업명→${nv}`); n.name=nv; n.en=""; }
   const rv=g("wpe-role").value; if(rv!==n.role){ changes.push(`직무→${rv}`); n.role=rv; }
-  const ovEmail=g("wpe-owner").value; const ovName=(WP_MEMBERS.find(m=>m.email===ovEmail)||{}).name||""; if(ovEmail!==n.owner_email){ changes.push(`담당→${ovName||"미지정"}`); n.owner_email=ovEmail; n.owner=ovName; }
+  const ownChips=[...document.querySelectorAll("#wpe-owners .wp-ownchip")].map(c=>c.dataset.nm);
+  const ownEmails=ownChips.map(nm=>(WP_MEMBERS.find(m=>m.name===nm)||{}).email||"").filter(Boolean);
+  const prevOwners=wpOwners(n);
+  if(JSON.stringify(ownChips)!==JSON.stringify(prevOwners)){ changes.push(`담당→${ownChips.join(", ")||"미지정"}`); n.owners=ownChips; n.owner=ownChips.join(", "); n.owner_email=ownEmails[0]||""; n.owner_emails=ownEmails; }
   const pv=Math.max(0,Math.min(100,+g("wpe-prog").value||0)); if(pv!==(n.prog||0)){ changes.push(`진행률 ${n.prog||0}%→${pv}%`); n.prog=pv; }
   const sv=g("wpe-start").value, ev=g("wpe-end").value; if(sv!==n.start){ changes.push(`시작 ${sv}`); n.start=sv; } if(ev!==n.end){ changes.push(`마감 ${ev}`); n.end=ev; }
   const dv=[...g("wpe-deps").selectedOptions].map(o=>o.value); if(JSON.stringify(dv)!==JSON.stringify(n.deps||[])){ changes.push(`선행→${dv.join(",")||"없음"}`); n.deps=dv; }
@@ -7979,7 +8044,7 @@ function wpRenderGantt(){
       const st=wpStatus(n,locked), ic=WP_STIC[st];
       const s=Math.round((new Date(n.start)-d0)/86400000), e=Math.round((new Date(n.end)-d0)/86400000);
       const cells=dayCols.map((d,i)=>{ const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border)"></div>`; const isS=i===s,isE=i===e; return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center"><div class="wp-gbar" style="width:100%;border-radius:${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}"><div style="width:${isS?Math.min(100,n.prog||0):0}%;background:${ic[1]};opacity:.85"></div></div></div>`; }).join("");
-      return `<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);${locked?'opacity:.55':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${ic[0]} ${esc(wpNm(n))}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(n.owner||"")}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
+      return `<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);${locked?'opacity:.55':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${ic[0]} ${esc(wpNm(n))}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(wpOwnerText(n))}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
     }).join("");
     h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:auto">${head}${rows}</div></div>`;
   });
