@@ -1199,7 +1199,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v259</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v260</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6956,6 +6956,41 @@ async function schxRenderProject(body, proj){
 function schxChip(proj,key,subIdx,gid,name){
   return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:#eef2ff;color:#3730a3;padding:3px 8px;border-radius:99px">📋 ${esc(name)}<span onclick="schxMoveGroup('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="다른 단계로 이동" style="cursor:pointer">↔</span><span onclick="schxUnlink('${esc(proj)}','${key}','${subIdx}','${esc(gid)}')" title="연결 해제" style="cursor:pointer;color:#7c3aed">✕</span></span>`;
 }
+// 연결된 업무일정 항목을 폴더트리 구조 그대로 렌더 (평면 칩 아님)
+function schxLinkedView(proj,key,subIdx,ids,gName,basePad){
+  if(!ids||!ids.length) return '';
+  const set=new Set(ids);
+  const treeHtml=schxLinkedTreeHtml(proj,key,subIdx,set,_schxTreeCache[proj]||[],0,basePad);
+  if(treeHtml) return `<div style="padding:2px 0 8px 0">${treeHtml}</div>`;
+  // 폴백: 워크플랜 트리에서 못 찾으면 평면 표시
+  return `<div style="padding:2px 0 8px ${basePad}px;display:flex;flex-wrap:wrap;gap:6px">${ids.map(gid=>schxChip(proj,key,subIdx,gid,gName(gid))).join("")}</div>`;
+}
+function schxLinkedTreeHtml(proj,key,subIdx,set,nodes,depth,basePad){
+  let out='';
+  for(const n of nodes){
+    const child=(n.children&&n.children.length)?schxLinkedTreeHtml(proj,key,subIdx,set,n.children,depth+1,basePad):'';
+    const inSet=set.has(n.id);
+    if(!inSet && !child) continue;                 // 연결과 무관한 가지 생략
+    const has=n.children&&n.children.length;
+    const del=has?'schxUnlinkCascade':'schxUnlink'; // 폴더는 하위까지 해제
+    out+=`<div style="display:flex;align-items:center;gap:6px;padding:2px 14px 2px ${basePad+depth*16}px;font-size:12px">
+      <span>${has?"📂":"📋"}</span>
+      <span style="color:${inSet?"#3730a3":"#94a3b8"};font-weight:${has?600:400}">${esc(n.name||n.id)}</span>
+      ${inSet?`<span onclick="schxMoveGroup('${esc(proj)}','${key}','${subIdx}','${esc(n.id)}')" title="다른 단계로 이동" style="cursor:pointer;color:#94a3b8">↔</span><span onclick="${del}('${esc(proj)}','${key}','${subIdx}','${esc(n.id)}')" title="연결 해제" style="cursor:pointer;color:#7c3aed">✕</span>`:""}
+    </div>${child}`;
+  }
+  return out;
+}
+// 폴더 해제 = 그 폴더 + 모든 하위 항목 연결 해제
+function schxUnlinkCascade(p,key,subIdx,nodeId){
+  const tree=_schxTreeCache[p]||[]; let target=null;
+  (function find(ns){ for(const n of ns){ if(n.id===nodeId){target=n;return;} if(n.children){find(n.children); if(target)return;} } })(tree);
+  const ids=new Set(); if(target){ (function col(n){ ids.add(n.id); (n.children||[]).forEach(col); })(target); } else ids.add(nodeId);
+  const D=_schxData[p];
+  if(subIdx===""||subIdx==null){ D.groups[key]=(D.groups[key]||[]).filter(x=>!ids.has(x)); }
+  else { const s=D.subs[key][+subIdx]; s.groups=(s.groups||[]).filter(x=>!ids.has(x)); }
+  schxSave(p); schxRenderBody();
+}
 // 단계 1개 렌더 (템플릿 단계 + 커스텀 단계 공통). isCustom=true면 이름 편집/삭제 가능
 function schxStageBlock(proj,ph,stg,col,gName,D,isCustom){
   const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
@@ -6972,7 +7007,7 @@ function schxStageBlock(proj,ph,stg,col,gName,D,isCustom){
     ${isCustom?`<span onclick="schxDelStage('${esc(proj)}','${ph}','${esc(stg.id)}')" title="단계 삭제" style="cursor:pointer;color:var(--r)">🗑</span>`:""}
   </div>`;
   const gl=D.groups[key]||[];
-  if(gl.length) h+=`<div style="padding:0 14px 6px 44px;display:flex;flex-wrap:wrap;gap:6px">${gl.map(gid=>schxChip(proj,key,"",gid,gName(gid))).join("")}</div>`;
+  if(gl.length) h+=schxLinkedView(proj,key,"",gl,gName,44);
   (D.subs[key]||[]).forEach((s,si)=>{
     h+=`<div style="margin:2px 14px 8px 38px;border:1px dashed var(--border2);border-radius:8px;padding:7px 10px;background:var(--bg2)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -6982,7 +7017,7 @@ function schxStageBlock(proj,ph,stg,col,gName,D,isCustom){
         <button class="btn sm" onclick="schxLinkGroup('${esc(proj)}','${key}','${si}')">🔗 연결</button>
         <span onclick="schxDelSub('${esc(proj)}','${key}',${si})" title="하위 삭제" style="cursor:pointer;color:var(--r)">🗑</span>
       </div>
-      ${(s.groups||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${(s.groups||[]).map(gid=>schxChip(proj,key,String(si),gid,gName(gid))).join("")}</div>`:`<div style="font-size:11px;color:var(--t3);margin-top:4px">연결된 업무일정 그룹 없음 — [🔗 연결]</div>`}
+      ${(s.groups||[]).length?schxLinkedView(proj,key,String(si),s.groups,gName,24):`<div style="font-size:11px;color:var(--t3);margin-top:4px">연결된 업무일정 그룹 없음 — [🔗 연결]</div>`}
     </div>`;
   });
   return h;
