@@ -1199,7 +1199,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v256</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v257</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1241,7 +1241,10 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   </div>
   <button id="nav-workplan" onclick="showPage('workplan')">📋 업무일정</button>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
-  <button id="nav-schedule" onclick="showPage('schedule')">📅 통합일정관리</button>
+  <div class="nav-group">
+    <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정관리 <span class="navgrp-caret">▾</span></button>
+    <div class="nav-dropdown" id="navdd-schedule"></div>
+  </div>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
 </div>
@@ -2567,7 +2570,7 @@ function showPage(p){
   $('page-'+p).classList.add('on');
   $('nav-'+p)?.classList.add('active');
   // 드롭다운 그룹 버튼 active 표시
-  const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax']};
+  const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax'], schedule:['schedule']};
   for(const [g,pages] of Object.entries(NAVGROUPS)){ $('navgrp-'+g)?.classList.toggle('active', pages.includes(p)); }
   $('specHdrBtn')?.classList.toggle('active', p==='spec');
   if(p==='contacts'){ loadContacts(); loadAnConfig().then(()=>{ if(curPage==='contacts'&&typeof renderContacts==='function'&&CONTACTS&&CONTACTS.length) renderContacts(); }); }
@@ -2889,6 +2892,23 @@ function projSub(sub){
   }
 }
 
+async function schedDropdownRender(){
+  const dd=document.getElementById('navdd-schedule'); if(!dd) return;
+  if(typeof pLoadConfig==='function' && !(pConfig&&pConfig.projects&&pConfig.projects.length)){ try{ await pLoadConfig(); }catch(e){} }
+  const list=(pConfig&&pConfig.projects&&pConfig.projects.length)? pConfig.projects
+    : (typeof pProjects!=='undefined'?pProjects.map(c=>({code:c,label:''})):[]);
+  let h=`<button onclick="schedPick('__main__')">🗂 메인(전체)</button>`;
+  if(!list.length){ dd.innerHTML=h; return; }
+  h+=list.map(p=>{ const code=(typeof p==='string'?p:p.code)||''; const label=(typeof p==='object'&&p.label)?p.label:'';
+    return `<button onclick="schedPick('${esc(code)}')">📅 ${esc(code)}${label?` <span style="color:var(--t3);font-weight:400">${esc(label)}</span>`:''}</button>`; }).join('');
+  dd.innerHTML=h;
+}
+function schedPick(code){
+  document.querySelectorAll('.nav-dropdown').forEach(x=>x.classList.remove('open'));
+  document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
+  _schxView=code;
+  showPage('schedule');
+}
 function navToggle(ev, g){
   if(ev) ev.stopPropagation();
   const btn=document.getElementById('navgrp-'+g);
@@ -2900,6 +2920,7 @@ function navToggle(ev, g){
   document.querySelectorAll('.nav-group').forEach(x=>x.classList.remove('open'));
   if(!wasOpen){
     if(g==='project') projDropdownRender();
+    if(g==='schedule') schedDropdownRender();
     const r=btn.getBoundingClientRect();
     dd.style.left=r.left+'px';
     dd.style.top=r.bottom+'px';
@@ -6809,7 +6830,7 @@ const SCHX_TPL = {
 };
 const SCHX_PHORDER=["mfg","setup","cs"];
 const SCHX_PHCOLOR={mfg:"#534AB7", setup:"#1FA89B", cs:"#E0921E"};
-let _schxData={}, _schxView="__main__", _schxGroupCache={};
+let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0;
 
 function schxKey(ph,st){ return ph+"."+st; }
 function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}}; }
@@ -6841,6 +6862,19 @@ async function schxGroups(proj){
   try{ const j=await wpReadPlan(proj); const ch=(j&&j.project&&j.project.children)||[]; arr=ch.filter(c=>c.group||c.children).map(c=>({id:c.id,name:c.name||c.id})); }catch(e){}
   _schxGroupCache[proj]=arr; return arr;
 }
+// 업무일정 전체 폴더트리 (재귀) — 모달용
+async function schxTreeRaw(proj){
+  if(_schxTreeCache[proj]) return _schxTreeCache[proj];
+  let ch=[];
+  try{ const j=await wpReadPlan(proj); ch=(j&&j.project&&j.project.children)||[]; }catch(e){}
+  _schxTreeCache[proj]=ch; return ch;
+}
+// 트리 전체 노드 id→name (칩 이름 해석용)
+async function schxFlat(proj){
+  const tree=await schxTreeRaw(proj); const out=[];
+  (function w(ns){ (ns||[]).forEach(n=>{ out.push({id:n.id,name:n.name||n.id}); if(n.children)w(n.children); }); })(tree);
+  return out;
+}
 async function schxSave(proj){
   const ind=document.getElementById("schx-save"); if(ind) ind.textContent="저장 중…";
   try{ await schxWrite(proj); if(ind) ind.textContent="✓ 저장됨"; }
@@ -6855,10 +6889,9 @@ async function schxInit(){
       <span style="flex:1"></span>
       <span id="schx-save" style="font-size:12px;color:var(--t3)">✓ 저장됨</span>
     </div>
-    <div id="schx-tabs" style="display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px"></div>
     <div id="schx-body"></div>
   </div>`;
-  schxRenderTabs(); schxRenderBody();
+  schxRenderBody();
 }
 function schxRenderTabs(){
   const wrap=document.getElementById("schx-tabs"); if(!wrap) return;
@@ -6890,8 +6923,8 @@ async function schxRenderMain(body){
 async function schxRenderProject(body, proj){
   await schxEnsure(proj);
   const D=_schxData[proj];
-  const groups=await schxGroups(proj);
-  const gName=gid=>{ const g=groups.find(x=>x.id===gid); return g?g.name:gid; };
+  const flat=await schxFlat(proj);
+  const gName=gid=>{ const g=flat.find(x=>x.id===gid); return g?g.name:gid; };
   let h="";
   for(const ph of SCHX_PHORDER){
     const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
@@ -6944,10 +6977,59 @@ function schxSubDate(p,key,si,f,v){ _schxData[p].subs[key][si][f]=v; schxSave(p)
 function schxDelSub(p,key,si){ if(!confirm("이 하위 단계를 삭제할까요? (연결만 해제됩니다)")) return; _schxData[p].subs[key].splice(si,1); schxSave(p); schxRenderBody(); }
 function schxAllLinked(p){ const D=_schxData[p]; const out=[]; Object.values(D.groups||{}).forEach(a=>out.push(...a)); Object.values(D.subs||{}).forEach(arr=>arr.forEach(s=>out.push(...(s.groups||[])))); return out; }
 async function schxLinkGroup(p,key,subIdx){
-  const groups=await schxGroups(p);
-  if(!groups.length){ toast("이 프로젝트 업무일정에 그룹(할일)이 없습니다","bad"); return; }
-  const used=schxAllLinked(p);
-  schxPickModal(p,key,subIdx, groups.filter(g=>!used.includes(g.id)));
+  await schxTreeRaw(p);                 // 트리 캐시 확보
+  const tree=_schxTreeCache[p]||[];
+  if(!tree.length){ toast("이 프로젝트 업무일정에 항목이 없습니다","bad"); return; }
+  schxTreeModal(p,key,subIdx);
+}
+// 업무일정 폴더트리 그대로 모달 — 폴더 선택 시 하위까지 전체 연결
+function schxTreeModal(p,key,subIdx){
+  let ov=document.getElementById("schxPickOv"); if(ov)ov.remove();
+  const tree=_schxTreeCache[p]||[];
+  const used=new Set(schxAllLinked(p));
+  _schxTrN=0;
+  ov=document.createElement("div"); ov.id="schxPickOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(540px,94vw);max-height:82vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b>🔗 업무일정 연결</b><span style="font-size:11px;font-weight:400;opacity:.85">폴더 선택 = 하위 전체 연결</span>
+      <span style="cursor:pointer" onclick="document.getElementById('schxPickOv').remove()">✕</span></div>
+    <div style="overflow:auto;padding:4px 0">${tree.length?tree.map(n=>schxTreeRowHtml(p,key,subIdx,n,0,used)).join(""):'<div style="padding:18px;text-align:center;color:#94a3b8;font-size:13px">업무일정 항목이 없습니다</div>'}</div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+}
+function schxTreeRowHtml(p,key,subIdx,node,depth,usedSet){
+  const has=node.children&&node.children.length;
+  const linked=usedSet.has(node.id);
+  const pad=10+depth*16;
+  const cid="schxtr_"+(_schxTrN++);
+  let row=`<div style="display:flex;align-items:center;gap:6px;padding:6px 12px 6px ${pad}px;border-bottom:1px solid #f4f6f9;font-size:13px">
+    ${has?`<span onclick="var x=document.getElementById('${cid}');x.style.display=(x.style.display==='none'?'block':'none');this.textContent=(x.style.display==='none'?'▸':'▾')" style="cursor:pointer;width:14px;text-align:center;color:#94a3b8">▾</span>`:`<span style="width:14px"></span>`}
+    <span>${has?"📂":"📋"}</span>
+    <span style="flex:1;${linked?'color:#94a3b8':''}">${esc(node.name||node.id)}</span>
+    ${linked?`<span style="font-size:11px;color:#94a3b8">연결됨</span>`:`<button class="btn sm" onclick="schxTreePick('${esc(p)}','${key}','${subIdx}','${esc(node.id)}')">${has?"＋ 폴더 전체":"＋ 연결"}</button>`}
+  </div>`;
+  if(has){
+    row+=`<div id="${cid}" style="display:block">${node.children.map(c=>schxTreeRowHtml(p,key,subIdx,c,depth+1,usedSet)).join("")}</div>`;
+  }
+  return row;
+}
+function schxTreePick(p,key,subIdx,nodeId){
+  const tree=_schxTreeCache[p]||[];
+  let target=null;
+  (function find(ns){ for(const n of ns){ if(n.id===nodeId){target=n;return;} if(n.children){find(n.children); if(target)return;} } })(tree);
+  if(!target){ toast("항목을 찾지 못했습니다","bad"); return; }
+  const ids=[]; (function col(n){ ids.push(n.id); (n.children||[]).forEach(col); })(target);  // 자신 + 모든 하위
+  const used=new Set(schxAllLinked(p));
+  const add=ids.filter(id=>!used.has(id));
+  if(!add.length){ toast("이미 모두 연결되어 있습니다","bad"); return; }
+  const D=_schxData[p];
+  if(subIdx===""||subIdx==null){ D.groups[key]=D.groups[key]||[]; add.forEach(id=>D.groups[key].push(id)); }
+  else { const s=D.subs[key][+subIdx]; s.groups=s.groups||[]; add.forEach(id=>s.groups.push(id)); }
+  document.getElementById("schxPickOv")?.remove();
+  toast(`${add.length}개 항목 연결`,"ok");
+  schxSave(p); schxRenderBody();
 }
 function schxAddLink(p,key,subIdx,gid){
   const D=_schxData[p];
