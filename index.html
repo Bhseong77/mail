@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v251</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v252</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4658,12 +4658,15 @@ function anRender(p){
       const num=v=>Number(String(v==null?'':v).replace(/[, ]/g,''))||0;
       const totQty=items.reduce((a,b)=>a+num(b.qty),0);
       const lineCnt=items.length;
-      const amt=items.reduce((a,b)=>a+num(b.amount),0);
+      const _ovAmt=num(r.quoteAmount);          // 견적서에서 불러온 금액(네고 우선)
+      let amt=items.reduce((a,b)=>a+num(b.amount),0);
+      if(_ovAmt>0) amt=_ovAmt;                  // 견적금액이 있으면 그 값으로 대체
       const vat=Math.round(amt*0.1);
       sumQty+=totQty; sumAmt+=amt; sumVat+=vat;
       const rep=items[0]||{};
       const more=lineCnt>1?` <span class="ord-more" onclick="anOrderItemsModal('${p}','${r.fid}')">외 ${lineCnt-1}건 ▸</span>`:'';
-      const repPrice=lineCnt>1?'':esc(fmtNum(rep.price));
+      let repPrice=lineCnt>1?'':esc(fmtNum(rep.price));
+      if(_ovAmt>0 && lineCnt<=1) repPrice=esc(fmtNum(totQty?Math.round(amt/totQty):amt));
       const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
       const catOpts=cats.map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
       const cardOpts=`<option value="">-</option>`+cards.map(c=>{const n=_cardName(c);return `<option ${n===(r.card||'')?'selected':''}>${esc(n)}</option>`;}).join('');
@@ -4676,7 +4679,7 @@ function anRender(p){
         <td class="c">${lineCnt}</td>
         <td class="r">${repPrice}</td>
         <td class="r">${esc(fmtNum(vat))}</td>
-        <td class="r" style="font-weight:700;color:#0f4c81">${esc(fmtNum(amt))}</td>
+        <td class="r"><span onclick="invQuotePick('${p}','${r.fid}')" title="${_ovAmt>0?('견적금액 적용중'+(r.quoteRef?' · '+esc(r.quoteRef):'')+' · 클릭=다시 선택'):'클릭 → 견적서에서 금액 불러오기 (네고 있으면 네고 우선)'}" style="cursor:pointer;font-weight:700;color:${_ovAmt>0?'#7c3aed':'#0f4c81'};border-bottom:1px dashed ${_ovAmt>0?'#c4b5fd':'#cbd5e1'}">${amt?esc(fmtNum(amt)):'📄 불러오기'}</span>${_ovAmt>0?`<span onclick="invQuoteClear('${p}','${r.fid}')" title="견적금액 해제(원래대로)" style="cursor:pointer;color:#c4b5fd;margin-left:5px;font-size:11px">✕</span>`:''}</td>
         <td class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>
         <td class="c"><select class="memo" style="width:112px" onchange="anField('${p}','${r.fid}','card',this.value)">${cardOpts}</select></td>
         <td><span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">${esc((r.fileName||'').slice(0,22))}</span></td>
@@ -13182,6 +13185,87 @@ function poadvQuoteApply(rowIndex, val){
   poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(val);
   poadvQuoteClose();
   poadvRenderRows();
+}
+
+// ── 거래명세서: 견적서에서 금액 불러오기 (파일단위 총액, 네고 우선) ──
+let _invQuoteRows=[], _invQuoteTarget={p:"",fid:""};
+async function invQuotePick(p, fid){
+  const r=AN_DATA[p]&&AN_DATA[p][fid]; if(!r){ toast("행 정보 없음","bad"); return; }
+  if(!AN_DATA["doc-quote"] || !Object.keys(AN_DATA["doc-quote"]).length){
+    try{ AN_DATA["doc-quote"]=(await spGetJson(`${DOC_MAP["doc-quote"]}/_analysis.json`))||{}; }catch(e){}
+  }
+  const data=AN_DATA["doc-quote"]||{};
+  const num=v=>poadvNum(v);
+  const rows=[];
+  Object.keys(data).forEach(qid=>{
+    const f=data[qid]||{}; const nego=num(f.negoAmount);
+    const items=(f.items&&f.items.length)?f.items:[];
+    const lineSum=items.reduce((a,b)=>a+num(b.amount),0);
+    const apply = nego>0 ? nego : (lineSum>0?lineSum:num(f.amount));
+    if(apply<=0) return;
+    const itemLabel=((items[0]&&items[0].item)||f.item||"")+(items.length>1?` 외 ${items.length-1}건`:"");
+    rows.push({qid, company:f.company||"?", fileName:f.fileName||"", quoteDate:f.quoteDate||f.date||"", itemLabel, lineSum, nego, apply});
+  });
+  if(!rows.length){ alert("견적서 탭에 분석된 견적(금액)이 없습니다.\n먼저 견적서를 업로드/분석하세요."); return; }
+  const co=(r.company||"").trim();
+  rows.sort((a,b)=>{ const am=(a.company===co)?0:1, bm=(b.company===co)?0:1; return am-bm || String(b.quoteDate).localeCompare(String(a.quoteDate)); });
+  rows.forEach((x,i)=>x._i=i);
+  _invQuoteRows=rows; _invQuoteTarget={p,fid};
+  document.getElementById("inv-quote-modal")?.remove();
+  const html=`
+    <div id="inv-quote-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">
+      <div style="background:#fff;width:min(840px,95vw);max-height:85vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:14px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:700;">📄 견적서에서 금액 불러오기 <span style="font-size:12px;opacity:.85;">· ${esc(co||"")} · 행 클릭 → 금액 적용 (네고 있으면 네고 우선)</span></div>
+          <button onclick="document.getElementById('inv-quote-modal').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;">
+          <input id="inv-quote-q" placeholder="🔍 회사·품목·파일 검색" oninput="invQuoteFilter(this.value)" autocomplete="off"
+            value="${esc(co||"")}" style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div style="overflow:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#f1f4f8;position:sticky;top:0;">
+              <th style="padding:8px 9px;text-align:left;">회사 / 견적일</th><th style="padding:8px 9px;text-align:left;">품목</th>
+              <th style="padding:8px 9px;text-align:right;">라인합계</th><th style="padding:8px 9px;text-align:right;">네고</th><th style="padding:8px 9px;text-align:right;">적용금액</th>
+            </tr></thead><tbody id="inv-quote-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  const wrap=document.createElement("div"); wrap.innerHTML=html; document.body.appendChild(wrap.firstElementChild);
+  invQuoteFilter(co||"");
+  setTimeout(()=>{ const q=document.getElementById("inv-quote-q"); if(q){ q.focus(); q.select(); } },50);
+}
+function invQuoteFilter(q){
+  const tb=document.getElementById("inv-quote-tbody"); if(!tb) return;
+  q=(q||"").trim().toLowerCase();
+  let arr=_invQuoteRows;
+  if(q) arr=arr.filter(r=>`${r.company} ${r.itemLabel} ${r.fileName}`.toLowerCase().includes(q));
+  if(!arr.length){ tb.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center;color:#94a3b8;">검색 결과 없음</td></tr>'; return; }
+  tb.innerHTML=arr.map(r=>`
+    <tr style="cursor:pointer;border-bottom:1px solid #eef0f3;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''" onclick="invQuoteApply(${r._i})">
+      <td style="padding:7px 9px;">${esc(r.company)}<div style="font-size:11px;color:#94a3b8;">${esc(r.quoteDate)||'-'}${r.fileName?' · '+esc(r.fileName.slice(0,18)):''}</div></td>
+      <td style="padding:7px 9px;">${esc(r.itemLabel)||'<span style="color:#cbd5e1">-</span>'}</td>
+      <td style="padding:7px 9px;text-align:right;">${r.lineSum?poadvComma(r.lineSum):'-'}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;color:${r.nego>0?'#7c3aed':'#cbd5e1'};">${r.nego>0?('₩'+poadvComma(r.nego)):'없음'}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;color:#0f4c81;">₩${poadvComma(r.apply)}</td>
+    </tr>`).join("");
+}
+async function invQuoteApply(i){
+  const r=_invQuoteRows[i]; const {p,fid}=_invQuoteTarget;
+  if(!r||!p||!fid||!(AN_DATA[p]&&AN_DATA[p][fid])){ document.getElementById("inv-quote-modal")?.remove(); return; }
+  AN_DATA[p][fid].quoteAmount=String(poadvNum(r.apply));
+  AN_DATA[p][fid].quoteRef=r.fileName||r.company||"";
+  document.getElementById("inv-quote-modal")?.remove();
+  try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast("견적금액 적용·저장됨","ok"); }catch(e){ toast("저장 실패","bad"); }
+  anRender(p);
+}
+async function invQuoteClear(p, fid){
+  if(!(AN_DATA[p]&&AN_DATA[p][fid])) return;
+  delete AN_DATA[p][fid].quoteAmount; delete AN_DATA[p][fid].quoteRef;
+  try{ await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]); toast("견적금액 해제됨","ok"); }catch(e){ toast("저장 실패","bad"); }
+  anRender(p);
 }
 
 function poadvRenderRows(){
