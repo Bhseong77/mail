@@ -30,6 +30,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
+<script src="./vendor/libredwg/dwg-viewer.js"></script>
 <style>
 :root{
   --bg:#f4f6fa; --bg2:#fff; --bg3:#f8f9fc;
@@ -5407,9 +5408,39 @@ function _dxfRenderInto(box, name, itemId, dxf, note){
     <canvas id="dxfCanvas" style="width:100%;height:calc(100% - 44px);display:block;background:#0f1115;cursor:grab"></canvas>`;
   _dxfDraw(document.getElementById("dxfCanvas"), dxf);
 }
+// ── DWG → 브라우저 SVG 렌더 (libredwg-web, 서버 불필요) ──
+async function _dwgRenderSvgInto(box, name, itemId, buf){
+  box.innerHTML=`<div class="pv-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span>📐 ${esc(name)} <span style="color:#10b981;font-size:12px;font-weight:700">브라우저 렌더</span></span>
+      <span style="flex:1"></span>
+      <span id="dwgSvgInfo" style="font-size:11px;color:#9fd0ff"></span>
+      <span style="font-size:11px;color:var(--t3)">휠 줌 · 드래그 이동</span>
+      <a href="#" onclick="event.preventDefault();spDownloadUrl('${itemId}').then(u=>window.open(u))" style="font-size:12px;margin-left:6px">다운로드</a>
+    </div>
+    <div id="dwgSvgHost" style="width:100%;height:calc(100% - 44px);background:#0e0f12"></div>`;
+  const host=document.getElementById('dwgSvgHost');
+  const info=await DwgViewer.previewInto(host, buf);   // 실패 시 throw → 호출부 폴백
+  const el=document.getElementById('dwgSvgInfo');
+  if(el){
+    let n=0; for(const k in (info.types||{})) n+=info.types[k];
+    el.textContent=`${info.ms}ms · ${n.toLocaleString()}개`;
+  }
+}
 const _dwgDxfCache={};   // itemId → 변환된 DXF 텍스트 (재변환 방지)
 async function cadPreview(box, itemId, name, driveId){
   if(/\.dwg$/i.test(name)){
+    // 0) 브라우저 libredwg-web 우선 시도 (서버 불필요, 사내망 OK)
+    if(window.DwgViewer){
+      box.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">📐 DWG 렌더링 중…</div>';
+      try{
+        const blob=await spFetchBlob(itemId, driveId);
+        await _dwgRenderSvgInto(box, name, itemId, await blob.arrayBuffer());
+        return;
+      }catch(err){
+        console.warn('[cadPreview] 브라우저 DWG 렌더 실패 → 서버 ODA 폴백', err);
+        // 아래 서버 변환 경로로 진행
+      }
+    }
     // 캐시된 변환결과 있으면 즉시 렌더
     if(_dwgDxfCache[itemId]){
       try{ await _loadDxfParser(); _dxfRenderInto(box, name, itemId, _dxfParse(_dwgDxfCache[itemId]), "DWG→DXF (캐시)"); return; }catch(_){}
