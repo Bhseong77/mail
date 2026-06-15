@@ -1199,7 +1199,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v260</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v261</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6891,6 +6891,10 @@ async function schxSave(proj){
   try{ await schxWrite(proj); if(ind) ind.textContent="✓ 저장됨"; }
   catch(e){ if(ind) ind.textContent="저장 실패"; toast("저장 실패: "+e.message,"bad"); }
 }
+async function schxSaveNow(){
+  if(_schxView && _schxView!=="__main__"){ await schxSave(_schxView); toast("저장됨","ok"); }
+  else { toast("프로젝트를 선택한 뒤 저장하세요 (전체 일정은 요약 보기)","bad"); }
+}
 
 async function schxInit(){
   const root=document.getElementById("page-schedule");
@@ -6898,6 +6902,7 @@ async function schxInit(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <h2 style="margin:0;font-size:19px">📅 통합일정 <span style="font-size:12px;font-weight:400;color:var(--t3)">제작 · 설치 · CS 생애주기 · 업무일정 연동</span></h2>
       <span style="flex:1"></span>
+      <button class="btn" onclick="schxSaveNow()" style="font-size:13px">💾 저장</button>
       <span id="schx-save" style="font-size:12px;color:var(--t3)">✓ 저장됨</span>
     </div>
     <div id="schx-body"></div>
@@ -6973,13 +6978,33 @@ function schxLinkedTreeHtml(proj,key,subIdx,set,nodes,depth,basePad){
     if(!inSet && !child) continue;                 // 연결과 무관한 가지 생략
     const has=n.children&&n.children.length;
     const del=has?'schxUnlinkCascade':'schxUnlink'; // 폴더는 하위까지 해제
-    out+=`<div style="display:flex;align-items:center;gap:6px;padding:2px 14px 2px ${basePad+depth*16}px;font-size:12px">
-      <span>${has?"📂":"📋"}</span>
-      <span style="color:${inSet?"#3730a3":"#94a3b8"};font-weight:${has?600:400}">${esc(n.name||n.id)}</span>
+    const icon=has?"📂":schxWpIcon(n);
+    out+=`<div style="display:flex;align-items:center;gap:6px;padding:3px 14px 3px ${basePad+depth*16}px;font-size:12px;flex-wrap:wrap">
+      <span>${icon}</span>
+      <span style="color:${inSet?"#1e293b":"#94a3b8"};font-weight:${has?700:500}">${esc(n.name||n.id)}</span>
+      ${(!has&&inSet)?schxWpMeta(n):""}
       ${inSet?`<span onclick="schxMoveGroup('${esc(proj)}','${key}','${subIdx}','${esc(n.id)}')" title="다른 단계로 이동" style="cursor:pointer;color:#94a3b8">↔</span><span onclick="${del}('${esc(proj)}','${key}','${subIdx}','${esc(n.id)}')" title="연결 해제" style="cursor:pointer;color:#7c3aed">✕</span>`:""}
     </div>${child}`;
   }
   return out;
+}
+// 워크플랜 작업 노드의 상태 아이콘 / 메타(직무·담당자·기간·지연) — 업무일정과 동일하게
+function schxWpIcon(n){
+  const st=(typeof wpStatus==='function')?wpStatus(n):((n.prog||0)>=100?'done':'active');
+  return st==='done'?'✅':st==='blocker'?'⚠️':st==='locked'?'🔒':'🔵';
+}
+function schxWpMeta(n){
+  let m='';
+  const st=(typeof wpStatus==='function')?wpStatus(n):'';
+  const lbl=(typeof wpStatusLabel==='function')?wpStatusLabel(n,st):'';
+  if(lbl) m+=`<span style="font-size:10px;background:#f1f5f9;color:#475569;padding:1px 6px;border-radius:99px">${esc(lbl)}</span>`;
+  const role=(typeof wpRl==='function')?wpRl(n):(n.role||'');
+  if(role) m+=`<span style="font-size:10px;background:#eef2ff;color:#3730a3;padding:1px 6px;border-radius:99px">${esc(role)}</span>`;
+  const ow=(typeof wpOwners==='function')?wpOwners(n):((n.owners)||[]);
+  if(ow&&ow.length) m+=`<span style="font-size:10.5px;color:#64748b">👤 ${esc(ow.join(', '))}</span>`;
+  if(n.start||n.end) m+=`<span style="font-size:10.5px;color:#94a3b8">📅 ${esc(n.start||'')}~${esc(n.end||'')}</span>`;
+  if(typeof wpDelayBadge==='function'){ const db=wpDelayBadge(n); if(db) m+=db; }
+  return m;
 }
 // 폴더 해제 = 그 폴더 + 모든 하위 항목 연결 해제
 function schxUnlinkCascade(p,key,subIdx,nodeId){
