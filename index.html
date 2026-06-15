@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v241</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v243</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1317,7 +1317,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
         <div class="ta-sub" id="atSub"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="atSearch" placeholder="파일명·제목·보낸사람 검색" oninput="atSearchInput()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <input type="text" id="atSearch" placeholder="🔍 통합검색 (받은·보낸·팀즈 전체)" oninput="atSearchInput()" style="padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:240px">
         <button class="btn" onclick="atReload()">↻ 새로고침</button>
       </div>
     </div>
@@ -1364,8 +1364,16 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
       <button class="btn primary sm" id="wp-addgrp" onclick="wpAddGroup()" style="display:none;">＋ 할일 추가</button>
     </div>
 
-    <div id="wp-legend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--t2);margin-bottom:12px;">
+    <div id="wp-legend" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--t2);margin-bottom:12px;">
       <span>✅ 완료</span><span>🔵 진행중</span><span>🔒 대기(선행 미완)</span><span>⚠️ 블로커</span><span>⏰ 지연</span><span>📎 첨부</span>
+      <span style="flex:1"></span>
+      <div id="wp-filter" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input id="wpf-q" placeholder="🔍 작업·담당자 검색" oninput="wpFilterChange()" style="height:30px;font-size:12px;border:1px solid var(--border);border-radius:7px;padding:0 10px;width:150px">
+        <select id="wpf-owner" onchange="wpFilterChange()" style="height:30px;font-size:12px;border:1px solid var(--border);border-radius:7px;padding:0 6px"><option value="">담당자 전체</option></select>
+        <select id="wpf-role" onchange="wpFilterChange()" style="height:30px;font-size:12px;border:1px solid var(--border);border-radius:7px;padding:0 6px"><option value="">직무 전체</option></select>
+        <select id="wpf-status" onchange="wpFilterChange()" style="height:30px;font-size:12px;border:1px solid var(--border);border-radius:7px;padding:0 6px"><option value="">상태 전체</option><option value="done">완료</option><option value="active">진행중</option><option value="todo">대기(0%)</option><option value="blocker">블로커</option><option value="delay">지연</option></select>
+        <button class="btn sm" onclick="wpFilterClear()" title="필터 초기화" style="height:30px">✕</button>
+      </div>
     </div>
 
     <div id="wp-body"><div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
@@ -4000,22 +4008,75 @@ function atUpdateSub(){ const el=$('atSub'); if(el) el.textContent = (AT_MODE===
 function atUpdateNav(){ const b=$('atNavCnt'); if(!b) return; const n=(MA_UNSORTED||0)+(TA_UNSORTED||0); if(n>0){ b.textContent=n; b.style.display='inline-block'; } else b.style.display='none'; }
 function atSwitch(mode){
   AT_MODE=mode;
+  const u=$('atUnified'); if(u) u.style.display='none';
+  if($('atSearch')) $('atSearch').value='';
   $('atTabInbox')?.classList.toggle('active', mode==='inbox');
   $('atTabSent')?.classList.toggle('active', mode==='sent');
   $('atTabTeams')?.classList.toggle('active', mode==='teams');
   const isTeams = mode==='teams';
   $('maList').style.display = isTeams?'none':'';
   $('taList').style.display = isTeams?'':'none';
-  $('atSearch').placeholder = isTeams ? '파일명·작성자 검색' : '파일명·제목·보낸사람 검색';
+  $('atSearch').placeholder = '🔍 통합검색 (받은·보낸·팀즈 전체)';
   if(isTeams){ taRender(); }
   else { MA_FOLDER=mode; maRender(); }
   atUpdateSub();
 }
 function atSearchInput(){
-  const v=$('atSearch').value||'';
+  const v=($('atSearch').value||'').trim();
   if($('maSearch')) $('maSearch').value=v;
   if($('taSearch')) $('taSearch').value=v;
-  if(AT_MODE==='teams') taRender(); else maRender();
+  if(v){ atUnifiedSearch(v); }
+  else { // 검색 비우면 통합뷰 끄고 현재 탭 복귀
+    const u=$('atUnified'); if(u) u.style.display='none';
+    const isTeams=AT_MODE==='teams';
+    $('maList').style.display=isTeams?'none':''; $('taList').style.display=isTeams?'':'none';
+    if(isTeams) taRender(); else maRender();
+  }
+}
+// 받은/보낸/팀즈 전체를 한 번에 검색
+function atUnifiedSearch(q){
+  const ql=q.toLowerCase();
+  // 통합 컨테이너 확보
+  let box=$('atUnified');
+  if(!box){ box=document.createElement('div'); box.id='atUnified'; $('maList').parentNode.insertBefore(box, $('maList')); }
+  $('maList').style.display='none'; $('taList').style.display='none'; box.style.display='';
+  const rows=[];
+  // 메일(받은+보낸)
+  (MA_DATA&&MA_DATA.items||[]).forEach(it=>{
+    if(MA_HIDDEN.includes(it.id)) return;
+    const hay=((it.name||'')+' '+(it.subject||'')+' '+(it.fromName||'')+' '+(it.toName||'')).toLowerCase();
+    if(!hay.includes(ql)) return;
+    const realIdx=(MA_DATA.items||[]).indexOf(it);
+    rows.push({src:it.folder==='sent'?'보낸편지함':'받은편지함', srcColor:it.folder==='sent'?'#a16207':'#1d4ed8',
+      icon:taIcon(it.name), name:maName(it), sub:it.subject||'', person:it.folder==='sent'?(it.toName||'?'):(it.fromName||'?'),
+      when:it.created, moved:MA_MOVED[it.id]||'', open:`maOpen(${realIdx})`, move:`maMove(${realIdx})`});
+  });
+  // 팀즈채팅방
+  (TA_DATA&&TA_DATA.items||[]).forEach(it=>{
+    if(TA_HIDDEN.includes(it.id)) return;
+    const hay=((it.name||'')+' '+(it.from||it.author||'')+' '+(it.channel||'')).toLowerCase();
+    if(!hay.includes(ql)) return;
+    const realIdx=(TA_DATA.items||[]).indexOf(it);
+    rows.push({src:'팀즈채팅방', srcColor:'#7c3aed', icon:taIcon(it.name), name:it.name||'(이름없음)', sub:it.channel||it.from||'',
+      person:it.from||it.author||'?', when:it.created||it.date, moved:TA_MOVED&&TA_MOVED[it.id]||'',
+      open:`taOpen(${realIdx})`, move:`taMove(${realIdx})`});
+  });
+  rows.sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+  if(!rows.length){ box.innerHTML='<div class="an-empty">검색 결과 없음 (받은·보낸·팀즈 전체)</div>'; return; }
+  box.innerHTML=`<div style="font-size:12px;color:var(--t3);margin-bottom:8px">🔍 통합검색 "${esc(q)}" — ${rows.length}건 (받은·보낸·팀즈)</div>
+  <table class="ta-table"><thead><tr><th style="width:42px"></th><th>파일명 / 제목</th><th style="width:96px">위치</th><th style="width:110px">보낸/작성</th><th style="width:120px">일시</th><th style="width:160px">작업</th></tr></thead><tbody>
+  ${rows.map(r=>{ const dt=r.when?new Date(r.when).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+    return `<tr>
+      <td style="text-align:center;font-size:18px">${r.icon}</td>
+      <td class="ta-name">${esc(r.name)}${r.moved?`<span class="ta-moved">✅ ${esc(r.moved)} 이동완료</span>`:''}${r.sub?`<div class="ta-note">✉ ${esc(r.sub)}</div>`:''}</td>
+      <td><span style="font-size:11px;font-weight:600;color:${r.srcColor};background:${r.srcColor}1a;padding:2px 7px;border-radius:99px">${r.src}</span></td>
+      <td style="font-size:12px">${esc(r.person)}</td>
+      <td style="color:var(--t3);font-size:12px">${dt}</td>
+      <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn sm" onclick="${r.open}" title="열기">👁</button>
+        <button class="btn sm ${r.moved?'':'primary'}" onclick="${r.move}">${r.moved?'📁 다시 이동':'📁 이동'}</button>
+      </div></td>
+    </tr>`; }).join('')}</tbody></table>`;
 }
 async function attachInit(){
   // 데이터 없으면 로드 (둘 다)
@@ -7865,8 +7926,48 @@ async function wpOrderCommit(){
   wpRender();
 }
 
+// ── 트리 필터 ──
+let WP_FILTER={q:"",owner:"",role:"",status:""};
+function wpFilterChange(){
+  WP_FILTER.q=(document.getElementById("wpf-q").value||"").trim().toLowerCase();
+  WP_FILTER.owner=document.getElementById("wpf-owner").value||"";
+  WP_FILTER.role=document.getElementById("wpf-role").value||"";
+  WP_FILTER.status=document.getElementById("wpf-status").value||"";
+  wpRender();
+}
+function wpFilterClear(){ WP_FILTER={q:"",owner:"",role:"",status:""}; const q=document.getElementById("wpf-q"); if(q)q.value=""; ["wpf-owner","wpf-role","wpf-status"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";}); wpRender(); }
+function wpFilterActive(){ return WP_FILTER.q||WP_FILTER.owner||WP_FILTER.role||WP_FILTER.status; }
+// 필터 옵션 채우기(담당자·직무) — 로드/렌더 시
+function wpFillFilterOpts(){
+  const osel=document.getElementById("wpf-owner"), rsel=document.getElementById("wpf-role"); if(!osel) return;
+  const owners=new Set(), roles=new Set();
+  wpDisplayProjects().forEach(p=>{ (function w(ns){ (ns||[]).forEach(n=>{ if(!n.group){ wpOwners(n).forEach(o=>owners.add(o)); if(n.role)roles.add(n.role); } if(n.children)w(n.children); }); })(p.children); });
+  const ov=osel.value, rv=rsel.value;
+  osel.innerHTML='<option value="">담당자 전체</option>'+[...owners].sort().map(o=>`<option ${o===ov?"selected":""}>${esc(o)}</option>`).join("");
+  rsel.innerHTML='<option value="">직무 전체</option>'+WP_ROLES.filter(r=>roles.has(r)).map(r=>`<option ${r===rv?"selected":""}>${esc(r)}</option>`).join("");
+}
+// 작업이 필터에 매칭되는지
+function wpMatchFilter(n){
+  if(!wpFilterActive()) return true;
+  const F=WP_FILTER;
+  if(F.q){ const hay=((n.name||"")+" "+(n.en||"")+" "+wpOwnerText(n)+" "+(n.id||"")).toLowerCase(); if(!hay.includes(F.q)) return false; }
+  if(F.owner && !wpOwners(n).includes(F.owner)) return false;
+  if(F.role && n.role!==F.role) return false;
+  if(F.status){
+    const delayed=wpIsDelayed(n); const prog=n.prog||0;
+    let ok=false;
+    if(F.status==="done") ok=prog>=100;
+    else if(F.status==="active") ok=prog>0&&prog<100&&!delayed&&!n.blocker;
+    else if(F.status==="todo") ok=prog===0;
+    else if(F.status==="blocker") ok=!!n.blocker;
+    else if(F.status==="delay") ok=delayed;
+    if(!ok) return false;
+  }
+  return true;
+}
 function wpRenderTree(){
   let h="";
+  wpFillFilterOpts();
   wpDisplayProjects().forEach(p=>{
     const open=WP_OPEN[p.id]!==false;
     const prog=wpAggProg(p);
@@ -8058,7 +8159,8 @@ function wpRowHtml(projId, n, depth, parentNotDone){
   }
   const st=wpStatus(n,parentNotDone), locked=st==="locked", ic=WP_STIC[st], sel=WP_SEL===n.id;
   const fc=(n.files||[]).length, cc=(n.comments||[]).length;
-  let h=`<div class="wp-task${sel?' sel':''}${locked?' locked':''}" id="wprow-${n.id}" style="padding-left:${10+ind}px" ${dnd} onclick="wpSelect('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
+  const _dim = wpFilterActive() && !wpMatchFilter(n);
+  let h=`<div class="wp-task${sel?' sel':''}${locked?' locked':''}" id="wprow-${n.id}" style="padding-left:${10+ind}px;${_dim?'opacity:.32':''}" ${dnd} onclick="wpSelect('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
     ${handle}<span style="width:15px" onclick="event.stopPropagation();${kids?`wpToggle('${n.id}')`:''}">${kids?(open?"▾":"▸"):"·"}</span>
     <span style="font-size:15px">${ic[0]}</span>
     <span class="wp-id">${esc(n.id)}</span>
