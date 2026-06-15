@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v252</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v254</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7665,6 +7665,7 @@ function wpFlatten(ns, parentNotDone, out){
 }
 function wpStatus(n, locked){ if(n.group) return "group"; if(locked) return "locked"; if(n.blocker) return "blocker"; if((n.prog||0)>=100) return "done"; return "active"; }
 const WP_STIC={done:["✅","var(--g)"],active:["🔵","var(--p)"],locked:["🔒","var(--t3)"],blocker:["⚠️","var(--r)"],delay:["⏰","var(--r)"]};
+function wpStatusLabel(n, st){ st=st||wpStatus(n); if(st==="group")return ""; if(st==="locked")return "선행 대기"; if(st==="blocker")return "블로커"; if(st==="done")return "완료"; return n.status || ((n.prog||0)>0?"진행중":"미착수"); }
 function wpToday(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
 function wpYmdToDate(s){ if(!s) return null; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return new Date(+m[1],+m[2]-1,+m[3]); }
 function wpDateToYmd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -8234,7 +8235,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     ${fc?`<span style="font-size:10.5px;color:var(--t2)">📎${fc}</span>`:""}
     ${cc?`<span style="font-size:10.5px;color:var(--t2)">💬${cc}</span>`:""}
     <span style="flex:1"></span>
-    ${locked?`<span style="font-size:10.5px;color:var(--t3)">선행 대기</span>`:`<div class="wp-bar" style="width:54px"><div style="width:${n.prog||0}%;background:${ic[1]}"></div></div><span style="font-size:10.5px;color:var(--t2);min-width:28px;text-align:right">${n.prog||0}%</span>`}
+    ${locked?`<span style="font-size:10.5px;color:var(--t3)">선행 대기</span>`:`<span style="font-size:10.5px;font-weight:600;color:${ic[1]};min-width:46px;text-align:right">${esc(wpStatusLabel(n,st))}</span>`}
   </div>`;
   if(sel) h+=wpDetailHtml(projId,n,ind);
   if(open && kids){ const pnd=(n.prog||0)<100; h+=`<div style="border-left:1.5px solid var(--border);margin-left:${17+ind}px">`+(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,pnd)).join("")+`</div>`; }
@@ -8598,12 +8599,16 @@ function wpMoveNode(projId, dragId, targetId, pos){
 
 function wpDetailHtml(projId, n, ind){
   const canEdit = wpIsPM() || (n.owner_email && n.owner_email===wpMeEmail()) || !n.owner_email;
-  const files=(n.files||[]).map((f,i)=>`<div class="wp-fchip">📄 <span style="flex:1">${esc(f.name)}</span><span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px">${esc(f.folder||"")}</span>${f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--p)">열기</a>`:""}${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`).join("") || `<span style="font-size:11.5px;color:var(--t3)">첨부파일 없음</span>`;
+  const files=(n.files||[]).map((f,i)=>{
+    const _pm=JSON.stringify({name:f.name,itemId:f.itemId||"",url:f.url||"",folder:f.folder||"",driveId:f.driveId||"",projId}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+    const _eye=f.itemId?`<span onclick='wpFilePreviewMeta(${_pm})' title="미리보기" style="cursor:pointer;color:var(--p)">👁</span>`:"";
+    return `<div class="wp-fchip">📄 <span style="flex:1;${f.itemId?'cursor:pointer':''}" ${f.itemId?`onclick='wpFilePreviewMeta(${_pm})' title="클릭=미리보기"`:""}>${esc(f.name)}</span><span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px">${esc(f.folder||"")}</span>${_eye}${f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--t3);font-size:11px">열기</a>`:""}${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`;
+  }).join("") || `<span style="font-size:11.5px;color:var(--t3)">첨부파일 없음</span>`;
   const hist=(n.history||[]).slice(-8).reverse().map(x=>`<div class="wp-hist"><span style="color:var(--t3);min-width:96px">${esc(x.when)}</span><span style="color:var(--t2)"><b style="color:var(--t1)">${esc(x.who)}</b> · ${esc(x.act)}</span></div>`).join("") || `<div style="font-size:11.5px;color:var(--t3)">이력 없음</div>`;
   const cmts=(n.comments||[]).map((c,ci)=>{
     const mine = c.who===wpMe();
     const imgs=(c.images||[]).map((im,ii)=>`<img src="${im}" onclick="wpImgView('${im.replace(/'/g,"\\'")}')" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--border);cursor:pointer;margin:4px 4px 0 0">`).join("");
-    const prog = (c.prog!=null)?`<span style="font-size:10.5px;background:var(--pd);color:var(--p2);padding:1px 6px;border-radius:99px;margin-left:6px">진행 ${c.prog}%</span>`:"";
+    const prog = "";   // 진행률 표시 제거 — 상태로만 표시
     const stat = c.status?`<span style="font-size:10.5px;background:#f1f5f9;color:var(--t2);padding:1px 6px;border-radius:99px;margin-left:4px">${esc(c.status)}</span>`:"";
     return `<div class="wp-cmt" id="wpcmt-${n.id}-${ci}"><div class="wp-cmt-av">${esc((c.who||"?").slice(0,1))}</div><div style="flex:1">
       <div style="font-size:11.5px"><b>${esc(c.who)}</b> <span style="color:var(--t3)">${esc(c.when)}</span>${prog}${stat}
@@ -8611,6 +8616,7 @@ function wpDetailHtml(projId, n, ind){
       <div style="font-size:12.5px;color:var(--t2);white-space:pre-wrap">${esc(c.txt)}</div>
       ${imgs?`<div style="display:flex;flex-wrap:wrap">${imgs}</div>`:""}
       ${wpPurCommentHtml(c.pur)}
+      ${wpRepFileCommentHtml(c.files)}
     </div></div>`;
   }).join("") || `<div style="font-size:11.5px;color:var(--t3);padding:4px 0">아직 업무보고가 없습니다</div>`;
 
@@ -8656,18 +8662,19 @@ function wpDetailHtml(projId, n, ind){
     ${canEdit?`<div style="display:flex;gap:6px"><button class="btn sm" onclick="wpAttachMode('${n.id}','upload')">⬆ 새 업로드</button><button class="btn sm" onclick="wpAttachMode('${n.id}','existing')">📂 기존 자료</button></div>`:""}
     ${attachPanel}
     <div class="wp-sec">🕘 수정 이력</div>${hist}
-    <div class="wp-sec">💬 업무보고 <span style="font-weight:400;color:var(--t3)">(보고하면서 진행률·상태 체크, 사진은 Ctrl+V로 붙여넣기)</span></div>${cmts}
+    <div class="wp-sec">💬 업무보고 <span style="font-weight:400;color:var(--t3)">(보고하면서 상태 체크, 사진은 Ctrl+V로 붙여넣기)</span></div>${cmts}
     <div style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2)">
       <textarea id="wp-cmt-${n.id}" placeholder="업무보고 입력… (이미지 복사 후 여기서 Ctrl+V)" onpaste="wpCmtPaste(event,'${n.id}')" rows="2" style="width:100%;font-size:12.5px;border:none;background:none;resize:vertical;outline:none"></textarea>
       <div id="wp-cmt-imgs-${n.id}" style="display:flex;flex-wrap:wrap;gap:4px"></div>
       <div id="wp-cmt-pur-${n.id}">${wpPurPreviewHtml(n.id)}</div>
+      <div id="wp-cmt-file-${n.id}">${wpRepFilePreviewHtml(n.id)}</div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
-        <label style="font-size:11px;color:var(--t2)">진행률 <input id="wp-cmt-prog-${n.id}" type="number" min="0" max="100" value="${n.prog||0}" style="width:56px;height:28px;font-size:12px;text-align:right"> %</label>
         <select id="wp-cmt-status-${n.id}" style="height:28px;font-size:12px">
           <option value="">상태 선택</option>
           <option>진행중</option><option>완료</option><option>대기</option><option>블로커</option>
         </select>
         <label style="font-size:11px;color:var(--t2);cursor:pointer">📷 사진<input type="file" accept="image/*" multiple onchange="wpCmtPickImg(event,'${n.id}')" style="display:none"></label>
+        <button class="btn sm" onclick="wpFileModal('${projId}','${n.id}')" title="폴더트리에서 가져오거나 새로 업로드">📎 파일첨부</button>
         <button class="btn sm" onclick="wpPurOpen('${projId}','${n.id}')" title="발주·입고 자료 첨부 (금액 제외)">🛒 구매첨부</button>
         <span style="flex:1"></span>
         <button class="btn primary sm" onclick="wpAddComment('${projId}','${n.id}')">📤 보고 등록</button>
@@ -8855,25 +8862,27 @@ function wpAddComment(projId,id){
   const inp=document.getElementById("wp-cmt-"+id); const txt=(inp.value||"").trim();
   const imgs=(_wpCmtImgBuf[id]||[]).filter(Boolean);
   const pur=(_wpPurBuf[id]||[]).slice();
-  if(!txt && !imgs.length && !pur.length){ toast("보고 내용을 입력하세요","bad"); return; }
+  const rfiles=(_wpRepFileBuf[id]||[]).slice();
+  if(!txt && !imgs.length && !pur.length && !rfiles.length){ toast("보고 내용을 입력하세요","bad"); return; }
   const n=wpFind(projId,id);
-  const prog=parseInt(document.getElementById("wp-cmt-prog-"+id).value); 
   const status=document.getElementById("wp-cmt-status-"+id).value;
   const rep={who:wpMe(),when:new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}),txt,images:imgs};
-  if(!isNaN(prog)) rep.prog=prog;
   if(status) rep.status=status;
   if(pur.length) rep.pur=pur;
+  if(rfiles.length) rep.files=rfiles;
   (n.comments=n.comments||[]).push(rep);
-  // 보고에 진행률/상태가 있으면 작업에도 반영
+  // 보고 상태를 작업에도 반영 (진행률 입력 없이 상태로만)
   const ch=[];
-  if(!isNaN(prog) && prog!==(n.prog||0)){ ch.push(`진행률 ${n.prog||0}%→${prog}% (보고)`); n.prog=prog; }
+  if(status){ if(n.status!==status){ ch.push(`상태 → ${status} (보고)`); } n.status=status; }
+  if(status==="완료"){ n.prog=100; }
+  else if(status==="진행중"){ if((n.prog||0)>=100||(n.prog||0)===0) n.prog=Math.max(n.prog||0,1); }
   if(status==="블로커" && txt){ if(n.blocker!==txt){ n.blocker=txt; n.blocker_en=""; ch.push("블로커 등록(보고)"); } }
   else if(status && status!=="블로커" && n.blocker){ n.blocker=""; ch.push("블로커 해제(보고)"); }
-  if(status==="완료" && prog<100){ n.prog=100; }
   if((n.prog||0)>=100){ if(!n.done_date) n.done_date=wpDateToYmd(wpToday()); } else { n.done_date=""; }
   if(ch.length) wpLog(n, ch.join(", "));
   _wpCmtImgBuf[id]=[];
   _wpPurBuf[id]=[];
+  _wpRepFileBuf[id]=[];
   // 진행률/완료 변경 시 후행 자동 일정 이동(앞당김/밀기)
   const mv=wpCascade(projId, id); if(mv.length) toast(`후행 ${mv.length}개 일정 자동 조정됨`,"ok");
   wpSaveProject(projId); wpRender();
@@ -9161,6 +9170,166 @@ async function wpExBrowse(projId, taskId, path){
 function wpExFilter(q){ q=(q||"").toLowerCase(); document.querySelectorAll("#wp-exlist .wp-exrow").forEach(el=>{ if(el.dataset.nm===undefined){el.style.display="";return;} el.style.display=el.dataset.nm.toLowerCase().includes(q)?"flex":"none"; }); }
 async function wpExistingList(projId,id){ wpExBrowse(projId,id,""); }   // 호환
 function wpAttachExisting(projId,id,f){ const n=wpFind(projId,id); (n.files=n.files||[]).push(f); wpLog(n,`기존자료 첨부: ${f.name}`); WP_ATTACH=null; wpSaveProject(projId); wpRender(); }
+
+// ── 업무보고 파일첨부 (폴더트리 가져오기 / 위치지정 업로드 · 새폴더·이름변경) ──
+let _wpRepFileBuf={};   // taskId → [{name,folder,url,itemId}]
+function wpRepFileChip(f, preview, id, idx){
+  const meta=JSON.stringify({name:f.name,itemId:f.itemId,url:f.url||"",folder:f.folder||"",driveId:f.driveId||"",projId:f.projId||""}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+  const eye=f.itemId?`<span onclick='wpFilePreviewMeta(${meta})' title="미리보기" style="cursor:pointer;color:var(--p);flex:none">👁</span>`:"";
+  const x = preview ? `<span onclick="wpRepFileRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none">✕</span>` : (f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--t3);font-size:11px;flex:none">열기</a>`:"");
+  return `<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:4px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+    <span style="cursor:${f.itemId?'pointer':'default'}" ${f.itemId?`onclick='wpFilePreviewMeta(${meta})'`:""}>📄</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:${f.itemId?'pointer':'default'}" ${f.itemId?`onclick='wpFilePreviewMeta(${meta})' title="클릭=미리보기"`:""}>${esc(f.name||"")}</span>
+    <span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px;flex:none">${esc(f.folder||"")}</span>${eye}${x}</div>`;
+}
+function wpRepFilePreviewHtml(id){
+  const buf=_wpRepFileBuf[id]||[]; if(!buf.length) return "";
+  return `<div style="margin-top:6px">${buf.map((f,i)=>wpRepFileChip(f,true,id,i)).join("")}</div>`;
+}
+function wpRepFileCommentHtml(files){
+  if(!files||!files.length) return "";
+  return `<div style="margin-top:5px">${files.map(f=>wpRepFileChip(f,false)).join("")}</div>`;
+}
+function wpRepFileRemove(id, idx){
+  if(_wpRepFileBuf[id]) _wpRepFileBuf[id].splice(idx,1);
+  const box=document.getElementById("wp-cmt-file-"+id); if(box) box.innerHTML=wpRepFilePreviewHtml(id);
+}
+
+let _wpFm={projId:"",id:"",root:"sp",path:"",driveId:""};
+function wpFileModal(projId, id){
+  _wpFm={projId, id, root:"sp", path:"", driveId:""};
+  document.getElementById("wpFmOv")?.remove();
+  const ov=document.createElement("div"); ov.id="wpFmOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000097;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(720px,96vw);max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b>📎 파일 첨부 · ${esc(projId)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpFmOv').remove()">✕</span></div>
+    <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
+      <select id="wpFm-root" onchange="wpFmRoot(this.value)" style="height:30px;font-size:12px">
+        <option value="sp">📁 공용 문서함(SharePoint)</option>
+        <option value="chan">📂 ${esc(projId)} 프로젝트 채널</option>
+      </select>
+      <span style="flex:1"></span>
+      <button class="btn sm" id="wpFm-newf" onclick="wpFmNewFolder()">＋ 새 폴더</button>
+      <button class="btn primary sm" onclick="document.getElementById('wpFm-up').click()">⬆ 여기에 업로드</button>
+      <input type="file" id="wpFm-up" multiple style="display:none" onchange="wpFmUpload(this.files)">
+    </div>
+    <div id="wpFm-crumb" style="padding:7px 16px;font-size:11.5px;color:var(--t3);border-bottom:1px solid #f6f7f9"></div>
+    <div id="wpFm-list" style="overflow:auto;flex:1;min-height:240px"></div>
+    <div style="padding:9px 16px;border-top:1px solid #eef0f3;font-size:11.5px;color:var(--t3);display:flex;align-items:center;gap:8px">
+      <span>📂 폴더 클릭=이동 · 📄 파일 클릭=보고에 첨부 · ✏=이름변경 · 업로드는 현재 폴더로 저장</span>
+      <span style="flex:1"></span><button class="btn sm" onclick="document.getElementById('wpFmOv').remove()">닫기</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  wpFmBrowse("");
+}
+function wpFmRoot(v){ _wpFm.root=v; _wpFm.path=""; _wpFm.driveId=""; const nf=document.getElementById("wpFm-newf"); if(nf) nf.style.display=(v==="sp")?"":"none"; wpFmBrowse(""); }
+async function wpFmBrowse(path){
+  _wpFm.path=path;
+  const list=document.getElementById("wpFm-list"), crumb=document.getElementById("wpFm-crumb"); if(!list) return;
+  list.innerHTML=`<div style="padding:26px;text-align:center;color:var(--t3);font-size:13px">불러오는 중…</div>`;
+  const parts=path?path.split("/"):[]; let acc="";
+  const cr=`<span style="cursor:pointer;color:var(--p)" onclick="wpFmBrowse('')">전체</span>`+parts.map(p=>{ acc=acc?acc+"/"+p:p; const a=acc.replace(/'/g,"\\'"); return ` / <span style="cursor:pointer;color:var(--p)" onclick="wpFmBrowse('${a}')">${esc(p)}</span>`; }).join("");
+  if(crumb) crumb.innerHTML="📁 "+cr;
+  try{
+    if(!_wpFm.driveId){ try{ _wpFm.driveId = (_wpFm.root==="chan") ? (await projChannelInfo(_wpFm.projId)).driveId : await spDrive(); }catch(_){} }
+    const items = (_wpFm.root==="chan") ? await projChanList(_wpFm.projId, path) : await spList(path);
+    const folders=items.filter(x=>x.folder).sort((a,b)=>String(a.name).localeCompare(b.name,"ko"));
+    const files=items.filter(x=>x.file).sort((a,b)=>String(a.name).localeCompare(b.name,"ko"));
+    let h='<div style="padding:4px 0">';
+    if(path){ const up=parts.slice(0,-1).join("/").replace(/'/g,"\\'"); h+=`<div class="wpfm-row" style="padding:8px 14px;cursor:pointer;color:var(--t3)" onclick="wpFmBrowse('${up}')">⬆ 상위 폴더</div>`; }
+    folders.forEach(f=>{ const np=(path?path+"/"+f.name:f.name).replace(/'/g,"\\'"); const nm=esc(f.name).replace(/'/g,"\\'");
+      h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9"><span style="cursor:pointer;flex:1;display:flex;gap:8px;align-items:center" onclick="wpFmBrowse('${np}')"><span>📂</span><span>${esc(f.name)}</span></span>${_wpFm.root==="sp"?`<span title="이름변경" style="cursor:pointer;color:#94a3b8" onclick="event.stopPropagation();wpFmRename('${f.id}','${nm}')">✏</span>`:""}</div>`; });
+    files.forEach(f=>{ const meta=JSON.stringify({name:f.name,folder:(path||(_wpFm.root==='chan'?_wpFm.projId+'채널':'루트')),url:f.webUrl||"",itemId:f.id,driveId:_wpFm.driveId||"",projId:_wpFm.projId}).replace(/'/g,"&#39;").replace(/"/g,"&quot;"); const nm=esc(f.name).replace(/'/g,"\\'");
+      h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9"><span style="cursor:pointer;flex:1;display:flex;gap:8px;align-items:center" onclick='wpFmPick(${meta})'><span>📄</span><span style="flex:1">${esc(f.name)}</span><span style="font-size:11px;color:var(--p)">+ 첨부</span></span>${_wpFm.root==="sp"?`<span title="이름변경" style="cursor:pointer;color:#94a3b8" onclick="event.stopPropagation();wpFmRename('${f.id}','${nm}')">✏</span>`:""}</div>`; });
+    if(!folders.length && !files.length) h+='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px">폴더가 비어 있음 — [＋ 새 폴더] 또는 [⬆ 여기에 업로드]</div>';
+    h+="</div>"; list.innerHTML=h;
+  }catch(e){ list.innerHTML=`<div style="padding:18px;color:var(--r);font-size:12px">${esc(e.message)}</div>`; }
+}
+function wpFmPick(f){
+  const id=_wpFm.id; const buf=(_wpRepFileBuf[id]=_wpRepFileBuf[id]||[]);
+  if(buf.some(x=>x.itemId===f.itemId)){ toast("이미 첨부됨","bad"); return; }
+  buf.push(f);
+  const box=document.getElementById("wp-cmt-file-"+id); if(box) box.innerHTML=wpRepFilePreviewHtml(id);
+  toast(`첨부됨: ${f.name} — 보고 등록을 누르세요`,"ok");
+}
+async function wpFmNewFolder(){
+  if(_wpFm.root!=="sp"){ toast("채널에서는 새 폴더 미지원","bad"); return; }
+  const name=(prompt("새 폴더 이름:")||"").trim(); if(!name) return;
+  const full=_wpFm.path?`${_wpFm.path}/${name}`:name;
+  try{ await spEnsureFolder(full); toast("폴더 생성됨","ok"); wpFmBrowse(_wpFm.path); }
+  catch(e){ toast("폴더 생성 실패: "+e.message,"bad"); }
+}
+async function wpFmRename(itemId, curName){
+  const nn=(prompt("새 이름:", curName)||"").trim(); if(!nn || nn===curName) return;
+  try{ await spRenameItem(itemId, nn); toast("이름 변경됨","ok"); wpFmBrowse(_wpFm.path); }
+  catch(e){ toast("이름변경 실패: "+e.message,"bad"); }
+}
+async function wpFmUpload(files){
+  if(!files||!files.length) return;
+  const id=_wpFm.id, path=_wpFm.path; const buf=(_wpRepFileBuf[id]=_wpRepFileBuf[id]||[]);
+  toast(`${files.length}개 업로드 중…`);
+  let ok=0;
+  for(const file of files){
+    try{
+      const bytes=await file.arrayBuffer(); let item, drv=_wpFm.driveId||"";
+      if(_wpFm.root==="chan"){ item=await projChanUpload(_wpFm.projId, path, file.name, bytes, file.type); if(!drv){ try{ drv=(await projChannelInfo(_wpFm.projId)).driveId; }catch(_){} } }
+      else { const t=await graphToken(); const d=await spDrive(); drv=drv||d; const rel=path?path+"/"+file.name:file.name;
+        const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(rel)}:/content`,{method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":file.type||"application/octet-stream"},body:bytes});
+        if(!r.ok) throw new Error("PUT "+r.status); item=await r.json();
+      }
+      buf.push({name:file.name, folder:(path||(_wpFm.root==='chan'?_wpFm.projId+'채널':'루트')), url:item.webUrl||"", itemId:item.id, driveId:drv, projId:_wpFm.projId}); ok++;
+    }catch(e){ console.warn("업로드 실패",file.name,e.message); }
+  }
+  const box=document.getElementById("wp-cmt-file-"+id); if(box) box.innerHTML=wpRepFilePreviewHtml(id);
+  toast(`${ok}개 업로드+첨부 완료`, ok?"ok":"bad");
+  wpFmBrowse(path);
+}
+
+// ── 첨부파일 풀스크린 미리보기 (문서 PPT/Excel/Word/PDF + CAD/3D · 프로젝트탭 미리보기 엔진 재사용) ──
+let _wpPvCur=null;
+function wpFilePreviewMeta(json){ try{ wpFilePreview(typeof json==="string"?JSON.parse(json):json); }catch(e){ toast("미리보기 오류: "+e.message,"bad"); } }
+async function wpResolveDrive(f){
+  if(f.driveId) return f.driveId;
+  const fol=String(f.folder||"");
+  if(f.projId && /채널$/.test(fol)){ try{ return (await projChannelInfo(f.projId)).driveId; }catch(_){} }
+  return await spDrive();
+}
+async function wpFilePreview(f){
+  if(!f || !f.itemId){ toast("미리보기할 수 없는 파일","bad"); return; }
+  document.getElementById("wpPvOv")?.remove();
+  const ov=document.createElement("div"); ov.id="wpPvOv"; ov.tabIndex=-1;
+  ov.style.cssText="position:fixed;inset:0;z-index:1000098;background:#0f1115;display:flex;flex-direction:column";
+  ov.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:#171b22;color:#e8eefc;border-bottom:1px solid #2a3140">
+      <b style="font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👁 ${esc(f.name||"")}</b>
+      <button class="btn sm" onclick="wpPvDownload()">⬇ 다운로드</button>
+      ${isOfficeFile(f.name||"")?`<button class="btn sm" onclick="wpPvEdit()">✏ 편집(새 창)</button>`:""}
+      <button onclick="document.getElementById('wpPvOv').remove()" title="닫기(ESC)" style="background:rgba(255,255,255,.14);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:17px">✕</button>
+    </div>
+    <div id="wpPvBox" style="flex:1;min-height:0;background:#0f1115;overflow:hidden;position:relative"></div>`;
+  ov.addEventListener("keydown",e=>{ if(e.key==="Escape") ov.remove(); });
+  document.body.appendChild(ov); ov.focus();
+  _wpPvCur=f;
+  const box=document.getElementById("wpPvBox");
+  box.innerHTML='<div style="padding:50px;text-align:center;color:#9fb3d9;font-size:14px">불러오는 중…</div>';
+  try{
+    const driveId=await wpResolveDrive(f); f.driveId=driveId;
+    _projBoardCtx=_projBoardCtx||{}; _projBoardCtx.driveId=driveId;   // cad/3d/다운로드가 참조하는 드라이브
+    const v=await _projBuildPreview(f.itemId, f.name, driveId);
+    _projApplyPreview(box, v, f.itemId, f.name);
+  }catch(e){ box.innerHTML=`<div style="padding:44px;text-align:center;color:#f88;font-size:14px">미리보기 실패: ${esc(e.message)}<br><br><button class="btn sm" onclick="wpPvDownload()">⬇ 다운로드로 열기</button></div>`; }
+}
+async function wpPvDownload(){
+  const f=_wpPvCur; if(!f) return;
+  try{ const u=await spDownloadUrl(f.itemId, f.driveId); if(u){ window.open(u,"_blank"); return; } }catch(_){}
+  if(f.url) window.open(f.url,"_blank"); else toast("다운로드 링크 없음","bad");
+}
+async function wpPvEdit(){
+  const f=_wpPvCur; if(!f) return;
+  try{ const wu=await spWebUrlById(f.itemId, f.driveId); if(wu){ window.open(officeEmbedUrl(wu, true),"_blank"); return; } }catch(_){}
+  if(f.url) window.open(f.url,"_blank");
+}
 
 // ── 간트 (날짜 기반) ──
 function wpRenderGantt(){
