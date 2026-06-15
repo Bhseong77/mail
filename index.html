@@ -1198,7 +1198,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v237</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v238</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8667,29 +8667,34 @@ function wpAttachExisting(projId,id,f){ const n=wpFind(projId,id); (n.files=n.fi
 // ── 간트 (날짜 기반) ──
 function wpRenderGantt(){
   let h="";
+  const today=wpToday(); const todayYmd=wpDateToYmd(today);
   wpDisplayProjects().forEach(p=>{
     const flat=wpFlatten(p.children||[],false,[]).filter(x=>x.n.start&&x.n.end);
-    // 날짜 범위
     let min=null,max=null; flat.forEach(({n})=>{ if(!min||n.start<min)min=n.start; if(!max||n.end>max)max=n.end; });
     h+=`<div style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--pd);border-radius:8px 8px 0 0"><span style="font-family:monospace;font-weight:600;color:var(--p2)">${esc(p.id)}</span><span style="font-size:11.5px;color:var(--p2)">${esc(p.name&&p.name!==p.id?p.name:"")}</span></div>`;
     if(!flat.length){ h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:16px;text-align:center;color:var(--t3);font-size:12px">시작/마감일이 지정된 작업이 없습니다 (작업 수정에서 날짜 지정)</div></div>`; return; }
+    // 오늘이 범위 밖이면 범위 확장(오늘 줄 표시되게)
+    if(todayYmd<min) min=todayYmd; if(todayYmd>max) max=todayYmd;
     const d0=new Date(min), d1=new Date(max); const days=Math.max(1,Math.round((d1-d0)/86400000)+1);
     const dayCols=[]; for(let i=0;i<days;i++){ const d=new Date(d0); d.setDate(d0.getDate()+i); dayCols.push(d); }
-    const head=`<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border)"><div style="padding:6px 10px;font-size:11px;color:var(--t2)">작업 / 담당</div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${dayCols.map(d=>`<div style="padding:6px 0;text-align:center;font-size:9.5px;color:var(--t3);border-left:1px solid var(--border)">${d.getMonth()+1}/${d.getDate()}</div>`).join("")}</div></div>`;
+    const todayIdx=Math.round((today-d0)/86400000);
+    const head=`<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border)"><div style="padding:6px 10px;font-size:11px;color:var(--t2)">작업 / 담당</div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${dayCols.map((d,i)=>{ const isToday=i===todayIdx; const wd=["일","월","화","수","목","금","토"][d.getDay()]; return `<div style="padding:6px 0;text-align:center;font-size:9.5px;border-left:1px solid var(--border);${isToday?'background:#fee2e2;color:#b91c1c;font-weight:700':'color:var(--t3)'}">${isToday?"오늘<br>":""}${d.getMonth()+1}/${d.getDate()}<br><span style="opacity:.6">${wd}</span></div>`; }).join("")}</div></div>`;
     const rows=flat.map(({n,locked})=>{
-      const st=wpStatus(n,locked), ic=WP_STIC[st];
+      const st=wpStatus(n,locked), ic=WP_STIC[st]; const delayed=wpIsDelayed(n);
       const s=Math.round((new Date(n.start)-d0)/86400000), e=Math.round((new Date(n.end)-d0)/86400000);
       const roleCol = WP_ROLECOLOR[n.role] || "#64748b";
-      const cells=dayCols.map((d,i)=>{ const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border)"></div>`; const isS=i===s,isE=i===e; const rad=`${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}`;
-        // 막대 = 직무색 솔리드 (완료=진한 / 진행중=중간 / 0%도 보이게 연한 직무색)
-        const fill = (n.prog>=100) ? roleCol : (n.prog>0 ? roleCol+"cc" : roleCol+"66");
-        return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center"><div style="width:100%;height:16px;border-radius:${rad};background:${fill};display:flex;align-items:center;justify-content:center">${isS&&(e>s||n.prog)?`<span style="font-size:9px;color:#fff;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,.3)">${n.prog||0}%</span>`:""}</div></div>`; }).join("");
-      return `<div style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);${locked?'opacity:.55':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${wpIsDelayed(n)?"⏰ ":ic[0]+" "}${esc(wpNm(n))}${wpIsDelayed(n)?` <span style="color:var(--r);font-size:9px">${wpDelayDays(n)}일 지연</span>`:""}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(wpOwnerText(n))}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
+      const sel=WP_SEL===n.id;
+      const cells=dayCols.map((d,i)=>{ const isToday=i===todayIdx; const todayBg=isToday?"box-shadow:inset 1px 0 0 #ef4444,inset -1px 0 0 #ef4444;":""; const inb=i>=s&&i<=e; if(!inb) return `<div style="border-left:1px solid var(--border);${todayBg}"></div>`; const isS=i===s,isE=i===e; const rad=`${isS?'5px':'0'} ${isE?'5px':'0'} ${isE?'5px':'0'} ${isS?'5px':'0'}`;
+        const barCol = delayed ? "#dc2626" : ((n.prog>=100) ? roleCol : (n.prog>0 ? roleCol+"cc" : roleCol+"66"));
+        return `<div style="border-left:1px solid var(--border);padding:5px 2px;display:flex;align-items:center;${todayBg}"><div style="width:100%;height:16px;border-radius:${rad};background:${barCol};display:flex;align-items:center;justify-content:center">${isS&&(e>s||n.prog)?`<span style="font-size:9px;color:#fff;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,.3)">${delayed?"⏰":""}${n.prog||0}%</span>`:""}</div></div>`; }).join("");
+      let row=`<div class="wp-grow${sel?' sel':''}" onclick="wpSelect('${n.id}')" style="display:grid;grid-template-columns:170px 1fr;border-bottom:1px solid var(--border);cursor:pointer;${locked?'opacity:.55':''}${sel?'background:var(--pd)':''}"><div style="padding:6px 10px;min-width:0"><div class="wp-gtask">${delayed?"⏰ ":ic[0]+" "}${esc(wpNm(n))}${delayed?` <span style="color:var(--r);font-size:9px">${wpDelayDays(n)}일</span>`:""}</div><div style="font-size:10px;color:var(--t3)">${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span> `:""}${esc(wpOwnerText(n))}</div></div><div style="display:grid;grid-template-columns:repeat(${days},1fr)">${cells}</div></div>`;
+      if(sel) row+=`<div style="border-bottom:1px solid var(--border);padding:0 8px 8px" onclick="event.stopPropagation()">${wpDetailHtml(p.id,n,0)}</div>`;
+      return row;
     }).join("");
-    h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:auto">${head}${rows}</div></div>`;
+    h+=`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow-x:auto">${head}${rows}</div></div>`;
   });
-  document.getElementById("wp-body").innerHTML=h+`<div style="font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span>직무색:</span>${WP_ROLES.map(r=>`<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:11px;height:11px;border-radius:3px;background:${WP_ROLECOLOR[r]};display:inline-block"></i>${r}</span>`).join("")}</div>
-  <div style="font-size:11.5px;color:var(--t3);margin-top:6px">막대 채움: 진한=완료 · 중간=진행중 · 연한=미착수(0%) · 막대 안 숫자=진행률</div>`;
+  document.getElementById("wp-body").innerHTML=h+`<div style="font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span><span style="display:inline-block;width:2px;height:11px;background:#ef4444;vertical-align:-1px"></span> 오늘</span><span>직무색:</span>${WP_ROLES.map(r=>`<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:11px;height:11px;border-radius:3px;background:${WP_ROLECOLOR[r]};display:inline-block"></i>${r}</span>`).join("")}</div>
+  <div style="font-size:11.5px;color:var(--t3);margin-top:6px">막대: 진한=완료 · 중간=진행중 · 연한=미착수 · <span style="color:var(--r)">빨강=지연</span> · 행 클릭=세부내용</div>`;
 }
 
 // ── Copilot 자동 번역 (캐시) ──
