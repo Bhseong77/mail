@@ -407,6 +407,22 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sx-c-todo{background:#eef2f7;color:var(--t2);border-color:transparent}
 .sx-c-blocker{background:var(--rd);color:var(--r);border-color:transparent}
 .sx-c-delay{background:var(--yd);color:var(--y);border-color:transparent}
+/* 통합일정 간트 */
+.sx-mode{display:flex;gap:6px;margin-bottom:12px}
+.sxg-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff}
+.sxg-row{display:flex;align-items:stretch;border-top:1px solid var(--bg3)}
+.sxg-row.sxg-head{border-top:none}
+.sxg-row.phase{background:var(--bg3)}
+.sxg-label{flex:0 0 220px;width:220px;padding:6px 12px;font-size:12.5px;display:flex;align-items:center;gap:6px;border-right:1px solid var(--border);position:sticky;left:0;z-index:2;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sxg-row.phase .sxg-label{background:var(--bg3);font-weight:800}
+.sxg-head .sxg-label{background:var(--bg3)}
+.sxg-track{position:relative;height:28px;flex:0 0 auto}
+.sxg-bar{position:absolute;top:5px;height:18px;border-radius:5px;display:flex;align-items:center;padding:0 6px;font-size:10.5px;color:#fff;white-space:nowrap;overflow:hidden;box-shadow:var(--shadow);font-weight:600}
+.sxg-pbar{position:absolute;top:7px;height:10px;border-radius:5px;opacity:.3}
+.sxg-today{position:absolute;top:0;bottom:0;width:2px;background:var(--r);z-index:1}
+.sxg-today-lbl{position:absolute;top:4px;font-size:9px;color:var(--r);font-weight:800;transform:translateX(-50%);background:#fff;padding:0 2px;border-radius:3px}
+.sxg-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--bg3)}
+.sxg-tickname{position:absolute;top:5px;font-size:10px;color:var(--t3);white-space:nowrap}
 .sch-wrap{flex:1;overflow:auto;padding:16px 20px 30px}
 .sch-subtabs{display:flex;gap:8px;align-items:center;margin-bottom:14px}
 .sch-subtab{font-family:inherit;font-size:13px;font-weight:700;padding:9px 16px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:7px;transition:.14s}
@@ -1226,7 +1242,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v264</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v265</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6857,7 +6873,7 @@ const SCHX_TPL = {
 };
 const SCHX_PHORDER=["mfg","setup","cs"];
 const SCHX_PHCOLOR={mfg:"#534AB7", setup:"#1FA89B", cs:"#E0921E"};
-let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0, _schxOpen={}, _schxLtN=0, _schxForceReload=false;
+let _schxData={}, _schxView="__main__", _schxGroupCache={}, _schxTreeCache={}, _schxTrN=0, _schxOpen={}, _schxLtN=0, _schxForceReload=false, _schxMode="edit";
 
 function schxKey(ph,st){ return ph+"."+st; }
 function schxBlank(){ return {country:"", st:{}, groups:{}, subs:{}, extra:{}}; }
@@ -6971,7 +6987,11 @@ async function schxRenderProject(body, proj){
   _schxLtN=0;
   const flat=await schxFlat(proj);
   const gName=gid=>{ const g=flat.find(x=>x.id===gid); return g?g.name:gid; };
-  let h="";
+  let h=`<div class="sx-mode">
+    <button class="btn sm ${_schxMode==='edit'?'primary':''}" onclick="schxSetMode('edit')">📝 편집</button>
+    <button class="btn sm ${_schxMode==='gantt'?'primary':''}" onclick="schxSetMode('gantt')">📊 간트</button>
+  </div>`;
+  if(_schxMode==='gantt'){ h+=schxGanttHtml(proj,D); body.innerHTML=h; return; }
   for(const ph of SCHX_PHORDER){
     const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
     h+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
@@ -7065,6 +7085,63 @@ function schxFolderSummary(n){
   if(c.todo)    h+=`<span class="sx-cnt sx-c-todo">⬜ ${c.todo}</span>`;
   if(c.blocker) h+=`<span class="sx-cnt sx-c-blocker">⚠️ ${c.blocker}</span>`;
   if(c.delay)   h+=`<span class="sx-cnt sx-c-delay">⏰ ${c.delay}</span>`;
+  return h;
+}
+// ── 통합일정 간트 ──
+function schxSetMode(m){ _schxMode=m; schxRenderBody(); }
+function schxYmd(s){ if(!s) return null; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); return m?new Date(+m[1],+m[2]-1,+m[3]):null; }
+function schxToday(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
+function schxGanttHtml(proj,D){
+  const ppd=15, labelW=220;
+  const phases=[]; let minD=null,maxD=null;
+  const ext=(s,e)=>{ const a=schxYmd(s),b=schxYmd(e); if(a&&(!minD||a<minD))minD=a; if(b&&(!maxD||b>maxD))maxD=b; };
+  for(const ph of SCHX_PHORDER){
+    const T=SCHX_TPL[ph]; const col=SCHX_PHCOLOR[ph];
+    const stages=T.stages.concat((D.extra&&D.extra[ph])||[]);
+    const rows=[]; let pMin=null,pMax=null;
+    for(const stg of stages){
+      const key=schxKey(ph,stg.id); const sd=D.st[key]||{};
+      if(sd.start||sd.end){ ext(sd.start||sd.end, sd.end||sd.start); const a=schxYmd(sd.start),b=schxYmd(sd.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; }
+      rows.push({name:stg.name,start:sd.start,end:sd.end,sub:false});
+      (D.subs[key]||[]).forEach(s=>{ if(s.start||s.end){ ext(s.start||s.end,s.end||s.start); const a=schxYmd(s.start),b=schxYmd(s.end); if(a&&(!pMin||a<pMin))pMin=a; if(b&&(!pMax||b>pMax))pMax=b; } rows.push({name:'└ '+(s.name||''),start:s.start,end:s.end,sub:true}); });
+    }
+    phases.push({ph,name:T.name,col,pMin,pMax,rows});
+  }
+  const today=schxToday();
+  if(!minD){ minD=new Date(today); minD.setDate(minD.getDate()-14); }
+  if(!maxD){ maxD=new Date(today); maxD.setDate(maxD.getDate()+45); }
+  if(today<minD)minD=new Date(today);
+  if(today>maxD)maxD=new Date(today);
+  minD=new Date(minD); minD.setDate(minD.getDate()-3);
+  maxD=new Date(maxD); maxD.setDate(maxD.getDate()+3);
+  const di=d=>Math.round((d-minD)/86400000);
+  const totalDays=di(maxD)+1; const trackW=totalDays*ppd;
+  const xOf=s=>{ const d=schxYmd(s); return d?di(d)*ppd:0; };
+  const wOf=(s,e)=>{ const a=schxYmd(s),b=schxYmd(e); const ai=a?di(a):(b?di(b):0); const bi=b?di(b):(a?di(a):0); return Math.max(6,(bi-ai+1)*ppd); };
+  const todayX=di(today)*ppd+ppd/2;
+  // 눈금
+  let ticks=''; let d=new Date(minD);
+  while(d<=maxD){ const x=di(d)*ppd;
+    if(d.getDate()===1){ ticks+=`<div class="sxg-tick" style="left:${x}px;background:var(--border2)"></div><div class="sxg-tickname" style="left:${x}px;color:var(--t2);font-weight:700">${d.getMonth()+1}월</div>`; }
+    else if(d.getDay()===1){ ticks+=`<div class="sxg-tick" style="left:${x}px"></div>`; }
+    d.setDate(d.getDate()+1);
+  }
+  ticks+=`<div class="sxg-tickname" style="left:2px;color:var(--t3)">${minD.getMonth()+1}/${minD.getDate()}</div>`;
+  const todayLine=`<div class="sxg-today" style="left:${todayX}px"></div>`;
+  let h=`<div class="sxg-wrap"><div style="min-width:${labelW+trackW}px">`;
+  h+=`<div class="sxg-row sxg-head"><div class="sxg-label" style="color:var(--t3);font-weight:700">단계 / 일정</div><div class="sxg-track" style="width:${trackW}px">${ticks}${todayLine}<div class="sxg-today-lbl" style="left:${todayX}px">오늘</div></div></div>`;
+  for(const P of phases){
+    const pbar=(P.pMin&&P.pMax)?`<div class="sxg-pbar" style="left:${di(P.pMin)*ppd}px;width:${Math.max(6,(di(P.pMax)-di(P.pMin)+1)*ppd)}px;background:${P.col}"></div>`:'';
+    h+=`<div class="sxg-row phase"><div class="sxg-label" style="color:${P.col}">${esc(P.name)}</div><div class="sxg-track" style="width:${trackW}px;height:24px">${pbar}${todayLine}</div></div>`;
+    for(const r of P.rows){
+      let bar='';
+      if(r.start||r.end){ const x=xOf(r.start||r.end); const w=wOf(r.start,r.end); const lbl=(r.start||'')+(r.end?('~'+r.end):''); bar=`<div class="sxg-bar" style="left:${x}px;width:${w}px;background:${P.col}${r.sub?';opacity:.7':''}" title="${esc(r.name)} ${esc(lbl)}">${esc(r.name)}</div>`; }
+      h+=`<div class="sxg-row"><div class="sxg-label" style="${r.sub?'padding-left:26px;color:var(--t2);font-size:11.5px':''}">${esc(r.name)}</div><div class="sxg-track" style="width:${trackW}px">${todayLine}${bar}</div></div>`;
+    }
+  }
+  h+=`</div></div>`;
+  const ts=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  h+=`<div style="font-size:11.5px;color:var(--t3);padding:8px 2px">💡 단계의 시작·완료일을 입력하면 막대로 표시됩니다 · 빨간 선 = 오늘(${ts}) · 페이즈(제작·설치·CS)는 색으로 구분</div>`;
   return h;
 }
 // 워크플랜 작업 노드의 상태 아이콘 / 메타(직무·담당자·기간·지연) — 업무일정과 동일하게
