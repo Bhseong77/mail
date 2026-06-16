@@ -1283,7 +1283,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v285</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v286</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14278,6 +14278,8 @@ async function poadvQuotePick(rowIndex){
   if(!rows.length){ alert("견적서 탭에 분석된 견적이 없습니다.\n먼저 견적서를 업로드/분석하세요."); return; }
   rows.sort((a,b)=>String(b.quoteDate).localeCompare(String(a.quoteDate)));
   _poadvQuoteRows=rows; _poadvQuoteTarget=rowIndex;
+  const _tgtRow=poadvRows[rowIndex]||{};
+  const _withNameDefault = !String(_tgtRow.item_name||"").trim();   // 품명 비었으면(직접입력) 기본 체크, 있으면(목록에서 온 행) 해제
   const html=`
     <div id="poadv-quote-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)poadvQuoteClose()">
       <div style="background:#fff;width:min(820px,94vw);max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;">
@@ -14285,9 +14287,12 @@ async function poadvQuotePick(rowIndex){
           <div style="font-weight:700;">📄 견적서에서 단가 불러오기 <span style="font-size:12px;opacity:.8;">행 클릭 → 단가 적용 (네고 있으면 네고 우선)</span></div>
           <button onclick="poadvQuoteClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;">✕</button>
         </div>
-        <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;">
+        <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <input id="poadv-quote-q" placeholder="🔍 회사·품목 검색" oninput="poadvQuoteFilter(this.value)" autocomplete="off"
-            style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+            style="flex:1;min-width:200px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;white-space:nowrap;cursor:pointer;" title="체크 시 단가+품명, 해제 시 단가만 입력">
+            <input type="checkbox" id="poadv-quote-withname" ${_withNameDefault?"checked":""}> 품명도 같이 입력
+          </label>
         </div>
         <div style="overflow:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -14328,8 +14333,9 @@ function poadvQuoteApply(rowIndex, viewIdx){
   const r=_poadvQuoteView[viewIdx]; if(!r){ poadvQuoteClose(); return; }
   poadvRows[rowIndex].price = poadvNum(r.apply);
   poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(r.apply);
-  // 품명도 함께 — 견적 품목명이 있으면 대시보드 품명(item_name)에 자동 입력
-  if(r.item && String(r.item).trim()){
+  // 품명도 함께 — 모달 체크박스가 켜져 있고 견적 품목명이 있을 때만 대시보드 품명(item_name)에 입력
+  const _withName=(document.getElementById("poadv-quote-withname")||{}).checked;
+  if(_withName && r.item && String(r.item).trim()){
     poadvRows[rowIndex].item_name = String(r.item).trim();
   }
   poadvQuoteClose();
