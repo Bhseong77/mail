@@ -1306,7 +1306,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v291</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v292</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1496,8 +1496,7 @@ body.embed-prnew{background:#fff}
     <div class="psidebar">
       <div class="psb-section">
         <div class="psb-title">현황</div>
-        <div class="psb-item active" data-p="overview" onclick="pShowPage('overview')">📊 전체 현황</div>
-        <div class="psb-item" data-p="activity" onclick="pShowPage('activity')">🔄 구매활동 <span class="psb-badge p" id="pcnt-act">·</span></div>
+        <div class="psb-item active" data-p="status" onclick="pShowPage('status')">📋 구매현황 <span class="psb-badge p" id="pcnt-status">·</span></div>
       </div>
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
@@ -1516,22 +1515,8 @@ body.embed-prnew{background:#fff}
     <div class="pcontent">
       <div class="pmeta" id="p-meta">불러오는 중…</div>
 
-      <!-- 전체 현황 -->
-      <div class="psub on" id="p-overview">
-        <div class="pkpi-grid" id="p-kpi"></div>
-        <div class="pcard">
-          <div class="pcard-h"><span class="pcard-title">📊 프로젝트별 진행 요약</span><span class="sp"></span>
-            <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button></div>
-          <div class="ptbl-wrap"><table class="ptbl" id="p-ovtbl"></table></div>
-        </div>
-        <div class="pov-2col">
-          <div class="pcard" id="p-trend"></div>
-          <div class="pcard" id="p-topvendor"></div>
-        </div>
-      </div>
-
-      <!-- 구매활동 (파이프라인) -->
-      <div class="psub" id="p-activity"><div id="p-act-list"></div></div>
+      <!-- 구매현황 (진행 추적) -->
+      <div class="psub on" id="p-status"></div>
 
       <!-- 조회 6종 -->
       <div class="psub" id="p-pr"></div>
@@ -8252,7 +8237,7 @@ async function pSaveConfig(list){
 }
 let pData = {};                                  // {pr:[...], po:[...], ...}
 let pLoaded = false;
-let pCur = "overview";
+let pCur = "status";
 
 const pEsc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 const pNum = n => { const v=Number(n)||0; return v.toLocaleString(); };
@@ -10419,7 +10404,7 @@ function pUpdateCounts(){
   set("pcnt-rc", pNum((pData.rc||[]).length));
   set("pcnt-mr", pNum((pData.mr||[]).length));
   set("pcnt-iv", pNum((pData.iv||[]).length));
-  set("pcnt-act", String(pProjects.length));
+  try{ set("pcnt-status", String(pBuildTrack().length)); }catch(_){ }
 }
 
 // ── 사이드 페이지 전환 ──
@@ -10433,13 +10418,153 @@ function pShowPage(name){
 function pRenderCurrent(){
   const n = pCur;
   if(n==="settings") return pRenderSettings();
-  if(n==="overview") return pRenderOverview();
-  if(n==="activity") return pRenderActivity();
+  if(n==="status") return pRenderStatus();
   if(P_FILES.includes(n)) return pRenderTable(n);
   if(n==="cust") return (typeof custPageInit==="function") ? custPageInit() : pRenderSoon(n);
   if(n==="pr_new") return (typeof prnewInit==="function") ? prnewInit() : pRenderSoon(n);
   if(n==="po_adv") return (typeof poadvInit==="function") ? poadvInit() : pRenderSoon(n);
   if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)){ if(n==="dv_new"){ setTimeout(()=>{ try{ rcpDefaultDates(); if(!_rcpData.length) rcpLoad(); }catch(_){} },300); } return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  구매현황 — 품목별 진행 추적 (재료→요청→품의→발주→입고→출고)
+//  서버 동기화 DB(pr/pp/po/rc/mr)를 (project + item_no)로 결합
+// ════════════════════════════════════════════════════════════════
+const TRK_STAGES=["재료","요청","품의","발주","입고","출고"];
+let _trkFilter="all", _trkQ="";
+function _trkNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+function _trkKey(r){ const no=String(r.item_no||"").trim().toUpperCase(); return pProjCode(r)+"|"+(no||("#"+String(r.item_name||"").trim())); }
+
+function pBuildTrack(){
+  const M={};
+  // item_no 없는 행(품의/입고 등) 대비: 품명→item_no 역참조 맵 (item_no 있는 행에서 수집)
+  const noByName={};
+  [].concat(pData.pr||[],pData.po||[],pData.pp||[],pData.rc||[],pData.mr||[]).forEach(r=>{
+    const no=String(r.item_no||"").trim().toUpperCase(), nm=String(r.item_name||"").trim();
+    if(no&&nm){ const k=pProjCode(r)+"|"+nm; if(!noByName[k]) noByName[k]=no; }
+  });
+  const keyOf=r=>{ let no=String(r.item_no||"").trim().toUpperCase(); const nm=String(r.item_name||"").trim();
+    if(!no) no=noByName[pProjCode(r)+"|"+nm]||("#"+nm); return pProjCode(r)+"|"+no; };
+  const ensure=r=>{ const k=keyOf(r); if(!M[k]){ const no=String(r.item_no||"").trim()||(noByName[pProjCode(r)+"|"+String(r.item_name||"").trim()]||""); M[k]={proj:pProjCode(r),item_no:no,item_name:(r.item_name||""),spec:(r.spec||""),req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:""}; } return M[k]; };
+  (pData.pr||[]).forEach(r=>{ const m=ensure(r); m.req={date:r.req_date,qty:_trkNum(r.qty),status:r.status}; if(!m.reqQty)m.reqQty=_trkNum(r.qty); if(!m.item_name)m.item_name=r.item_name; });
+  (pData.pp||[]).forEach(r=>{ const m=ensure(r); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name,qty:_trkNum(r.qty)}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
+  (pData.po||[]).forEach(r=>{ const m=ensure(r); m.po={date:r.order_date,qty:_trkNum(r.qty),status:r.status}; if(r.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
+  (pData.rc||[]).forEach(r=>{ const m=ensure(r); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:_trkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.item_name)m.item_name=r.item_name; });
+  (pData.mr||[]).forEach(r=>{ const m=ensure(r); m.out={date:r.out_date,no:r.out_no,qty:_trkNum(r.qty)}; });
+  return Object.values(M).map(m=>{
+    const inQty=m.rcv.reduce((a,b)=>a+b.qty,0);
+    const reqQty=m.reqQty||(m.po&&m.po.qty)||(m.prop&&m.prop.qty)||0;
+    const inDone = reqQty>0 ? inQty>=reqQty : inQty>0;
+    let label,lc;
+    if(m.out){ label="출고완료"; lc="gray"; }
+    else if(inQty>0 && inDone){ label="입고완료"; lc="green"; }
+    else if(inQty>0){ label=`입고중 ${inQty}/${reqQty||'?'}`; lc="amber"; }
+    else if(m.po){ label="입고 대기"; lc="blue"; }
+    else if(m.prop){ label=(m.prop.status||"발주 대기"); lc="amber"; }
+    else if(m.req){ label="품의 대기"; lc="gray"; }
+    else { label="구매요청 대기"; lc="gray"; }
+    let filled=1;
+    if(m.req) filled=2;
+    if(m.prop) filled=3;
+    if(m.po) filled=4;
+    if(inQty>0) filled = inDone?5:4;
+    if(m.out) filled=6;
+    const active = /완료/.test(label) ? -1 : Math.min(filled,5);
+    const lastDate=(m.out&&m.out.date)||(m.rcv.length&&m.rcv[m.rcv.length-1].date)||(m.po&&m.po.date)||(m.prop&&m.prop.date)||(m.req&&m.req.date)||"";
+    return {...m,inQty,reqQty,filled,active,label,lc,inDone,lastDate};
+  });
+}
+
+function _trkStepper(it){
+  let cells="";
+  for(let i=0;i<6;i++){
+    const st = i<it.filled ? "done" : (i===it.active ? "active" : "todo");
+    let dot;
+    if(st==="done") dot=`<span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;align-items:center;justify-content:center;font-size:12px;">✓</span>`;
+    else if(st==="active") dot=`<span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:#fef3c7;border:2px solid #d97706;color:#92400e;align-items:center;justify-content:center;font-size:9px;">●</span>`;
+    else dot=`<span style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1.5px solid #d1d5db;"></span>`;
+    cells+=`<span style="width:44px;display:inline-flex;align-items:center;justify-content:center;">${dot}</span>`;
+  }
+  return `<div style="display:flex;align-items:center">${cells}</div>`;
+}
+const _TRK_BADGE={green:"background:#dcfce7;color:#15803d",amber:"background:#fef3c7;color:#92400e",blue:"background:#dbeafe;color:#1d4ed8",gray:"background:#f1f5f9;color:#475569"};
+
+function pStatusFilter(f){ _trkFilter=f; pRenderStatus(); }
+function pStatusSearch(v){ _trkQ=(v||"").trim().toLowerCase(); pRenderStatus(); }
+
+function pRenderStatus(){
+  const host=document.getElementById("p-status"); if(!host) return;
+  if(!pLoaded){ host.innerHTML=`<div class="pempty">불러오는 중…</div>`; return; }
+  let items=pBuildTrack();
+  // 정렬: 최근 일자 desc
+  items.sort((a,b)=>String(b.lastDate||"").localeCompare(String(a.lastDate||"")));
+  // 요약(현재 단계 분포)
+  const cnt={재료:0,요청:0,품의:0,발주:0,입고:0,출고:0};
+  items.forEach(it=>{ const k=TRK_STAGES[Math.min(it.filled,6)-1]; if(k in cnt) cnt[k]++; });
+  // 필터
+  const filtered=items.filter(it=>{
+    if(_trkFilter==="po_wait" && !(it.po && !(it.inQty>0 && it.inDone))) return false;
+    if(_trkFilter==="incomplete" && /완료/.test(it.label)) return false;
+    if(_trkQ){ const s=(it.item_no+" "+it.item_name).toLowerCase(); if(!s.includes(_trkQ)) return false; }
+    return true;
+  });
+  const chip=(lbl,n,hi)=>`<div style="${hi?'background:#dcfce7':'background:var(--bg3)'};border-radius:8px;padding:7px 10px;min-width:62px"><div style="font-size:11px;color:${hi?'#3B6D11':'var(--t3)'}">${lbl}</div><div style="font-size:17px;font-weight:700;color:${hi?'#15803d':'var(--t1)'}">${n}</div></div>`;
+  const stageHdr=TRK_STAGES.map(s=>`<span style="width:44px;text-align:center">${s}</span>`).join("");
+  const fbtn=(f,lbl)=>`<button class="pbtn${_trkFilter===f?' on':''}" onclick="pStatusFilter('${f}')" style="${_trkFilter===f?'background:var(--p);color:#fff;':''}">${lbl}</button>`;
+
+  const rowsHtml = filtered.length ? filtered.map(it=>`
+    <tr style="cursor:pointer" onclick="pTrackDetail('${it.proj}','${(it.item_no||it.item_name).replace(/'/g,'')}')">
+      <td>${pPjBadge(it.proj)}</td>
+      <td><div style="font-family:monospace;font-size:11px;color:var(--t3)">${pEsc(it.item_no||"")}</div><div style="font-weight:600">${pEsc(it.item_name||"")}</div>${it.spec?`<div style="font-size:11px;color:var(--t3)">${pEsc(it.spec)}</div>`:""}</td>
+      <td style="padding:4px 6px">${_trkStepper(it)}</td>
+      <td><span style="${_TRK_BADGE[it.lc]};font-size:11.5px;padding:3px 10px;border-radius:7px;white-space:nowrap">${pEsc(it.label)}</span></td>
+      <td class="num"><span style="color:${it.inDone&&it.inQty>0?'#15803d':(it.inQty>0?'#92400e':'var(--t3)')};font-weight:600">${it.inQty}</span><span style="color:var(--t3)"> / ${it.reqQty||'-'}</span></td>
+      <td>${pEsc(it.vendor||"")}</td>
+      <td style="font-size:11px;color:var(--t3);white-space:nowrap">${pEsc(it.lastDate||"")}</td>
+    </tr>`).join("") : `<tr><td colspan="7"><div class="pempty">조건에 맞는 품목이 없습니다.</div></td></tr>`;
+
+  host.innerHTML=`
+    <div class="pfilter" style="flex-wrap:wrap">
+      <strong style="font-size:15px">📋 구매현황 — 품목별 진행 추적</strong>
+      <span class="pcard-cnt">${filtered.length}/${items.length}건 · ${pProjects.join(" / ")}</span>
+      <span style="flex:1"></span>
+      <input id="trk-q" placeholder="🔍 품번·품명 검색" oninput="pStatusSearch(this.value)" value="${pEsc(_trkQ)}">
+      ${fbtn("all","전체")} ${fbtn("po_wait","발주〉입고대기")} ${fbtn("incomplete","미완료만")}
+      <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
+      ${chip("재료",cnt.재료)}${chip("요청",cnt.요청)}${chip("품의",cnt.품의)}${chip("발주",cnt.발주)}${chip("입고",cnt.입고,true)}${chip("출고",cnt.출고)}
+    </div>
+    <div class="pcard"><div class="ptbl-wrap"><table class="ptbl">
+      <thead><tr>
+        <th>PJT</th><th>품번 · 품명</th>
+        <th style="text-align:center"><div style="display:flex">${stageHdr}</div></th>
+        <th>현재 상태</th><th class="num">입고/요청</th><th>거래처</th><th>최근일</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div></div>
+    <div style="font-size:11.5px;color:var(--t3);margin-top:8px">● 완료 · ◐ 진행중 · ○ 미진행 · (프로젝트+품번) 기준 자동 결합 · 서버 5분 동기화 DB · 행 클릭 = 단계 상세</div>`;
+}
+
+function pTrackDetail(proj,key){
+  const items=pBuildTrack();
+  const it=items.find(x=>x.proj===proj && (String(x.item_no)===key || x.item_name===key));
+  if(!it) return;
+  const line=(lbl,v)=>v?`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="width:70px;color:var(--t3);font-size:12px">${lbl}</span><span style="font-size:13px">${v}</span></div>`:"";
+  const rcv = it.rcv.length? it.rcv.map(r=>`${pYmd(r.date)} · ${r.no||""} · ${r.qty}`).join("<br>") : "";
+  const html=`
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px">${pEsc(it.item_name||"")}</div>
+    <div style="font-family:monospace;font-size:12px;color:var(--t3);margin-bottom:10px">${pEsc(it.item_no||"")} ${it.spec?(" · "+pEsc(it.spec)):""}</div>
+    ${line("현재", `<span style="${_TRK_BADGE[it.lc]};padding:2px 9px;border-radius:6px">${pEsc(it.label)}</span>`)}
+    ${line("요청", it.req?`${pYmd(it.req.date)} · 수량 ${it.req.qty} · ${pEsc(it.req.status||"")}`:"")}
+    ${line("품의", it.prop?`${pYmd(it.prop.date)} · ${pEsc(it.prop.no||"")} · ${pEsc(it.prop.status||"")}`:"")}
+    ${line("발주", it.po?`${pYmd(it.po.date)} · 수량 ${it.po.qty} · ${pEsc(it.po.status||"")}`:"")}
+    ${line("입고", rcv? `${rcv}<br><b>합계 ${it.inQty}/${it.reqQty||'-'}</b>`:"")}
+    ${line("출고", it.out?`${pYmd(it.out.date)} · ${pEsc(it.out.no||"")} · 수량 ${it.out.qty}`:"")}
+    ${line("거래처", pEsc(it.vendor||""))}`;
+  let ov=document.getElementById("trk-detail-ov");
+  if(!ov){ ov=document.createElement("div"); ov.id="trk-detail-ov"; ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px"; ov.onclick=e=>{ if(e.target===ov) ov.remove(); }; document.body.appendChild(ov); }
+  ov.innerHTML=`<div style="background:var(--bg2,#fff);border-radius:12px;max-width:460px;width:100%;max-height:85vh;overflow:auto;padding:14px 20px 20px"><div style="display:flex;justify-content:flex-end;margin-bottom:-6px"><button onclick="document.getElementById('trk-detail-ov').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button></div>${html}</div>`;
 }
 
 // ── 테이블 컬럼 구성 (실제 영림원 DB 스키마 기반) ──
