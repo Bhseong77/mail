@@ -1242,7 +1242,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v270</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v271</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -15537,6 +15537,7 @@ function prnewInit(){
               <thead><tr>
                 <th style="width:34px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
                 <th style="width:30px;">#</th>
+                <th style="width:104px;">상태</th>
                 <th style="width:62px;">BOM레벨 <span class="poadv-req">*</span></th>
                 <th style="width:90px;">조달구분</th>
                 <th style="width:90px;">품목분류</th>
@@ -15601,6 +15602,14 @@ function prnewDelRow(i){
   prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRow(); prnewRenderRows();
 }
 function prnewClearRows(){ prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
+// 확정/완료/중단 품목을 새 구매요청 행으로 복제 (원본 ERP행은 그대로) → 바로 선택됨
+function prnewReRequest(i){
+  const r=prnewRows[i]||{};
+  const pre={}; PRNEW_FIELDS.forEach(f=>pre[f]=r[f]||""); pre._chk=true;
+  prnewAddRow(pre);   // 새 신규행 추가 + 재렌더
+  if(typeof toast==="function") toast("↻ 다시요청 행 추가됨 — 납기요청일 입력 후 [구매요청 입력 + 결재상신]","ok");
+  const tb=document.getElementById("prnew-tbody"); if(tb&&tb.lastElementChild) tb.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"});
+}
 
 function prnewRowInput(i, field, el){ prnewRows[i][field]=el.value; if(field==="기본소요량"||field==="제작대수") prnewRenderRows(); }
 function prnewToggleChk(i, el){ prnewRows[i]._chk = el.checked; }
@@ -15663,9 +15672,23 @@ function prnewRenderRows(){
       grpTag = r._draft?'<div style="font-size:9px;color:#0f4c81;">임시</div>':'';
     }
 
+    // ── 상태 컬럼 (확정/완료/중단 = ↻ 다시요청 가능) ──
+    let stTxt="신규", stColor="#16a34a", reBtn="";
+    if(done){
+      const ss2=prnewStatusStyle(r._status);
+      if(ss2){
+        stTxt=ss2.chip; stColor=ss2.label;
+        if(["확정(승인)","완료","중단(선발주)"].indexOf(r._status)>=0)
+          reBtn=`<button onclick="prnewReRequest(${i})" title="이 확정/완료 품목을 새 구매요청 행으로 복제" style="display:block;margin:3px auto 0;padding:2px 7px;border:1px solid ${ss2.bd};border-radius:5px;background:#fff;color:${ss2.label};font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">↻ 다시요청</button>`;
+      }else{ stTxt="📤 저장됨"; stColor="#1d4ed8"; }
+    }else if(existing){ stTxt="기존"; stColor="#64748b"; }
+    else if(r._draft){ stTxt="임시"; stColor="#0f4c81"; }
+    const statusCell=`<td style="text-align:center;white-space:nowrap;"><span style="font-size:10px;font-weight:700;color:${stColor};">${stTxt}</span>${reBtn}</td>`;
+
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
       <td style="text-align:center;color:#9ca3af;">${i+1}${grpTag}</td>
+      ${statusCell}
       <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" placeholder="1" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${lockInput?"disabled":""}></td>
