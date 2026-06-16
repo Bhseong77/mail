@@ -1283,7 +1283,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v283</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v284</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14304,16 +14304,17 @@ async function poadvQuotePick(rowIndex){
   poadvQuoteFilter("");
   setTimeout(()=>{ const q=document.getElementById("poadv-quote-q"); if(q) q.focus(); }, 50);
 }
-let _poadvQuoteRows=[], _poadvQuoteTarget=-1;
+let _poadvQuoteRows=[], _poadvQuoteTarget=-1, _poadvQuoteView=[];
 function poadvQuoteFilter(q){
   const tb=document.getElementById("poadv-quote-tbody"); if(!tb) return;
   q=(q||"").trim().toLowerCase();
   const esc2=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   let arr=_poadvQuoteRows;
   if(q) arr=arr.filter(r=>`${r.company} ${r.item} ${r.fileName}`.toLowerCase().includes(q));
+  _poadvQuoteView=arr;
   if(!arr.length){ tb.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;">검색 결과 없음</td></tr>'; return; }
-  tb.innerHTML=arr.map(r=>`
-    <tr style="cursor:pointer;border-bottom:1px solid #eef0f3;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''" onclick="poadvQuoteApply(${_poadvQuoteTarget}, ${r.apply})">
+  tb.innerHTML=arr.map((r,idx)=>`
+    <tr style="cursor:pointer;border-bottom:1px solid #eef0f3;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''" onclick="poadvQuoteApply(${_poadvQuoteTarget}, ${idx})">
       <td style="padding:7px 9px;">${esc2(r.company)}<div style="font-size:11px;color:#94a3b8;">${esc2(r.quoteDate)}</div></td>
       <td style="padding:7px 9px;">${esc2(r.item)||'<span style="color:#cbd5e1">-</span>'}</td>
       <td style="padding:7px 9px;text-align:center;">${esc2(r.qty)||'-'}</td>
@@ -14322,10 +14323,15 @@ function poadvQuoteFilter(q){
       <td style="padding:7px 9px;text-align:right;font-weight:700;color:#0f4c81;">₩${poadvComma(r.apply)}</td>
     </tr>`).join("");
 }
-function poadvQuoteApply(rowIndex, val){
+function poadvQuoteApply(rowIndex, viewIdx){
   if(rowIndex<0 || rowIndex>=poadvRows.length){ poadvQuoteClose(); return; }
-  poadvRows[rowIndex].price = poadvNum(val);
-  poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(val);
+  const r=_poadvQuoteView[viewIdx]; if(!r){ poadvQuoteClose(); return; }
+  poadvRows[rowIndex].price = poadvNum(r.apply);
+  poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(r.apply);
+  // 품명도 함께 — 행 품명이 비어 있을 때만 견적 품목명으로 채움 (기존 품명은 보존)
+  if(r.item && String(r.item).trim() && !String(poadvRows[rowIndex].item||"").trim()){
+    poadvRows[rowIndex].item = String(r.item).trim();
+  }
   poadvQuoteClose();
   poadvRenderRows();
 }
