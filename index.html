@@ -1306,7 +1306,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v292</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v293</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10432,25 +10432,45 @@ function pRenderCurrent(){
 // ════════════════════════════════════════════════════════════════
 const TRK_STAGES=["재료","요청","품의","발주","입고","출고"];
 let _trkFilter="all", _trkQ="";
+let _trkData=null, _trkLoading=false;
 function _trkNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+
+// 서버 DB 직접 조회 (SharePoint JSON이 비어 있어도 동작) — pr/pp/po/rc/mr
+async function pTrackLoad(force){
+  if(_trkData && !force) return _trkData;
+  const eps={pr:"requests", pp:"proposals", po:"orders", rc:"receipt-processing", mr:"material-releases"};
+  const projSet=new Set(pProjects.map(p=>String(p).toUpperCase()));
+  const out={pr:[],pp:[],po:[],rc:[],mr:[]};
+  await Promise.all(Object.entries(eps).map(async ([k,ep])=>{
+    try{
+      const r=await fetch(`${SERVER}/api/purchase/${ep}`);
+      const j=await r.json();
+      const rows=Array.isArray(j)?j:(Array.isArray(j&&j.data)?j.data:[]);
+      out[k]=rows.filter(x=>projSet.has(pProjCode(x)));
+    }catch(e){ out[k]=[]; }
+  }));
+  _trkData=out;
+  return out;
+}
 function _trkKey(r){ const no=String(r.item_no||"").trim().toUpperCase(); return pProjCode(r)+"|"+(no||("#"+String(r.item_name||"").trim())); }
 
 function pBuildTrack(){
   const M={};
+  const D=_trkData||pData;   // 추적: 서버 DB(_trkData) 우선, 없으면 SharePoint pData
   // item_no 없는 행(품의/입고 등) 대비: 품명→item_no 역참조 맵 (item_no 있는 행에서 수집)
   const noByName={};
-  [].concat(pData.pr||[],pData.po||[],pData.pp||[],pData.rc||[],pData.mr||[]).forEach(r=>{
+  [].concat(D.pr||[],D.po||[],D.pp||[],D.rc||[],D.mr||[]).forEach(r=>{
     const no=String(r.item_no||"").trim().toUpperCase(), nm=String(r.item_name||"").trim();
     if(no&&nm){ const k=pProjCode(r)+"|"+nm; if(!noByName[k]) noByName[k]=no; }
   });
   const keyOf=r=>{ let no=String(r.item_no||"").trim().toUpperCase(); const nm=String(r.item_name||"").trim();
     if(!no) no=noByName[pProjCode(r)+"|"+nm]||("#"+nm); return pProjCode(r)+"|"+no; };
   const ensure=r=>{ const k=keyOf(r); if(!M[k]){ const no=String(r.item_no||"").trim()||(noByName[pProjCode(r)+"|"+String(r.item_name||"").trim()]||""); M[k]={proj:pProjCode(r),item_no:no,item_name:(r.item_name||""),spec:(r.spec||""),req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:""}; } return M[k]; };
-  (pData.pr||[]).forEach(r=>{ const m=ensure(r); m.req={date:r.req_date,qty:_trkNum(r.qty),status:r.status}; if(!m.reqQty)m.reqQty=_trkNum(r.qty); if(!m.item_name)m.item_name=r.item_name; });
-  (pData.pp||[]).forEach(r=>{ const m=ensure(r); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name,qty:_trkNum(r.qty)}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
-  (pData.po||[]).forEach(r=>{ const m=ensure(r); m.po={date:r.order_date,qty:_trkNum(r.qty),status:r.status}; if(r.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
-  (pData.rc||[]).forEach(r=>{ const m=ensure(r); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:_trkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.item_name)m.item_name=r.item_name; });
-  (pData.mr||[]).forEach(r=>{ const m=ensure(r); m.out={date:r.out_date,no:r.out_no,qty:_trkNum(r.qty)}; });
+  (D.pr||[]).forEach(r=>{ const m=ensure(r); m.req={date:r.req_date,qty:_trkNum(r.qty),status:r.status}; if(!m.reqQty)m.reqQty=_trkNum(r.qty); if(!m.item_name)m.item_name=r.item_name; });
+  (D.pp||[]).forEach(r=>{ const m=ensure(r); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name,qty:_trkNum(r.qty)}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
+  (D.po||[]).forEach(r=>{ const m=ensure(r); m.po={date:r.order_date,qty:_trkNum(r.qty),status:r.status}; if(r.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
+  (D.rc||[]).forEach(r=>{ const m=ensure(r); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:_trkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.item_name)m.item_name=r.item_name; });
+  (D.mr||[]).forEach(r=>{ const m=ensure(r); m.out={date:r.out_date,no:r.out_no,qty:_trkNum(r.qty)}; });
   return Object.values(M).map(m=>{
     const inQty=m.rcv.reduce((a,b)=>a+b.qty,0);
     const reqQty=m.reqQty||(m.po&&m.po.qty)||(m.prop&&m.prop.qty)||0;
@@ -10494,9 +10514,16 @@ function pStatusSearch(v){ _trkQ=(v||"").trim().toLowerCase(); pRenderStatus(); 
 
 function pRenderStatus(){
   const host=document.getElementById("p-status"); if(!host) return;
-  if(!pLoaded){ host.innerHTML=`<div class="pempty">불러오는 중…</div>`; return; }
+  if(!_trkData){
+    if(!_trkLoading){
+      _trkLoading=true;
+      host.innerHTML=`<div class="pempty">서버에서 구매 진행 데이터 불러오는 중…</div>`;
+      pTrackLoad().then(()=>{ _trkLoading=false; pRenderStatus(); }).catch(()=>{ _trkLoading=false; host.innerHTML=`<div class="pempty">데이터 로드 실패 — 서버 연결을 확인하세요.</div>`; });
+    }
+    return;
+  }
   let items=pBuildTrack();
-  // 정렬: 최근 일자 desc
+  { const sb=document.getElementById("pcnt-status"); if(sb) sb.textContent=String(items.length); }
   items.sort((a,b)=>String(b.lastDate||"").localeCompare(String(a.lastDate||"")));
   // 요약(현재 단계 분포)
   const cnt={재료:0,요청:0,품의:0,발주:0,입고:0,출고:0};
@@ -10530,7 +10557,7 @@ function pRenderStatus(){
       <span style="flex:1"></span>
       <input id="trk-q" placeholder="🔍 품번·품명 검색" oninput="pStatusSearch(this.value)" value="${pEsc(_trkQ)}">
       ${fbtn("all","전체")} ${fbtn("po_wait","발주〉입고대기")} ${fbtn("incomplete","미완료만")}
-      <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button>
+      <button class="pbtn" onclick="_trkData=null;pRenderStatus()">↻ 새로고침</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
       ${chip("재료",cnt.재료)}${chip("요청",cnt.요청)}${chip("품의",cnt.품의)}${chip("발주",cnt.발주)}${chip("입고",cnt.입고,true)}${chip("출고",cnt.출고)}
