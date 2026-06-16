@@ -1278,7 +1278,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v279</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v280</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2091,6 +2091,21 @@ body.embed-prnew{background:#fff}
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
         <button class="btn primary" type="button" onclick="admProjSave()">💾 프로젝트 설정 저장</button>
         <span id="adm_proj_msg" style="font-size:13px;color:var(--t3)"></span>
+      </div>
+    </div>
+    <div class="adm-card">
+      <div class="adm-card-h">🛒 구매관리자 <span style="font-weight:400;color:var(--t3);font-size:12px">· 구매요청 <b>임시저장</b> 시 이 담당자에게 Teams <b>개인챗</b> 알림 (복수 가능) · 100.ERP/purchase-managers.json</span></div>
+      <div class="adm-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="adm_pmgr_sel" style="flex:1;min-width:220px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)">
+          <option value="">— 먼저 [멤버 불러오기] —</option>
+        </select>
+        <button class="btn" type="button" onclick="admPMgrReload()">🔄 멤버 불러오기</button>
+        <button class="btn primary" type="button" onclick="admPMgrAdd()">＋ 추가</button>
+      </div>
+      <div id="adm_pmgrs" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn primary" type="button" onclick="admPMgrSave()">💾 구매관리자 저장</button>
+        <span id="adm_pmgr_msg" style="font-size:13px;color:var(--t3)"></span>
       </div>
     </div>
     <div class="adm-card">
@@ -3224,6 +3239,7 @@ async function admLoad(){
   ADMIN_CFG.channels.forEach(c=>{ if(c.welcomeFields){ c.welcome=admBuildWelcome(c.welcomeFields); } });
   admRenderChannels();
   try{ const k=await loadOpenAIKey(true); const ke=$('adm_openai'); if(ke) ke.value=k||''; }catch(e){}
+  try{ await pmLoad(true); if(typeof WP_MEMBERS!=="undefined"&&WP_MEMBERS&&WP_MEMBERS.length){ _pmAllMembers=WP_MEMBERS; } admFillPMgrSelect(); admRenderPMgr(); }catch(e){}
   if(sv) sv.textContent='';
 }
 function admRenderChannels(){
@@ -3356,6 +3372,54 @@ async function admSave(){
     if(sv){ sv.textContent='✅ 저장됨 · 서버가 다음 주기에 반영합니다'; setTimeout(()=>{if(sv)sv.textContent='';},5000); }
     toast('관리자 설정 저장됨','ok');
   }catch(e){ if(sv) sv.textContent='저장 실패: '+e.message; toast('저장 실패','bad'); }
+}
+
+// ── 🛒 구매관리자 (임시저장 시 개인챗 알림 받을 사람) ──
+let PURCHASE_MGRS=[];     // [{id,name,email}]
+let _pmLoaded=false;
+let _pmAllMembers=[];     // TIC 멤버 캐시(select용)
+async function pmLoad(force){
+  if(_pmLoaded && !force) return PURCHASE_MGRS;
+  try{ const j=await spGetJson(P_ERP_FOLDER+"/purchase-managers.json"); PURCHASE_MGRS=(j&&Array.isArray(j.managers))?j.managers:[]; }
+  catch(_){ PURCHASE_MGRS=[]; }
+  _pmLoaded=true; return PURCHASE_MGRS;
+}
+async function pmSave(){
+  await spPutJson(P_ERP_FOLDER+"/purchase-managers.json",{managers:PURCHASE_MGRS,_updatedAt:new Date().toISOString(),_updatedBy:(typeof myName==='function'?myName():'')});
+}
+function admFillPMgrSelect(){
+  const sel=document.getElementById("adm_pmgr_sel"); if(!sel) return;
+  const chosen=new Set(PURCHASE_MGRS.map(m=>m.id));
+  const opts=_pmAllMembers.filter(m=>!chosen.has(m.id)).map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.email?(' · '+esc(m.email)):''}</option>`).join("");
+  sel.innerHTML=`<option value="">${_pmAllMembers.length?'— TIC 멤버에서 선택 —':'— 먼저 [멤버 불러오기] —'}</option>`+opts;
+}
+function admRenderPMgr(){
+  const box=document.getElementById("adm_pmgrs"); if(!box) return;
+  if(!PURCHASE_MGRS.length){ box.innerHTML='<span style="color:var(--t3);font-size:13px">선택된 구매관리자가 없습니다. 위에서 멤버를 추가하세요.</span>'; return; }
+  box.innerHTML=PURCHASE_MGRS.map((m,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--pd,#ede9fe);color:var(--p2,#6d28d9);padding:4px 10px;border-radius:99px;font-size:13px;font-weight:600">👤 ${esc(m.name||m.email||'')}<span onclick="admPMgrDel(${i})" title="제거" style="cursor:pointer;opacity:.7">✕</span></span>`).join("");
+}
+async function admPMgrReload(){
+  const msg=document.getElementById("adm_pmgr_msg");
+  if(msg) msg.textContent="멤버 불러오는 중…";
+  try{
+    _pmAllMembers=(typeof WP_MEMBERS!=="undefined"&&WP_MEMBERS&&WP_MEMBERS.length)?WP_MEMBERS:await loadTicMembers();
+    if((typeof WP_MEMBERS==="undefined"||!WP_MEMBERS||!WP_MEMBERS.length)&&_pmAllMembers.length){ try{ WP_MEMBERS=_pmAllMembers; }catch(_){} }
+    admFillPMgrSelect();
+    if(msg) msg.textContent=`멤버 ${_pmAllMembers.length}명 불러옴 — 선택 후 [＋ 추가]`;
+  }catch(e){ if(msg) msg.textContent="멤버 불러오기 실패: "+(e.message||e); }
+}
+function admPMgrAdd(){
+  const sel=document.getElementById("adm_pmgr_sel"); if(!sel||!sel.value) return;
+  const m=_pmAllMembers.find(x=>x.id===sel.value); if(!m) return;
+  if(!PURCHASE_MGRS.some(x=>x.id===m.id)) PURCHASE_MGRS.push({id:m.id,name:m.name,email:m.email||""});
+  admFillPMgrSelect(); admRenderPMgr();
+}
+function admPMgrDel(i){ PURCHASE_MGRS.splice(i,1); admFillPMgrSelect(); admRenderPMgr(); }
+async function admPMgrSave(){
+  const msg=document.getElementById("adm_pmgr_msg");
+  if(msg) msg.textContent="저장 중…";
+  try{ await pmSave(); if(msg) msg.textContent=`✅ 저장 완료 (${PURCHASE_MGRS.length}명) · 임시저장 시 개인챗 알림 발송`; if(typeof toast==='function') toast("구매관리자 저장됨","ok"); }
+  catch(e){ if(msg) msg.textContent="저장 실패: "+(e.message||e); if(typeof toast==='function') toast("저장 실패","bad"); }
 }
 
 function guessCompany(email,name){
@@ -16370,6 +16434,22 @@ async function prnewDraftSave(){
     }else{
       if(msg){ msg.style.color="#d97706"; msg.textContent=`💾 브라우저 캐시에 임시저장 (${newRows.length}건)${delMsg} — SharePoint 동기화 실패(권한)`; }
     }
+    // 🛒 구매관리자에게 Teams 개인챗(DM) 알림
+    try{
+      if(newRows.length){
+        await pmLoad();
+        if(PURCHASE_MGRS && PURCHASE_MGRS.length){
+          const who=((typeof myName==='function'?myName():"")||"작성자");
+          const lines=newRows.slice(0,30).map(r=>`• ${esc(r["품명"]||"(품명없음)")}${r["품번"]?(" / "+esc(r["품번"])):""}${r["기본소요량"]?(" · "+esc(r["기본소요량"])+esc(r["구매단위"]||"")):""}`).join("<br>");
+          const more=newRows.length>30?`<br>… 외 ${newRows.length-30}건`:"";
+          const body=`<b>${esc(who)}</b> 님이 구매요청 항목을 임시저장했습니다.<br>프로젝트: <b>${esc(pjt)}</b> · 총 ${newRows.length}건<br><br>${lines}${more}<br><br><b>구매요청드립니다.</b>`;
+          const link=`${location.origin}${location.pathname}?tab=prnew&pjt=${encodeURIComponent(pjt)}&embed=1`;
+          fetch(`${SERVER}/api/workplan/ask-task-dm`,{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({task_name:"📥 구매요청 임시저장 알림", message:body, owners:PURCHASE_MGRS.map(m=>({id:m.id,name:m.name})), link})})
+            .then(r=>r.json()).then(d=>{ if(msg){ if(d&&d.ok){ msg.textContent+=` · 🔔 구매관리자 ${(d.sent||[]).length}명 알림`; } else { msg.textContent+=` · ⚠️ 개인챗 알림 실패(${(d&&d.error)||"권한"})`; } } }).catch(()=>{});
+        }
+      }
+    }catch(_){}
   }catch(e){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장 오류: "+e.message; } }
   btn.disabled=false; btn.textContent=ot;
 }
