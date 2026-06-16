@@ -1306,7 +1306,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v293</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v294</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8324,27 +8324,43 @@ async function wpRenumberAll(){
   WP_SEL=null; wpRender();
 }
 
+function wpSeedOpen(){
+  WP_LOADED_PROJ.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true; (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=true; if(n.children) seed(n.children); }); })(p.children); });
+}
+function wpMeta(){
+  const el=document.getElementById("wp-meta"); if(el) el.innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
+}
+// 업무일정 localStorage 캐시 (프로젝트·주차별)
+function wpCacheKey(code){ return `wpcache_${code}_${wpFileName()}`; }
+function wpCacheGet(code){ try{ const s=localStorage.getItem(wpCacheKey(code)); return s?JSON.parse(s):null; }catch(_){ return null; } }
+function wpCacheSet(code,proj){ try{ localStorage.setItem(wpCacheKey(code), JSON.stringify(proj)); }catch(_){} }
+
 async function wpLoad(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
-  document.getElementById("wp-body").innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   WP_SEL=null; WP_ATTACH=null;
-  // 각 프로젝트의 04.일정/plan-YYYY-Wxx.json 읽기 (없으면 빈 프로젝트)
-  const projs=wpProjects(); const out=[];
-  for(const code of projs){
-    let proj={id:code, name:code, prog:0, children:[]};
+  const projs=wpProjects();
+  // 1) 캐시 즉시 표시 (있으면 화면 바로 뜸)
+  const hasCache=projs.some(code=>localStorage.getItem(wpCacheKey(code)));
+  if(hasCache){
+    WP_LOADED_PROJ=projs.map(code=>{ const c=wpCacheGet(code); if(c){ c.id=code; return c; } return {id:code,name:code,prog:0,children:[]}; });
+    wpSeedOpen(); wpMeta(); wpRender();
+  } else {
+    document.getElementById("wp-body").innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  }
+  // 2) 백그라운드 최신 로드 (병렬) → 캐시 갱신 → 재렌더 (실패 시 캐시 유지)
+  const fresh=await Promise.all(projs.map(async code=>{
     try{
       const data=await wpReadPlan(code);
-      if(data && data.project){ proj=data.project; proj.id=code; }
+      if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); return proj; }
     }catch(_){}
-    out.push(proj);
-  }
-  WP_LOADED_PROJ=out;
-  // open 기본값
-  out.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true; (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=true; if(n.children) seed(n.children); }); })(p.children); });
-  document.getElementById("wp-meta").innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
+    const c=wpCacheGet(code); if(c){ c.id=code; return c; }   // 신선로드 실패 → 캐시 유지(화면 안 비움)
+    return {id:code,name:code,prog:0,children:[]};
+  }));
+  WP_LOADED_PROJ=fresh;
+  wpSeedOpen(); wpMeta();
   // 지연 작업 기준 후행 자동 일정 이동 (로드 시 1회)
   let cascaded=[];
-  out.forEach(p=>{ const mv=wpCascadeAll(p.id); if(mv.length) cascaded.push(p.id); });
+  fresh.forEach(p=>{ const mv=wpCascadeAll(p.id); if(mv.length) cascaded.push(p.id); });
   if(cascaded.length){ for(const pid of cascaded){ try{ await wpSaveProject(pid); }catch(_){} } toast("지연 반영: 후행 일정 자동 이동됨","ok"); }
   wpRender();
 }
@@ -8458,7 +8474,8 @@ async function wpSaveProject(projId){
   const touched=await wpSyncShared(projId);
   try{
     await wpSavePlan(projId, p);
-    for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); }catch(_){} }
+    try{ wpCacheSet(projId, p); }catch(_){}   // 캐시 즉시 갱신
+    for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); wpCacheSet(other, op); }catch(_){} }
     toast(touched.length?`저장됨: ${projId} (+공유 ${touched.length})`:"저장됨: "+projId,"ok");
   }
   catch(e){ toast("저장 실패: "+e.message,"bad"); }
