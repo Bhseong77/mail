@@ -1278,7 +1278,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v278</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v279</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5223,9 +5223,7 @@ async function _analyzeOne(p, f){
     return parsed;
   }
   if(p==='doc-vendor'){
-    const vp=_vendorPrompt(f, text);
-    let vinfo=null;
-    try{ const txt=await callCopilot(vp); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); vinfo=JSON.parse(t); }catch(_){ vinfo=null; }
+    const vinfo=await _vendorAnalyzeFields(f, text);
     AN_DATA[p][f.id]=_vendorStore(f, vinfo, AN_DATA[p][f.id]);
     return vinfo;
   }
@@ -5303,15 +5301,80 @@ function _vendorStore(f, info, prev){
     fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
   };
 }
+// ── 거래처 문서 비전(이미지 직접 인식) 폴백 — 스캔 PDF·통장 JPG 대응 ──
+function _vendorEmpty(info){ if(!info) return true; const has=v=>v&&String(v).trim(); return !(has(info.bizno)||has(info.ceo)||has(info.bank)||has(info.bankName)); }
+function _vendorMerge(a,b){ a=a||{}; b=b||{}; const o={}; ["company","bizno","ceo","address","bankName","bank","category"].forEach(k=>{ const av=a[k]&&String(a[k]).trim(); o[k]=av?a[k]:(b[k]||""); }); return o; }
+function _blobToDataUrl(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(new Error("read fail")); r.readAsDataURL(blob); }); }
+async function _fetchDocBlob(f){
+  let blob=null;
+  try{ if(f.url){ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); } }catch(_){}
+  if(!blob){ try{ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) blob=await r.blob(); }catch(_){} }
+  return blob;
+}
+async function _docToImages(f, blob){
+  const name=(f.name||"").toLowerCase(); const urls=[];
+  if(name.endsWith(".pdf")){
+    if(!window.pdfjsLib) return urls;
+    const buf=await blob.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const n=Math.min(pdf.numPages,2);
+    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2});
+      const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height;
+      await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+      urls.push(cv.toDataURL("image/jpeg",0.85)); }
+  } else if(/\.(jpe?g|png|webp|gif|bmp)$/.test(name)){
+    urls.push(await _blobToDataUrl(blob));
+  }
+  return urls;
+}
+function _vendorVisionPrompt(f){
+  return `이 이미지는 거래처 관련 문서(사업자등록증 / 통장사본 등)다. 도장·워터마크·태극 문양이 글자 위에 겹쳐 있어도 글자를 정확히 읽어라. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+{"company":"회사명/상호","bizno":"사업자등록번호","ceo":"대표자 성명","address":"사업장 소재지 주소","bankName":"은행명","bank":"계좌번호","category":"분류"}
+[사업자등록증]
+- bizno: "등록번호" 옆 번호, 3-2-5 형식 (예: 123-86-48029). "법인등록번호"(6자리-7자리)와 혼동 금지.
+- company: "법인명(단체명)" 또는 "상호" (예: 주식회사 로텍아이엔티).
+- ceo: "대표자" 옆 사람 이름 (예: 김해진).
+- address: "사업장 소재지" 또는 "본점 소재지" 한 줄 전체.
+[통장 / 통장사본]
+- bankName: 은행명. 상단 로고·문구로 판단 (예: IBK기업은행→"기업은행", 신한은행, 국민은행, 농협).
+- bank: "계좌번호" 옆 번호 (예: 462-073119-01-022).
+[공통]
+- category: 업태/종목 기준 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나. 애매하면 빈 문자열.
+- 숫자는 하이픈 포함 원문 그대로. 못 읽는 값만 빈 문자열. 파일명도 힌트로 활용.
+[파일명] ${f.name}`;
+}
+async function _vendorViaVision(f){
+  const key=await loadOpenAIKey(); if(!key) return null;
+  const blob=await _fetchDocBlob(f); if(!blob) return null;
+  const imgs=await _docToImages(f, blob); if(!imgs.length) return null;
+  const content=[{type:"text",text:_vendorVisionPrompt(f)}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u,detail:"high"}})));
+  const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+    body:JSON.stringify({model:"gpt-4o",temperature:0,response_format:{type:"json_object"},max_tokens:700,messages:[{role:"user",content}]})});
+  if(!r.ok) throw new Error("OpenAI vision "+r.status);
+  const d=await r.json(); const c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+  try{ return JSON.parse(c); }catch(_){ return null; }
+}
+// 거래처 필드: 텍스트 파싱 → (부족 시) 비전 폴백
+async function _vendorAnalyzeFields(f, text){
+  let info=null;
+  if((text||"").replace(/\s/g,"").length>=30){
+    try{ const txt=await callCopilot(_vendorPrompt(f,text)); let t=txt.replace(/```json|```/g,"").trim(); const s=t.indexOf("{"),e=t.lastIndexOf("}"); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  }
+  if(_vendorEmpty(info)){
+    try{ const vi=await _vendorViaVision(f); if(vi) info=_vendorMerge(info, vi); }catch(ex){ console.warn("거래처 비전 분석 실패",f.name,ex.message); }
+  }
+  return info;
+}
 async function anAnalyze(p, silent){
   const root=DOC_MAP[p];
   if(!silent) toast('문서 목록 확인 중…');
   const files=[];
+  const _exRe = (p==='doc-vendor') ? /\.(pdf|xlsx|xls|xlsm|jpe?g|png|webp|gif|bmp)$/i : /\.(pdf|xlsx|xls|xlsm)$/i;
   async function walk(path,customer){
     const items=await spList(path);
     for(const it of items){
       if(it.folder) await walk(`${path}/${it.name}`, customer||it.name);
-      else if(it.file && /\.(pdf|xlsx|xls|xlsm)$/i.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||'',customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10),webUrl:it.webUrl});
+      else if(it.file && _exRe.test(it.name)) files.push({id:it.id,name:it.name,url:it['@microsoft.graph.downloadUrl']||'',customer:customer||'',folder:path.replace(root+'/',''),date:(it.lastModifiedDateTime||'').slice(0,10),webUrl:it.webUrl});
     }
   }
   await walk(root,'');
@@ -5342,6 +5405,15 @@ async function anAnalyze(p, silent){
           memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
         };
         okN++;
+        continue;
+      }
+      // 거래처: 텍스트 파싱 + (부족하면) 비전 폴백
+      if(p==='doc-vendor'){
+        const vinfo=await _vendorAnalyzeFields(f, text);
+        AN_DATA[p][f.id]=_vendorStore(f, vinfo, AN_DATA[p][f.id]);
+        okN++;
+        if(done%3===0){ anRender(p); if(!silent) toast(`분석 중… ${done}/${pending.length}`); }
+        await new Promise(r=>setTimeout(r,300));
         continue;
       }
       // 2) Copilot 분석
