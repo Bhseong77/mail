@@ -1283,7 +1283,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v284</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v285</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14328,9 +14328,9 @@ function poadvQuoteApply(rowIndex, viewIdx){
   const r=_poadvQuoteView[viewIdx]; if(!r){ poadvQuoteClose(); return; }
   poadvRows[rowIndex].price = poadvNum(r.apply);
   poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(r.apply);
-  // 품명도 함께 — 행 품명이 비어 있을 때만 견적 품목명으로 채움 (기존 품명은 보존)
-  if(r.item && String(r.item).trim() && !String(poadvRows[rowIndex].item||"").trim()){
-    poadvRows[rowIndex].item = String(r.item).trim();
+  // 품명도 함께 — 견적 품목명이 있으면 대시보드 품명(item_name)에 자동 입력
+  if(r.item && String(r.item).trim()){
+    poadvRows[rowIndex].item_name = String(r.item).trim();
   }
   poadvQuoteClose();
   poadvRenderRows();
