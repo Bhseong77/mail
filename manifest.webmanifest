@@ -1,19 +1,19 @@
 {
   "name": "ENJET T 프로젝트",
   "short_name": "ENJET T",
-  "description": "엔젯 구매·메일·ERP 통합 대시보드",
+  "description": "ENJET 통합 대시보드 — 메일·거래처·구매·통합일정",
+  "lang": "ko",
   "start_url": "./",
   "scope": "./",
+  "id": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
   "background_color": "#0f4c81",
   "theme_color": "#0f4c81",
-  "lang": "ko",
-  "dir": "ltr",
   "icons": [
     { "src": "pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "pwa/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "pwa/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -1,38 +1,38 @@
-/* ENJET T 프로젝트 서비스워커
-   목적: PWA 설치 가능 조건 충족(fetch 핸들러).
-   전략: 네트워크 우선(network-first). 대시보드는 항상 최신이어야 하므로
-        캐시는 오프라인 폴백 용도로만 최소 사용. 오래된 화면이 뜨는 걸 방지.   */
-const CACHE = "enjet-t-v1";
+// ENJET PWA 서비스워커
+// 전략: 네트워크 우선(Network-first) — 온라인이면 항상 최신을 가져오고,
+//       오프라인일 때만 마지막 캐시로 폴백. (자주 배포 + 🔄캐시삭제 흐름을 깨지 않음)
+const CACHE = "enjet-pwa-v1";
 
-self.addEventListener("install", (e) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  // GET 만 처리, API/그래프/외부는 그대로 통과
-  if (req.method !== "GET") return;
-  const url = new URL(req.url);
-  // 같은 출처(앱 셸)만 캐시 폴백 대상
-  const sameOrigin = url.origin === self.location.origin;
+  if (req.method !== "GET") return;                  // POST 등(Graph/MSAL)은 그대로 통과
+  let url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  if (url.origin !== self.location.origin) return;   // 동일 출처만 처리(CDN·Graph 제외)
 
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (sameOrigin && res && res.status === 200) {
+        try {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-        }
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        } catch (_) {}
         return res;
       })
-      .catch(() => caches.match(req))   // 오프라인이면 마지막 캐시
+      .catch(() =>
+        caches.match(req).then((m) => m || (req.mode === "navigate" ? caches.match("./") : undefined))
+      )
   );
 });
