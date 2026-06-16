@@ -1306,7 +1306,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v296</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v297</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10482,15 +10482,18 @@ function pTrackForceRefresh(){ _trkData=null; try{ localStorage.removeItem(_trkC
 function pBuildTrack(){
   const M={};
   const D=_trkData||pData;   // 추적: 서버 DB(_trkData) 우선, 없으면 SharePoint pData
+  // 실제 프로젝트 = 품번 앞 코드 우선 (project_code가 잘못 박힌 경우 보정: BR26002_… 인데 BP26009로 표기된 행 등)
+  const projCodes=pProjects.map(p=>String(p).toUpperCase());
+  const realProj=r=>{ const no=String(r.item_no||"").toUpperCase(); for(const p of projCodes){ if(no.startsWith(p+"_")) return p; } return pProjCode(r); };
   // item_no 없는 행(품의/입고 등) 대비: 품명→item_no 역참조 맵 (item_no 있는 행에서 수집)
   const noByName={};
   [].concat(D.pr||[],D.po||[],D.pp||[],D.rc||[],D.mr||[]).forEach(r=>{
     const no=String(r.item_no||"").trim().toUpperCase(), nm=String(r.item_name||"").trim();
-    if(no&&nm){ const k=pProjCode(r)+"|"+nm; if(!noByName[k]) noByName[k]=no; }
+    if(no&&nm){ const k=realProj(r)+"|"+nm; if(!noByName[k]) noByName[k]=no; }
   });
   const keyOf=r=>{ let no=String(r.item_no||"").trim().toUpperCase(); const nm=String(r.item_name||"").trim();
-    if(!no) no=noByName[pProjCode(r)+"|"+nm]||("#"+nm); return pProjCode(r)+"|"+no; };
-  const ensure=r=>{ const k=keyOf(r); if(!M[k]){ const no=String(r.item_no||"").trim()||(noByName[pProjCode(r)+"|"+String(r.item_name||"").trim()]||""); M[k]={proj:pProjCode(r),item_no:no,item_name:(r.item_name||""),spec:(r.spec||""),req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:""}; } return M[k]; };
+    if(!no) no=noByName[realProj(r)+"|"+nm]||("#"+nm); return realProj(r)+"|"+no; };
+  const ensure=r=>{ const k=keyOf(r); if(!M[k]){ const no=String(r.item_no||"").trim()||(noByName[realProj(r)+"|"+String(r.item_name||"").trim()]||""); M[k]={proj:realProj(r),item_no:no,item_name:(r.item_name||""),spec:(r.spec||""),req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:""}; } return M[k]; };
   (D.pr||[]).forEach(r=>{ const m=ensure(r); m.req={date:r.req_date,qty:_trkNum(r.qty),status:r.status}; if(!m.reqQty)m.reqQty=_trkNum(r.qty); if(!m.item_name)m.item_name=r.item_name; });
   (D.pp||[]).forEach(r=>{ const m=ensure(r); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name,qty:_trkNum(r.qty)}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
   (D.po||[]).forEach(r=>{ const m=ensure(r); m.po={date:r.order_date,qty:_trkNum(r.qty),status:r.status}; if(r.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
