@@ -409,6 +409,14 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sx-c-delay{background:var(--yd);color:var(--y);border-color:transparent}
 /* 구매요청입력 그리드 — 컬럼 폭 축소(고정 레이아웃 + 헤더 줄바꿈) */
 #prnew-tbl{table-layout:fixed;width:auto;min-width:100%}
+/* 조회 대형 로딩 오버레이 */
+#prnew-loading{position:fixed;inset:0;z-index:100000;background:rgba(248,250,252,.94);display:none;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+#prnew-loading .pl-card{text-align:center;padding:48px}
+#prnew-loading .pl-spin{width:86px;height:86px;border:8px solid #dbeafe;border-top-color:#1d4ed8;border-radius:50%;margin:0 auto 28px;animation:plspin .85s linear infinite}
+@keyframes plspin{to{transform:rotate(360deg)}}
+#prnew-loading .pl-msg{font-size:26px;font-weight:800;color:#0f4c81;letter-spacing:-.3px}
+#prnew-loading .pl-sub{font-size:16px;color:#475569;margin-top:14px;font-weight:600}
+#prnew-loading .pl-sub2{font-size:13px;color:#94a3b8;margin-top:6px}
 #prnew-tbl th{white-space:normal!important;font-size:10.5px;padding:5px 3px;line-height:1.15;word-break:keep-all}
 #prnew-tbl td{padding:1px}
 #prnew-tbl td input{padding:5px 3px;font-size:11.5px}
@@ -1270,7 +1278,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v276</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v278</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -15696,25 +15704,28 @@ function prnewCopyEmbedLink(){
 }
 
 function prnewAddRow(prefill){
+  prnewPushUndo&&prnewPushUndo();
   prnewRows.push(Object.assign({
-    "BOM레벨":"","조달구분":"","품목분류":"","품명":"","품번":"","규격":"","구매단위":"EA",
+    "BOM레벨":"","조달구분":"구매","품목분류":"구매품(공용)","품명":"","품번":"","규격":"","구매단위":"EA",
     "기본소요량":"","제작대수":"","여유수량":"",
     _requester:(typeof myName==="function"?myName():"")
   }, prefill||{}));
   prnewRenderRows();
 }
 function prnewDelRow(i){
+  prnewPushUndo();
   const r=prnewRows[i];
   // 아직 영림원 저장 안 한 신규/임시 행이면 삭제 키 기록 (임시저장 시 엑셀에서도 제거)
   if(r && !r._existing && !r._pr){ const k=(r["품번"]||r["품명"]||"").trim(); if(k) _prnewDeleted.push(k); }
   prnewRows.splice(i,1); if(!prnewRows.length) prnewAddRow(); prnewRenderRows();
 }
-function prnewClearRows(){ prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
+function prnewClearRows(){ prnewPushUndo(); prnewRows=[]; prnewAddRow(); prnewRenderRows(); }
 // 선택(체크)한 행 일괄 삭제
 function prnewDelChecked(){
   const idx=[]; prnewRows.forEach((r,i)=>{ if(r._chk) idx.push(i); });
   if(!idx.length){ if(typeof toast==="function") toast("삭제할 행을 체크하세요","bad"); return; }
   if(!confirm(`선택한 ${idx.length}개 행을 삭제할까요?`)) return;
+  prnewPushUndo();
   idx.sort((a,b)=>b-a).forEach(i=>{
     const r=prnewRows[i];
     if(r && !r._existing && !r._pr){ const k=(r["품번"]||r["품명"]||"").trim(); if(k) _prnewDeleted.push(k); }
@@ -15815,8 +15826,8 @@ function prnewRenderRows(){
       <td style="text-align:center;font-size:11px;color:#475569;white-space:nowrap;" title="요청자 — 영림원 전송 안 함">${esc(reqName)}</td>
       ${statusCell}
       <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" ondblclick="prnewBomAuto(${i})" title="더블클릭: 윗행 BOM레벨 +1 자동 (예 1.47→1.48)" placeholder="1" ${lockInput?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" placeholder="-" ${lockInput?"disabled":""}></td>
-      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" placeholder="-" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="조달구분" value="${esc(r["조달구분"]||"")}" oninput="prnewRowInput(${i},'조달구분',this)" ondblclick="prnewCopyUp(${i},'조달구분')" title="더블클릭: 윗행 값 복사" placeholder="-" ${lockInput?"disabled":""}></td>
+      <td><input data-r="${i}" data-f="품목분류" value="${esc(r["품목분류"]||"")}" oninput="prnewRowInput(${i},'품목분류',this)" ondblclick="prnewCopyUp(${i},'품목분류')" title="더블클릭: 윗행 값 복사" placeholder="-" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="품명" value="${esc(r["품명"]||"")}" oninput="prnewRowInput(${i},'품명',this)" placeholder="품명" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="품번" value="${esc(r["품번"]||"")}" oninput="prnewRowInput(${i},'품번',this)" placeholder="품번" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="규격" value="${esc(r["규격"]||"")}" oninput="prnewRowInput(${i},'규격',this)" placeholder="-" ${lockInput?"disabled":""}></td>
@@ -15834,7 +15845,29 @@ function prnewRenderRows(){
     const ngrp=Object.keys(grpRows).length;
     ri.textContent=`${prnewRows.length}개 품목`+(nchk?` · ${nchk}개 선택`:"")+(ndone?` · 구매요청 ${ngrp}건(${ndone}품목)`:"");
   }
-  if(!tb.dataset.pasteBound){ tb.addEventListener("paste", prnewOnPaste); tb.dataset.pasteBound="1"; }
+  if(!tb.dataset.pasteBound){
+    tb.addEventListener("paste", prnewOnPaste);
+    tb.addEventListener("focusin", e=>{ if(e.target&&e.target.dataset&&e.target.dataset.f) prnewPushUndo(); });
+    tb.addEventListener("keydown", e=>{ if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==="z"||e.key==="Z")){ e.preventDefault(); prnewUndo(); } });
+    tb.dataset.pasteBound="1";
+  }
+}
+// ── 되돌리기(Ctrl+Z) ──
+let _prnewUndo=[];
+function prnewPushUndo(){ try{ const s=JSON.stringify(prnewRows); if(_prnewUndo[_prnewUndo.length-1]!==s){ _prnewUndo.push(s); if(_prnewUndo.length>60)_prnewUndo.shift(); } }catch(e){} }
+function prnewUndo(){
+  if(!_prnewUndo.length){ if(typeof toast==="function") toast("되돌릴 작업이 없습니다"); return; }
+  const s=_prnewUndo.pop();
+  try{ prnewRows=JSON.parse(s); prnewRenderRows(); if(typeof toast==="function") toast("↩ 되돌리기"); }catch(e){}
+}
+// 조달구분/품목분류 더블클릭 → 윗 행 값 복사
+function prnewCopyUp(i, field){
+  for(let j=i-1;j>=0;j--){
+    const v=String((prnewRows[j]||{})[field]||"").trim();
+    if(v){ prnewPushUndo(); prnewRows[i][field]=v; prnewRenderRows();
+      const el=document.querySelector(`#prnew-tbody input[data-r="${i}"][data-f="${field}"]`);
+      if(el){ el.focus(); try{el.select();}catch(_){} } return; }
+  }
 }
 
 // 엑셀 셀 범위 붙여넣기 (행 칸에서 Ctrl+V)
@@ -15844,13 +15877,14 @@ function prnewOnPaste(e){
   const text=(e.clipboardData||window.clipboardData).getData("text");
   if(!text || (text.indexOf("\t")<0 && text.indexOf("\n")<0)) return;
   e.preventDefault();
+  prnewPushUndo();
   const startR=parseInt(tgt.dataset.r,10)||0;
   const startC=PRNEW_FIELDS.indexOf(startF);
   const lines=text.replace(/\r/g,"").replace(/\n$/,"").split("\n");
   lines.forEach((line,li)=>{
     const cells=line.split("\t"); const ri=startR+li;
-    while(prnewRows.length<=ri) prnewRows.push({"BOM레벨":"","조달구분":"","품목분류":"","품명":"","품번":"","규격":"","구매단위":"EA","기본소요량":"","제작대수":"","여유수량":""});
-    cells.forEach((val,ci)=>{ const f=PRNEW_FIELDS[startC+ci]; if(f) prnewRows[ri][f]=(val||"").trim(); });
+    while(prnewRows.length<=ri) prnewRows.push({"BOM레벨":"","조달구분":"구매","품목분류":"구매품(공용)","품명":"","품번":"","규격":"","구매단위":"EA","기본소요량":"","제작대수":"","여유수량":"",_requester:(typeof myName==="function"?myName():"")});
+    cells.forEach((val,ci)=>{ const f=PRNEW_FIELDS[startC+ci]; if(f && String(val).trim()!=="") prnewRows[ri][f]=String(val).trim(); });
   });
   prnewRenderRows();
   const m=document.getElementById("prnew-msg"); if(m){ m.style.color="#15803d"; m.textContent=`✅ ${lines.length}행 붙여넣기 완료`; }
@@ -15862,6 +15896,7 @@ function prnewBomAuto(i){
     if(!prev) continue;
     const parts=prev.split("."); const n=parseInt(parts[parts.length-1],10);
     if(isNaN(n)) return;
+    prnewPushUndo();
     parts[parts.length-1]=String(n+1);
     prnewRows[i]["BOM레벨"]=parts.join(".");
     prnewRenderRows();
@@ -15870,7 +15905,7 @@ function prnewBomAuto(i){
     return;
   }
 }
-function _prnewRowEmpty(r){ return !r || PRNEW_FIELDS.every(f=> f==="구매단위" ? true : !String(r[f]||"").trim()); }
+function _prnewRowEmpty(r){ if(!r) return true; return ["BOM레벨","품명","품번","규격","기본소요량","제작대수","여유수량"].every(f=>!String(r[f]||"").trim()); }
 // 엑셀 붙여넣기 박스 (셀 Ctrl+V가 잘 안 될 때 — 확실한 일괄 붙여넣기)
 function prnewPasteBox(){
   let ov=document.getElementById("prnewPasteOv");
@@ -15904,10 +15939,11 @@ function prnewPasteApply(){
   const text=(ta.value||"").replace(/\r/g,"").replace(/\n+$/,"");
   if(!text.trim()){ if(typeof toast==="function") toast("붙여넣은 내용이 없습니다","bad"); return; }
   const append=(document.getElementById("prnew-paste-append")||{}).checked!==false;
+  prnewPushUndo();
   const newRows=text.split("\n").map(line=>{
     const cells=line.split("\t");
-    const o={"BOM레벨":"","조달구분":"","품목분류":"","품명":"","품번":"","규격":"","구매단위":"EA","기본소요량":"","제작대수":"","여유수량":"",_requester:(typeof myName==="function"?myName():"")};
-    cells.forEach((v,ci)=>{ const f=PRNEW_FIELDS[ci]; if(f) o[f]=(v||"").trim(); });
+    const o={"BOM레벨":"","조달구분":"구매","품목분류":"구매품(공용)","품명":"","품번":"","규격":"","구매단위":"EA","기본소요량":"","제작대수":"","여유수량":"",_requester:(typeof myName==="function"?myName():"")};
+    cells.forEach((v,ci)=>{ const f=PRNEW_FIELDS[ci]; if(f && String(v).trim()!=="") o[f]=String(v).trim(); });
     return o;
   }).filter(o=>!_prnewRowEmpty(o));
   if(!newRows.length){ if(typeof toast==="function") toast("해석할 행이 없습니다","bad"); return; }
@@ -15971,11 +16007,24 @@ function prnewStatusStyle(st){
   }
 }
 
+// 조회 대형 로딩 오버레이 (영림원 ~25초)
+function prnewLoadingShow(msg){
+  let ov=document.getElementById("prnew-loading");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="prnew-loading";
+    ov.innerHTML=`<div class="pl-card"><div class="pl-spin"></div><div class="pl-msg"></div><div class="pl-sub">영림원에서 데이터를 가져오는 중입니다 · 약 25초 소요</div><div class="pl-sub2">완료되면 자동으로 표시됩니다</div></div>`;
+    document.body.appendChild(ov);
+  }
+  const m=ov.querySelector(".pl-msg"); if(m) m.textContent=msg||"조회 중…";
+  ov.style.display="flex";
+}
+function prnewLoadingHide(){ const ov=document.getElementById("prnew-loading"); if(ov) ov.style.display="none"; }
 async function prnewQuery(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-pjt-msg");
   if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
   if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ ${pjt} 재료자원 + 진행상태 조회 중… (영림원, ~25초)`; }
+  prnewLoadingShow(`${pjt} 재료자원 조회 중…`);
   const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
   try{
     await prnewLoadState(pjt);   // SharePoint 캐시 상태 먼저 로드
@@ -16022,7 +16071,7 @@ async function prnewQuery(){
   }catch(e){
     if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
     if(msg){ msg.style.color="#dc2626"; msg.textContent="조회 오류: "+e.message; }
-  }
+  }finally{ prnewLoadingHide(); }
 }
 
 // 진행상태 순차 조회 후 행 갱신 (재료자원 표시 후 별도로)
