@@ -1307,7 +1307,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v300</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v302</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2745,11 +2745,12 @@ const TIC_TEAM_GROUP="8457d8bf-1dd8-4e24-ad22-250816cc7d6d";
 let _projChanCache={};
 async function projChannelInfo(code){
   if(_projChanCache[code]) return _projChanCache[code];
+  // 영구 캐시 (driveId·rootId는 거의 안 변함) — 14일 TTL
+  try{ const s=localStorage.getItem("chaninfo_"+code); if(s){ const o=JSON.parse(s); if(o&&o.driveId&&o.rootId&&(Date.now()-(o._at||0))<14*86400000){ _projChanCache[code]=o; return o; } } }catch(_){}
   const t=await graphToken();
   const r=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels`,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) throw new Error("TIC 팀 채널 목록 실패 "+r.status);
   const chans=(await r.json()).value||[];
-  console.log("📺 TIC 채널:", chans.map(c=>c.displayName));
   const up=String(code).toUpperCase();
   let ch=chans.find(c=>(c.displayName||"").toUpperCase().includes("("+up+")"))
        || chans.find(c=>(c.displayName||"").toUpperCase().includes(up));
@@ -2757,9 +2758,11 @@ async function projChannelInfo(code){
   const fr=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels/${ch.id}/filesFolder`,{headers:{Authorization:"Bearer "+t}});
   if(!fr.ok) throw new Error("채널 폴더 접근 실패 "+fr.status);
   const ff=await fr.json();
-  const info={driveId:(ff.parentReference&&ff.parentReference.driveId)||null, rootId:ff.id, name:ch.displayName, channelId:ch.id};
+  const info={driveId:(ff.parentReference&&ff.parentReference.driveId)||null, rootId:ff.id, name:ch.displayName, channelId:ch.id, _at:Date.now()};
   if(!info.driveId) throw new Error("채널 드라이브 ID 없음");
-  _projChanCache[code]=info; return info;
+  _projChanCache[code]=info;
+  try{ localStorage.setItem("chaninfo_"+code, JSON.stringify(info)); }catch(_){}
+  return info;
 }
 async function projChanList(code, rel){
   const t=await graphToken(); const c=await projChannelInfo(code);
@@ -8405,28 +8408,20 @@ async function wpLoad(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
   WP_SEL=null; WP_ATTACH=null;
   const projs=wpProjects();
-  // 1) 캐시 즉시 표시 (있으면 화면 바로 뜸)
-  const hasCache=projs.some(code=>localStorage.getItem(wpCacheKey(code)));
-  if(hasCache){
-    WP_LOADED_PROJ=projs.map(code=>{ const c=wpCacheGet(code); if(c){ c.id=code; return c; } return {id:code,name:code,prog:0,children:[]}; });
-    wpSeedOpen(); wpMeta(); wpRender();
-  } else {
-    document.getElementById("wp-body").innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
-  }
-  // 2) 백그라운드 최신 로드 (병렬) → 캐시 갱신 → 재렌더 (실패 시 캐시 유지)
-  const fresh=await Promise.all(projs.map(async code=>{
-    try{
-      const data=await wpReadPlan(code);
-      if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); return proj; }
-    }catch(_){}
-    const c=wpCacheGet(code); if(c){ c.id=code; return c; }   // 신선로드 실패 → 캐시 유지(화면 안 비움)
-    return {id:code,name:code,prog:0,children:[]};
-  }));
-  WP_LOADED_PROJ=fresh;
-  wpSeedOpen(); wpMeta();
-  // 지연 작업 기준 후행 자동 일정 이동 (로드 시 1회)
+  // 1) 캐시 또는 플레이스홀더로 '틀'을 즉시 표시 (프로젝트 헤더 바로 뜸)
+  WP_LOADED_PROJ=projs.map(code=>{ const c=wpCacheGet(code); if(c){ c.id=code; return c; } return {id:code,name:code,prog:0,children:[],_loading:true}; });
+  wpSeedOpen(); wpMeta(); wpRender();
+  // 2) 프로젝트별 최신 로드 → 도착하는 즉시 그 프로젝트만 갱신 (단계별 렌더)
+  const tasks=projs.map((code,idx)=>wpReadPlan(code).then(data=>{
+    if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); WP_LOADED_PROJ[idx]=proj; }
+    else if(WP_LOADED_PROJ[idx]){ delete WP_LOADED_PROJ[idx]._loading; }   // 캐시 유지 or 빈
+    wpSeedOpen(); wpRender();
+  }).catch(()=>{ if(WP_LOADED_PROJ[idx]) delete WP_LOADED_PROJ[idx]._loading; wpRender(); }));
+  await Promise.all(tasks);
+  wpMeta();
+  // 3) 전부 도착 후 지연 작업 기준 후행 자동 일정 이동 (1회)
   let cascaded=[];
-  fresh.forEach(p=>{ const mv=wpCascadeAll(p.id); if(mv.length) cascaded.push(p.id); });
+  WP_LOADED_PROJ.forEach(p=>{ if(!p) return; const mv=wpCascadeAll(p.id); if(mv&&mv.length) cascaded.push(p.id); });
   if(cascaded.length){ for(const pid of cascaded){ try{ await wpSaveProject(pid); }catch(_){} } toast("지연 반영: 후행 일정 자동 이동됨","ok"); }
   wpRender();
 }
@@ -8672,7 +8667,7 @@ function wpDelayDays(n){ if(n.group||(n.prog||0)>=100||!n.end) return 0; const e
 function wpIsDelayed(n){ return wpDelayDays(n)>0; }
 function wpDelayBadge(n){ const d=wpDelayDays(n); return d>0?`<span title="마감 ${esc(n.end)} 경과" style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:99px;font-weight:600">⏰ ${d}일 지연</span>`:""; }
 
-function wpRender(){ if(WP_VIEW==="gantt") wpRenderGantt(); else if(WP_VIEW==="order") wpRenderOrder(); else wpRenderTree(); }
+function wpRender(){ if(WP_VIEW==="gantt") wpRenderGantt(); else if(WP_VIEW==="order") wpRenderOrder(); else wpRenderTree(); try{ wpTrkLiveUpdateAll(); }catch(_){} }
 
 // ── 업무지시 (PM 서술형 → Copilot이 과거+현재 대조 → 작업 제안 → 임시저장 → 확정) ──
 let WP_ORDER_DRAFT=null;   // {projId, mode, tasks:[...], rawText}
@@ -9039,7 +9034,7 @@ function wpRenderTree(){
       <div class="wp-bar" style="width:90px"><div style="width:${prog}%;background:var(--p)"></div></div>
       <span style="font-size:12px;color:var(--p2);min-width:32px;text-align:right">${prog}%</span>
     </div>`;
-    if(open) h+=`<div>${(p.children||[]).map(n=>wpRowHtml(p.id,n,0,false)).join("")}</div>`;
+    if(open) h+=`<div>${(p.children||[]).map(n=>wpRowHtml(p.id,n,0,false)).join("")}${(p._loading&&!(p.children||[]).length)?'<div style="padding:14px;text-align:center;color:var(--t3);font-size:12px">불러오는 중…</div>':''}</div>`;
   });
   if(!WP_LOADED_PROJ.length) h='<div style="padding:30px;text-align:center;color:var(--t3)">프로젝트가 없습니다 (관리자설정에서 추가)</div>';
   document.getElementById("wp-body").innerHTML=h+`<div style="margin-top:10px;font-size:12px;color:var(--t3)">프로젝트가 트리 최상위 · 부모 작업이 끝나야 자식 잠금 해제 · 작업 클릭 → 첨부·이력·댓글</div>`;
@@ -9981,6 +9976,24 @@ function wpComma(n){ return Number(n||0).toLocaleString("en-US"); }
 
 // 첨부행 1개 렌더 (preview=true면 ✕ 제거버튼 포함)
 function wpPurRowHtml(p, preview, id, idx){
+  if(p.t==="trk"){
+    const noU=String(p.item_no||"").toUpperCase();
+    const ce=_wpTrkCache[String(p.proj||"").toUpperCase()];
+    const live=ce && ce.byNo[noU];                       // 캐시에 최신값 있으면 사용
+    const filled=live?live.filled:(p.filled||0);
+    const status=live?live.status:(p.status||"-");
+    const vendor=live?live.vendor:(p.vendor||"");
+    const x=preview?`<span onclick="wpPurRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none;align-self:flex-start">✕</span>`:"";
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+      <div style="min-width:0;flex:1">
+        <div><span style="font-size:10px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:99px">📊 구매현황</span> <b>${esc(p.item_name||"-")}</b> <span style="color:var(--t3);font-family:monospace;font-size:10px">${esc(p.item_no||"")}</span></div>
+        <div style="color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px">
+          <span class="wptrk-step" data-proj="${esc(p.proj||"")}" data-no="${esc(p.item_no||"")}">${wpTrkStepHtml(filled)}</span>
+          <span class="wptrk-st" data-proj="${esc(p.proj||"")}" data-no="${esc(p.item_no||"")}" style="font-weight:700;color:${wpTrkStatusColor(status)}">${esc(status)}</span>
+          ${vendor?`<span style="color:var(--t3)">· ${esc(vendor)}</span>`:""}
+        </div>
+      </div>${x}</div>`;
+  }
   const isO=p.t==="o";
   const head=isO
     ? `<span style="font-size:10px;font-weight:700;background:#ede9fe;color:#6d28d9;padding:1px 6px;border-radius:99px">📝 발주</span> <b style="color:#0f4c81;font-family:monospace">${esc(p.no||"-")}</b>`
@@ -10005,9 +10018,67 @@ function wpPurRemove(id, idx){
   const box=document.getElementById("wp-cmt-pur-"+id); if(box) box.innerHTML=wpPurPreviewHtml(id);
 }
 
+// ── 구매현황(추적) 데이터 — /api/purchase/track 재사용, 프로젝트별 캐시 ──
+let _wpTrkCache={};   // projUpper → {rows, byNo, at}
+function wpTrkNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+function wpTrkBuild(D, P){
+  const M={};
+  const ensure=(no,nm,spec)=>{ const k=no||('#'+(nm||'')); if(!M[k]) M[k]={item_no:no,item_name:nm||'',spec:spec||'',req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:''}; return M[k]; };
+  const projOf=r=>{ const no=String(r.item_no||'').toUpperCase(); if(no.startsWith(P+'_')) return P; return String(r.project_code||'').toUpperCase(); };
+  const pick=r=>projOf(r)===P;
+  (D.pr||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.req={date:r.req_date,qty:wpTrkNum(r.qty)}; if(wpTrkNum(r.qty))m.reqQty=wpTrkNum(r.qty); });
+  (D.pp||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
+  (D.po||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.po={date:r.order_date,vendor:r.vendor,qty:wpTrkNum(r.qty),status:r.status}; if(r.vendor&&!m.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
+  (D.rc||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:wpTrkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; });
+  (D.mr||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name); m.out={date:r.out_date,no:r.out_no,qty:wpTrkNum(r.qty)}; });
+  return Object.values(M).map(m=>{
+    const inQty=m.rcv.reduce((s,x)=>s+x.qty,0);
+    const reqQty=m.reqQty||(m.po&&m.po.qty)||0;
+    const inDone=inQty>0 && reqQty>0 && inQty>=reqQty;
+    let filled=0; if(m.req)filled=1; if(m.prop)filled=2; if(m.po)filled=3; if(inQty>0)filled=inDone?4:3; if(m.out)filled=5;
+    let status; if(m.out)status="출고완료"; else if(inDone)status="입고완료"; else if(inQty>0)status="부분입고"; else if(m.po)status="입고 대기"; else if(m.prop)status="발주 대기"; else if(m.req)status="품의 대기"; else status="요청 대기";
+    return {proj:P,item_no:m.item_no,item_name:m.item_name,spec:m.spec,vendor:m.vendor,inQty,reqQty,filled,status};
+  }).sort((a,b)=>String(a.item_no).localeCompare(String(b.item_no)));
+}
+async function wpTrkFetch(proj, force){
+  const P=String(proj||'').toUpperCase(); if(!P) return {rows:[],byNo:{},at:0};
+  const c=_wpTrkCache[P];
+  if(c && !force && (Date.now()-c.at)<120000) return c;   // 2분 캐시
+  const r=await fetch(`${SERVER}/api/purchase/track?projects=${encodeURIComponent(P)}`);
+  const j=await r.json();
+  const D={pr:j.pr||[],pp:j.pp||[],po:j.po||[],rc:j.rc||[],mr:j.mr||[]};
+  const rows=wpTrkBuild(D,P);
+  const byNo={}; rows.forEach(x=>{ if(x.item_no) byNo[x.item_no.toUpperCase()]=x; });
+  const ce={rows,byNo,at:Date.now()}; _wpTrkCache[P]=ce; return ce;
+}
+const WP_TRK_STAGES=["요청","품의","발주","입고","출고"];
+function wpTrkStepHtml(filled){
+  let s='<span style="display:inline-flex;gap:3px;vertical-align:middle">';
+  for(let i=0;i<5;i++){ const done=filled>i; const act=filled===i+1; s+=`<span title="${WP_TRK_STAGES[i]}" style="width:9px;height:9px;border-radius:99px;${done?'background:#16a34a':(act?'background:#f59e0b':'background:#e2e8f0')}"></span>`; }
+  return s+'</span>';
+}
+function wpTrkStatusColor(st){ st=String(st||''); if(st.indexOf('출고')>=0)return '#0369a1'; if(st.indexOf('입고완료')>=0)return '#16a34a'; if(st.indexOf('부분')>=0)return '#0d9488'; if(st.indexOf('대기')>=0)return '#7c3aed'; return '#64748b'; }
+// 보고에 첨부된 구매현황 행을 최신 진행상태로 갱신 (렌더 후 비동기)
+function wpTrkLiveUpdateAll(){
+  const els=document.querySelectorAll(".wptrk-st[data-proj]"); if(!els.length) return;
+  const projs=new Set(); els.forEach(el=>{ if(el.dataset.proj) projs.add(el.dataset.proj.toUpperCase()); });
+  projs.forEach(P=>{
+    wpTrkFetch(P).then(ce=>{
+      document.querySelectorAll('.wptrk-st[data-proj="'+P+'"]').forEach(el=>{
+        const x=ce.byNo[String(el.dataset.no||"").toUpperCase()]; if(!x) return;
+        el.textContent=x.status; el.style.color=wpTrkStatusColor(x.status);
+      });
+      document.querySelectorAll('.wptrk-step[data-proj="'+P+'"]').forEach(el=>{
+        const x=ce.byNo[String(el.dataset.no||"").toUpperCase()]; if(!x) return;
+        el.innerHTML=wpTrkStepHtml(x.filled);
+      });
+    }).catch(()=>{});
+  });
+}
+
 // 구매첨부 버튼 → 발주/입고 선택 모달
 function wpPurOpen(projId, id){
-  _wpPurCtx={projId, id, kind:"order", onlyProj:true, sel:{}};
+  _wpPurCtx={projId, id, kind:"track", onlyProj:true, sel:{}};
   let ov=document.getElementById("wpPurOv"); if(ov)ov.remove();
   ov=document.createElement("div"); ov.id="wpPurOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
@@ -10015,12 +10086,13 @@ function wpPurOpen(projId, id){
     <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
       <b>🛒 구매 자료 첨부 · ${esc(projId)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpPurOv').remove()">✕</span></div>
     <div style="display:flex;border-bottom:1px solid #eef0f3;padding:0 14px">
-      <div id="wpPurTab-order" onclick="wpPurTab('order')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid #0f4c81;color:#0f4c81">📝 발주목록</div>
+      <div id="wpPurTab-track" onclick="wpPurTab('track')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid #0f4c81;color:#0f4c81">📊 구매현황</div>
+      <div id="wpPurTab-order" onclick="wpPurTab('order')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid transparent;color:#94a3b8">📝 발주목록</div>
       <div id="wpPurTab-receipt" onclick="wpPurTab('receipt')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid transparent;color:#94a3b8">📥 입고 내역</div>
     </div>
     <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
       <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="wpPur-onlyproj" checked onchange="wpPurCtxToggleProj(this.checked)"> 이 프로젝트만</label>
-      <input id="wpPur-q" placeholder="🔍 발주번호·거래처·품목 검색" oninput="wpPurListRender()" style="flex:1;min-width:150px;height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 9px">
+      <input id="wpPur-q" placeholder="🔍 품번·품명·거래처 검색" oninput="wpPurListRender()" style="flex:1;min-width:150px;height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 9px">
       <button class="btn sm" onclick="wpPurReload()">🔄 새로고침</button>
     </div>
     <div id="wpPur-list" style="overflow:auto;flex:1;padding:6px 14px;min-height:220px"></div>
@@ -10036,14 +10108,12 @@ function wpPurOpen(projId, id){
 }
 function wpPurTab(kind){
   _wpPurCtx.kind=kind;
-  const o=document.getElementById("wpPurTab-order"), r=document.getElementById("wpPurTab-receipt");
-  if(o&&r){
+  ["track","order","receipt"].forEach(t=>{
+    const el=document.getElementById("wpPurTab-"+t); if(!el) return;
     const base="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;";
-    const on="border-bottom:2px solid #0f4c81;color:#0f4c81", off="border-bottom:2px solid transparent;color:#94a3b8";
-    o.style.cssText=base+(kind==="order"?on:off);
-    r.style.cssText=base+(kind==="receipt"?on:off);
-  }
-  const q=document.getElementById("wpPur-q"); if(q) q.placeholder=(kind==="order"?"🔍 발주번호·거래처·품목 검색":"🔍 입고번호·거래처·품목 검색");
+    el.style.cssText=base+(kind===t?"border-bottom:2px solid #0f4c81;color:#0f4c81":"border-bottom:2px solid transparent;color:#94a3b8");
+  });
+  const q=document.getElementById("wpPur-q"); if(q) q.placeholder=(kind==="track"?"🔍 품번·품명·거래처 검색":kind==="order"?"🔍 발주번호·거래처·품목 검색":"🔍 입고번호·거래처·품목 검색");
   wpPurLoad();
 }
 function wpPurCtxToggleProj(v){ _wpPurCtx.onlyProj=v; wpPurListRender(); }
@@ -10051,7 +10121,8 @@ async function wpPurLoad(){
   const list=document.getElementById("wpPur-list"); if(!list) return;
   list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">불러오는 중…</div>`;
   try{
-    if(_wpPurCtx.kind==="order"){ if(!_wpPurOrdersCache) await wpPurFetchOrders(); }
+    if(_wpPurCtx.kind==="track"){ await wpTrkFetch(_wpPurCtx.projId); }
+    else if(_wpPurCtx.kind==="order"){ if(!_wpPurOrdersCache) await wpPurFetchOrders(); }
     else { if(!_wpPurRcpCache) await wpPurFetchReceipts(); }
     wpPurListRender();
   }catch(e){ list.innerHTML=`<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">로드 실패: ${esc(e.message)}</div>`; }
@@ -10059,7 +10130,8 @@ async function wpPurLoad(){
 async function wpPurReload(){
   const list=document.getElementById("wpPur-list"); if(list) list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">영림원 조회 중…</div>`;
   try{
-    if(_wpPurCtx.kind==="order"){ _wpPurOrdersCache=null; await wpPurFetchOrders(true); }
+    if(_wpPurCtx.kind==="track"){ await wpTrkFetch(_wpPurCtx.projId, true); }
+    else if(_wpPurCtx.kind==="order"){ _wpPurOrdersCache=null; await wpPurFetchOrders(true); }
     else { _wpPurRcpCache=null; await wpPurFetchReceipts(); }
     wpPurListRender();
   }catch(e){ if(list) list.innerHTML=`<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">새로고침 실패: ${esc(e.message)}</div>`; }
@@ -10090,6 +10162,24 @@ function wpPurListRender(){
   const list=document.getElementById("wpPur-list"); if(!list) return;
   const q=((document.getElementById("wpPur-q")||{}).value||"").trim().toLowerCase();
   const pj=String(_wpPurCtx.projId||"").toUpperCase();
+  if(_wpPurCtx.kind==="track"){
+    const ce=_wpTrkCache[pj]||{rows:[]};
+    let arr=ce.rows||[];
+    if(q) arr=arr.filter(x=>`${x.item_name||""} ${x.item_no||""} ${x.vendor||""}`.toLowerCase().includes(q));
+    if(!arr.length){ list.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">${q?'검색 결과 없음':'구매현황 항목 없음 (영림원 동기화 대기일 수 있음)'}</div>`; wpPurUpdateCnt(); return; }
+    list.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="color:var(--t3);text-align:left;border-bottom:1px solid var(--border)"><th style="width:30px"></th><th>품번 · 품명</th><th style="width:120px;text-align:center">진행</th><th style="width:92px">현재상태</th><th>거래처</th></tr></thead>
+      <tbody>${arr.slice(0,400).map(x=>{
+        const k="trk:"+(x.item_no||x.item_name); const sk=k.replace(/'/g,"\\'");
+        return `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;${_wpPurCtx.sel[k]?'background:#eff6ff':''}" onclick="wpPurToggle('${sk}',this)">
+          <td style="text-align:center"><input type="checkbox" ${_wpPurCtx.sel[k]?"checked":""} onclick="event.stopPropagation();wpPurToggle('${sk}',this.closest('tr'))"></td>
+          <td><b>${esc(x.item_name||"-")}</b><div style="font-size:10.5px;color:var(--t3);font-family:monospace">${esc(x.item_no||"")}</div></td>
+          <td style="text-align:center">${wpTrkStepHtml(x.filled)}</td>
+          <td><span style="font-size:11px;font-weight:700;color:${wpTrkStatusColor(x.status)}">${esc(x.status)}</span></td>
+          <td title="${esc(x.vendor||'')}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${esc(x.vendor||"-")}</td></tr>`;
+      }).join("")}</tbody></table>`;
+    wpPurUpdateCnt(); return;
+  }
   if(_wpPurCtx.kind==="order"){
     let arr=_wpPurOrdersCache||[];
     if(_wpPurCtx.onlyProj && pj) arr=arr.filter(o=>(o.items||[]).some(it=>String(it.pjt_no||"").toUpperCase().includes(pj)));
@@ -10158,7 +10248,13 @@ function wpPurAttach(){
   let added=0;
   keys.forEach(k=>{
     const ci=k.indexOf(":"); const typ=k.slice(0,ci), no=k.slice(ci+1);
-    if(typ==="o"){
+    if(typ==="trk"){
+      const pj=String(_wpPurCtx.projId||"").toUpperCase();
+      const ce=_wpTrkCache[pj]; const x=ce && (ce.byNo[String(no).toUpperCase()] || (ce.rows||[]).find(r=>(r.item_no||r.item_name)===no));
+      if(!x) return;
+      if(exist.has("trk:"+(x.item_no||x.item_name))) return;
+      buf.push({t:"trk", proj:pj, item_no:x.item_no, item_name:x.item_name, spec:x.spec, vendor:x.vendor, status:x.status, filled:x.filled}); added++;
+    } else if(typ==="o"){
       const o=(_wpPurOrdersCache||[]).find(x=>String(x.po_no)===no); if(!o) return;
       if(exist.has("o:"+o.po_no)) return;
       const f=o.items[0]||{}; const chg=(_poadvDelvChg&&_poadvDelvChg[o.po_no]||[]); const delv=chg.length?chg[chg.length-1].to:(f.delv||"");
