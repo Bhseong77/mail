@@ -868,6 +868,7 @@ body.embed-prnew{background:#fff}
 .ma-subtab{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--t2);font-family:inherit}
 .ma-subtab.active{background:var(--p);color:#fff;border-color:var(--p)}
 .ft-row.file{position:relative}
+.ta-batchbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--pd);border:1px solid var(--p);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:var(--p)}
 .ft-move{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.6}
 .ft-row.file:hover .ft-move{display:inline-block}
 .ft-move:hover{opacity:1}
@@ -1306,7 +1307,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v297</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v299</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4022,9 +4023,13 @@ function taRender(){
     return (b.created||'').localeCompare(a.created||'');  // 최신순
   });
   const hidBtn=TA_HIDDEN.length?`<button class="btn sm" onclick="taToggleHidden()" style="margin-bottom:10px">${TA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${TA_HIDDEN.length})`}</button>`:'';
-  if(!items.length){ $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
-  $('taList').innerHTML=hidBtn+`<table class="ta-table"><thead><tr>
-    <th style="width:42px"></th><th>파일명 / 메모</th><th style="width:100px">작성자</th><th style="width:120px">작성일시</th><th style="width:60px">크기</th><th style="width:180px">작업</th>
+  if(!items.length){ _taVisIds=[]; $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
+  _taVisIds=items.map(it=>it.id);
+  const allSel=_taVisIds.length && _taVisIds.every(id=>_taSel.has(id));
+  const selN=_taSel.size;
+  const batchBar=selN?`<div class="ta-batchbar">☑ <b>${selN}개</b> 선택됨 · <button class="btn sm primary" onclick="taBatchMove()">📁 선택 항목 문서함으로 이동·복사</button> <button class="btn sm" onclick="taSelClear()">선택 해제</button></div>`:'';
+  $('taList').innerHTML=hidBtn+batchBar+`<table class="ta-table"><thead><tr>
+    <th style="width:34px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onclick="taSelAll(this.checked)" title="전체 선택"></th><th style="width:42px"></th><th>파일명 / 메모</th><th style="width:100px">작성자</th><th style="width:120px">작성일시</th><th style="width:60px">크기</th><th style="width:180px">작업</th>
     </tr></thead><tbody>${items.map((it)=>{
       const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
       const realIdx=(TA_DATA.items||[]).indexOf(it);
@@ -4032,7 +4037,8 @@ function taRender(){
       const note=(it.note||'').trim();
       const mv=TA_MOVED[it.id];
       const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
-      return `<tr style="${hidden?'opacity:.5':''}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')">
+      return `<tr style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')">
+        <td style="text-align:center"><input type="checkbox" ${_taSel.has(it.id)?'checked':''} onclick="taToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(taName(it))}${movedBadge}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
         <td style="font-size:12px">${esc(it.author||'?')}</td>
@@ -4078,12 +4084,13 @@ function docDestToPath(dest){
   return dest;
 }
 let _taMoveIdx=-1;
+let _moveBatch=null;          // 일괄 이동/복사 대상 ctx 배열 (null=단일)
+let _taSel=new Set();         // 선택된 첨부 id
+let _taVisIds=[];             // 현재 화면에 보이는 첨부 id (전체선택용)
 let _taFxRel="";   // 현재 탐색 중인 상대경로 (root 기준, ''=루트)
 let _moveCtx=null; // {name, getBytes:async()=>ArrayBuffer, mime, onDone:async(destLabel)=>{}}
-function taMove(idx){
-  const it=(TA_DATA.items||[])[idx]; if(!it) return;
-  _taMoveIdx=idx;
-  _moveCtx={
+function _taMoveCtxFor(it, reload){
+  return {
     name: taName(it),
     mime: it.mime||'application/octet-stream',
     getBytes: async ()=>{
@@ -4098,16 +4105,34 @@ function taMove(idx){
       if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
       return await fr.arrayBuffer();
     },
-    onDone: async (destLabel)=>{ docIndexAdd(taName(it), it.size, destLabel); taLoad(); }
+    onDone: async (destLabel)=>{ docIndexAdd(taName(it), it.size, destLabel); if(reload!==false) taLoad(); }
   };
-  _openMoveModal();
 }
-function _openMoveModal(){
+function taMove(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  _taMoveIdx=idx;
+  _moveCtx=_taMoveCtxFor(it, true);
+  _openMoveModal();   // _moveBatch 자동 초기화
+}
+// ── 다중 선택 / 일괄 이동·복사 ──
+function taToggleSel(id,on){ if(on)_taSel.add(id); else _taSel.delete(id); taRender(); }
+function taSelAll(on){ (_taVisIds||[]).forEach(id=>{ if(on)_taSel.add(id); else _taSel.delete(id); }); taRender(); }
+function taSelClear(){ _taSel.clear(); taRender(); }
+function taBatchMove(){
+  const items=(TA_DATA.items||[]).filter(it=>_taSel.has(it.id));
+  if(!items.length){ toast('선택된 파일 없음','bad'); return; }
+  _moveBatch=items.map(it=>_taMoveCtxFor(it,false));
+  _moveCtx=_moveBatch[0];
+  _openMoveModal(true);   // keepBatch
+}
+function _openMoveModal(keepBatch){
+  if(!keepBatch) _moveBatch=null;   // 단일 호출 시 일괄 상태 초기화
   const isMove=_moveCtx&&_moveCtx.mode==='move';
   const tt=$('taMoveTitle'); if(tt) tt.textContent=isMove?'📂 다른 폴더로 이동':'📁 문서함으로 복사';
   const bt=$('taMoveBtn'); if(bt) bt.textContent=isMove?'📂 여기로 이동':'📁 여기에 복사';
   const cb=$('taCopyBtn'); if(cb) cb.style.display=isMove?'inline-flex':'none';
-  $('taMoveFile').textContent='📄 '+(_moveCtx?_moveCtx.name:'');
+  const n=(_moveBatch&&_moveBatch.length)||0;
+  $('taMoveFile').textContent = n>1 ? `📄 ${n}개 파일 선택됨` : ('📄 '+(_moveCtx?_moveCtx.name:''));
   $('taMoveMsg').textContent='';
   _taFxRel="";
   $('taMoveModal').classList.add('on');
@@ -4159,68 +4184,70 @@ async function taFxNewFolder(){
     taFxEnter(name);  // 만든 폴더로 들어감
   }catch(e){ toast('폴더 생성 실패: '+e.message,'bad'); }
 }
+async function _ctxBytes(ctx){
+  if(typeof ctx.getBytes==='function') return {bytes:await ctx.getBytes(), mime:ctx.mime||'application/octet-stream'};
+  if(ctx.itemId){
+    const t=await graphToken(); const d=await spDrive();
+    const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${ctx.itemId}`,{headers:{Authorization:"Bearer "+t}});
+    if(!r0.ok) throw new Error("원본 조회 실패 "+r0.status);
+    const meta=await r0.json(); const mime=(meta.file&&meta.file.mimeType)||ctx.mime||'application/octet-stream';
+    const dlUrl=meta["@microsoft.graph.downloadUrl"]; if(!dlUrl) throw new Error("다운로드 링크 없음");
+    const fr=await fetch(dlUrl); if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
+    return {bytes:await fr.arrayBuffer(), mime};
+  }
+  throw new Error("복사할 원본 없음");
+}
 async function taDoMove(){
-  if(!_moveCtx) return;
+  const list=(_moveBatch&&_moveBatch.length)?_moveBatch:(_moveCtx?[_moveCtx]:[]);
+  if(!list.length) return;
+  const batch=!!(_moveBatch&&_moveBatch.length);
   const destTab=$('taMoveDest').value;
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
-  const _jm=_J((_moveCtx.mode==='move'?'문서 이동: ':'문서함 복사: ')+(_moveCtx.name||''));
-  try{
-    if(_moveCtx.mode==='move' && _moveCtx.itemId){
-      // 진짜 이동 (Graph PATCH parentReference) — 원본 폴더에서 제거됨
-      msg.style.color='var(--t3)'; msg.textContent='이동 중…';
-      await spMoveItem(_moveCtx.itemId, destFolder);
-      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 이동됨';
-    } else {
-      // 복사 (첨부 → 문서함)
-      msg.style.color='var(--t3)'; msg.textContent='복사 중…';
-      const bytes=await _moveCtx.getBytes();
-      await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, _moveCtx.mime||'application/octet-stream');
-      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
-    }
-    if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
-    _Jok(_jm, destLabel);
-    actLog(`📁 문서함 ${_moveCtx.mode==='move'?'이동':'복사'}: ${_moveCtx.name} → ${destLabel}`);
-    toast('완료','ok');
-    setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
-  }catch(e){
-    _Jno(_jm, e.message);
-    msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
+  const isMove=list[0].mode==='move';
+  const _jm=_J((isMove?'문서 이동: ':'문서함 복사: ')+(batch?`${list.length}건`:(list[0].name||'')));
+  let ok=0, fail=0, lastErr='';
+  for(let i=0;i<list.length;i++){
+    const ctx=list[i];
+    msg.style.color='var(--t3)'; msg.textContent=batch?`${isMove?'이동':'복사'} 중… (${i+1}/${list.length}) ${ctx.name}`:(isMove?'이동 중…':'복사 중…');
+    try{
+      if(ctx.mode==='move' && ctx.itemId){ await spMoveItem(ctx.itemId, destFolder); }
+      else { const {bytes,mime}=await _ctxBytes(ctx); await spUploadFile(`${destFolder}/${ctx.name}`, bytes, mime); }
+      if(ctx.onDone) await ctx.onDone(destLabel);
+      ok++;
+    }catch(e){ fail++; lastErr=e.message||String(e); console.warn('이동/복사 실패',ctx.name,e); }
   }
+  if(fail){ _Jno(_jm, `${fail}건 실패: ${lastErr}`); msg.style.color='var(--r)'; msg.textContent=`✅ ${ok}건 · ❌ ${fail}건 실패 → ${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''}`; }
+  else { _Jok(_jm, destLabel); msg.style.color='var(--g)'; msg.textContent=`✅ ${batch?ok+'건 ':''}${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''} 로 ${isMove?'이동':'복사'}됨`; }
+  actLog(`📁 문서함 ${isMove?'이동':'복사'}: ${batch?ok+'건':list[0].name} → ${destLabel}`);
+  toast(fail?`${ok}건 완료·${fail}건 실패`:'완료', fail?'bad':'ok');
+  if(batch){ _taSel.clear(); _moveBatch=null; taLoad(); }
+  setTimeout(()=>{ $('taMoveModal').classList.remove('on'); }, fail?2300:1300);
 }
 // 원본을 유지한 채 선택 폴더로 복사 (이동 모달의 '여기로 복사')
 async function taDoCopy(){
-  if(!_moveCtx) return;
+  const list=(_moveBatch&&_moveBatch.length)?_moveBatch:(_moveCtx?[_moveCtx]:[]);
+  if(!list.length) return;
+  const batch=!!(_moveBatch&&_moveBatch.length);
   const destTab=$('taMoveDest').value;
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
-  const _jc=_J('문서 복사: '+(_moveCtx.name||''));
-  try{
-    msg.style.color='var(--t3)'; msg.textContent='복사 중…';
-    let bytes, mime=_moveCtx.mime||'application/octet-stream';
-    if(typeof _moveCtx.getBytes==='function'){
-      bytes=await _moveCtx.getBytes();
-    } else if(_moveCtx.itemId){
-      const t=await graphToken(); const d=await spDrive();
-      const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${_moveCtx.itemId}`,{headers:{Authorization:"Bearer "+t}});
-      if(!r0.ok) throw new Error("원본 조회 실패 "+r0.status);
-      const meta=await r0.json();
-      if(meta.file&&meta.file.mimeType) mime=meta.file.mimeType;
-      const dlUrl=meta["@microsoft.graph.downloadUrl"];
-      if(!dlUrl) throw new Error("다운로드 링크 없음");
-      const fr=await fetch(dlUrl); if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
-      bytes=await fr.arrayBuffer();
-    } else { throw new Error("복사할 원본을 찾을 수 없음"); }
-    await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, mime);
-    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨 (원본 유지)';
-    if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
-    _Jok(_jc, destLabel);
-    actLog(`📋 문서함 복사: ${_moveCtx.name} → ${destLabel}`);
-    toast('복사 완료','ok');
-    setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
-  }catch(e){ _Jno(_jc, e.message); msg.style.color='var(--r)'; msg.textContent='복사 실패: '+e.message; }
+  const _jc=_J('문서 복사: '+(batch?`${list.length}건`:(list[0].name||'')));
+  let ok=0, fail=0, lastErr='';
+  for(let i=0;i<list.length;i++){
+    const ctx=list[i];
+    msg.style.color='var(--t3)'; msg.textContent=batch?`복사 중… (${i+1}/${list.length}) ${ctx.name}`:'복사 중…';
+    try{ const {bytes,mime}=await _ctxBytes(ctx); await spUploadFile(`${destFolder}/${ctx.name}`, bytes, mime); if(ctx.onDone) await ctx.onDone(destLabel); ok++; }
+    catch(e){ fail++; lastErr=e.message||String(e); console.warn('복사 실패',ctx.name,e); }
+  }
+  if(fail){ _Jno(_jc, `${fail}건 실패: ${lastErr}`); msg.style.color='var(--r)'; msg.textContent=`✅ ${ok}건 · ❌ ${fail}건 실패 (원본 유지)`; }
+  else { _Jok(_jc, destLabel); msg.style.color='var(--g)'; msg.textContent=`✅ ${batch?ok+'건 ':''}${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''} 로 복사됨 (원본 유지)`; }
+  actLog(`📋 문서함 복사: ${batch?ok+'건':list[0].name} → ${destLabel}`);
+  toast(fail?`${ok}건 복사·${fail}건 실패`:'복사 완료', fail?'bad':'ok');
+  if(batch){ _taSel.clear(); _moveBatch=null; taLoad(); }
+  setTimeout(()=>{ $('taMoveModal').classList.remove('on'); }, fail?2300:1300);
 }
 // 기술자료 트리 파일 → 다른 폴더로 이동(진짜 이동)
 function ftMoveFile(p,itemId,name){
@@ -5321,6 +5348,27 @@ function parseOrderTextLocally(text, fileName){
   return out;
 }
 
+// 거래명세서/견적/세금계산서 비전 폴백 (스캔·회전 PDF 대응)
+function _anEmptyInfo(x){ return !x || (!x.company && !(x.items&&x.items.length) && !x.negoAmount && !x.quoteDate); }
+async function _anViaVision(f, basePrompt, rotations){
+  const key=await loadOpenAIKey(); if(!key) return null;
+  const blob=await _fetchDocBlob(f); if(!blob) return null;
+  let imgs=[];
+  for(const rot of (rotations||[0])){
+    try{ const u=await _docToImages(f, blob, rot); imgs=imgs.concat(u); }catch(_){}
+  }
+  if(!imgs.length) return null;
+  const note=(rotations&&rotations.length>1)
+    ? "\n\n[중요] 아래 이미지들은 같은 문서를 여러 각도로 회전한 것이다. 글자가 똑바로 보이는 이미지를 골라 읽어라. 도장·워터마크가 겹쳐도 글자를 읽어라."
+    : "\n\n[중요] 이 문서는 스캔 이미지다. 이미지가 회전돼 있으면 똑바로 돌려 읽어라. 도장·워터마크가 겹쳐도 글자를 읽어라.";
+  const content=[{type:"text",text:basePrompt+note}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u,detail:"high"}})));
+  const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+    body:JSON.stringify({model:"gpt-4o",temperature:0,response_format:{type:"json_object"},max_tokens:900,messages:[{role:"user",content}]})});
+  if(!r.ok) throw new Error("OpenAI vision "+r.status);
+  const d=await r.json(); const c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+  try{ return JSON.parse(c); }catch(_){ return null; }
+}
 async function _analyzeOne(p, f){
   let text='';
   try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
@@ -5364,6 +5412,14 @@ async function _analyzeOne(p, f){
 ${text.slice(0,6000)}`;
   let info=null;
   try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  // 텍스트로 못 잡으면(스캔·회전 PDF) 비전 폴백: 0° → 실패 시 90°·270° 회전 재시도
+  if(_anEmptyInfo(info)){
+    try{
+      let vi=await _anViaVision(f, prompt, [0]);
+      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, prompt, [90,270]);
+      if(!_anEmptyInfo(vi)) info=vi;
+    }catch(ex){ console.warn("거래명세서 비전 분석 실패",f.name,ex.message); }
+  }
   const prev=AN_DATA[p][f.id]||{};
   const _isEnjet=s=>/엔젯|enjet/i.test(String(s||""));
   // 회사명(발행처)에서 엔젯 제외: company→customer→prev 순으로 엔젯 아닌 첫 값
@@ -5433,18 +5489,28 @@ async function _fetchDocBlob(f){
   if(!blob){ try{ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) blob=await r.blob(); }catch(_){} }
   return blob;
 }
-async function _docToImages(f, blob){
+async function _docToImages(f, blob, rotation){
+  rotation=((rotation||0)%360+360)%360;
   const name=(f.name||"").toLowerCase(); const urls=[];
   if(name.endsWith(".pdf")){
     if(!window.pdfjsLib) return urls;
     const buf=await blob.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise;
     const n=Math.min(pdf.numPages,2);
-    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2});
+    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2, rotation});
       const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height;
       await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
       urls.push(cv.toDataURL("image/jpeg",0.85)); }
   } else if(/\.(jpe?g|png|webp|gif|bmp)$/.test(name)){
-    urls.push(await _blobToDataUrl(blob));
+    const durl=await _blobToDataUrl(blob);
+    if(!rotation){ urls.push(durl); }
+    else{
+      // 이미지 파일 회전 (canvas)
+      const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=durl; });
+      const cv=document.createElement("canvas"); const rot90=(rotation===90||rotation===270);
+      cv.width=rot90?img.height:img.width; cv.height=rot90?img.width:img.height;
+      const ctx=cv.getContext("2d"); ctx.translate(cv.width/2,cv.height/2); ctx.rotate(rotation*Math.PI/180); ctx.drawImage(img,-img.width/2,-img.height/2);
+      urls.push(cv.toDataURL("image/jpeg",0.85));
+    }
   }
   return urls;
 }
