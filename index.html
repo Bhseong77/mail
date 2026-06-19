@@ -1307,7 +1307,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v305</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v307</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8394,7 +8394,9 @@ async function wpRenumberAll(){
 }
 
 function wpSeedOpen(){
-  WP_LOADED_PROJ.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true; (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=true; if(n.children) seed(n.children); }); })(p.children); });
+  WP_LOADED_PROJ.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true;   // 프로젝트는 펼침
+    (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=n.group?false:true;   // 폴더는 기본 접힘, 작업은 펼침
+      if(n.children) seed(n.children); }); })(p.children); });
 }
 function wpMeta(){
   const el=document.getElementById("wp-meta"); if(el) el.innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
@@ -10114,17 +10116,21 @@ function wpTrkLiveUpdateAll(){
 let _wpPurTrk={rows:[],byNo:{}};
 function wpPurOpen(projId, id){
   const node=wpFind(projId,id);
-  const projs=(node && Array.isArray(node.shareProjects) && node.shareProjects.length>1) ? node.shareProjects.slice() : [projId];
-  _wpPurCtx={projId, id, kind:"track", onlyProj:false, projs, sel:{}};
+  const defProjs=(node && Array.isArray(node.shareProjects) && node.shareProjects.length>1) ? node.shareProjects.slice() : [projId];
+  const avail=[...new Set([...(wpProjects()||[]), ...defProjs, projId])];   // 선택 가능한 전체 프로젝트
+  _wpPurCtx={projId, id, kind:"track", onlyProj:false, projs:[...new Set(defProjs)], sel:{}};
   let ov=document.getElementById("wpPurOv"); if(ov)ov.remove();
   ov=document.createElement("div"); ov.id="wpPurOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
-  const projLabel = projs.length>1 ? projs.join(" · ") : projId;
+  const chips=avail.map(c=>{ const on=_wpPurCtx.projs.includes(c); return `<label style="font-size:11.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:${on?'#e0e7ff':'#f1f5f9'};color:${on?'#3730a3':'#64748b'};padding:3px 9px;border-radius:99px;font-weight:600"><input type="checkbox" value="${esc(c)}" ${on?'checked':''} onchange="wpPurProjToggle('${esc(c)}',this.checked)" style="margin:0">${esc(c)}</label>`; }).join("");
   ov.innerHTML=`<div style="width:min(920px,96vw);max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
-      <b>📊 구매현황 첨부 · ${esc(projLabel)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpPurOv').remove()">✕</span></div>
+      <b>📊 구매현황 첨부</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpPurOv').remove()">✕</span></div>
+    <div style="padding:9px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
+      <span style="font-size:11px;color:var(--t3);font-weight:600">프로젝트</span>
+      <div id="wpPur-projs" style="display:flex;gap:6px;flex-wrap:wrap">${chips}</div>
+    </div>
     <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
-      ${projs.length>1?`<label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="wpPur-onlyproj" onchange="wpPurCtxToggleProj(this.checked)"> ${esc(projId)}만</label>`:""}
       <input id="wpPur-q" placeholder="🔍 품번·품명·거래처 검색" oninput="wpPurListRender()" style="flex:1;min-width:150px;height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 9px">
       <button class="btn sm" onclick="wpPurReload()">🔄 새로고침</button>
     </div>
@@ -10137,6 +10143,15 @@ function wpPurOpen(projId, id){
     </div></div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
   document.body.appendChild(ov);
+  wpPurLoad();
+}
+function wpPurProjToggle(code, on){
+  const set=new Set(_wpPurCtx.projs||[]);
+  if(on) set.add(code); else set.delete(code);
+  if(!set.size){ toast("최소 1개 프로젝트는 선택하세요","bad"); const cb=document.querySelector(`#wpPur-projs input[value="${code}"]`); if(cb)cb.checked=true; set.add(code); }
+  _wpPurCtx.projs=[...set];
+  // 칩 스타일 갱신
+  document.querySelectorAll("#wpPur-projs label").forEach(l=>{ const v=l.querySelector("input").value; const sel=_wpPurCtx.projs.includes(v); l.style.background=sel?'#e0e7ff':'#f1f5f9'; l.style.color=sel?'#3730a3':'#64748b'; });
   wpPurLoad();
 }
 function wpPurTab(kind){ _wpPurCtx.kind="track"; wpPurLoad(); }
