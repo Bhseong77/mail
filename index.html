@@ -1307,7 +1307,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v307</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v308</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5401,6 +5401,7 @@ async function _analyzeOne(p, f){
     return vinfo;
   }
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+⚠️ 반드시 아래 [내용]과 [파일명]에 실제로 적힌 정보만 사용하라. [내용]에 없는 값은 빈 문자열로 두고, 다른 문서·SharePoint·외부 지식으로 추측하거나 채우지 마라.
 {"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
 - category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
@@ -5413,13 +5414,18 @@ async function _analyzeOne(p, f){
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
+  const textClean=(text||'').replace(/\s/g,'');
+  const isScanned = textClean.length < 40;   // 텍스트 거의 없음 = 스캔/이미지 PDF
   let info=null;
-  try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
-  // 텍스트로 못 잡으면(스캔·회전 PDF) 비전 폴백: 0° → 실패 시 90°·270° 회전 재시도
-  if(_anEmptyInfo(info)){
+  // 스캔 PDF는 Copilot에 보내면 테넌트(SharePoint)의 비슷한 문서로 grounding해 엉뚱한 데이터를 답하므로 건너뜀
+  if(!isScanned){
+    try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  }
+  // 스캔이거나 텍스트분석 실패 → 실제 파일 이미지를 비전(gpt-4o)으로 직접 읽기 (0° → 90/180/270 회전 재시도)
+  if(isScanned || _anEmptyInfo(info)){
     try{
       let vi=await _anViaVision(f, prompt, [0]);
-      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, prompt, [90,270]);
+      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, prompt, [90,180,270]);
       if(!_anEmptyInfo(vi)) info=vi;
     }catch(ex){ console.warn("거래명세서 비전 분석 실패",f.name,ex.message); }
   }
