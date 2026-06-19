@@ -1307,7 +1307,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v304</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v305</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -9210,6 +9210,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
       ${(!open && n.memo)?`<span title="${esc(n.memo)}" style="font-size:10.5px;color:var(--t3)">📝</span>`:""}
       <span style="flex:1"></span>
       <button class="btn sm" onclick="event.stopPropagation();wpFolderRef('${projId}','${n.id}')" style="padding:2px 8px" title="참고자료 관리">📎</button>
+      <button class="btn sm" onclick="event.stopPropagation();wpAddSubfolder('${projId}','${n.id}')" style="padding:2px 8px" title="하위 폴더 추가">📁＋</button>
       <button class="btn sm" onclick="event.stopPropagation();wpAddTask('${projId}','${n.id}')" style="padding:2px 8px" title="작업(행) 추가">＋</button>
       <span style="font-size:11px;color:var(--t2)">${prog}%</span></div>`;
     // 펼쳐졌을 때: 참고자료·설명 자동 표시 (자료 있거나 편집모드일 때)
@@ -9825,6 +9826,23 @@ function wpAddGroup(projId){
   const gid="G"+Date.now().toString().slice(-5);
   (p.children=p.children||[]).push({id:gid,name,group:true,children:[]});
   WP_OPEN[gid]=true; wpSaveProject(projId); wpRender();
+}
+async function wpAddSubfolder(projId, parentId){
+  const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
+  if(!parent) return;
+  const name=prompt("하위 폴더 이름:"); if(!name||!name.trim()) return;
+  const gid="G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99);
+  const g={id:gid,name:name.trim(),group:true,children:[]};
+  (parent.children=parent.children||[]).push(g); WP_OPEN[parentId]=true; WP_OPEN[gid]=true;
+  // 상위 폴더가 다른 프로젝트와 연결돼 있으면 하위 폴더도 연결할지 질문
+  if(parent.group && parent.shareId && (parent.shareProjects||[]).filter(x=>x!==projId).length>0){
+    const others=parent.shareProjects.filter(x=>x!==projId);
+    if(confirm(`상위 폴더가 ${others.join(", ")}와 연결되어 있습니다.\n이 하위 폴더도 연결할까요?`)){
+      g.shareId=wpNewShareId(); g.shareProjects=parent.shareProjects.slice();
+      for(const tp of others){ const tgt=await wpEnsureProjLoaded(tp); let tf=null; (function w(ns){ (ns||[]).forEach(x=>{ if(x.shareId===parent.shareId)tf=x; if(x.children)w(x.children); }); })(tgt.children); if(tf){ const nid=wpNewIdFor(tgt); (tf.children=tf.children||[]).push({id:nid,shareId:g.shareId,shareProjects:g.shareProjects.slice(),name:g.name,group:true,children:[]}); try{ await wpSavePlan(tp, tgt); }catch(_){} } }
+    }
+  }
+  wpSaveProject(projId); wpRender();
 }
 async function wpAddTask(projId, parentId){
   const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
