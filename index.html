@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v325</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v326</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4332,7 +4332,7 @@ function atSwitch(mode){
   $('taList').style.display = isTeams?'':'none';
   $('atSearch').placeholder = '🔍 통합검색 (받은·보낸·팀즈 전체)';
   if(isTeams){ taRender(); }
-  else { MA_FOLDER=mode; maRender(); }
+  else { if(MA_FOLDER!==mode && typeof _maSel!=='undefined') _maSel.clear(); MA_FOLDER=mode; maRender(); }
   atUpdateSub();
 }
 function atSearchInput(){
@@ -4409,10 +4409,14 @@ function maRender(){
   items=items.slice().sort((a,b)=>{ const am=MA_MOVED[a.id]?1:0,bm=MA_MOVED[b.id]?1:0; if(am!==bm)return am-bm; return (b.created||'').localeCompare(a.created||''); });
   const hidN=(MA_DATA.items||[]).filter(it=>it.folder===MA_FOLDER&&MA_HIDDEN.includes(it.id)).length;
   const hidBtn=hidN?`<button class="btn sm" onclick="maToggleHidden()" style="margin-bottom:10px">${MA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${hidN})`}</button>`:'';
-  if(!items.length){ $('maList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
+  if(!items.length){ _maVisIds=[]; $('maList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
   const who=MA_FOLDER==='inbox'?'보낸사람':'받는사람';
-  $('maList').innerHTML=hidBtn+`<table class="ta-table"><thead><tr>
-    <th style="width:42px"></th><th>파일명 / 메일제목</th><th style="width:120px">${who}</th><th style="width:120px">일시</th><th style="width:160px">작업</th>
+  _maVisIds=items.map(it=>it.id);
+  const allSel=_maVisIds.length && _maVisIds.every(id=>_maSel.has(id));
+  const selN=_maSel.size;
+  const batchBar=selN?`<div class="ta-batchbar">☑ <b>${selN}개</b> 선택됨 · <button class="btn sm primary" onclick="maBatchMove()">📁 선택 항목 문서함으로 이동·복사</button> <button class="btn sm" onclick="maSelClear()">선택 해제</button></div>`:'';
+  $('maList').innerHTML=hidBtn+batchBar+`<table class="ta-table"><thead><tr>
+    <th style="width:34px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onclick="maSelAll(this.checked)" title="전체 선택"></th><th style="width:42px"></th><th>파일명 / 메일제목</th><th style="width:120px">${who}</th><th style="width:120px">일시</th><th style="width:160px">작업</th>
     </tr></thead><tbody>${items.map((it)=>{
       const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
       const realIdx=(MA_DATA.items||[]).indexOf(it);
@@ -4420,7 +4424,8 @@ function maRender(){
       const mv=MA_MOVED[it.id];
       const mvBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
       const person=MA_FOLDER==='inbox'?(it.fromName||'?'):(it.toName||'?');
-      return `<tr style="${hidden?'opacity:.5':''}" oncontextmenu="atMenu(event,'ma',${realIdx},'${esc(it.id)}')">
+      return `<tr style="${hidden?'opacity:.5':''}${_maSel.has(it.id)?'background:var(--pd)':''}" oncontextmenu="atMenu(event,'ma',${realIdx},'${esc(it.id)}')">
+        <td style="text-align:center"><input type="checkbox" ${_maSel.has(it.id)?'checked':''} onclick="maToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(maName(it))}${mvBadge}${it.subject?`<div class="ta-note">✉ ${esc(it.subject)}</div>`:''}</td>
         <td style="font-size:12px">${esc(person)}</td>
@@ -4482,15 +4487,30 @@ function maOpen(idx){
 }
 async function maHide(id){ if(!MA_HIDDEN.includes(id))MA_HIDDEN.push(id); await maSaveHidden(); maLoad(); }
 async function maUnhide(id){ MA_HIDDEN=MA_HIDDEN.filter(x=>x!==id); await maSaveHidden(); maLoad(); }
-function maMove(idx){
-  const it=(MA_DATA.items||[])[idx]; if(!it) return;
-  _moveCtx={
+function _maMoveCtxFor(it, reload){
+  return {
     name: maName(it),
     mime: it.mime||'application/octet-stream',
     getBytes: async ()=>{ const fr=await fetch(maDlUrl(it)); if(!fr.ok) throw new Error("메일 첨부 다운로드 실패 "+fr.status); return await fr.arrayBuffer(); },
-    onDone: async (destLabel)=>{ docIndexAdd(maName(it), it.size, destLabel); maLoad(); }
+    onDone: async (destLabel)=>{ docIndexAdd(maName(it), it.size, destLabel); if(reload!==false) maLoad(); }
   };
+}
+function maMove(idx){
+  const it=(MA_DATA.items||[])[idx]; if(!it) return;
+  _moveCtx=_maMoveCtxFor(it, true);
   _openMoveModal();
+}
+// ── 메일 첨부 다중선택 / 일괄 이동·복사 (팀즈채팅방 탭과 동일 방식) ──
+let _maSel=new Set(), _maVisIds=[];
+function maToggleSel(id,on){ if(on)_maSel.add(id); else _maSel.delete(id); maRender(); }
+function maSelAll(on){ (_maVisIds||[]).forEach(id=>{ if(on)_maSel.add(id); else _maSel.delete(id); }); maRender(); }
+function maSelClear(){ _maSel.clear(); maRender(); }
+function maBatchMove(){
+  const items=(MA_DATA.items||[]).filter(it=>_maSel.has(it.id));
+  if(!items.length){ toast('선택된 파일 없음','bad'); return; }
+  _moveBatch=items.map(it=>_maMoveCtxFor(it,false));
+  _moveCtx=_moveBatch[0];
+  _openMoveModal(true);   // keepBatch
 }
 
 const DOC_ANALYZE=['doc-vendor','doc-quote','doc-order','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
