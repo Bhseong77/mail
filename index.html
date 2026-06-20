@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v312</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v313</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1370,6 +1370,7 @@ body.embed-prnew{background:#fff}
     <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
     <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
     <button id="f-draft" onclick="setFolder('draft')">📝 임시저장</button>
+    <button id="f-trash" onclick="setFolder('trash')">🗑 휴지통</button>
     <button class="btn sm primary" onclick="openCompose('new')" style="margin-left:6px">✏ 메일쓰기</button>
   </div>
   <div class="search">
@@ -6811,7 +6812,7 @@ async function mailAttGet(uid,idx,name,saveAs){
     _dlqDone(id,'ok');
   }catch(e){ _dlqDone(id,'fail',e.message); }
 }
-function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');$('f-draft')?.classList.toggle('active',f==='draft');if(f==='draft')loadDrafts();else loadList();}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');$('f-draft')?.classList.toggle('active',f==='draft');$('f-trash')?.classList.toggle('active',f==='trash');if(f==='draft')loadDrafts();else loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 function mailPrint(){
