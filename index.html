@@ -632,6 +632,7 @@ body.embed-prnew{background:#fff}
 .ft-row.sel{background:var(--pd);color:var(--p);font-weight:700}
 .ft-row.file{color:var(--t2);font-size:11.5px}
 .ft-row.file:hover{background:var(--pd)}
+.ft-row.file.fsel{background:var(--pd);outline:1px solid var(--p);outline-offset:-1px}
 .ft-caret{width:14px;text-align:center;color:var(--t3);font-size:10px;flex-shrink:0;transition:transform .12s}
 .ft-caret.open{transform:rotate(90deg)}
 .ft-ico{flex-shrink:0}
@@ -1316,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v327</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v328</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4652,6 +4653,7 @@ let AN_FILTER={}; // page -> {customer, q}
 
 // ════════ 파일탐색기 트리 (5개 탭 공용) ════════
 let FT_OPEN={}, FT_SEL={}, FT_CHILDREN={};
+let FT_FSEL={}, _ftAnchor={};   // 트리 파일 다중선택 (탭별 itemId Set / 범위선택 기준)
 let _ftCtxTarget=null, _ftCtxJustOpened=0;
 function ftKey(p,path){ return p+'|'+path; }
 async function ftLoadChildren(p,path){
@@ -4669,6 +4671,7 @@ async function renderFileTree(p){
       <button class="btn sm" onclick="ftNewFolder('${p}', FT_SEL['${p}']||'')">📁 새 폴더</button>
       <button class="btn sm" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
     </div>
+    <div id="ftbar-${p}" class="ta-batchbar" style="display:none"></div>
     <div id="ftsel-${p}" style="padding:4px 10px;font-size:11px;color:var(--t3)"></div>
     <div class="ftree" id="ftree-${p}"></div>`;
   await ftRenderNodes(p);
@@ -4684,6 +4687,7 @@ async function ftRenderNodes(p){
   html+=await ftNodeHtml(p,'',0);
   box.innerHTML=html;
   ftUpdateSelLabel(p);
+  ftPaintSel(p); ftSelBar(p);
 }
 async function ftNodeHtml(p,path,depth){
   const items=FT_CHILDREN[ftKey(p,path)]||await ftLoadChildren(p,path);
@@ -4704,7 +4708,7 @@ async function ftNodeHtml(p,path,depth){
   for(const f of files){
     html+=`<div class="ft-row file" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftPreviewFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+      onclick="ftFileClick(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
   }
   html+='</div>';
   return html;
@@ -4758,6 +4762,60 @@ async function ftToggle(p,path){
   if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
 }
 function ftSelect(p,path){ FT_SEL[p]=path; ftRenderNodes(p); if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
+// ── 트리 파일 다중선택 (Ctrl/Shift 클릭 + 일괄 이동·복사·링크) ──
+function ftVisFileIds(p){ return [...document.querySelectorAll('#ftree-'+p+' .ft-row.file')].map(r=>r.dataset.ftid); }
+function ftPaintSel(p){ const s=FT_FSEL[p]||new Set(); document.querySelectorAll('#ftree-'+p+' .ft-row.file').forEach(r=>{ r.classList.toggle('fsel', s.has(r.dataset.ftid)); }); }
+function ftRangeSel(p,id){ const o=ftVisFileIds(p); const a=o.indexOf(_ftAnchor[p]), b=o.indexOf(id); if(a<0||b<0){ FT_FSEL[p].add(id); return; } const s=Math.min(a,b),e=Math.max(a,b); for(let i=s;i<=e;i++) FT_FSEL[p].add(o[i]); }
+function ftFileClick(e,p,id,name){
+  e.stopPropagation();
+  if(!FT_FSEL[p]) FT_FSEL[p]=new Set();
+  if(e.shiftKey && _ftAnchor[p]){ if(!(e.ctrlKey||e.metaKey)) FT_FSEL[p].clear(); ftRangeSel(p,id); }
+  else if(e.ctrlKey||e.metaKey){ FT_FSEL[p].has(id)?FT_FSEL[p].delete(id):FT_FSEL[p].add(id); _ftAnchor[p]=id; }
+  else { FT_FSEL[p].clear(); FT_FSEL[p].add(id); _ftAnchor[p]=id; ftPreviewFile(p,id,name); }
+  ftPaintSel(p); ftSelBar(p);
+}
+function ftSelClear(p){ if(FT_FSEL[p]) FT_FSEL[p].clear(); ftPaintSel(p); ftSelBar(p); }
+function ftSelBar(p){
+  const bar=$('ftbar-'+p); if(!bar) return;
+  const n=(FT_FSEL[p]&&FT_FSEL[p].size)||0;
+  if(!n){ bar.style.display='none'; bar.innerHTML=''; return; }
+  bar.style.display='';
+  bar.innerHTML=`☑ <b>${n}개</b> 선택 · <button class="btn sm primary" onclick="ftBatchMove('${p}')">📁 이동·복사</button> <button class="btn sm" onclick="ftBatchLink('${p}')">🔗 링크 복사</button> <button class="btn sm" onclick="ftSelClear('${p}')">해제</button>`;
+}
+function ftSelItems(p){
+  const s=FT_FSEL[p]||new Set(); const out=[];
+  document.querySelectorAll('#ftree-'+p+' .ft-row.file').forEach(r=>{ if(s.has(r.dataset.ftid)) out.push({itemId:r.dataset.ftid, name:r.dataset.ftname}); });
+  return out;
+}
+function ftBatchMove(p){
+  const items=ftSelItems(p);
+  if(!items.length){ toast('선택된 파일 없음','bad'); return; }
+  _moveBatch=items.map((it,i)=>({ name:it.name, itemId:it.itemId, mode:'move',
+    onDone: async()=>{ if(i===items.length-1){ FT_CHILDREN={}; DOC_INDEX_AT=0; if(FT_FSEL[p]) FT_FSEL[p].clear(); renderFileTree(p); } } }));
+  _moveCtx=_moveBatch[0];
+  const sel=$('taMoveDest'); if(sel) sel.value=p;
+  _openMoveModal(true);   // 이동 모달 재사용 (이동/복사 둘 다 가능)
+}
+async function ftBatchLink(p){
+  const items=ftSelItems(p); if(!items.length){ toast('선택된 파일 없음','bad'); return; }
+  toast('링크 가져오는 중…');
+  try{
+    const t=await graphToken(); const d=await spDrive(); const urls=[];
+    for(const it of items){ try{ const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${it.itemId}?$select=webUrl`,{headers:{Authorization:"Bearer "+t}}); if(r.ok){ const j=await r.json(); if(j.webUrl) urls.push(j.webUrl); } }catch(_){} }
+    if(!urls.length){ toast('링크 없음','bad'); return; }
+    await navigator.clipboard.writeText(urls.join('\n'));
+    toast(`링크 ${urls.length}개 복사됨`,'ok');
+  }catch(e){ toast('링크 복사 실패: '+(e.message||e),'bad'); }
+}
+// 트리: Ctrl+A 전체선택 / Esc 해제 (문서 탭 화면일 때만)
+document.addEventListener('keydown', function(e){
+  if(typeof curPage==='undefined' || !curPage || !String(curPage).startsWith('doc-')) return;
+  const p=curPage; if(!document.getElementById('ftree-'+p)) return;
+  const tag=(document.activeElement&&document.activeElement.tagName)||''; if(tag==='INPUT'||tag==='TEXTAREA') return;
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a'){ e.preventDefault(); FT_FSEL[p]=new Set(ftVisFileIds(p)); ftPaintSel(p); ftSelBar(p); }
+  else if(e.key==='Escape'){ ftSelClear(p); }
+});
+
 function ftMenu(e,p,path,isFolder,itemId,name,size){
   e.preventDefault(); e.stopPropagation();
   _ftCtxTarget={page:p,path,isFolder,itemId,name,size:size||0};
