@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v320</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v321</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -16366,6 +16366,7 @@ function prnewInit(){
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
             <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
+            <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
             <button class="acc-period-btn" onclick="prnewClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
             <span style="color:#15803d;font-size:12px;">💡 <b>BOM레벨 칸 더블클릭</b> → 윗행 다음 번호 자동입력 (예 1.47→1.48) · 엑셀 범위는 셀 <b>Ctrl+V</b> 또는 <b>📋엑셀 붙여넣기</b></span>
@@ -16400,6 +16401,7 @@ function prnewInit(){
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
             <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
+            <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;gap:10px;flex-wrap:wrap;">
@@ -16581,7 +16583,7 @@ function prnewRenderRows(){
       ? `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewTaskPick(${i})" title="클릭: 업무 변경" style="cursor:pointer;color:#4338ca;background:#eef2ff;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:700;">${esc(r._task.name)}</span> <span onclick="prnewTaskClear(${i})" title="업무 연결 삭제" style="cursor:pointer;color:#ef4444;font-size:13px;font-weight:700;">✕</span></td>`
       : `<td style="text-align:center;"><button onclick="prnewTaskPick(${i})" style="padding:2px 7px;border:1px solid #c7d2fe;border-radius:5px;background:#fff;color:#4338ca;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 업무</button></td>`;
 
-    return `<tr ${rowStyle}>
+    return `<tr ${rowStyle} oncontextmenu="prnewRowCtx(event,${i})">
       ${progCell}
       <td style="text-align:center;">${chk}</td>
       <td style="text-align:center;color:#9ca3af;">${i+1}</td>
@@ -16838,6 +16840,85 @@ function prnewTaskSelect(id){
 function prnewTaskClear(i){
   const r=prnewRows[i]; if(!r)return; r._task=null; prnewRenderRows();
   const pjt=(document.getElementById("prnew-pjt")||{}).value||""; if(pjt)prnewMetaPersist(pjt);
+}
+function prnewClearTaskMulti(){
+  const idxs=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk).map(x=>x.i);
+  if(!idxs.length){ toast("행을 체크하세요","bad"); return; }
+  idxs.forEach(ix=>{ if(prnewRows[ix]) prnewRows[ix]._task=null; });
+  prnewRenderRows();
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||""; if(pjt)prnewMetaPersist(pjt);
+  toast(`업무 연결 삭제 (${idxs.length}행)`,"ok");
+}
+// ── 행 우클릭 메뉴 (업무 추가/삭제 · 채팅 공유, 체크 있으면 선택행 기준) ──
+function prnewRowCtx(e, i){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById("prnewCtxMenu")?.remove();
+  const checked=prnewRows.filter(r=>r._chk).length;
+  const items = checked>0
+    ? [["📋 선택행 업무 추가","prnewTaskPickMulti()"],["✕ 선택행 업무 삭제","prnewClearTaskMulti()"],["🔗 선택행 채팅 공유","prnewShareChat('multi')"]]
+    : [["📋 업무 추가",`prnewTaskPick(${i})`],["✕ 업무 삭제",`prnewTaskClear(${i})`],["🔗 채팅 공유",`prnewShareChat('one',${i})`]];
+  const m=document.createElement("div"); m.id="prnewCtxMenu";
+  m.style.cssText=`position:fixed;z-index:1000099;left:${e.clientX}px;top:${e.clientY}px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:5px;min-width:178px`;
+  m.innerHTML=items.map(([label,fn])=>`<div onclick="document.getElementById('prnewCtxMenu').remove();${fn}" style="padding:8px 12px;font-size:12.5px;cursor:pointer;border-radius:6px;white-space:nowrap" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''">${label}</div>`).join("");
+  document.body.appendChild(m);
+  const rc=m.getBoundingClientRect();
+  if(rc.right>innerWidth) m.style.left=(innerWidth-rc.width-8)+"px";
+  if(rc.bottom>innerHeight) m.style.top=(innerHeight-rc.height-8)+"px";
+  const close=(ev)=>{ if(!m.contains(ev.target)){ m.remove(); document.removeEventListener("mousedown",close,true); } };
+  setTimeout(()=>document.addEventListener("mousedown",close,true),0);
+}
+// ── 채팅방 공유: 행 정보 요약 + 구매요청 링크를 Teams 채팅방에 전송 ──
+async function prnewShareChat(mode, i){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  if(!pjt){ toast("프로젝트를 먼저 선택/조회하세요","bad"); return; }
+  let rows;
+  if(mode==="multi"){ rows=prnewRows.filter(r=>r._chk); if(!rows.length){ toast("행을 체크하세요","bad"); return; } }
+  else { const r=prnewRows[i]; if(!r) return; rows=[r]; }
+  const statusOf=(r)=>{ if(r._pr){ const ss=(typeof prnewStatusStyle==="function")?prnewStatusStyle(r._status):null; return ss?ss.chip:(r._reqno?"구매요청":"저장됨"); } if(r._existing)return "기존"; if(r._draft)return "임시"; return "신규"; };
+  const lines=rows.map(r=>{
+    const pn=(r["품번"]||"").trim(), nm=(r["품명"]||"").trim();
+    const tk=(r._task&&r._task.name)?` · 업무:${r._task.name}`:"";
+    return `• ${pn||nm}${(pn&&nm)?` (${nm})`:""} · ${statusOf(r)}${tk}`;
+  });
+  const summary=`📋 구매요청 요약 · ${pjt} (${rows.length}건)\n`+lines.join("\n");
+  const link=`${location.origin}${location.pathname}?tab=prnew&pjt=${encodeURIComponent(pjt)}&embed=1`;
+  if(typeof ADMIN_CFG==="undefined" || !ADMIN_CFG.channels || !ADMIN_CFG.channels.length){ try{ if(typeof admLoad==="function") await admLoad(); }catch(_){} }
+  const chans=(typeof ADMIN_CFG!=="undefined" && ADMIN_CFG.channels)?ADMIN_CFG.channels.filter(c=>c.sourceChatId):[];
+  let ov=document.getElementById("prnewShareOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="prnewShareOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000099;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(560px,94vw);background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#4b53bc;color:#fff"><b>🔗 채팅방 공유 · ${esc(pjt)} (${rows.length}건)</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewShareOv').remove()">✕</span></div>
+    <div style="padding:14px 18px">
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">전송 채팅방</div>
+      <select id="prnewShare-chan" style="width:100%;height:34px;font-size:13px;margin-bottom:6px">${chans.length?chans.map((c,ci)=>`<option value="${ci}">${esc(c.name||c.sourceChatId)}</option>`).join(""):`<option value="-1">관리자설정에 채팅방 없음</option>`}</select>
+      <input id="prnewShare-customid" placeholder="또는 채팅방 ID 직접 입력" style="width:100%;height:32px;font-size:12px;margin-bottom:10px;box-sizing:border-box;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px">
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">메시지 (요약 — 수정 가능)</div>
+      <textarea id="prnewShare-msg" rows="7" style="width:100%;font-size:12.5px;padding:10px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit">${esc(summary)}</textarea>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;margin-top:8px"><input type="checkbox" id="prnewShare-link" checked style="width:15px;height:15px"> 🔗 구매요청 화면 링크 포함</label>
+    </div>
+    <div style="display:flex;gap:10px;padding:12px 18px;border-top:1px solid #eef0f3;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('prnewShareOv').remove()">취소</button>
+      <button class="btn primary sm" id="prnewShare-send" onclick="prnewShareSend()">📤 전송</button>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov); ov._chans=chans; ov._link=link;
+}
+async function prnewShareSend(){
+  const ov=document.getElementById("prnewShareOv"); if(!ov)return; const chans=ov._chans||[];
+  const custom=(document.getElementById("prnewShare-customid").value||"").trim();
+  const selV=document.getElementById("prnewShare-chan").value;
+  let chatId=custom; if(!chatId){ const c=chans[+selV]; chatId=c?c.sourceChatId:""; }
+  if(!chatId){ toast("채팅방을 선택하거나 ID를 입력하세요","bad"); return; }
+  const msg=(document.getElementById("prnewShare-msg").value||"").trim();
+  const link=document.getElementById("prnewShare-link").checked?(ov._link||""):"";
+  const btn=document.getElementById("prnewShare-send"); btn.disabled=true; btn.textContent="전송 중…";
+  try{
+    const r=await fetch(`${SERVER}/api/workplan/ask-task`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:chatId, task_name:"구매요청 공유", message:msg, owners:[], link})});
+    const d=await r.json();
+    if(d.ok){ toast("채팅방으로 전송 완료","ok"); ov.remove(); }
+    else { toast("전송 실패: "+(d.error||""),"bad"); btn.disabled=false; btn.textContent="📤 전송"; }
+  }catch(e){ toast("오류: "+((e&&e.message)||e),"bad"); btn.disabled=false; btn.textContent="📤 전송"; }
 }
 
 async function prnewLoadState(pjt){
