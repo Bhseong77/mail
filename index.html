@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v322</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v323</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14802,35 +14802,42 @@ function poadvRecalc(){
 
 // ── 견적서(캐시)에서 단가 불러오기 모달 ──
 function poadvQuoteClose(){ const m=document.getElementById("poadv-quote-modal"); if(m) m.remove(); }
-async function poadvQuotePick(rowIndex){
-  if(typeof AN_DATA==="undefined"){ try{ window.AN_DATA={}; }catch(e){} }
-  // 견적서 탭을 안 들렀으면 캐시가 비어있을 수 있음 → 직접 로드
-  if(typeof AN_DATA!=="undefined" && (!AN_DATA["doc-quote"] || !Object.keys(AN_DATA["doc-quote"]).length)){
-    try{ AN_DATA["doc-quote"]=(await spGetJson(`${DOC_MAP["doc-quote"]}/_analysis.json`))||{}; }catch(e){}
-  }
-  const data=(typeof AN_DATA!=="undefined" && AN_DATA["doc-quote"]) ? AN_DATA["doc-quote"] : {};
+function poadvBuildSrcRows(data, src){
   const rows=[];
-  Object.keys(data).forEach(fid=>{
+  Object.keys(data||{}).forEach(fid=>{
     const f=data[fid]||{}; const nego=poadvNum(f.negoAmount);
     const items=(f.items&&f.items.length)?f.items:[{item:f.company||"",qty:"",price:f.negoAmount||"",amount:f.negoAmount||""}];
     items.forEach(it=>{
       const amount=poadvNum(it.amount), price=poadvNum(it.price);
-      const apply = nego>0 ? nego : (amount>0?amount:price);   // 네고 우선
-      rows.push({company:f.company||"?", fileName:f.fileName||"", quoteDate:f.quoteDate||f.date||"",
-                 item:it.item||"", qty:it.qty||"", price, amount, nego, apply});
+      const apply = (src==="quote"&&nego>0) ? nego : (price>0?price:amount);   // 거래명세서는 단가 우선
+      rows.push({src, fid, company:f.company||"?", fileName:f.fileName||"", url:f.url||"", driveId:f.driveId||"",
+                 quoteDate:f.quoteDate||f.date||"", item:it.item||it.name||"", qty:it.qty||"", price, amount, nego:(src==="quote"?nego:0), apply});
     });
   });
-  if(!rows.length){ alert("견적서 탭에 분석된 견적이 없습니다.\n먼저 견적서를 업로드/분석하세요."); return; }
   rows.sort((a,b)=>String(b.quoteDate).localeCompare(String(a.quoteDate)));
-  _poadvQuoteRows=rows; _poadvQuoteTarget=rowIndex;
+  return rows;
+}
+async function poadvQuotePick(rowIndex){
+  if(typeof AN_DATA==="undefined"){ try{ window.AN_DATA={}; }catch(e){} }
+  if(!AN_DATA["doc-quote"] || !Object.keys(AN_DATA["doc-quote"]).length){ try{ AN_DATA["doc-quote"]=(await spGetJson(`${DOC_MAP["doc-quote"]}/_analysis.json`))||{}; }catch(e){} }
+  if(!AN_DATA["doc-invoice"] || !Object.keys(AN_DATA["doc-invoice"]).length){ try{ AN_DATA["doc-invoice"]=(await spGetJson(`${DOC_MAP["doc-invoice"]}/_analysis.json`))||{}; }catch(e){} }
+  _poadvQuoteRows=poadvBuildSrcRows(AN_DATA["doc-quote"]||{}, "quote");
+  _poadvQuoteInvRows=poadvBuildSrcRows(AN_DATA["doc-invoice"]||{}, "invoice");
+  _poadvQuoteSrc="quote";
+  if(!_poadvQuoteRows.length && !_poadvQuoteInvRows.length){ alert("견적서·거래명세서 탭에 분석된 자료가 없습니다.\n먼저 업로드/분석하세요."); return; }
+  _poadvQuoteTarget=rowIndex;
   const _tgtRow=poadvRows[rowIndex]||{};
   const _withNameDefault = !String(_tgtRow.item_name||"").trim();   // 품명 비었으면(직접입력) 기본 체크, 있으면(목록에서 온 행) 해제
   const html=`
     <div id="poadv-quote-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)poadvQuoteClose()">
       <div style="background:#fff;width:min(820px,94vw);max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;">
         <div style="padding:14px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-weight:700;">📄 견적서에서 단가 불러오기 <span style="font-size:12px;opacity:.8;">행 클릭 → 단가 적용 (네고 있으면 네고 우선)</span></div>
+          <div style="font-weight:700;">📄 단가 불러오기 <span style="font-size:12px;opacity:.8;">행 클릭 → 단가 적용 (견적서는 네고 우선)</span></div>
           <button onclick="poadvQuoteClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div style="padding:8px 16px 0;display:flex;gap:6px;border-bottom:1px solid #eef0f3;">
+          <button id="poadv-qtab-quote" onclick="poadvQuoteSwitchSrc('quote')" style="padding:8px 16px;border:1px solid #cbd5e1;border-bottom:none;border-radius:8px 8px 0 0;font-size:13px;font-weight:700;cursor:pointer;background:#0f4c81;color:#fff;">📄 견적서 (${_poadvQuoteRows.length})</button>
+          <button id="poadv-qtab-invoice" onclick="poadvQuoteSwitchSrc('invoice')" style="padding:8px 16px;border:1px solid #cbd5e1;border-bottom:none;border-radius:8px 8px 0 0;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#0f4c81;">📋 거래명세서 (${_poadvQuoteInvRows.length})</button>
         </div>
         <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <input id="poadv-quote-q" placeholder="🔍 회사·품목 검색" oninput="poadvQuoteFilter(this.value)" autocomplete="off"
@@ -14854,12 +14861,19 @@ async function poadvQuotePick(rowIndex){
   poadvQuoteFilter("");
   setTimeout(()=>{ const q=document.getElementById("poadv-quote-q"); if(q) q.focus(); }, 50);
 }
-let _poadvQuoteRows=[], _poadvQuoteTarget=-1, _poadvQuoteView=[];
+let _poadvQuoteRows=[], _poadvQuoteInvRows=[], _poadvQuoteTarget=-1, _poadvQuoteView=[], _poadvQuoteSrc="quote";
+function poadvQuoteSwitchSrc(src){
+  _poadvQuoteSrc=src;
+  const qb=document.getElementById("poadv-qtab-quote"), ib=document.getElementById("poadv-qtab-invoice");
+  if(qb) qb.style.background = src==="quote"?"#0f4c81":"#fff", qb.style.color = src==="quote"?"#fff":"#0f4c81";
+  if(ib) ib.style.background = src==="invoice"?"#0f4c81":"#fff", ib.style.color = src==="invoice"?"#fff":"#0f4c81";
+  poadvQuoteFilter((document.getElementById("poadv-quote-q")||{}).value||"");
+}
 function poadvQuoteFilter(q){
   const tb=document.getElementById("poadv-quote-tbody"); if(!tb) return;
   q=(q||"").trim().toLowerCase();
   const esc2=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  let arr=_poadvQuoteRows;
+  let arr=(_poadvQuoteSrc==="invoice")?_poadvQuoteInvRows:_poadvQuoteRows;
   if(q) arr=arr.filter(r=>`${r.company} ${r.item} ${r.fileName}`.toLowerCase().includes(q));
   _poadvQuoteView=arr;
   if(!arr.length){ tb.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;">검색 결과 없음</td></tr>'; return; }
@@ -14878,6 +14892,9 @@ function poadvQuoteApply(rowIndex, viewIdx){
   const r=_poadvQuoteView[viewIdx]; if(!r){ poadvQuoteClose(); return; }
   poadvRows[rowIndex].price = poadvNum(r.apply);
   poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(r.apply);
+  // 거래명세서에서 가져온 경우 → 발주 저장 시 견적서 탭에 (거래명세서기반) 추가하기 위해 출처 기록
+  if(r.src==="invoice"){ poadvRows[rowIndex]._invSrc={fid:r.fid, fileName:r.fileName||"", company:r.company||"", driveId:r.driveId||"", url:r.url||""}; }
+  else { delete poadvRows[rowIndex]._invSrc; }
   // 품명도 함께 — 모달 체크박스가 켜져 있고 견적 품목명이 있을 때만 대시보드 품명(item_name)에 입력
   const _withName=(document.getElementById("poadv-quote-withname")||{}).checked;
   if(_withName && r.item && String(r.item).trim()){
@@ -14885,6 +14902,36 @@ function poadvQuoteApply(rowIndex, viewIdx){
   }
   poadvQuoteClose();
   poadvRenderRows();
+}
+// ── 거래명세서 기반으로 단가 입력한 행들을 발주 저장 후 견적서 탭에 추가 ((거래명세서기반) + 실제 파일 연동) ──
+async function poadvAddInvoiceQuotes(){
+  try{
+    const invRows=(poadvRows||[]).filter(r=>r&&r._invSrc&&r._invSrc.fid);
+    if(!invRows.length) return;
+    if(typeof AN_DATA==="undefined"){ try{ window.AN_DATA={}; }catch(e){} }
+    if(!AN_DATA["doc-quote"] || !Object.keys(AN_DATA["doc-quote"]).length){ try{ AN_DATA["doc-quote"]=(await spGetJson(`${DOC_MAP["doc-quote"]}/_analysis.json`))||{}; }catch(e){ AN_DATA["doc-quote"]={}; } }
+    // 거래명세서 파일(fid)별로 묶어 견적 레코드 생성/병합
+    const byFid={};
+    invRows.forEach(r=>{
+      const s=r._invSrc; const g=byFid[s.fid]||(byFid[s.fid]={src:s, items:[]});
+      const qty=poadvNum(r.qty), price=poadvNum(r.price), amount=poadvNum(r.amount)||qty*price;
+      g.items.push({item:(r.item_name||s.item||"").toString(), qty:r.qty||"", price, amount});
+    });
+    let changed=false;
+    Object.keys(byFid).forEach(fid=>{
+      const g=byFid[fid];
+      AN_DATA["doc-quote"][fid]={
+        company:g.src.company||"", quoteDate:"(거래명세서기반)", category:"", delivery:"", payment:"", warranty:"", negoAmount:"",
+        items:g.items, fileName:g.src.fileName||"", url:g.src.url||"", driveId:g.src.driveId||"", _basis:"invoice"
+      };
+      changed=true;
+    });
+    if(changed){
+      await spPutJson(`${DOC_MAP["doc-quote"]}/_analysis.json`, AN_DATA["doc-quote"]);
+      if(typeof toast==="function") toast("견적서 탭에 추가됨 (거래명세서기반)","ok");
+      if(typeof anRender==="function" && document.getElementById("antbl-doc-quote")) try{ anRender("doc-quote"); }catch(_){}
+    }
+  }catch(e){ console.warn("거래명세서→견적서 추가 실패", e&&e.message); }
 }
 
 // ── 거래명세서: 견적서에서 금액 불러오기 (파일단위 총액, 네고 우선) ──
@@ -15170,6 +15217,7 @@ async function poadvSave(){
       msg.style.color="#15803d"; msg.textContent=`✅ 저장 완료 · 발주번호 ${d.po_no||""}`;
       document.getElementById("poadv-save-result").innerHTML=`<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;">발주번호 <b>${esc(d.po_no||"")}</b> 생성됨. 구매발주서를 SharePoint에 저장 중…</div>`;
       if(typeof actLog==="function") actLog(`📦 발주 저장: ${v.header.cust} → ${d.po_no||""}`);
+      poadvAddInvoiceQuotes();   // 거래명세서 기반으로 입력한 행 → 견적서 탭에 (거래명세서기반) 추가
       // 구매발주서 PDF → SharePoint(03.구매발주서) 자동 저장
       try{
         const blob=await _poadvBuildPdfBlobOffscreen(v, d.po_no);
