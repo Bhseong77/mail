@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v317</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v318</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -16346,6 +16346,7 @@ function prnewInit(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
+            <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
             <button class="acc-period-btn" onclick="prnewClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
             <span style="color:#15803d;font-size:12px;">💡 <b>BOM레벨 칸 더블클릭</b> → 윗행 다음 번호 자동입력 (예 1.47→1.48) · 엑셀 범위는 셀 <b>Ctrl+V</b> 또는 <b>📋엑셀 붙여넣기</b></span>
@@ -16378,6 +16379,7 @@ function prnewInit(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;">
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
+            <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;gap:10px;flex-wrap:wrap;">
@@ -16733,16 +16735,24 @@ async function prnewMetaPersist(pjt){
 }
 // ── 업무 선택 모달 (업무일정 트리에서 작업 선택 → 행에 연결 + prnew-meta 저장) ──
 let _prnewTaskCtx=null;
-async function prnewTaskPick(i){
+function prnewTaskPick(i){ return _prnewTaskOpen([i]); }
+function prnewTaskPickMulti(){
+  const idxs=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk && !x.r._pr).map(x=>x.i);
+  if(!idxs.length){ toast("업무를 지정할 행을 체크하세요","bad"); return; }
+  return _prnewTaskOpen(idxs);
+}
+async function _prnewTaskOpen(rowIdxs){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   if(!pjt){ toast("프로젝트를 먼저 선택/조회하세요","bad"); return; }
-  _prnewTaskCtx={rowIdx:i, pjt, proj:null};
+  if(!WP_WEEK){ try{ const now=wpISOWeek(new Date()); WP_WEEK={year:now.year,week:now.week}; }catch(_){} }   // 업무일정 미초기화 시 이번주로
+  _prnewTaskCtx={rowIdxs:rowIdxs.slice(), pjt, proj:null};
+  const cnt=rowIdxs.length;
   let ov=document.getElementById("prnewTaskOv"); if(ov)ov.remove();
   ov=document.createElement("div"); ov.id="prnewTaskOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000098;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
   ov.innerHTML=`<div style="width:min(680px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center"><b>📋 업무 선택 · ${esc(pjt)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewTaskOv').remove()">✕</span></div>
-    <div style="padding:7px 14px;font-size:11.5px;color:#64748b;border-bottom:1px solid #f1f5f9">작업(행)을 클릭하면 이 품목과 연결됩니다 · 폴더는 분류용</div>
+    <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center"><b>📋 업무 선택 · ${esc(pjt)}${cnt>1?` · ${cnt}개 행`:""}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewTaskOv').remove()">✕</span></div>
+    <div style="padding:7px 14px;font-size:11.5px;color:#64748b;border-bottom:1px solid #f1f5f9">작업(행)을 클릭하면 ${cnt>1?`체크한 ${cnt}개 품목 모두에`:"이 품목과"} 연결됩니다 · 폴더는 분류용</div>
     <div id="prnewTask-body" style="overflow:auto;flex:1;padding:8px 12px;min-height:200px"><div style="padding:30px;text-align:center;color:#9ca3af">업무일정 불러오는 중…</div></div>
   </div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
@@ -16755,7 +16765,7 @@ async function prnewTaskPick(i){
 }
 function prnewTaskRender(proj){
   const b=document.getElementById("prnewTask-body"); if(!b)return;
-  if(!proj||!(proj.children||[]).length){ b.innerHTML=`<div style="padding:24px;text-align:center;color:#9ca3af">업무일정이 비어있습니다</div>`; return; }
+  if(!proj||!(proj.children||[]).length){ b.innerHTML=`<div style="padding:24px;text-align:center;color:#9ca3af">업무일정이 비어있습니다 (이번주 plan 없음)</div>`; return; }
   const row=(n,depth)=>{
     const pad=8+depth*15;
     if(n.group){
@@ -16769,12 +16779,12 @@ function prnewTaskSelect(id){
   if(!_prnewTaskCtx||!_prnewTaskCtx.proj)return;
   let found=null; (function w(ns){ (ns||[]).forEach(n=>{ if(String(n.id)===String(id))found=n; if(n.children)w(n.children); }); })(_prnewTaskCtx.proj.children);
   if(!found){ document.getElementById("prnewTaskOv")?.remove(); return; }
-  const r=prnewRows[_prnewTaskCtx.rowIdx]; if(!r){ document.getElementById("prnewTaskOv")?.remove(); return; }
-  r._task={proj:_prnewTaskCtx.pjt, id:found.id, name:found.name};
+  const idxs=_prnewTaskCtx.rowIdxs||[];
+  idxs.forEach(ix=>{ const r=prnewRows[ix]; if(r) r._task={proj:_prnewTaskCtx.pjt, id:found.id, name:found.name}; });
   document.getElementById("prnewTaskOv")?.remove();
   prnewRenderRows();
   prnewMetaPersist(_prnewTaskCtx.pjt);
-  toast(`업무 연결: ${found.name}`,"ok");
+  toast(`업무 연결: ${found.name}`+(idxs.length>1?` (${idxs.length}행)`:""),"ok");
 }
 function prnewTaskClear(i){
   const r=prnewRows[i]; if(!r)return; r._task=null; prnewRenderRows();
