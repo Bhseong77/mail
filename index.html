@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v323</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v324</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -15197,10 +15197,12 @@ async function poadvSave(){
       // 품의 불러온 발주: 재타이핑 X. 남긴 품목(품명)만 영림원 521295에서 선택 → 발주입력 → 저장만.
       const keep = poadvRows.filter(x=>String(x.item_name||"").trim()).map(x=>x.item_name);
       if(!keep.length){ msg.style.color="#dc2626"; msg.textContent="⚠️ 발주 품목이 없습니다."; btn.disabled=false; btn.textContent=ot; return; }
+      // 품목별 납품예정일 — 품의 승계 날짜가 아니라 화면에서 고친 날짜를 실제 입력하도록 전송
+      const delvDates={}; (v.rows||[]).forEach(rr=>{ const nm=String(rr.item_name||"").trim(); const dv=String(rr.delv||"").trim(); if(nm&&dv) delvDates[nm]=dv; });
       msg.textContent=`⏳ 품의 ${poadvSourceProposal} 발주 저장 중… (품목 ${keep.length}건 선택→발주입력→저장)`;
       r = await fetch(`${SERVER}/api/erp/save-order-from-proposal`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({proposal_no:poadvSourceProposal, keep_names:keep, date:v.header.date})
+        body: JSON.stringify({proposal_no:poadvSourceProposal, keep_names:keep, date:v.header.date, delv_dates:delvDates})
       });
     }else{
       r = await fetch(`${SERVER}/api/erp/save_advance_order`,{
