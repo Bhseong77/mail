@@ -51,7 +51,14 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
 body{display:flex;flex-direction:column;height:100vh}
-.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0}
+.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0;-webkit-app-region:drag;app-region:drag}
+/* 헤더 안의 클릭 가능한 요소는 드래그 영역에서 제외 (앱 창 이동 시 버튼·로그는 그대로 동작) */
+.hdr button,.hdr a,.hdr input,.hdr select,.hdr textarea,.hdr .act-log,.hdr .hdr-sync{-webkit-app-region:no-drag;app-region:no-drag}
+/* PWA window-controls-overlay: OS 표시줄 영역까지 앱이 사용 — 우측 창컨트롤(최소화/닫기)과 헤더 버튼이 안 겹치게 공간 확보 */
+@media (display-mode: window-controls-overlay){
+  .hdr{ padding-top: calc(env(titlebar-area-y, 0px) + 14px); }
+  .hdr-row{ padding-right: calc(100vw - env(titlebar-area-width, 100vw)); }
+}
 .hdr::before{content:"";position:absolute;top:-50%;right:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%)}
 .hdr-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1;flex-wrap:wrap}
 .hdr-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
@@ -1307,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v308</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v310</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
