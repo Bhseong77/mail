@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v328</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v329</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2681,6 +2681,22 @@ async function spDeleteByPath(path){
 
 // ── 페이지 전환 ──
 let curPage='mail';
+// ── 모바일/브라우저 뒤로가기: 앱 내 이전 페이지로 이동 / 홈에서 두 번 눌러야 종료 ──
+let _navSuppress=false, _backArm=0;
+const _NAV_HOME='mail';
+function _navPush(p){
+  try{ const c=history.state; if(c && c.app && c.page===p && !c.base) return; history.pushState({app:1,page:p}, ''); }catch(_){}
+}
+function _navGo(p){ _navSuppress=true; try{ showPage(p); }finally{ _navSuppress=false; } }
+function _navInit(){ try{ history.replaceState({app:1,page:(curPage||_NAV_HOME),base:true}, ''); }catch(_){} }
+window.addEventListener('popstate', function(e){
+  const st=e.state||{};
+  if(st.app && st.page && !st.base){ _navGo(st.page); _backArm=0; return; }   // 이전 작업 페이지로
+  if(Date.now()-_backArm < 2000){ try{ history.back(); }catch(_){} return; }  // 두 번째 → 완전 종료
+  _backArm=Date.now();
+  try{ history.pushState({app:1,page:(curPage||_NAV_HOME)}, ''); }catch(_){}  // 첫 번째 → 머무름
+  if(typeof toast==='function') toast('한 번 더 누르면 종료됩니다');
+});
 // ── 모바일 하단 탭바 + 바텀시트 ──
 function mobNavGo(p){ mobSheetClose(); showPage(p); }
 function mobNavActive(){
@@ -2732,6 +2748,7 @@ function showPage(p){
   document.querySelectorAll('.nav-dropdown button').forEach(el=>el.classList.remove('active'));
   $('page-'+p).classList.add('on');
   $('nav-'+p)?.classList.add('active');
+  if(!_navSuppress) _navPush(p);   // 뒤로가기용 히스토리 (programmatic 복귀 시엔 push 안 함)
   // 드롭다운 그룹 버튼 active 표시
   const NAVGROUPS={customer:['contacts','doc-vendor'], pdocs:['doc-quote','doc-order','doc-invoice','doc-tax'], schedule:['schedule','workplan']};
   for(const [g,pages] of Object.entries(NAVGROUPS)){ $('navgrp-'+g)?.classList.toggle('active', pages.includes(p)); }
@@ -8499,6 +8516,7 @@ function startApp(){
     if(u){ DEEPLINK_UID=u; if(f==='sent'||f==='inbox') FOLDER=f; }
   }catch(e){}
   if(FOLDER==='sent'){ $('f-inbox').classList.remove('active'); $('f-sent').classList.add('active'); }
+  _navInit();   // 뒤로가기 기준(base) 엔트리 — 홈에서 두 번 눌러야 종료
   showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
   // 업무계획 딥링크 (?page=workplan&proj=&task=&week=) → 바로 열기
   try{ if(new URLSearchParams(location.search).get('page')==='workplan'){ showPage('workplan'); } }catch(_){}
