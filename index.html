@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v321</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v322</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -9768,7 +9768,7 @@ function wpDetailHtml(projId, n, ind){
         <span style="font-size:10.5px;color:var(--t2);min-width:34px;text-align:right">${esc(status||"-")}</span>
       </div>`;
     }).join("");
-    purLinkHtml=`<div class="wp-sec">🛒 구매 연결 <span style="font-weight:400;color:var(--t3)">(구매요청서 연동 · ${_purLinks.length}건)</span></div>
+    purLinkHtml=`<div class="wp-sec">🛒 구매 연결 <span style="font-weight:400;color:var(--t3)">(구매요청서 연동 · ${_purLinks.length}건)</span>${(function(){const r=(typeof wpPrInRate==="function")?wpPrInRate(_purLinks):{pct:0,inDone:0,total:_purLinks.length};const c=r.pct>=100?"#16a34a":(r.pct>0?"#0d9488":"#94a3b8");return ` <span style="font-weight:700;color:${c};font-size:11px">입고율 ${r.pct}% (${r.inDone}/${r.total})</span>`;})()}</div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">${items}</div>`;
   }
   if(WP_ATTACH && WP_ATTACH.id===n.id){
@@ -10195,11 +10195,17 @@ async function wpLoadPrLinks(){
 }
 function wpPrLinkBadge(n){
   const xs=_wpPrLinks[n.id]; if(!xs||!xs.length) return "";
-  // 연결된 품번의 구매현황 단계(최댓값) 표시
-  let bestFilled=0, status="연결";
-  xs.forEach(x=>{ const t=_wpPrByNo[String(x.no||"").toUpperCase()]; if(t){ if((t.filled||0)>bestFilled){ bestFilled=t.filled||0; status=t.status||"연결"; } } });
+  const r=wpPrInRate(xs);
+  const col=r.pct>=100?"#16a34a":(r.pct>0?"#0d9488":"#4338ca");
+  const bg=r.pct>=100?"#dcfce7":(r.pct>0?"#ccfbf1":"#eef2ff");
   const title="구매 연결: "+xs.map(x=>x.no).filter(Boolean).join(", ");
-  return `<span title="${esc(title)}" style="font-size:10px;background:#eef2ff;color:#4338ca;padding:1px 6px;border-radius:99px;font-weight:600;white-space:nowrap">🛒 ${esc(status)}</span>`;
+  return `<span title="${esc(title)}" style="font-size:10px;background:${bg};color:${col};padding:1px 6px;border-radius:99px;font-weight:600;white-space:nowrap">🛒 입고 ${r.pct}% (${r.inDone}/${r.total})</span>`;
+}
+// 입고율: 입고완료(4단계=입고 이상) 품번 수 / 전체 연결 품번 수
+function wpPrInRate(xs){
+  let total=0, inDone=0;
+  (xs||[]).forEach(x=>{ total++; const t=(typeof _wpPrByNo!=="undefined")?_wpPrByNo[String(x.no||"").toUpperCase()]:null; if(t&&(t.filled||0)>=4) inDone++; });
+  return {total, inDone, pct: total?Math.round(inDone/total*100):0};
 }
 const WP_TRK_STAGES=["요청","품의","발주","입고","출고"];
 function wpTrkStepHtml(filled){
