@@ -51,7 +51,14 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;font-size:15px;height:100%}
 body{display:flex;flex-direction:column;height:100vh}
-.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0}
+.hdr{background:linear-gradient(135deg,#1a6fd4 0%,#0f4c81 100%);color:#fff;padding:14px 18px 16px;box-shadow:var(--shadow2);position:relative;overflow:hidden;flex-shrink:0;-webkit-app-region:drag;app-region:drag}
+/* 헤더 안의 클릭 가능한 요소는 드래그 영역에서 제외 (앱 창 이동 시 버튼·로그는 그대로 동작) */
+.hdr button,.hdr a,.hdr input,.hdr select,.hdr textarea,.hdr .act-log,.hdr .hdr-sync{-webkit-app-region:no-drag;app-region:no-drag}
+/* PWA window-controls-overlay: OS 표시줄 영역까지 앱이 사용 — 우측 창컨트롤(최소화/닫기)과 헤더 버튼이 안 겹치게 공간 확보 */
+@media (display-mode: window-controls-overlay){
+  .hdr{ padding-top: calc(env(titlebar-area-y, 0px) + 14px); }
+  .hdr-row{ padding-right: calc(100vw - env(titlebar-area-width, 100vw)); }
+}
 .hdr::before{content:"";position:absolute;top:-50%;right:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%)}
 .hdr-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1;flex-wrap:wrap}
 .hdr-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
@@ -783,7 +790,30 @@ body.embed-prnew{background:#fff}
   .ti-row{padding:11px 16px}
 }
 
-/* 관리자 설정 */
+/* ── 모바일 추가 최적화 v287: 헤더 축소 + 업무일정 트리 줄바꿈 ── */
+@media(max-width:640px){
+  /* 헤더: 세계시계(US/IN/KR) 숨김 — 폰에선 불필요한 세로공간 */
+  .hdr-clock{display:none}
+  /* 중복 버튼 숨김 (하단 '더보기' 시트에 이미 있음) */
+  #permNavBtn,#adminNavBtn{display:none!important}
+  .hdr-sub{font-size:10.5px;line-height:1.35}
+  .hdr{padding:8px 12px 9px}
+  /* 업무일정 트리: 행이 폰 폭을 넘으면 줄바꿈(오른쪽 잘림 방지) */
+  .wp-proj,.wp-grp,.wp-task{flex-wrap:wrap;row-gap:3px}
+  .wp-task>span[style*="flex:1"]{display:none}   /* 빈 스페이서 제거 → 상태가 다음 줄로 깔끔히 */
+  .wp-id{font-size:10px}
+  .wp-rolebadge{font-size:9.5px;padding:1px 6px}
+}
+/* ── v291: 업무일정 상세패널 잘림 방지 (좁은 창·Teams 사이드패널 ≤820px 포함) ── */
+@media(max-width:820px){
+  /* 트리 행 줄바꿈 (640~820 구간도 커버) */
+  .wp-proj,.wp-grp,.wp-task{flex-wrap:wrap;row-gap:3px}
+  .wp-task>span[style*="flex:1"]{display:none}
+  /* 상세 패널: 들여쓰기 줄이고 화면 폭 안에 가둠 → 버튼·업무보고 줄이 잘리지 않고 줄바꿈 */
+  .wp-detail{margin-left:8px!important;max-width:calc(100vw - 22px);box-sizing:border-box;overflow-wrap:anywhere}
+  .wp-detail textarea{width:100%!important;box-sizing:border-box}
+  .wp-hist{flex-wrap:wrap}
+}
 .adm-wrap{max-width:720px;margin:0 auto;padding:20px 22px 40px}
 .adm-head h2{font-size:19px;font-weight:800;margin:0 0 4px;color:var(--t1)}
 .adm-sub{font-size:12.5px;color:var(--t3);margin-bottom:18px}
@@ -845,6 +875,7 @@ body.embed-prnew{background:#fff}
 .ma-subtab{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--t2);font-family:inherit}
 .ma-subtab.active{background:var(--p);color:#fff;border-color:var(--p)}
 .ft-row.file{position:relative}
+.ta-batchbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--pd);border:1px solid var(--p);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:var(--p)}
 .ft-move{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.6}
 .ft-row.file:hover .ft-move{display:inline-block}
 .ft-move:hover{opacity:1}
@@ -1283,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v285</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v317</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1339,6 +1370,7 @@ body.embed-prnew{background:#fff}
     <button id="f-inbox" class="active" onclick="setFolder('inbox')">📥 받은편지함</button>
     <button id="f-sent" onclick="setFolder('sent')">📤 보낸편지함</button>
     <button id="f-draft" onclick="setFolder('draft')">📝 임시저장</button>
+    <button id="f-trash" onclick="setFolder('trash')">🗑 휴지통</button>
     <button class="btn sm primary" onclick="openCompose('new')" style="margin-left:6px">✏ 메일쓰기</button>
   </div>
   <div class="search">
@@ -1348,6 +1380,7 @@ body.embed-prnew{background:#fff}
   <span class="count" id="count"></span>
   <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
   <button class="btn sm danger" id="delBtn" onclick="deleteSelected()" style="display:none">🗑 삭제 <span id="delCnt"></span></button>
+  <button class="btn sm" id="restoreBtn" onclick="restoreSelected()" style="display:none;background:#16a34a;color:#fff;border-color:#16a34a">↩ 복구 <span id="restoreCnt"></span></button>
 </div>
 <div class="mail-subtabs" id="mailSubtabs">
   <button class="mailsub active" id="msub-vendor" onclick="setMailSub('vendor')">🏢 거래처 <span class="msub-cnt" id="msubCntV"></span></button>
@@ -1473,8 +1506,7 @@ body.embed-prnew{background:#fff}
     <div class="psidebar">
       <div class="psb-section">
         <div class="psb-title">현황</div>
-        <div class="psb-item active" data-p="overview" onclick="pShowPage('overview')">📊 전체 현황</div>
-        <div class="psb-item" data-p="activity" onclick="pShowPage('activity')">🔄 구매활동 <span class="psb-badge p" id="pcnt-act">·</span></div>
+        <div class="psb-item active" data-p="status" onclick="pShowPage('status')">📋 구매현황 <span class="psb-badge p" id="pcnt-status">·</span></div>
       </div>
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
@@ -1493,22 +1525,8 @@ body.embed-prnew{background:#fff}
     <div class="pcontent">
       <div class="pmeta" id="p-meta">불러오는 중…</div>
 
-      <!-- 전체 현황 -->
-      <div class="psub on" id="p-overview">
-        <div class="pkpi-grid" id="p-kpi"></div>
-        <div class="pcard">
-          <div class="pcard-h"><span class="pcard-title">📊 프로젝트별 진행 요약</span><span class="sp"></span>
-            <button class="pbtn" onclick="pLoadAll(true)">↻ 새로고침</button></div>
-          <div class="ptbl-wrap"><table class="ptbl" id="p-ovtbl"></table></div>
-        </div>
-        <div class="pov-2col">
-          <div class="pcard" id="p-trend"></div>
-          <div class="pcard" id="p-topvendor"></div>
-        </div>
-      </div>
-
-      <!-- 구매활동 (파이프라인) -->
-      <div class="psub" id="p-activity"><div id="p-act-list"></div></div>
+      <!-- 구매현황 (진행 추적) -->
+      <div class="psub on" id="p-status"></div>
 
       <!-- 조회 6종 -->
       <div class="psub" id="p-pr"></div>
@@ -2736,11 +2754,12 @@ const TIC_TEAM_GROUP="8457d8bf-1dd8-4e24-ad22-250816cc7d6d";
 let _projChanCache={};
 async function projChannelInfo(code){
   if(_projChanCache[code]) return _projChanCache[code];
+  // 영구 캐시 (driveId·rootId는 거의 안 변함) — 14일 TTL
+  try{ const s=localStorage.getItem("chaninfo_"+code); if(s){ const o=JSON.parse(s); if(o&&o.driveId&&o.rootId&&(Date.now()-(o._at||0))<14*86400000){ _projChanCache[code]=o; return o; } } }catch(_){}
   const t=await graphToken();
   const r=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels`,{headers:{Authorization:"Bearer "+t}});
   if(!r.ok) throw new Error("TIC 팀 채널 목록 실패 "+r.status);
   const chans=(await r.json()).value||[];
-  console.log("📺 TIC 채널:", chans.map(c=>c.displayName));
   const up=String(code).toUpperCase();
   let ch=chans.find(c=>(c.displayName||"").toUpperCase().includes("("+up+")"))
        || chans.find(c=>(c.displayName||"").toUpperCase().includes(up));
@@ -2748,9 +2767,11 @@ async function projChannelInfo(code){
   const fr=await fetch(`https://graph.microsoft.com/v1.0/teams/${TIC_TEAM_GROUP}/channels/${ch.id}/filesFolder`,{headers:{Authorization:"Bearer "+t}});
   if(!fr.ok) throw new Error("채널 폴더 접근 실패 "+fr.status);
   const ff=await fr.json();
-  const info={driveId:(ff.parentReference&&ff.parentReference.driveId)||null, rootId:ff.id, name:ch.displayName, channelId:ch.id};
+  const info={driveId:(ff.parentReference&&ff.parentReference.driveId)||null, rootId:ff.id, name:ch.displayName, channelId:ch.id, _at:Date.now()};
   if(!info.driveId) throw new Error("채널 드라이브 ID 없음");
-  _projChanCache[code]=info; return info;
+  _projChanCache[code]=info;
+  try{ localStorage.setItem("chaninfo_"+code, JSON.stringify(info)); }catch(_){}
+  return info;
 }
 async function projChanList(code, rel){
   const t=await graphToken(); const c=await projChannelInfo(code);
@@ -4014,9 +4035,13 @@ function taRender(){
     return (b.created||'').localeCompare(a.created||'');  // 최신순
   });
   const hidBtn=TA_HIDDEN.length?`<button class="btn sm" onclick="taToggleHidden()" style="margin-bottom:10px">${TA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${TA_HIDDEN.length})`}</button>`:'';
-  if(!items.length){ $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
-  $('taList').innerHTML=hidBtn+`<table class="ta-table"><thead><tr>
-    <th style="width:42px"></th><th>파일명 / 메모</th><th style="width:100px">작성자</th><th style="width:120px">작성일시</th><th style="width:60px">크기</th><th style="width:180px">작업</th>
+  if(!items.length){ _taVisIds=[]; $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
+  _taVisIds=items.map(it=>it.id);
+  const allSel=_taVisIds.length && _taVisIds.every(id=>_taSel.has(id));
+  const selN=_taSel.size;
+  const batchBar=selN?`<div class="ta-batchbar">☑ <b>${selN}개</b> 선택됨 · <button class="btn sm primary" onclick="taBatchMove()">📁 선택 항목 문서함으로 이동·복사</button> <button class="btn sm" onclick="taSelClear()">선택 해제</button></div>`:'';
+  $('taList').innerHTML=hidBtn+batchBar+`<table class="ta-table"><thead><tr>
+    <th style="width:34px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onclick="taSelAll(this.checked)" title="전체 선택"></th><th style="width:42px"></th><th>파일명 / 메모</th><th style="width:100px">작성자</th><th style="width:120px">작성일시</th><th style="width:60px">크기</th><th style="width:180px">작업</th>
     </tr></thead><tbody>${items.map((it)=>{
       const dt=it.created?new Date(it.created).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
       const realIdx=(TA_DATA.items||[]).indexOf(it);
@@ -4024,7 +4049,8 @@ function taRender(){
       const note=(it.note||'').trim();
       const mv=TA_MOVED[it.id];
       const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
-      return `<tr style="${hidden?'opacity:.5':''}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')">
+      return `<tr style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')">
+        <td style="text-align:center"><input type="checkbox" ${_taSel.has(it.id)?'checked':''} onclick="taToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(taName(it))}${movedBadge}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
         <td style="font-size:12px">${esc(it.author||'?')}</td>
@@ -4070,12 +4096,13 @@ function docDestToPath(dest){
   return dest;
 }
 let _taMoveIdx=-1;
+let _moveBatch=null;          // 일괄 이동/복사 대상 ctx 배열 (null=단일)
+let _taSel=new Set();         // 선택된 첨부 id
+let _taVisIds=[];             // 현재 화면에 보이는 첨부 id (전체선택용)
 let _taFxRel="";   // 현재 탐색 중인 상대경로 (root 기준, ''=루트)
 let _moveCtx=null; // {name, getBytes:async()=>ArrayBuffer, mime, onDone:async(destLabel)=>{}}
-function taMove(idx){
-  const it=(TA_DATA.items||[])[idx]; if(!it) return;
-  _taMoveIdx=idx;
-  _moveCtx={
+function _taMoveCtxFor(it, reload){
+  return {
     name: taName(it),
     mime: it.mime||'application/octet-stream',
     getBytes: async ()=>{
@@ -4090,16 +4117,34 @@ function taMove(idx){
       if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
       return await fr.arrayBuffer();
     },
-    onDone: async (destLabel)=>{ docIndexAdd(taName(it), it.size, destLabel); taLoad(); }
+    onDone: async (destLabel)=>{ docIndexAdd(taName(it), it.size, destLabel); if(reload!==false) taLoad(); }
   };
-  _openMoveModal();
 }
-function _openMoveModal(){
+function taMove(idx){
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  _taMoveIdx=idx;
+  _moveCtx=_taMoveCtxFor(it, true);
+  _openMoveModal();   // _moveBatch 자동 초기화
+}
+// ── 다중 선택 / 일괄 이동·복사 ──
+function taToggleSel(id,on){ if(on)_taSel.add(id); else _taSel.delete(id); taRender(); }
+function taSelAll(on){ (_taVisIds||[]).forEach(id=>{ if(on)_taSel.add(id); else _taSel.delete(id); }); taRender(); }
+function taSelClear(){ _taSel.clear(); taRender(); }
+function taBatchMove(){
+  const items=(TA_DATA.items||[]).filter(it=>_taSel.has(it.id));
+  if(!items.length){ toast('선택된 파일 없음','bad'); return; }
+  _moveBatch=items.map(it=>_taMoveCtxFor(it,false));
+  _moveCtx=_moveBatch[0];
+  _openMoveModal(true);   // keepBatch
+}
+function _openMoveModal(keepBatch){
+  if(!keepBatch) _moveBatch=null;   // 단일 호출 시 일괄 상태 초기화
   const isMove=_moveCtx&&_moveCtx.mode==='move';
   const tt=$('taMoveTitle'); if(tt) tt.textContent=isMove?'📂 다른 폴더로 이동':'📁 문서함으로 복사';
   const bt=$('taMoveBtn'); if(bt) bt.textContent=isMove?'📂 여기로 이동':'📁 여기에 복사';
   const cb=$('taCopyBtn'); if(cb) cb.style.display=isMove?'inline-flex':'none';
-  $('taMoveFile').textContent='📄 '+(_moveCtx?_moveCtx.name:'');
+  const n=(_moveBatch&&_moveBatch.length)||0;
+  $('taMoveFile').textContent = n>1 ? `📄 ${n}개 파일 선택됨` : ('📄 '+(_moveCtx?_moveCtx.name:''));
   $('taMoveMsg').textContent='';
   _taFxRel="";
   $('taMoveModal').classList.add('on');
@@ -4151,68 +4196,70 @@ async function taFxNewFolder(){
     taFxEnter(name);  // 만든 폴더로 들어감
   }catch(e){ toast('폴더 생성 실패: '+e.message,'bad'); }
 }
+async function _ctxBytes(ctx){
+  if(typeof ctx.getBytes==='function') return {bytes:await ctx.getBytes(), mime:ctx.mime||'application/octet-stream'};
+  if(ctx.itemId){
+    const t=await graphToken(); const d=await spDrive();
+    const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${ctx.itemId}`,{headers:{Authorization:"Bearer "+t}});
+    if(!r0.ok) throw new Error("원본 조회 실패 "+r0.status);
+    const meta=await r0.json(); const mime=(meta.file&&meta.file.mimeType)||ctx.mime||'application/octet-stream';
+    const dlUrl=meta["@microsoft.graph.downloadUrl"]; if(!dlUrl) throw new Error("다운로드 링크 없음");
+    const fr=await fetch(dlUrl); if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
+    return {bytes:await fr.arrayBuffer(), mime};
+  }
+  throw new Error("복사할 원본 없음");
+}
 async function taDoMove(){
-  if(!_moveCtx) return;
+  const list=(_moveBatch&&_moveBatch.length)?_moveBatch:(_moveCtx?[_moveCtx]:[]);
+  if(!list.length) return;
+  const batch=!!(_moveBatch&&_moveBatch.length);
   const destTab=$('taMoveDest').value;
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
-  const _jm=_J((_moveCtx.mode==='move'?'문서 이동: ':'문서함 복사: ')+(_moveCtx.name||''));
-  try{
-    if(_moveCtx.mode==='move' && _moveCtx.itemId){
-      // 진짜 이동 (Graph PATCH parentReference) — 원본 폴더에서 제거됨
-      msg.style.color='var(--t3)'; msg.textContent='이동 중…';
-      await spMoveItem(_moveCtx.itemId, destFolder);
-      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 이동됨';
-    } else {
-      // 복사 (첨부 → 문서함)
-      msg.style.color='var(--t3)'; msg.textContent='복사 중…';
-      const bytes=await _moveCtx.getBytes();
-      await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, _moveCtx.mime||'application/octet-stream');
-      msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨';
-    }
-    if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
-    _Jok(_jm, destLabel);
-    actLog(`📁 문서함 ${_moveCtx.mode==='move'?'이동':'복사'}: ${_moveCtx.name} → ${destLabel}`);
-    toast('완료','ok');
-    setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
-  }catch(e){
-    _Jno(_jm, e.message);
-    msg.style.color='var(--r)'; msg.textContent='실패: '+e.message;
+  const isMove=list[0].mode==='move';
+  const _jm=_J((isMove?'문서 이동: ':'문서함 복사: ')+(batch?`${list.length}건`:(list[0].name||'')));
+  let ok=0, fail=0, lastErr='';
+  for(let i=0;i<list.length;i++){
+    const ctx=list[i];
+    msg.style.color='var(--t3)'; msg.textContent=batch?`${isMove?'이동':'복사'} 중… (${i+1}/${list.length}) ${ctx.name}`:(isMove?'이동 중…':'복사 중…');
+    try{
+      if(ctx.mode==='move' && ctx.itemId){ await spMoveItem(ctx.itemId, destFolder); }
+      else { const {bytes,mime}=await _ctxBytes(ctx); await spUploadFile(`${destFolder}/${ctx.name}`, bytes, mime); }
+      if(ctx.onDone) await ctx.onDone(destLabel);
+      ok++;
+    }catch(e){ fail++; lastErr=e.message||String(e); console.warn('이동/복사 실패',ctx.name,e); }
   }
+  if(fail){ _Jno(_jm, `${fail}건 실패: ${lastErr}`); msg.style.color='var(--r)'; msg.textContent=`✅ ${ok}건 · ❌ ${fail}건 실패 → ${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''}`; }
+  else { _Jok(_jm, destLabel); msg.style.color='var(--g)'; msg.textContent=`✅ ${batch?ok+'건 ':''}${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''} 로 ${isMove?'이동':'복사'}됨`; }
+  actLog(`📁 문서함 ${isMove?'이동':'복사'}: ${batch?ok+'건':list[0].name} → ${destLabel}`);
+  toast(fail?`${ok}건 완료·${fail}건 실패`:'완료', fail?'bad':'ok');
+  if(batch){ _taSel.clear(); _moveBatch=null; taLoad(); }
+  setTimeout(()=>{ $('taMoveModal').classList.remove('on'); }, fail?2300:1300);
 }
 // 원본을 유지한 채 선택 폴더로 복사 (이동 모달의 '여기로 복사')
 async function taDoCopy(){
-  if(!_moveCtx) return;
+  const list=(_moveBatch&&_moveBatch.length)?_moveBatch:(_moveCtx?[_moveCtx]:[]);
+  if(!list.length) return;
+  const batch=!!(_moveBatch&&_moveBatch.length);
   const destTab=$('taMoveDest').value;
   const destFolder=taFxFullPath();
   const destLabel=DOC_TITLE[destTab].replace(/^[^ ]+ /,'')+(_taFxRel?'/'+_taFxRel:'');
   const msg=$('taMoveMsg');
-  const _jc=_J('문서 복사: '+(_moveCtx.name||''));
-  try{
-    msg.style.color='var(--t3)'; msg.textContent='복사 중…';
-    let bytes, mime=_moveCtx.mime||'application/octet-stream';
-    if(typeof _moveCtx.getBytes==='function'){
-      bytes=await _moveCtx.getBytes();
-    } else if(_moveCtx.itemId){
-      const t=await graphToken(); const d=await spDrive();
-      const r0=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${_moveCtx.itemId}`,{headers:{Authorization:"Bearer "+t}});
-      if(!r0.ok) throw new Error("원본 조회 실패 "+r0.status);
-      const meta=await r0.json();
-      if(meta.file&&meta.file.mimeType) mime=meta.file.mimeType;
-      const dlUrl=meta["@microsoft.graph.downloadUrl"];
-      if(!dlUrl) throw new Error("다운로드 링크 없음");
-      const fr=await fetch(dlUrl); if(!fr.ok) throw new Error("원본 다운로드 실패 "+fr.status);
-      bytes=await fr.arrayBuffer();
-    } else { throw new Error("복사할 원본을 찾을 수 없음"); }
-    await spUploadFile(`${destFolder}/${_moveCtx.name}`, bytes, mime);
-    msg.style.color='var(--g)'; msg.textContent='✅ '+DOC_TITLE[destTab]+(_taFxRel?'/'+_taFxRel:'')+' 로 복사됨 (원본 유지)';
-    if(_moveCtx.onDone) await _moveCtx.onDone(destLabel);
-    _Jok(_jc, destLabel);
-    actLog(`📋 문서함 복사: ${_moveCtx.name} → ${destLabel}`);
-    toast('복사 완료','ok');
-    setTimeout(()=>{ $('taMoveModal').classList.remove('on'); },1300);
-  }catch(e){ _Jno(_jc, e.message); msg.style.color='var(--r)'; msg.textContent='복사 실패: '+e.message; }
+  const _jc=_J('문서 복사: '+(batch?`${list.length}건`:(list[0].name||'')));
+  let ok=0, fail=0, lastErr='';
+  for(let i=0;i<list.length;i++){
+    const ctx=list[i];
+    msg.style.color='var(--t3)'; msg.textContent=batch?`복사 중… (${i+1}/${list.length}) ${ctx.name}`:'복사 중…';
+    try{ const {bytes,mime}=await _ctxBytes(ctx); await spUploadFile(`${destFolder}/${ctx.name}`, bytes, mime); if(ctx.onDone) await ctx.onDone(destLabel); ok++; }
+    catch(e){ fail++; lastErr=e.message||String(e); console.warn('복사 실패',ctx.name,e); }
+  }
+  if(fail){ _Jno(_jc, `${fail}건 실패: ${lastErr}`); msg.style.color='var(--r)'; msg.textContent=`✅ ${ok}건 · ❌ ${fail}건 실패 (원본 유지)`; }
+  else { _Jok(_jc, destLabel); msg.style.color='var(--g)'; msg.textContent=`✅ ${batch?ok+'건 ':''}${DOC_TITLE[destTab]}${_taFxRel?'/'+_taFxRel:''} 로 복사됨 (원본 유지)`; }
+  actLog(`📋 문서함 복사: ${batch?ok+'건':list[0].name} → ${destLabel}`);
+  toast(fail?`${ok}건 복사·${fail}건 실패`:'복사 완료', fail?'bad':'ok');
+  if(batch){ _taSel.clear(); _moveBatch=null; taLoad(); }
+  setTimeout(()=>{ $('taMoveModal').classList.remove('on'); }, fail?2300:1300);
 }
 // 기술자료 트리 파일 → 다른 폴더로 이동(진짜 이동)
 function ftMoveFile(p,itemId,name){
@@ -4863,10 +4910,10 @@ function anRender(p){
   // ── 거래명세서 전용 컬럼: 회사명·거래일·분류(추가가능)·품목·수량·단가·VAT·금액·납기·카드 ──
   if(p==='doc-invoice'){
     const cats=allCategories(), cards=AN_CONFIG.cards||[];
-    let sumQty=0,sumAmt=0,sumVat=0;
+    let sumQty=0,sumAmt=0,sumVat=0,sumFin=0;
     let h=`<table class="an-tbl"><thead><tr>
-      <th>회사명</th><th class="c">거래일</th><th class="c">분류</th><th class="item">품목</th><th class="c">총수량</th><th class="c">수량개수</th><th class="r">단가</th><th class="r">VAT</th><th class="r">금액</th>
-      <th class="c">납기</th><th class="c">카드</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+      <th>회사명</th><th class="c">거래일</th><th class="c">분류</th><th class="item">품목</th><th class="c">총수량</th><th class="r">단가</th><th class="r">금액</th><th class="r">VAT</th><th class="r" style="background:#eff6ff;color:#0f4c81;">최종금액</th>
+      <th class="c">카드</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
     for(const r of rows){
       const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
       const num=v=>Number(String(v==null?'':v).replace(/[, ]/g,''))||0;
@@ -4876,7 +4923,8 @@ function anRender(p){
       let amt=items.reduce((a,b)=>a+num(b.amount),0);
       if(_ovAmt>0) amt=_ovAmt;                  // 견적금액이 있으면 그 값으로 대체
       const vat=Math.round(amt*0.1);
-      sumQty+=totQty; sumAmt+=amt; sumVat+=vat;
+      const fin=amt+vat;
+      sumQty+=totQty; sumAmt+=amt; sumVat+=vat; sumFin+=fin;
       const rep=items[0]||{};
       const more=lineCnt>1?` <span class="ord-more" onclick="anOrderItemsModal('${p}','${r.fid}')">외 ${lineCnt-1}건 ▸</span>`:'';
       let repPrice=lineCnt>1?'':esc(fmtNum(rep.price));
@@ -4890,11 +4938,10 @@ function anRender(p){
         <td class="c"><select class="memo" style="width:90px" onchange="anCatChange('${p}','${r.fid}',this)">${catOpts}</select></td>
         <td class="item"><span class="ord-rep" onclick="anOrderItemsModal('${p}','${r.fid}')" title="클릭=전체 품목 보기">${esc(rep.item||'(품목)')}</span>${more}</td>
         <td class="c">${totQty?totQty.toLocaleString():''}</td>
-        <td class="c">${lineCnt}</td>
         <td class="r">${repPrice}</td>
-        <td class="r">${esc(fmtNum(vat))}</td>
         <td class="r"><span onclick="invQuotePick('${p}','${r.fid}')" title="${_ovAmt>0?('견적금액 적용중'+(r.quoteRef?' · '+esc(r.quoteRef):'')+' · 클릭=다시 선택'):'클릭 → 견적서에서 금액 불러오기 (네고 있으면 네고 우선)'}" style="cursor:pointer;font-weight:700;color:${_ovAmt>0?'#7c3aed':'#0f4c81'};border-bottom:1px dashed ${_ovAmt>0?'#c4b5fd':'#cbd5e1'}">${amt?esc(fmtNum(amt)):'📄 불러오기'}</span>${_ovAmt>0?`<span onclick="invQuoteClear('${p}','${r.fid}')" title="견적금액 해제(원래대로)" style="cursor:pointer;color:#c4b5fd;margin-left:5px;font-size:11px">✕</span>`:''}</td>
-        <td class="c"><input class="memo" value="${esc(r.delivery||'')}" onchange="anField('${p}','${r.fid}','delivery',this.value)"></td>
+        <td class="r">${esc(fmtNum(vat))}</td>
+        <td class="r" style="background:#eff6ff;color:#0f4c81;font-weight:700;">${amt?esc(fmtNum(fin)):''}</td>
         <td class="c"><select class="memo" style="width:112px" onchange="anField('${p}','${r.fid}','card',this.value)">${cardOpts}</select></td>
         <td><span class="file-link an-file" data-anp="${p}" data-anfid="${r.fid}" data-anname="${esc(r.fileName||'')}" onclick="anPreview('${p}','${r.fid}')" oncontextmenu="event.preventDefault();anRename('${p}','${r.fid}')" title="클릭=미리보기 · 우클릭/F2=이름변경">${esc((r.fileName||'').slice(0,22))}</span></td>
         <td class="an-actcell"><button class="an-mini" title="재분석" onclick="anReanalyze('${p}','${r.fid}')">🔄</button><button class="an-mini" title="다운로드" onclick="anDownload('${p}','${r.fid}')">⬇</button><button class="an-mini" onclick="anRename('${p}','${r.fid}')">✏</button><button class="an-mini" onclick="anMove('${p}','${r.fid}')">📂</button><button class="an-mini del" onclick="anDelete('${p}','${r.fid}')">🗑</button></td>
@@ -4902,10 +4949,11 @@ function anRender(p){
     }
     h+=`</tbody><tfoot><tr style="background:#f1f4f8;font-weight:700">
       <td colspan="4" class="r">합계</td>
-      <td class="c">${sumQty?sumQty.toLocaleString():''}</td><td colspan="2"></td>
+      <td class="c">${sumQty?sumQty.toLocaleString():''}</td><td></td>
+      <td class="r">${esc(fmtNum(sumAmt))}</td>
       <td class="r">${esc(fmtNum(sumVat))}</td>
-      <td class="r" style="color:#0f4c81">${esc(fmtNum(sumAmt))}</td>
-      <td colspan="4"></td></tr></tfoot></table>`;
+      <td class="r" style="background:#eff6ff;color:#0f4c81">${esc(fmtNum(sumFin))}</td>
+      <td colspan="3"></td></tr></tfoot></table>`;
     wrap.innerHTML=h; return;
   }
   // ── 세금계산서 전용: 회사명·작성일·분류·품목·수량·단가·공급가액·VAT·합계 (납기/보증기간 없음) ──
@@ -5312,6 +5360,27 @@ function parseOrderTextLocally(text, fileName){
   return out;
 }
 
+// 거래명세서/견적/세금계산서 비전 폴백 (스캔·회전 PDF 대응)
+function _anEmptyInfo(x){ return !x || (!x.company && !(x.items&&x.items.length) && !x.negoAmount && !x.quoteDate); }
+async function _anViaVision(f, basePrompt, rotations){
+  const key=await loadOpenAIKey(); if(!key) return null;
+  const blob=await _fetchDocBlob(f); if(!blob) return null;
+  let imgs=[];
+  for(const rot of (rotations||[0])){
+    try{ const u=await _docToImages(f, blob, rot); imgs=imgs.concat(u); }catch(_){}
+  }
+  if(!imgs.length) return null;
+  const note=(rotations&&rotations.length>1)
+    ? "\n\n[중요] 아래 이미지들은 같은 문서를 여러 각도로 회전한 것이다. 글자가 똑바로 보이는 이미지를 골라 읽어라. 도장·워터마크가 겹쳐도 글자를 읽어라."
+    : "\n\n[중요] 이 문서는 스캔 이미지다. 이미지가 회전돼 있으면 똑바로 돌려 읽어라. 도장·워터마크가 겹쳐도 글자를 읽어라.";
+  const content=[{type:"text",text:basePrompt+note}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u,detail:"high"}})));
+  const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+    body:JSON.stringify({model:"gpt-4o",temperature:0,response_format:{type:"json_object"},max_tokens:900,messages:[{role:"user",content}]})});
+  if(!r.ok) throw new Error("OpenAI vision "+r.status);
+  const d=await r.json(); const c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+  try{ return JSON.parse(c); }catch(_){ return null; }
+}
 async function _analyzeOne(p, f){
   let text='';
   try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
@@ -5341,6 +5410,7 @@ async function _analyzeOne(p, f){
     return vinfo;
   }
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
+⚠️ 반드시 아래 [내용]과 [파일명]에 실제로 적힌 정보만 사용하라. [내용]에 없는 값은 빈 문자열로 두고, 다른 문서·SharePoint·외부 지식으로 추측하거나 채우지 마라.
 {"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
 - quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
 - category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
@@ -5353,8 +5423,21 @@ async function _analyzeOne(p, f){
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
+  const textClean=(text||'').replace(/\s/g,'');
+  const isScanned = textClean.length < 40;   // 텍스트 거의 없음 = 스캔/이미지 PDF
   let info=null;
-  try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  // 스캔 PDF는 Copilot에 보내면 테넌트(SharePoint)의 비슷한 문서로 grounding해 엉뚱한 데이터를 답하므로 건너뜀
+  if(!isScanned){
+    try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+  }
+  // 스캔이거나 텍스트분석 실패 → 실제 파일 이미지를 비전(gpt-4o)으로 직접 읽기 (0° → 90/180/270 회전 재시도)
+  if(isScanned || _anEmptyInfo(info)){
+    try{
+      let vi=await _anViaVision(f, prompt, [0]);
+      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, prompt, [90,180,270]);
+      if(!_anEmptyInfo(vi)) info=vi;
+    }catch(ex){ console.warn("거래명세서 비전 분석 실패",f.name,ex.message); }
+  }
   const prev=AN_DATA[p][f.id]||{};
   const _isEnjet=s=>/엔젯|enjet/i.test(String(s||""));
   // 회사명(발행처)에서 엔젯 제외: company→customer→prev 순으로 엔젯 아닌 첫 값
@@ -5424,18 +5507,28 @@ async function _fetchDocBlob(f){
   if(!blob){ try{ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) blob=await r.blob(); }catch(_){} }
   return blob;
 }
-async function _docToImages(f, blob){
+async function _docToImages(f, blob, rotation){
+  rotation=((rotation||0)%360+360)%360;
   const name=(f.name||"").toLowerCase(); const urls=[];
   if(name.endsWith(".pdf")){
     if(!window.pdfjsLib) return urls;
     const buf=await blob.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise;
     const n=Math.min(pdf.numPages,2);
-    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2});
+    for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2, rotation});
       const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height;
       await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
       urls.push(cv.toDataURL("image/jpeg",0.85)); }
   } else if(/\.(jpe?g|png|webp|gif|bmp)$/.test(name)){
-    urls.push(await _blobToDataUrl(blob));
+    const durl=await _blobToDataUrl(blob);
+    if(!rotation){ urls.push(durl); }
+    else{
+      // 이미지 파일 회전 (canvas)
+      const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=durl; });
+      const cv=document.createElement("canvas"); const rot90=(rotation===90||rotation===270);
+      cv.width=rot90?img.height:img.width; cv.height=rot90?img.width:img.height;
+      const ctx=cv.getContext("2d"); ctx.translate(cv.width/2,cv.height/2); ctx.rotate(rotation*Math.PI/180); ctx.drawImage(img,-img.width/2,-img.height/2);
+      urls.push(cv.toDataURL("image/jpeg",0.85));
+    }
   }
   return urls;
 }
@@ -6576,9 +6669,28 @@ function toggleSelectAll(on){
 function updateDelBtn(){
   const n=SELECTED_UIDS.size;
   const b=$('delBtn'); if(!b)return;
-  b.style.display=n?'inline-flex':'none';
+  const inTrash = FOLDER==='trash';
+  b.style.display=(n && !inTrash)?'inline-flex':'none';
   $('delCnt').textContent=n?`(${n})`:'';
+  const rb=$('restoreBtn'); if(rb){ rb.style.display=(n && inTrash)?'inline-flex':'none'; const rc=$('restoreCnt'); if(rc) rc.textContent=n?`(${n})`:''; }
   const sa=$('selAll'); if(sa) sa.checked = (n>0 && n===MAILS.length);
+}
+async function restoreSelected(){
+  const uids=[...SELECTED_UIDS];
+  if(!uids.length) return;
+  if(!confirm(`선택한 ${uids.length}개 메일을 받은편지함으로 복구할까요?`)) return;
+  const b=$('restoreBtn'); b.disabled=true; const old=b.innerHTML; b.innerHTML='↩ 복구 중…';
+  try{
+    const r=await fetch(`${SERVER}/api/mail/restore`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uids})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`${d.count}개 받은편지함으로 복구`,'ok');
+      SELECTED_UIDS=new Set();
+      if(SELECTED && uids.includes(String(SELECTED))){ SELECTED=null; renderReaderEmpty(); }
+      loadList();
+    }else{ toast('복구 실패: '+(d.error||''),'bad'); }
+  }catch(e){ toast('복구 오류: '+e.message,'bad'); }
+  b.disabled=false; b.innerHTML=old; updateDelBtn();
 }
 async function deleteSelected(){
   const uids=[...SELECTED_UIDS];
@@ -6600,6 +6712,35 @@ async function deleteSelected(){
   }catch(e){ toast('삭제 오류: '+e.message,'bad'); }
   b.disabled=false; b.innerHTML=old; updateDelBtn();
 }
+// ── 모든 모달 드래그 이동 (전역) — 가운데 뜨는 모달(고정 풀스크린 오버레이 안 카드)의 상단 헤더(~상단 56px)를 잡고 이동 ──
+(function initModalDrag(){
+  let drag=null;
+  document.addEventListener("mousedown", e=>{
+    if(e.button!==0) return;
+    if(e.target.closest("input,textarea,select,button,a,[contenteditable],[onclick],label")) return; // 컨트롤·닫기버튼 제외
+    let card=null;
+    for(let n=e.target; n && n!==document.body; n=n.parentElement){
+      const p=n.parentElement; if(!p) break;
+      const cs=getComputedStyle(p);
+      if(cs.position==="fixed"){
+        const r=p.getBoundingClientRect();
+        if(r.width>=window.innerWidth*0.9 && r.height>=window.innerHeight*0.9 && cs.display.indexOf("flex")>=0){ card=n; break; }
+      }
+    }
+    if(!card) return;
+    const cr=card.getBoundingClientRect();
+    if(e.clientY - cr.top > 56) return;   // 헤더 영역에서만 시작
+    const m=(card.style.transform||"").match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    drag={card, sx:e.clientX, sy:e.clientY, ox:m?parseFloat(m[1]):0, oy:m?parseFloat(m[2]):0};
+    card.style.cursor="grabbing";
+    e.preventDefault();
+  }, true);
+  document.addEventListener("mousemove", e=>{
+    if(!drag) return;
+    drag.card.style.transform=`translate(${drag.ox+(e.clientX-drag.sx)}px, ${drag.oy+(e.clientY-drag.sy)}px)`;
+  });
+  document.addEventListener("mouseup", ()=>{ if(drag){ drag.card.style.cursor=""; drag=null; } });
+})();
 function updateCount(shown){const total=MAILS.length;$('count').textContent=shown==null?`${total}통`:(shown===total?`${total}통`:`${shown} / ${total}통`);}
 // 단일 메일 휴지통 이동 (스와이프용)
 async function deleteOne(uid){
@@ -6720,7 +6861,7 @@ async function mailAttGet(uid,idx,name,saveAs){
     _dlqDone(id,'ok');
   }catch(e){ _dlqDone(id,'fail',e.message); }
 }
-function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');$('f-draft')?.classList.toggle('active',f==='draft');if(f==='draft')loadDrafts();else loadList();}
+function setFolder(f){FOLDER=f;SELECTED_UIDS=new Set();document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('f-inbox').classList.toggle('active',f==='inbox');$('f-sent').classList.toggle('active',f==='sent');$('f-draft')?.classList.toggle('active',f==='draft');$('f-trash')?.classList.toggle('active',f==='trash');if(f==='draft')loadDrafts();else loadList();}
 let COMPOSE_ATT=[],REPLY_CTX={};
 function fmtQuote(o){const ft=o.from&&o.from.length?(o.from[0].name||o.from[0].email):'';return `\n\n----- 원본 메일 -----\n보낸사람: ${ft}\n날짜: ${o.date||''}\n제목: ${o.subject||''}\n\n`+(o.body||'');}
 function mailPrint(){
@@ -8228,7 +8369,7 @@ async function pSaveConfig(list){
 }
 let pData = {};                                  // {pr:[...], po:[...], ...}
 let pLoaded = false;
-let pCur = "overview";
+let pCur = "status";
 
 const pEsc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 const pNum = n => { const v=Number(n)||0; return v.toLocaleString(); };
@@ -8315,29 +8456,40 @@ async function wpRenumberAll(){
   WP_SEL=null; wpRender();
 }
 
+function wpSeedOpen(){
+  WP_LOADED_PROJ.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true;   // 프로젝트는 펼침
+    (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=n.group?false:true;   // 폴더는 기본 접힘, 작업은 펼침
+      if(n.children) seed(n.children); }); })(p.children); });
+}
+function wpMeta(){
+  const el=document.getElementById("wp-meta"); if(el) el.innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
+}
+// 업무일정 localStorage 캐시 (프로젝트·주차별)
+function wpCacheKey(code){ return `wpcache_${code}_${wpFileName()}`; }
+function wpCacheGet(code){ try{ const s=localStorage.getItem(wpCacheKey(code)); return s?JSON.parse(s):null; }catch(_){ return null; } }
+function wpCacheSet(code,proj){ try{ localStorage.setItem(wpCacheKey(code), JSON.stringify(proj)); }catch(_){} }
+
 async function wpLoad(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
-  document.getElementById("wp-body").innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   WP_SEL=null; WP_ATTACH=null;
-  // 각 프로젝트의 04.일정/plan-YYYY-Wxx.json 읽기 (없으면 빈 프로젝트)
-  const projs=wpProjects(); const out=[];
-  for(const code of projs){
-    let proj={id:code, name:code, prog:0, children:[]};
-    try{
-      const data=await wpReadPlan(code);
-      if(data && data.project){ proj=data.project; proj.id=code; }
-    }catch(_){}
-    out.push(proj);
-  }
-  WP_LOADED_PROJ=out;
-  // open 기본값
-  out.forEach(p=>{ if(WP_OPEN[p.id]===undefined) WP_OPEN[p.id]=true; (function seed(ns){ (ns||[]).forEach(n=>{ if(WP_OPEN[n.id]===undefined) WP_OPEN[n.id]=true; if(n.children) seed(n.children); }); })(p.children); });
-  document.getElementById("wp-meta").innerHTML=`📁 저장 위치: 각 프로젝트 <b>04.일정 / ${wpFileName()}</b> · ${wpIsPM()?"PM 모드(작업 추가·수정 가능)":"담당자 모드(자기 작업 수정 가능)"} · 로그인: ${esc(wpMe())}`;
-  // 지연 작업 기준 후행 자동 일정 이동 (로드 시 1회)
+  const projs=wpProjects();
+  // 1) 캐시 또는 플레이스홀더로 '틀'을 즉시 표시 (프로젝트 헤더 바로 뜸)
+  WP_LOADED_PROJ=projs.map(code=>{ const c=wpCacheGet(code); if(c){ c.id=code; return c; } return {id:code,name:code,prog:0,children:[],_loading:true}; });
+  wpSeedOpen(); wpMeta(); wpRender();
+  // 2) 프로젝트별 최신 로드 → 도착하는 즉시 그 프로젝트만 갱신 (단계별 렌더)
+  const tasks=projs.map((code,idx)=>wpReadPlan(code).then(data=>{
+    if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); WP_LOADED_PROJ[idx]=proj; }
+    else if(WP_LOADED_PROJ[idx]){ delete WP_LOADED_PROJ[idx]._loading; }   // 캐시 유지 or 빈
+    wpSeedOpen(); wpRender();
+  }).catch(()=>{ if(WP_LOADED_PROJ[idx]) delete WP_LOADED_PROJ[idx]._loading; wpRender(); }));
+  await Promise.all(tasks);
+  wpMeta();
+  // 3) 전부 도착 후 지연 작업 기준 후행 자동 일정 이동 (1회)
   let cascaded=[];
-  out.forEach(p=>{ const mv=wpCascadeAll(p.id); if(mv.length) cascaded.push(p.id); });
+  WP_LOADED_PROJ.forEach(p=>{ if(!p) return; const mv=wpCascadeAll(p.id); if(mv&&mv.length) cascaded.push(p.id); });
   if(cascaded.length){ for(const pid of cascaded){ try{ await wpSaveProject(pid); }catch(_){} } toast("지연 반영: 후행 일정 자동 이동됨","ok"); }
   wpRender();
+  wpLoadPrLinks().then(()=>wpRender()).catch(()=>{});   // 🛒 구매요청서 업무연결 배지 (prnew-meta 기반, 비차단)
 }
 
 // 04.일정 폴더에서 계획 JSON 읽기
@@ -8449,7 +8601,8 @@ async function wpSaveProject(projId){
   const touched=await wpSyncShared(projId);
   try{
     await wpSavePlan(projId, p);
-    for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); }catch(_){} }
+    try{ wpCacheSet(projId, p); }catch(_){}   // 캐시 즉시 갱신
+    for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); wpCacheSet(other, op); }catch(_){} }
     toast(touched.length?`저장됨: ${projId} (+공유 ${touched.length})`:"저장됨: "+projId,"ok");
   }
   catch(e){ toast("저장 실패: "+e.message,"bad"); }
@@ -8580,7 +8733,7 @@ function wpDelayDays(n){ if(n.group||(n.prog||0)>=100||!n.end) return 0; const e
 function wpIsDelayed(n){ return wpDelayDays(n)>0; }
 function wpDelayBadge(n){ const d=wpDelayDays(n); return d>0?`<span title="마감 ${esc(n.end)} 경과" style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:99px;font-weight:600">⏰ ${d}일 지연</span>`:""; }
 
-function wpRender(){ if(WP_VIEW==="gantt") wpRenderGantt(); else if(WP_VIEW==="order") wpRenderOrder(); else wpRenderTree(); }
+function wpRender(){ if(WP_VIEW==="gantt") wpRenderGantt(); else if(WP_VIEW==="order") wpRenderOrder(); else wpRenderTree(); try{ wpTrkLiveUpdateAll(); }catch(_){} }
 
 // ── 업무지시 (PM 서술형 → Copilot이 과거+현재 대조 → 작업 제안 → 임시저장 → 확정) ──
 let WP_ORDER_DRAFT=null;   // {projId, mode, tasks:[...], rawText}
@@ -8947,7 +9100,7 @@ function wpRenderTree(){
       <div class="wp-bar" style="width:90px"><div style="width:${prog}%;background:var(--p)"></div></div>
       <span style="font-size:12px;color:var(--p2);min-width:32px;text-align:right">${prog}%</span>
     </div>`;
-    if(open) h+=`<div>${(p.children||[]).map(n=>wpRowHtml(p.id,n,0,false)).join("")}</div>`;
+    if(open) h+=`<div>${(p.children||[]).map(n=>wpRowHtml(p.id,n,0,false)).join("")}${(p._loading&&!(p.children||[]).length)?'<div style="padding:14px;text-align:center;color:var(--t3);font-size:12px">불러오는 중…</div>':''}</div>`;
   });
   if(!WP_LOADED_PROJ.length) h='<div style="padding:30px;text-align:center;color:var(--t3)">프로젝트가 없습니다 (관리자설정에서 추가)</div>';
   document.getElementById("wp-body").innerHTML=h+`<div style="margin-top:10px;font-size:12px;color:var(--t3)">프로젝트가 트리 최상위 · 부모 작업이 끝나야 자식 잠금 해제 · 작업 클릭 → 첨부·이력·댓글</div>`;
@@ -9123,6 +9276,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
       ${(!open && n.memo)?`<span title="${esc(n.memo)}" style="font-size:10.5px;color:var(--t3)">📝</span>`:""}
       <span style="flex:1"></span>
       <button class="btn sm" onclick="event.stopPropagation();wpFolderRef('${projId}','${n.id}')" style="padding:2px 8px" title="참고자료 관리">📎</button>
+      <button class="btn sm" onclick="event.stopPropagation();wpAddSubfolder('${projId}','${n.id}')" style="padding:2px 8px" title="하위 폴더 추가">📁＋</button>
       <button class="btn sm" onclick="event.stopPropagation();wpAddTask('${projId}','${n.id}')" style="padding:2px 8px" title="작업(행) 추가">＋</button>
       <span style="font-size:11px;color:var(--t2)">${prog}%</span></div>`;
     // 펼쳐졌을 때: 참고자료·설명 자동 표시 (자료 있거나 편집모드일 때)
@@ -9132,14 +9286,19 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     return h;
   }
   const st=wpStatus(n,parentNotDone), locked=st==="locked", ic=WP_STIC[st], sel=WP_SEL===n.id;
+  const _todo=st==="active"&&(n.prog||0)===0;                                   // 미착수
+  const _stEmph=(st==="active"&&(n.prog||0)>0)||st==="delay"||st==="blocker";   // 진행중·지연·블로커만 강조
+  const _stCol=_todo?"var(--t3)":ic[1];                                          // 미착수는 회색
+  const _icon0=_todo?"⚪":ic[0];                                                 // 미착수는 빈 동그라미
   const fc=(n.files||[]).length, cc=(n.comments||[]).length;
   const _dim = wpFilterActive() && !wpMatchFilter(n);
   let h=`<div class="wp-task${sel?' sel':''}${locked?' locked':''}" id="wprow-${n.id}" style="padding-left:${10+ind}px;${_dim?'opacity:.32':''}" ${dnd} onclick="wpSelect('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
     ${handle}<span style="width:15px" onclick="event.stopPropagation();${kids?`wpToggle('${n.id}')`:''}">${kids?(open?"▾":"▸"):"·"}</span>
-    <span style="font-size:15px">${ic[0]}</span>
+    <span style="font-size:15px">${_icon0}</span>
     <span class="wp-id">${esc(n.id)}</span>
     <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
     ${n.shareId&&(n.shareProjects||[]).length>1?`<span title="공유: ${esc((n.shareProjects||[]).join(", "))}" style="font-size:10px;background:#e0e7ff;color:#4338ca;padding:1px 6px;border-radius:99px;font-weight:600">🔗 공유</span>`:""}
+    ${wpPrLinkBadge(n)}
     ${n.role?`<span class="wp-rolebadge" style="background:${WP_ROLEBG[n.role]};color:${WP_ROLECOLOR[n.role]}">${esc(wpRl(n))}</span>`:""}
     <span style="font-size:11px;color:var(--t2)">${esc(wpOwnerText(n))}</span>
     ${n.start||n.end?`<span style="font-size:10.5px;color:${wpIsDelayed(n)?'var(--r)':'var(--t3)'}">${esc(n.start||"")}~${esc(n.end||"")}</span>`:""}
@@ -9148,7 +9307,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     ${fc?`<span style="font-size:10.5px;color:var(--t2)">📎${fc}</span>`:""}
     ${cc?`<span style="font-size:10.5px;color:var(--t2)">💬${cc}</span>`:""}
     <span style="flex:1"></span>
-    ${locked?`<span style="font-size:10.5px;color:var(--t3)">선행 대기</span>`:`<span style="font-size:10.5px;font-weight:600;color:${ic[1]};min-width:46px;text-align:right">${esc(wpStatusLabel(n,st))}</span>`}
+    ${locked?`<span style="font-size:10.5px;color:var(--t3)">선행 대기</span>`:`<span style="font-size:10.5px;font-weight:${_stEmph?600:400};color:${_stCol};min-width:46px;text-align:right">${esc(wpStatusLabel(n,st))}</span>`}
   </div>`;
   if(sel) h+=wpDetailHtml(projId,n,ind);
   if(open && kids){ const pnd=(n.prog||0)<100; h+=`<div style="border-left:1.5px solid var(--border);margin-left:${17+ind}px">`+(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,pnd)).join("")+`</div>`; }
@@ -9651,7 +9810,7 @@ function wpDetailHtml(projId, n, ind){
         <button class="btn sm" onclick="wpFileModal('${projId}','${n.id}')" title="폴더트리에서 가져오거나 새로 업로드">📎 파일첨부</button>
         <button class="btn sm" onclick="wpPurOpen('${projId}','${n.id}')" title="발주·입고 자료 첨부 (금액 제외)">🛒 구매첨부</button>
         <span style="flex:1"></span>
-        <button class="btn primary sm" onclick="wpAddComment('${projId}','${n.id}')">📤 보고 등록</button>
+        <button class="btn primary sm" onclick="wpAddComment('${projId}','${n.id}',this)">📤 보고 등록</button>
       </div>
     </div>
   </div>`;
@@ -9739,6 +9898,23 @@ function wpAddGroup(projId){
   (p.children=p.children||[]).push({id:gid,name,group:true,children:[]});
   WP_OPEN[gid]=true; wpSaveProject(projId); wpRender();
 }
+async function wpAddSubfolder(projId, parentId){
+  const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
+  if(!parent) return;
+  const name=prompt("하위 폴더 이름:"); if(!name||!name.trim()) return;
+  const gid="G"+Date.now().toString().slice(-5)+Math.floor(Math.random()*99);
+  const g={id:gid,name:name.trim(),group:true,children:[]};
+  (parent.children=parent.children||[]).push(g); WP_OPEN[parentId]=true; WP_OPEN[gid]=true;
+  // 상위 폴더가 다른 프로젝트와 연결돼 있으면 하위 폴더도 연결할지 질문
+  if(parent.group && parent.shareId && (parent.shareProjects||[]).filter(x=>x!==projId).length>0){
+    const others=parent.shareProjects.filter(x=>x!==projId);
+    if(confirm(`상위 폴더가 ${others.join(", ")}와 연결되어 있습니다.\n이 하위 폴더도 연결할까요?`)){
+      g.shareId=wpNewShareId(); g.shareProjects=parent.shareProjects.slice();
+      for(const tp of others){ const tgt=await wpEnsureProjLoaded(tp); let tf=null; (function w(ns){ (ns||[]).forEach(x=>{ if(x.shareId===parent.shareId)tf=x; if(x.children)w(x.children); }); })(tgt.children); if(tf){ const nid=wpNewIdFor(tgt); (tf.children=tf.children||[]).push({id:nid,shareId:g.shareId,shareProjects:g.shareProjects.slice(),name:g.name,group:true,children:[]}); try{ await wpSavePlan(tp, tgt); }catch(_){} } }
+    }
+  }
+  wpSaveProject(projId); wpRender();
+}
 async function wpAddTask(projId, parentId){
   const parent=wpFind(projId,parentId)|| WP_LOADED_PROJ.find(x=>x.id===projId);
   const name=prompt("작업명:"); if(!name) return;
@@ -9812,34 +9988,39 @@ async function wpDeleteTask(projId,id){
 }
 let _wpCmtImgBuf={};   // taskId → [dataURL,...] 작성 중 이미지
 function wpCmtPaste(e, id){
+  const panel=e.target&&e.target.closest?e.target.closest(".wp-detail"):null;
   const items=(e.clipboardData||{}).items||[];
   for(const it of items){
     if(it.type && it.type.indexOf("image")===0){
       e.preventDefault();
       const file=it.getAsFile(); if(!file) continue;
-      const fr=new FileReader(); fr.onload=()=>{ wpCmtAddImg(id, fr.result); }; fr.readAsDataURL(file);
+      const fr=new FileReader(); fr.onload=()=>{ wpCmtAddImg(id, fr.result, panel); }; fr.readAsDataURL(file);
     }
   }
 }
 function wpCmtPickImg(e, id){
-  [...e.target.files].forEach(file=>{ if(!file.type.startsWith("image/"))return; const fr=new FileReader(); fr.onload=()=>wpCmtAddImg(id,fr.result); fr.readAsDataURL(file); });
+  const panel=e.target&&e.target.closest?e.target.closest(".wp-detail"):null;
+  [...e.target.files].forEach(file=>{ if(!file.type.startsWith("image/"))return; const fr=new FileReader(); fr.onload=()=>wpCmtAddImg(id,fr.result,panel); fr.readAsDataURL(file); });
 }
-function wpCmtAddImg(id, dataUrl){
+function wpCmtAddImg(id, dataUrl, panel){
   (_wpCmtImgBuf[id]=_wpCmtImgBuf[id]||[]).push(dataUrl);
-  const box=document.getElementById("wp-cmt-imgs-"+id); if(!box) return;
+  const box=(panel&&panel.querySelector('[id^="wp-cmt-imgs-"]'))||document.getElementById("wp-cmt-imgs-"+id); if(!box) return;
   const idx=_wpCmtImgBuf[id].length-1;
   const wrap=document.createElement("span"); wrap.style.cssText="position:relative;display:inline-block";
   wrap.innerHTML=`<img src="${dataUrl}" style="max-width:90px;max-height:70px;border-radius:6px;border:1px solid var(--border)"><span onclick="this.parentNode.remove();_wpCmtImgBuf['${id}'][${idx}]=null" style="position:absolute;top:-6px;right:-6px;background:var(--r);color:#fff;width:16px;height:16px;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</span>`;
   box.appendChild(wrap);
 }
-function wpAddComment(projId,id){
-  const inp=document.getElementById("wp-cmt-"+id); const txt=(inp.value||"").trim();
+function wpAddComment(projId,id,btnEl){
+  const panel = (btnEl && btnEl.closest) ? btnEl.closest(".wp-detail") : null;
+  const inp = (panel && panel.querySelector('textarea[id^="wp-cmt-"]')) || document.getElementById("wp-cmt-"+id);
+  const txt=((inp&&inp.value)||"").trim();
   const imgs=(_wpCmtImgBuf[id]||[]).filter(Boolean);
   const pur=(_wpPurBuf[id]||[]).slice();
   const rfiles=(_wpRepFileBuf[id]||[]).slice();
   if(!txt && !imgs.length && !pur.length && !rfiles.length){ toast("보고 내용을 입력하세요","bad"); return; }
   const n=wpFind(projId,id);
-  const status=document.getElementById("wp-cmt-status-"+id).value;
+  const statusEl=(panel && panel.querySelector('select[id^="wp-cmt-status-"]')) || document.getElementById("wp-cmt-status-"+id);
+  const status=(statusEl&&statusEl.value)||"";
   const rep={who:wpMe(),when:new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}),txt,images:imgs};
   if(status) rep.status=status;
   if(pur.length) rep.pur=pur;
@@ -9889,6 +10070,24 @@ function wpComma(n){ return Number(n||0).toLocaleString("en-US"); }
 
 // 첨부행 1개 렌더 (preview=true면 ✕ 제거버튼 포함)
 function wpPurRowHtml(p, preview, id, idx){
+  if(p.t==="trk"){
+    const noU=String(p.item_no||"").toUpperCase();
+    const ce=_wpTrkCache[String(p.proj||"").toUpperCase()];
+    const live=ce && ce.byNo[noU];                       // 캐시에 최신값 있으면 사용
+    const filled=live?live.filled:(p.filled||0);
+    const status=live?live.status:(p.status||"-");
+    const vendor=live?live.vendor:(p.vendor||"");
+    const x=preview?`<span onclick="wpPurRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none;align-self:flex-start">✕</span>`:"";
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+      <div style="min-width:0;flex:1">
+        <div><span style="font-size:10px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:99px">📊 구매현황</span> <b>${esc(p.item_name||"-")}</b> <span style="color:var(--t3);font-family:monospace;font-size:10px">${esc(p.item_no||"")}</span></div>
+        <div style="color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px">
+          <span class="wptrk-step" data-proj="${esc(p.proj||"")}" data-no="${esc(p.item_no||"")}">${wpTrkStepHtml(filled)}</span>
+          <span class="wptrk-st" data-proj="${esc(p.proj||"")}" data-no="${esc(p.item_no||"")}" style="font-weight:700;color:${wpTrkStatusColor(status)}">${esc(status)}</span>
+          ${vendor?`<span style="color:var(--t3)">· ${esc(vendor)}</span>`:""}
+        </div>
+      </div>${x}</div>`;
+  }
   const isO=p.t==="o";
   const head=isO
     ? `<span style="font-size:10px;font-weight:700;background:#ede9fe;color:#6d28d9;padding:1px 6px;border-radius:99px">📝 발주</span> <b style="color:#0f4c81;font-family:monospace">${esc(p.no||"-")}</b>`
@@ -9913,22 +10112,121 @@ function wpPurRemove(id, idx){
   const box=document.getElementById("wp-cmt-pur-"+id); if(box) box.innerHTML=wpPurPreviewHtml(id);
 }
 
+// ── 구매현황(추적) 데이터 — /api/purchase/track 재사용, 프로젝트별 캐시 ──
+let _wpTrkCache={};   // projUpper → {rows, byNo, at}
+function wpTrkNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+function wpTrkBuild(D, P){
+  const M={};
+  const ensure=(no,nm,spec)=>{ const k=no||('#'+(nm||'')); if(!M[k]) M[k]={item_no:no,item_name:nm||'',spec:spec||'',req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:''}; return M[k]; };
+  const projOf=r=>{ const no=String(r.item_no||'').toUpperCase(); if(no.startsWith(P+'_')) return P; return String(r.project_code||'').toUpperCase(); };
+  const pick=r=>projOf(r)===P;
+  (D.pr||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.req={date:r.req_date,qty:wpTrkNum(r.qty)}; if(wpTrkNum(r.qty))m.reqQty=wpTrkNum(r.qty); });
+  (D.pp||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
+  (D.po||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name,r.spec); m.po={date:r.order_date,vendor:r.vendor,qty:wpTrkNum(r.qty),status:r.status}; if(r.vendor&&!m.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
+  (D.rc||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:wpTrkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; });
+  (D.mr||[]).filter(pick).forEach(r=>{ const m=ensure(String(r.item_no||'').toUpperCase(),r.item_name); m.out={date:r.out_date,no:r.out_no,qty:wpTrkNum(r.qty)}; });
+  return Object.values(M).map(m=>{
+    const inQty=m.rcv.reduce((s,x)=>s+x.qty,0);
+    const reqQty=m.reqQty||(m.po&&m.po.qty)||0;
+    const inDone=inQty>0 && reqQty>0 && inQty>=reqQty;
+    let filled=0; if(m.req)filled=1; if(m.prop)filled=2; if(m.po)filled=3; if(inQty>0)filled=inDone?4:3; if(m.out)filled=5;
+    let status; if(m.out)status="출고완료"; else if(inDone)status="입고완료"; else if(inQty>0)status="부분입고"; else if(m.po)status="입고 대기"; else if(m.prop)status="발주 대기"; else if(m.req)status="품의 대기"; else status="요청 대기";
+    return {proj:P,item_no:m.item_no,item_name:m.item_name,spec:m.spec,vendor:m.vendor,inQty,reqQty,filled,status};
+  }).sort((a,b)=>String(a.item_no).localeCompare(String(b.item_no)));
+}
+async function wpTrkFetch(proj, force){
+  const P=String(proj||'').toUpperCase(); if(!P) return {rows:[],byNo:{},at:0};
+  const c=_wpTrkCache[P];
+  if(c && !force && (Date.now()-c.at)<120000) return c;   // 2분 캐시
+  const r=await fetch(`${SERVER}/api/purchase/track?projects=${encodeURIComponent(P)}`);
+  const j=await r.json();
+  const D={pr:j.pr||[],pp:j.pp||[],po:j.po||[],rc:j.rc||[],mr:j.mr||[]};
+  const rows=wpTrkBuild(D,P);
+  const byNo={}; rows.forEach(x=>{ if(x.item_no) byNo[x.item_no.toUpperCase()]=x; });
+  const ce={rows,byNo,at:Date.now()}; _wpTrkCache[P]=ce; return ce;
+}
+// 여러 프로젝트(공유작업 등) 한 번에 — 합쳐서 반환 + 프로젝트별 캐시도 채움
+async function wpTrkFetchMulti(projs, force){
+  const ups=[...new Set((projs||[]).map(p=>String(p).toUpperCase()).filter(Boolean))];
+  if(!ups.length) return {rows:[],byNo:{}};
+  const r=await fetch(`${SERVER}/api/purchase/track?projects=${encodeURIComponent(ups.join(","))}`);
+  const j=await r.json();
+  const D={pr:j.pr||[],pp:j.pp||[],po:j.po||[],rc:j.rc||[],mr:j.mr||[]};
+  let rows=[]; const byNo={};
+  ups.forEach(P=>{ const rs=wpTrkBuild(D,P); const bn={}; rs.forEach(x=>{ if(x.item_no){byNo[x.item_no.toUpperCase()]=x; bn[x.item_no.toUpperCase()]=x;} }); _wpTrkCache[P]={rows:rs,byNo:bn,at:Date.now()}; rows=rows.concat(rs); });
+  return {rows, byNo};
+}
+// ── 구매요청서(업무 연결) 링크: prnew-meta를 읽어 작업ID→품번 역인덱스 + 구매현황 미리받기 ──
+let _wpPrLinks={}, _wpPrByNo={};
+async function wpLoadPrLinks(){
+  try{
+    if(typeof prnewMetaLoad!=="function") return;
+    await prnewMetaLoad();
+    const links={}; const projs=new Set();
+    for(const k in (_prnewMeta||{})){
+      const m=_prnewMeta[k]; if(!m||!m.task||!m.task.id) continue;
+      const no=(k.split("|")[1]||"");   // 품번
+      (links[m.task.id]=links[m.task.id]||[]).push({proj:m.task.proj, no, name:m.task.name||""});
+      const p0=k.split("|")[0]; if(p0)projs.add(p0); if(m.task.proj)projs.add(m.task.proj);
+    }
+    _wpPrLinks=links;
+    if(Object.keys(links).length){ const t=await wpTrkFetchMulti([...projs]); _wpPrByNo=t.byNo||{}; }
+    else { _wpPrByNo={}; }
+  }catch(e){ _wpPrLinks={}; _wpPrByNo={}; }
+}
+function wpPrLinkBadge(n){
+  const xs=_wpPrLinks[n.id]; if(!xs||!xs.length) return "";
+  // 연결된 품번의 구매현황 단계(최댓값) 표시
+  let bestFilled=0, status="연결";
+  xs.forEach(x=>{ const t=_wpPrByNo[String(x.no||"").toUpperCase()]; if(t){ if((t.filled||0)>bestFilled){ bestFilled=t.filled||0; status=t.status||"연결"; } } });
+  const title="구매 연결: "+xs.map(x=>x.no).filter(Boolean).join(", ");
+  return `<span title="${esc(title)}" style="font-size:10px;background:#eef2ff;color:#4338ca;padding:1px 6px;border-radius:99px;font-weight:600;white-space:nowrap">🛒 ${esc(status)}</span>`;
+}
+const WP_TRK_STAGES=["요청","품의","발주","입고","출고"];
+function wpTrkStepHtml(filled){
+  let s='<span style="display:inline-flex;gap:3px;vertical-align:middle">';
+  for(let i=0;i<5;i++){ const done=filled>i; const act=filled===i+1; s+=`<span title="${WP_TRK_STAGES[i]}" style="width:9px;height:9px;border-radius:99px;${done?'background:#16a34a':(act?'background:#f59e0b':'background:#e2e8f0')}"></span>`; }
+  return s+'</span>';
+}
+function wpTrkStatusColor(st){ st=String(st||''); if(st.indexOf('출고')>=0)return '#0369a1'; if(st.indexOf('입고완료')>=0)return '#16a34a'; if(st.indexOf('부분')>=0)return '#0d9488'; if(st.indexOf('대기')>=0)return '#7c3aed'; return '#64748b'; }
+// 보고에 첨부된 구매현황 행을 최신 진행상태로 갱신 (렌더 후 비동기)
+function wpTrkLiveUpdateAll(){
+  const els=document.querySelectorAll(".wptrk-st[data-proj]"); if(!els.length) return;
+  const projs=new Set(); els.forEach(el=>{ if(el.dataset.proj) projs.add(el.dataset.proj.toUpperCase()); });
+  projs.forEach(P=>{
+    wpTrkFetch(P).then(ce=>{
+      document.querySelectorAll('.wptrk-st[data-proj="'+P+'"]').forEach(el=>{
+        const x=ce.byNo[String(el.dataset.no||"").toUpperCase()]; if(!x) return;
+        el.textContent=x.status; el.style.color=wpTrkStatusColor(x.status);
+      });
+      document.querySelectorAll('.wptrk-step[data-proj="'+P+'"]').forEach(el=>{
+        const x=ce.byNo[String(el.dataset.no||"").toUpperCase()]; if(!x) return;
+        el.innerHTML=wpTrkStepHtml(x.filled);
+      });
+    }).catch(()=>{});
+  });
+}
+
 // 구매첨부 버튼 → 발주/입고 선택 모달
+let _wpPurTrk={rows:[],byNo:{}};
 function wpPurOpen(projId, id){
-  _wpPurCtx={projId, id, kind:"order", onlyProj:true, sel:{}};
+  const node=wpFind(projId,id);
+  const defProjs=(node && Array.isArray(node.shareProjects) && node.shareProjects.length>1) ? node.shareProjects.slice() : [projId];
+  const avail=[...new Set([...(wpProjects()||[]), ...defProjs, projId])];   // 선택 가능한 전체 프로젝트
+  _wpPurCtx={projId, id, kind:"track", onlyProj:false, projs:[...new Set(defProjs)], sel:{}};
   let ov=document.getElementById("wpPurOv"); if(ov)ov.remove();
   ov=document.createElement("div"); ov.id="wpPurOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000096;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  const chips=avail.map(c=>{ const on=_wpPurCtx.projs.includes(c); return `<label style="font-size:11.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:${on?'#e0e7ff':'#f1f5f9'};color:${on?'#3730a3':'#64748b'};padding:3px 9px;border-radius:99px;font-weight:600"><input type="checkbox" value="${esc(c)}" ${on?'checked':''} onchange="wpPurProjToggle('${esc(c)}',this.checked)" style="margin:0">${esc(c)}</label>`; }).join("");
   ov.innerHTML=`<div style="width:min(920px,96vw);max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
-      <b>🛒 구매 자료 첨부 · ${esc(projId)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpPurOv').remove()">✕</span></div>
-    <div style="display:flex;border-bottom:1px solid #eef0f3;padding:0 14px">
-      <div id="wpPurTab-order" onclick="wpPurTab('order')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid #0f4c81;color:#0f4c81">📝 발주목록</div>
-      <div id="wpPurTab-receipt" onclick="wpPurTab('receipt')" style="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid transparent;color:#94a3b8">📥 입고 내역</div>
+      <b>📊 구매현황 첨부</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('wpPurOv').remove()">✕</span></div>
+    <div style="padding:9px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
+      <span style="font-size:11px;color:var(--t3);font-weight:600">프로젝트</span>
+      <div id="wpPur-projs" style="display:flex;gap:6px;flex-wrap:wrap">${chips}</div>
     </div>
     <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #f1f5f9">
-      <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="wpPur-onlyproj" checked onchange="wpPurCtxToggleProj(this.checked)"> 이 프로젝트만</label>
-      <input id="wpPur-q" placeholder="🔍 발주번호·거래처·품목 검색" oninput="wpPurListRender()" style="flex:1;min-width:150px;height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 9px">
+      <input id="wpPur-q" placeholder="🔍 품번·품명·거래처 검색" oninput="wpPurListRender()" style="flex:1;min-width:150px;height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 9px">
       <button class="btn sm" onclick="wpPurReload()">🔄 새로고침</button>
     </div>
     <div id="wpPur-list" style="overflow:auto;flex:1;padding:6px 14px;min-height:220px"></div>
@@ -9942,33 +10240,29 @@ function wpPurOpen(projId, id){
   document.body.appendChild(ov);
   wpPurLoad();
 }
-function wpPurTab(kind){
-  _wpPurCtx.kind=kind;
-  const o=document.getElementById("wpPurTab-order"), r=document.getElementById("wpPurTab-receipt");
-  if(o&&r){
-    const base="padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;";
-    const on="border-bottom:2px solid #0f4c81;color:#0f4c81", off="border-bottom:2px solid transparent;color:#94a3b8";
-    o.style.cssText=base+(kind==="order"?on:off);
-    r.style.cssText=base+(kind==="receipt"?on:off);
-  }
-  const q=document.getElementById("wpPur-q"); if(q) q.placeholder=(kind==="order"?"🔍 발주번호·거래처·품목 검색":"🔍 입고번호·거래처·품목 검색");
+function wpPurProjToggle(code, on){
+  const set=new Set(_wpPurCtx.projs||[]);
+  if(on) set.add(code); else set.delete(code);
+  if(!set.size){ toast("최소 1개 프로젝트는 선택하세요","bad"); const cb=document.querySelector(`#wpPur-projs input[value="${code}"]`); if(cb)cb.checked=true; set.add(code); }
+  _wpPurCtx.projs=[...set];
+  // 칩 스타일 갱신
+  document.querySelectorAll("#wpPur-projs label").forEach(l=>{ const v=l.querySelector("input").value; const sel=_wpPurCtx.projs.includes(v); l.style.background=sel?'#e0e7ff':'#f1f5f9'; l.style.color=sel?'#3730a3':'#64748b'; });
   wpPurLoad();
 }
+function wpPurTab(kind){ _wpPurCtx.kind="track"; wpPurLoad(); }
 function wpPurCtxToggleProj(v){ _wpPurCtx.onlyProj=v; wpPurListRender(); }
 async function wpPurLoad(){
   const list=document.getElementById("wpPur-list"); if(!list) return;
   list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">불러오는 중…</div>`;
   try{
-    if(_wpPurCtx.kind==="order"){ if(!_wpPurOrdersCache) await wpPurFetchOrders(); }
-    else { if(!_wpPurRcpCache) await wpPurFetchReceipts(); }
+    _wpPurTrk=await wpTrkFetchMulti(_wpPurCtx.projs);
     wpPurListRender();
   }catch(e){ list.innerHTML=`<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">로드 실패: ${esc(e.message)}</div>`; }
 }
 async function wpPurReload(){
-  const list=document.getElementById("wpPur-list"); if(list) list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">영림원 조회 중…</div>`;
+  const list=document.getElementById("wpPur-list"); if(list) list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">영림원 동기화 조회 중…</div>`;
   try{
-    if(_wpPurCtx.kind==="order"){ _wpPurOrdersCache=null; await wpPurFetchOrders(true); }
-    else { _wpPurRcpCache=null; await wpPurFetchReceipts(); }
+    _wpPurTrk=await wpTrkFetchMulti(_wpPurCtx.projs, true);
     wpPurListRender();
   }catch(e){ if(list) list.innerHTML=`<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">새로고침 실패: ${esc(e.message)}</div>`; }
 }
@@ -9998,6 +10292,26 @@ function wpPurListRender(){
   const list=document.getElementById("wpPur-list"); if(!list) return;
   const q=((document.getElementById("wpPur-q")||{}).value||"").trim().toLowerCase();
   const pj=String(_wpPurCtx.projId||"").toUpperCase();
+  if(_wpPurCtx.kind==="track"){
+    let arr=(_wpPurTrk&&_wpPurTrk.rows)||[];
+    if(_wpPurCtx.onlyProj) arr=arr.filter(x=>String(x.proj||"").toUpperCase()===pj);
+    if(q) arr=arr.filter(x=>`${x.item_name||""} ${x.item_no||""} ${x.vendor||""}`.toLowerCase().includes(q));
+    const multi=(_wpPurCtx.projs||[]).length>1;
+    if(!arr.length){ list.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">${q?'검색 결과 없음':'구매현황 항목 없음 (영림원 동기화 대기일 수 있음)'}</div>`; wpPurUpdateCnt(); return; }
+    list.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="color:var(--t3);text-align:left;border-bottom:1px solid var(--border)"><th style="width:30px"></th>${multi?'<th style="width:74px">PJT</th>':''}<th>품번 · 품명</th><th style="width:120px;text-align:center">진행</th><th style="width:92px">현재상태</th><th>거래처</th></tr></thead>
+      <tbody>${arr.slice(0,500).map(x=>{
+        const k="trk:"+x.proj+":"+(x.item_no||x.item_name); const sk=k.replace(/'/g,"\\'");
+        return `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;${_wpPurCtx.sel[k]?'background:#eff6ff':''}" onclick="wpPurToggle('${sk}',this)">
+          <td style="text-align:center"><input type="checkbox" ${_wpPurCtx.sel[k]?"checked":""} onclick="event.stopPropagation();wpPurToggle('${sk}',this.closest('tr'))"></td>
+          ${multi?`<td><span style="font-size:9.5px;font-weight:700;background:#eef2ff;color:#4338ca;padding:1px 5px;border-radius:99px">${esc(x.proj)}</span></td>`:''}
+          <td><b>${esc(x.item_name||"-")}</b><div style="font-size:10.5px;color:var(--t3);font-family:monospace">${esc(x.item_no||"")}</div></td>
+          <td style="text-align:center">${wpTrkStepHtml(x.filled)}</td>
+          <td><span style="font-size:11px;font-weight:700;color:${wpTrkStatusColor(x.status)}">${esc(x.status)}</span></td>
+          <td title="${esc(x.vendor||'')}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${esc(x.vendor||"-")}</td></tr>`;
+      }).join("")}</tbody></table>`;
+    wpPurUpdateCnt(); return;
+  }
   if(_wpPurCtx.kind==="order"){
     let arr=_wpPurOrdersCache||[];
     if(_wpPurCtx.onlyProj && pj) arr=arr.filter(o=>(o.items||[]).some(it=>String(it.pjt_no||"").toUpperCase().includes(pj)));
@@ -10065,8 +10379,16 @@ function wpPurAttach(){
   const exist=new Set(buf.map(p=>p.t+":"+p.no));
   let added=0;
   keys.forEach(k=>{
-    const ci=k.indexOf(":"); const typ=k.slice(0,ci), no=k.slice(ci+1);
-    if(typ==="o"){
+    const parts=k.split(":");
+    const typ=parts[0];
+    if(typ==="trk"){
+      const proj=parts[1], no=parts.slice(2).join(":");
+      const x=(_wpPurTrk.rows||[]).find(r=>r.proj===proj && (r.item_no||r.item_name)===no);
+      if(!x) return;
+      if(exist.has("trk:"+x.proj+":"+(x.item_no||x.item_name))) return;
+      buf.push({t:"trk", proj:x.proj, item_no:x.item_no, item_name:x.item_name, spec:x.spec, vendor:x.vendor, status:x.status, filled:x.filled}); added++;
+    } else if(typ==="o"){
+      const no=k.slice(2);
       const o=(_wpPurOrdersCache||[]).find(x=>String(x.po_no)===no); if(!o) return;
       if(exist.has("o:"+o.po_no)) return;
       const f=o.items[0]||{}; const chg=(_poadvDelvChg&&_poadvDelvChg[o.po_no]||[]); const delv=chg.length?chg[chg.length-1].to:(f.delv||"");
@@ -10075,6 +10397,7 @@ function wpPurAttach(){
       const totQty=o.items.reduce((s,i)=>s+wpNum(i.qty),0);
       buf.push({t:"o", no:o.po_no, date:o.date, cust:o.cust, item:itemLabel, qty:totQty, delv, pjt}); added++;
     } else {
+      const no=k.slice(2);
       const g=(_wpPurRcpCache||[]).filter(x=>String(x.delv_in_no||"-")===no); if(!g.length) return;
       if(exist.has("r:"+no)) return;
       const f=g[0]; const itemLabel=(f.item_name||"-")+(g.length>1?` 외 ${g.length-1}건`:"");
@@ -10358,8 +10681,8 @@ async function wpTranslateAll(){
 
 async function pInit(){
   if(!pConfigLoaded){ await pLoadConfig(); }
-  if(!pLoaded){ await pLoadAll(false); }
-  pShowPage(pCur);
+  pShowPage(pCur);                       // 현재 페이지 먼저 표시 (구매현황=자체 캐시/서버)
+  if(!pLoaded){ pLoadAll(false); }       // pData(다른 탭용)는 백그라운드 로드
 }
 async function pLoadAll(force){
   if(!pConfigLoaded || force){ await pLoadConfig(); }
@@ -10395,7 +10718,7 @@ function pUpdateCounts(){
   set("pcnt-rc", pNum((pData.rc||[]).length));
   set("pcnt-mr", pNum((pData.mr||[]).length));
   set("pcnt-iv", pNum((pData.iv||[]).length));
-  set("pcnt-act", String(pProjects.length));
+  try{ set("pcnt-status", String(pBuildTrack().length)); }catch(_){ }
 }
 
 // ── 사이드 페이지 전환 ──
@@ -10409,13 +10732,210 @@ function pShowPage(name){
 function pRenderCurrent(){
   const n = pCur;
   if(n==="settings") return pRenderSettings();
-  if(n==="overview") return pRenderOverview();
-  if(n==="activity") return pRenderActivity();
+  if(n==="status") return pRenderStatus();
   if(P_FILES.includes(n)) return pRenderTable(n);
   if(n==="cust") return (typeof custPageInit==="function") ? custPageInit() : pRenderSoon(n);
   if(n==="pr_new") return (typeof prnewInit==="function") ? prnewInit() : pRenderSoon(n);
   if(n==="po_adv") return (typeof poadvInit==="function") ? poadvInit() : pRenderSoon(n);
   if(["pp_new","po_new","dv_new","iv_new","vch"].includes(n)){ if(n==="dv_new"){ setTimeout(()=>{ try{ rcpDefaultDates(); if(!_rcpData.length) rcpLoad(); }catch(_){} },300); } return (typeof pWriteInit==="function") ? pWriteInit(n) : pRenderSoon(n); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  구매현황 — 품목별 진행 추적 (재료→요청→품의→발주→입고→출고)
+//  서버 동기화 DB(pr/pp/po/rc/mr)를 (project + item_no)로 결합
+// ════════════════════════════════════════════════════════════════
+const TRK_STAGES=["요청","품의","발주","입고","출고"];
+let _trkFilter="all", _trkQ="";
+let _trkData=null, _trkLoading=false;
+function _trkNum(v){ return Number(String(v==null?'':v).replace(/[, ]/g,''))||0; }
+
+// localStorage 캐시 (선택 프로젝트 조합별)
+function _trkCacheKey(){ return "trkcache_"+pProjects.map(p=>String(p).toUpperCase()).sort().join("_"); }
+function _trkCacheGet(){ try{ const s=localStorage.getItem(_trkCacheKey()); return s?JSON.parse(s):null; }catch(_){ return null; } }
+function _trkCacheSet(d){ try{ localStorage.setItem(_trkCacheKey(), JSON.stringify(d)); }catch(_){ } }
+
+// 서버 통합 엔드포인트 1개 호출 (프로젝트 필터 + raw_json 제외 + 조건부 since) — 빠름
+async function pTrackFetch(since){
+  const proj=pProjects.map(p=>String(p).toUpperCase()).join(",");
+  const u=`${SERVER}/api/purchase/track?projects=${encodeURIComponent(proj)}`+(since?`&since=${encodeURIComponent(since)}`:"");
+  const r=await fetch(u);
+  const j=await r.json();
+  if(j && j.unchanged) return {unchanged:true, updated_at:j.updated_at||since||""};
+  return {pr:j.pr||[], pp:j.pp||[], po:j.po||[], rc:j.rc||[], mr:j.mr||[], updated_at:j.updated_at||""};
+}
+// 백그라운드 갱신 (캐시 표시 후 최신화) — since로 안 바뀌면 즉시 종료
+function pTrackRefreshBg(){
+  if(_trkLoading) return; _trkLoading=true;
+  const since=(_trkData&&_trkData.updated_at)||"";
+  pTrackFetch(since).then(d=>{
+    _trkLoading=false;
+    if(d && d.unchanged) return;          // 변경 없음 → 캐시 그대로
+    _trkData=d; _trkCacheSet(d); if(pCur==="status") pRenderStatus();
+  }).catch(()=>{ _trkLoading=false; });
+}
+// 강제 새로고침 (캐시 무시)
+function pTrackForceRefresh(){ _trkData=null; try{ localStorage.removeItem(_trkCacheKey()); }catch(_){ } pRenderStatus(); }
+// ⚡ 영림원에서 지금 끌어오기 (발주/요청 → 품의/입고/출고 순차) 후 화면 갱신
+async function pTrackSyncNow(btn){
+  const o=btn?btn.textContent:"";
+  if(btn){ btn.disabled=true; btn.textContent="⚡ 동기화 중…"; }
+  toast("영림원에서 끌어오는 중… (1~2분 걸릴 수 있어요)","ok");
+  let ok=false;
+  try{
+    await fetch(`${SERVER}/api/sync/now`,{method:"POST"});            // 발주·요청
+    await fetch(`${SERVER}/api/purchase/extra/sync`,{method:"POST"}); // 품의·입고·출고
+    ok=true;
+  }catch(e){ toast("동기화 실패: "+((e&&e.message)||e),"bad"); }
+  if(btn){ btn.disabled=false; btn.textContent=o||"⚡ 지금 동기화"; }
+  if(ok){ toast("동기화 완료 — 최신 데이터로 갱신","ok"); pTrackForceRefresh(); }
+}
+
+function pBuildTrack(){
+  const M={};
+  const D=_trkData||pData;   // 추적: 서버 DB(_trkData) 우선, 없으면 SharePoint pData
+  // 실제 프로젝트 = 품번 앞 코드 우선 (project_code가 잘못 박힌 경우 보정: BR26002_… 인데 BP26009로 표기된 행 등)
+  const projCodes=pProjects.map(p=>String(p).toUpperCase());
+  const realProj=r=>{ const no=String(r.item_no||"").toUpperCase(); for(const p of projCodes){ if(no.startsWith(p+"_")) return p; } return pProjCode(r); };
+  // item_no 없는 행(품의/입고 등) 대비: 품명→item_no 역참조 맵 (item_no 있는 행에서 수집)
+  const noByName={};
+  [].concat(D.pr||[],D.po||[],D.pp||[],D.rc||[],D.mr||[]).forEach(r=>{
+    const no=String(r.item_no||"").trim().toUpperCase(), nm=String(r.item_name||"").trim();
+    if(no&&nm){ const k=realProj(r)+"|"+nm; if(!noByName[k]) noByName[k]=no; }
+  });
+  const keyOf=r=>{ let no=String(r.item_no||"").trim().toUpperCase(); const nm=String(r.item_name||"").trim();
+    if(!no) no=noByName[realProj(r)+"|"+nm]||("#"+nm); return realProj(r)+"|"+no; };
+  const ensure=r=>{ const k=keyOf(r); if(!M[k]){ const no=String(r.item_no||"").trim()||(noByName[realProj(r)+"|"+String(r.item_name||"").trim()]||""); M[k]={proj:realProj(r),item_no:no,item_name:(r.item_name||""),spec:(r.spec||""),req:null,prop:null,po:null,rcv:[],out:null,reqQty:0,vendor:""}; } return M[k]; };
+  (D.pr||[]).forEach(r=>{ const m=ensure(r); m.req={date:r.req_date,qty:_trkNum(r.qty),status:r.status}; if(!m.reqQty)m.reqQty=_trkNum(r.qty); if(!m.item_name)m.item_name=r.item_name; });
+  (D.pp||[]).forEach(r=>{ const m=ensure(r); m.prop={date:r.appro_req_date,no:r.appro_req_no,status:r.sm_curr_status_name,qty:_trkNum(r.qty)}; if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.spec&&r.spec)m.spec=r.spec; if(!m.item_name)m.item_name=r.item_name; });
+  (D.po||[]).forEach(r=>{ const m=ensure(r); m.po={date:r.order_date,qty:_trkNum(r.qty),status:r.status}; if(r.vendor)m.vendor=r.vendor; if(!m.item_name)m.item_name=r.item_name; });
+  (D.rc||[]).forEach(r=>{ const m=ensure(r); m.rcv.push({date:r.delv_in_date,no:r.delv_in_no,qty:_trkNum(r.qty)}); if(r.cust_name&&!m.vendor)m.vendor=r.cust_name; if(!m.item_name)m.item_name=r.item_name; });
+  (D.mr||[]).forEach(r=>{ const m=ensure(r); m.out={date:r.out_date,no:r.out_no,qty:_trkNum(r.qty)}; });
+  return Object.values(M).map(m=>{
+    const inQty=m.rcv.reduce((a,b)=>a+b.qty,0);
+    const reqQty=m.reqQty||(m.po&&m.po.qty)||(m.prop&&m.prop.qty)||0;
+    const inDone = reqQty>0 ? inQty>=reqQty : inQty>0;
+    let label,lc;
+    if(m.out){ label="출고완료"; lc="gray"; }
+    else if(inQty>0 && inDone){ label="입고완료"; lc="green"; }
+    else if(inQty>0){ label=`입고중 ${inQty}/${reqQty||'?'}`; lc="amber"; }
+    else if(m.po){ label="입고 대기"; lc="blue"; }
+    else if(m.prop){ label=(m.prop.status||"발주 대기"); lc="amber"; }
+    else if(m.req){ label="품의 대기"; lc="gray"; }
+    else { label="구매요청 대기"; lc="gray"; }
+    let filled=0;
+    if(m.req) filled=1;
+    if(m.prop) filled=2;
+    if(m.po) filled=3;
+    if(inQty>0) filled = inDone?4:3;
+    if(m.out) filled=5;
+    const active = /완료/.test(label) ? -1 : Math.min(filled,4);
+    const lastDate=(m.out&&m.out.date)||(m.rcv.length&&m.rcv[m.rcv.length-1].date)||(m.po&&m.po.date)||(m.prop&&m.prop.date)||(m.req&&m.req.date)||"";
+    return {...m,inQty,reqQty,filled,active,label,lc,inDone,lastDate};
+  });
+}
+
+function _trkStepper(it){
+  let cells="";
+  for(let i=0;i<5;i++){
+    const st = i<it.filled ? "done" : (i===it.active ? "active" : "todo");
+    let dot;
+    if(st==="done") dot=`<span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;align-items:center;justify-content:center;font-size:12px;">✓</span>`;
+    else if(st==="active") dot=`<span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:#fef3c7;border:2px solid #d97706;color:#92400e;align-items:center;justify-content:center;font-size:9px;">●</span>`;
+    else dot=`<span style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1.5px solid #d1d5db;"></span>`;
+    cells+=`<span style="width:44px;display:inline-flex;align-items:center;justify-content:center;">${dot}</span>`;
+  }
+  return `<div style="display:flex;align-items:center">${cells}</div>`;
+}
+const _TRK_BADGE={green:"background:#dcfce7;color:#15803d",amber:"background:#fef3c7;color:#92400e",blue:"background:#dbeafe;color:#1d4ed8",gray:"background:#f1f5f9;color:#475569"};
+
+function pStatusFilter(f){ _trkFilter=f; pRenderStatus(); }
+function pStatusSearch(v){ _trkQ=(v||"").trim().toLowerCase(); pRenderStatus(); }
+
+function pRenderStatus(){
+  const host=document.getElementById("p-status"); if(!host) return;
+  if(!_trkData){
+    const c=_trkCacheGet();
+    if(c){ _trkData=c; pTrackRefreshBg(); }   // 캐시 즉시 표시 + 백그라운드 최신화
+    else {
+      if(!_trkLoading){
+        _trkLoading=true;
+        host.innerHTML=`<div class="pempty">서버에서 구매 진행 데이터 불러오는 중…</div>`;
+        pTrackFetch().then(d=>{ _trkData=d; _trkCacheSet(d); _trkLoading=false; pRenderStatus(); }).catch(()=>{ _trkLoading=false; host.innerHTML=`<div class="pempty">데이터 로드 실패 — 서버 연결을 확인하세요.</div>`; });
+      }
+      return;
+    }
+  }
+  let items=pBuildTrack();
+  { const sb=document.getElementById("pcnt-status"); if(sb) sb.textContent=String(items.length); }
+  items.sort((a,b)=>String(b.lastDate||"").localeCompare(String(a.lastDate||"")));
+  // 요약(현재 단계 분포) — 5단계
+  const cnt={요청:0,품의:0,발주:0,입고:0,출고:0};
+  items.forEach(it=>{ const k=TRK_STAGES[Math.min(it.filled,5)-1]; if(k in cnt) cnt[k]++; });
+  // 필터
+  const filtered=items.filter(it=>{
+    if(_trkFilter==="po_wait" && !(it.po && !(it.inQty>0 && it.inDone))) return false;
+    if(_trkFilter==="incomplete" && /완료/.test(it.label)) return false;
+    if(_trkQ){ const s=(it.item_no+" "+it.item_name).toLowerCase(); if(!s.includes(_trkQ)) return false; }
+    return true;
+  });
+  const chip=(lbl,n,hi)=>`<div style="${hi?'background:#dcfce7':'background:var(--bg3)'};border-radius:8px;padding:7px 10px;min-width:62px"><div style="font-size:11px;color:${hi?'#3B6D11':'var(--t3)'}">${lbl}</div><div style="font-size:17px;font-weight:700;color:${hi?'#15803d':'var(--t1)'}">${n}</div></div>`;
+  const stageHdr=TRK_STAGES.map(s=>`<span style="width:44px;text-align:center">${s}</span>`).join("");
+  const fbtn=(f,lbl)=>`<button class="pbtn${_trkFilter===f?' on':''}" onclick="pStatusFilter('${f}')" style="${_trkFilter===f?'background:var(--p);color:#fff;':''}">${lbl}</button>`;
+
+  const rowsHtml = filtered.length ? filtered.map(it=>`
+    <tr style="cursor:pointer" onclick="pTrackDetail('${it.proj}','${(it.item_no||it.item_name).replace(/'/g,'')}')">
+      <td>${pPjBadge(it.proj)}</td>
+      <td><div style="font-family:monospace;font-size:11px;color:var(--t3)">${pEsc(it.item_no||"")}</div><div style="font-weight:600">${pEsc(it.item_name||"")}</div>${it.spec?`<div style="font-size:11px;color:var(--t3)">${pEsc(it.spec)}</div>`:""}</td>
+      <td style="padding:4px 6px">${_trkStepper(it)}</td>
+      <td><span style="${_TRK_BADGE[it.lc]};font-size:11.5px;padding:3px 10px;border-radius:7px;white-space:nowrap">${pEsc(it.label)}</span></td>
+      <td class="num"><span style="color:${it.inDone&&it.inQty>0?'#15803d':(it.inQty>0?'#92400e':'var(--t3)')};font-weight:600">${it.inQty}</span><span style="color:var(--t3)"> / ${it.reqQty||'-'}</span></td>
+      <td>${pEsc(it.vendor||"")}</td>
+      <td style="font-size:11px;color:var(--t3);white-space:nowrap">${pEsc(it.lastDate||"")}</td>
+    </tr>`).join("") : `<tr><td colspan="7"><div class="pempty">조건에 맞는 품목이 없습니다.</div></td></tr>`;
+
+  host.innerHTML=`
+    <div class="pfilter" style="flex-wrap:wrap">
+      <strong style="font-size:15px">📋 구매현황 — 품목별 진행 추적</strong>
+      <span class="pcard-cnt">${filtered.length}/${items.length}건 · ${pProjects.join(" / ")}</span>
+      <span style="flex:1"></span>
+      <input id="trk-q" placeholder="🔍 품번·품명 검색" oninput="pStatusSearch(this.value)" value="${pEsc(_trkQ)}">
+      ${fbtn("all","전체")} ${fbtn("po_wait","발주〉입고대기")} ${fbtn("incomplete","미완료만")}
+      <button class="pbtn" onclick="pTrackSyncNow(this)" title="영림원에서 지금 끌어오기 (발주·품의·입고·출고) — 1~2분 걸릴 수 있어요" style="background:#7c3aed;color:#fff;border-color:#7c3aed">⚡ 지금 동기화</button>
+      <button class="pbtn" onclick="pTrackForceRefresh()">↻ 새로고침</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
+      ${chip("요청",cnt.요청)}${chip("품의",cnt.품의)}${chip("발주",cnt.발주)}${chip("입고",cnt.입고,true)}${chip("출고",cnt.출고)}
+    </div>
+    <div class="pcard"><div class="ptbl-wrap"><table class="ptbl">
+      <thead><tr>
+        <th>PJT</th><th>품번 · 품명</th>
+        <th style="text-align:center"><div style="display:flex">${stageHdr}</div></th>
+        <th>현재 상태</th><th class="num">입고/요청</th><th>거래처</th><th>최근일</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div></div>
+    <div style="font-size:11.5px;color:var(--t3);margin-top:8px">● 완료 · ◐ 진행중 · ○ 미진행 · (프로젝트+품번) 기준 자동 결합 · 서버 5분 동기화 DB · 행 클릭 = 단계 상세</div>`;
+}
+
+function pTrackDetail(proj,key){
+  const items=pBuildTrack();
+  const it=items.find(x=>x.proj===proj && (String(x.item_no)===key || x.item_name===key));
+  if(!it) return;
+  const line=(lbl,v)=>v?`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="width:70px;color:var(--t3);font-size:12px">${lbl}</span><span style="font-size:13px">${v}</span></div>`:"";
+  const rcv = it.rcv.length? it.rcv.map(r=>`${pYmd(r.date)} · ${r.no||""} · ${r.qty}`).join("<br>") : "";
+  const html=`
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px">${pEsc(it.item_name||"")}</div>
+    <div style="font-family:monospace;font-size:12px;color:var(--t3);margin-bottom:10px">${pEsc(it.item_no||"")} ${it.spec?(" · "+pEsc(it.spec)):""}</div>
+    ${line("현재", `<span style="${_TRK_BADGE[it.lc]};padding:2px 9px;border-radius:6px">${pEsc(it.label)}</span>`)}
+    ${line("요청", it.req?`${pYmd(it.req.date)} · 수량 ${it.req.qty} · ${pEsc(it.req.status||"")}`:"")}
+    ${line("품의", it.prop?`${pYmd(it.prop.date)} · ${pEsc(it.prop.no||"")} · ${pEsc(it.prop.status||"")}`:"")}
+    ${line("발주", it.po?`${pYmd(it.po.date)} · 수량 ${it.po.qty} · ${pEsc(it.po.status||"")}`:"")}
+    ${line("입고", rcv? `${rcv}<br><b>합계 ${it.inQty}/${it.reqQty||'-'}</b>`:"")}
+    ${line("출고", it.out?`${pYmd(it.out.date)} · ${pEsc(it.out.no||"")} · 수량 ${it.out.qty}`:"")}
+    ${line("거래처", pEsc(it.vendor||""))}`;
+  let ov=document.getElementById("trk-detail-ov");
+  if(!ov){ ov=document.createElement("div"); ov.id="trk-detail-ov"; ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px"; ov.onclick=e=>{ if(e.target===ov) ov.remove(); }; document.body.appendChild(ov); }
+  ov.innerHTML=`<div style="background:var(--bg2,#fff);border-radius:12px;max-width:460px;width:100%;max-height:85vh;overflow:auto;padding:14px 20px 20px"><div style="display:flex;justify-content:flex-end;margin-bottom:-6px"><button onclick="document.getElementById('trk-detail-ov').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button></div>${html}</div>`;
 }
 
 // ── 테이블 컬럼 구성 (실제 영림원 DB 스키마 기반) ──
@@ -14278,6 +14798,8 @@ async function poadvQuotePick(rowIndex){
   if(!rows.length){ alert("견적서 탭에 분석된 견적이 없습니다.\n먼저 견적서를 업로드/분석하세요."); return; }
   rows.sort((a,b)=>String(b.quoteDate).localeCompare(String(a.quoteDate)));
   _poadvQuoteRows=rows; _poadvQuoteTarget=rowIndex;
+  const _tgtRow=poadvRows[rowIndex]||{};
+  const _withNameDefault = !String(_tgtRow.item_name||"").trim();   // 품명 비었으면(직접입력) 기본 체크, 있으면(목록에서 온 행) 해제
   const html=`
     <div id="poadv-quote-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)poadvQuoteClose()">
       <div style="background:#fff;width:min(820px,94vw);max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;">
@@ -14285,9 +14807,12 @@ async function poadvQuotePick(rowIndex){
           <div style="font-weight:700;">📄 견적서에서 단가 불러오기 <span style="font-size:12px;opacity:.8;">행 클릭 → 단가 적용 (네고 있으면 네고 우선)</span></div>
           <button onclick="poadvQuoteClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:16px;">✕</button>
         </div>
-        <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;">
+        <div style="padding:10px 16px;border-bottom:1px solid #eef0f3;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <input id="poadv-quote-q" placeholder="🔍 회사·품목 검색" oninput="poadvQuoteFilter(this.value)" autocomplete="off"
-            style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+            style="flex:1;min-width:200px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;white-space:nowrap;cursor:pointer;" title="체크 시 단가+품명, 해제 시 단가만 입력">
+            <input type="checkbox" id="poadv-quote-withname" ${_withNameDefault?"checked":""}> 품명도 같이 입력
+          </label>
         </div>
         <div style="overflow:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -14328,8 +14853,9 @@ function poadvQuoteApply(rowIndex, viewIdx){
   const r=_poadvQuoteView[viewIdx]; if(!r){ poadvQuoteClose(); return; }
   poadvRows[rowIndex].price = poadvNum(r.apply);
   poadvRows[rowIndex].amount = poadvNum(poadvRows[rowIndex].qty)*poadvNum(r.apply);
-  // 품명도 함께 — 견적 품목명이 있으면 대시보드 품명(item_name)에 자동 입력
-  if(r.item && String(r.item).trim()){
+  // 품명도 함께 — 모달 체크박스가 켜져 있고 견적 품목명이 있을 때만 대시보드 품명(item_name)에 입력
+  const _withName=(document.getElementById("poadv-quote-withname")||{}).checked;
+  if(_withName && r.item && String(r.item).trim()){
     poadvRows[rowIndex].item_name = String(r.item).trim();
   }
   poadvQuoteClose();
@@ -15182,7 +15708,7 @@ async function poadvListLoad(refresh){
       emp_name:x.emp_name||"", dept_name:x.dept_name||"",
       items:[{
         pjt_no:x.pjt_no||"", pjt_name:x.pjt_name||"",
-        item_name:x.item_name||"", item_no:"", spec:"", unit:"EA", maker:"",
+        item_name:x.item_name||"", item_no:x.item_no||"", spec:"", unit:"EA", maker:"",
         qty:poadvNum(x.qty), price:0, amount:poadvNum(x.total||x.amount),
         delv:x.delv||"", status:x.status||"", emp_name:x.emp_name||""
       }]
@@ -15735,12 +16261,19 @@ function poadvPropHasOrder(o){
   const nrm=s=>String(s||"").replace(/\s/g,"").toLowerCase();
   const stripOut=s=>String(s||"").replace(/\s*외\s*\d+\s*건\s*$/,"").trim();   // "외 N건" 꼬리 제거
   const repName=nrm(stripOut(o.item_name));
-  if(!repName) return false;
+  const repNo=nrm(o.item_no);
+  if(!repName && !repNo) return false;
   const cust=nrm(o.cust), pjt=nrm(o.pjt_no);
   return (_poadvOrders||[]).some(od=>{
     if(!od.po_no) return false;
     const okCust = !cust || nrm(od.cust).includes(cust) || cust.includes(nrm(od.cust));
-    const okItem = (od.items||[]).some(it=>{ const a=nrm(stripOut(it.item_name)); return a && (a===repName || a.includes(repName) || repName.includes(a)); });
+    // 품번 둘 다 있으면 품번 '정확' 매칭, 아니면 품명 '정확' 일치 (부분일치 금지: CYLINDER ≠ CYLINDER SENSOR)
+    const okItem = (od.items||[]).some(it=>{
+      const ino=nrm(it.item_no);
+      if(repNo && ino) return repNo===ino;
+      const a=nrm(stripOut(it.item_name));
+      return a && a===repName;
+    });
     const okPjt  = !pjt || (od.items||[]).some(it=>nrm(it.pjt_no)===pjt);
     return okCust && okItem && okPjt;
   });
@@ -15823,6 +16356,7 @@ function prnewInit(){
               <thead><tr>
                 <th style="width:30px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
                 <th style="width:30px;">#</th>
+                <th style="width:96px;">업무</th>
                 <th style="width:64px;">요청자</th>
                 <th style="width:92px;">상태</th>
                 <th style="width:46px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
@@ -15943,7 +16477,15 @@ function prnewReRequest(i){
   const tb=document.getElementById("prnew-tbody"); if(tb&&tb.lastElementChild) tb.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"});
 }
 
-function prnewRowInput(i, field, el){ prnewRows[i][field]=el.value; if(field==="기본소요량"||field==="제작대수") prnewRenderRows(); }
+function prnewRowInput(i, field, el){
+  prnewRows[i][field]=el.value;
+  if(field==="기본소요량"||field==="제작대수"){
+    // 표 전체 재생성 금지(스크롤·포커스 튐) — 총량 셀만 제자리 갱신
+    const tot = prnewNum(prnewRows[i]["기본소요량"])*prnewNum(prnewRows[i]["제작대수"]);
+    const c = document.getElementById("prnew-tot-"+i);
+    if(c) c.textContent = tot ? tot.toLocaleString() : "";
+  }
+}
 function prnewToggleChk(i, el){ prnewRows[i]._chk = el.checked; }
 function prnewToggleAll(el){ prnewRows.forEach(r=>{ if(!r._pr) r._chk=el.checked; }); prnewRenderRows(); }
 
@@ -16018,10 +16560,14 @@ function prnewRenderRows(){
     const statusCell=`<td style="text-align:center;white-space:nowrap;"><span style="font-size:10px;font-weight:700;color:${stColor};">${stTxt}</span>${reBtn}</td>`;
     // 요청자 (MS 로그인 사용자명 자동 · 영림원 전송 안 함)
     const reqName = (done||existing) ? (r._requester||"") : (r._requester||(typeof myName==="function"?myName():""));
+    const taskCell = (r._task && r._task.name)
+      ? `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewTaskPick(${i})" title="클릭: 업무 변경" style="cursor:pointer;color:#4338ca;background:#eef2ff;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:700;">${esc(r._task.name)}</span> <span onclick="prnewTaskClear(${i})" title="연결 해제" style="cursor:pointer;color:#cbd5e1;font-size:11px;">✕</span></td>`
+      : `<td style="text-align:center;"><button onclick="prnewTaskPick(${i})" style="padding:2px 7px;border:1px solid #c7d2fe;border-radius:5px;background:#fff;color:#4338ca;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 업무</button></td>`;
 
     return `<tr ${rowStyle}>
       <td style="text-align:center;">${chk}</td>
       <td style="text-align:center;color:#9ca3af;">${i+1}${grpTag}</td>
+      ${taskCell}
       <td style="text-align:center;font-size:11px;color:#475569;white-space:nowrap;" title="요청자 — 영림원 전송 안 함">${esc(reqName)}</td>
       ${statusCell}
       <td><input data-r="${i}" data-f="BOM레벨" value="${esc(r["BOM레벨"]||"")}" oninput="prnewRowInput(${i},'BOM레벨',this)" ondblclick="prnewBomAuto(${i})" title="더블클릭: 윗행 BOM레벨 +1 자동 (예 1.47→1.48)" placeholder="1" ${lockInput?"disabled":""}></td>
@@ -16034,7 +16580,7 @@ function prnewRenderRows(){
       <td><input data-r="${i}" data-f="기본소요량" class="num" type="number" value="${esc(r["기본소요량"]||"")}" oninput="prnewRowInput(${i},'기본소요량',this)" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="제작대수" class="num" type="number" value="${esc(r["제작대수"]||"")}" oninput="prnewRowInput(${i},'제작대수',this)" ${lockInput?"disabled":""}></td>
       <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${lockInput?"disabled":""}></td>
-      <td class="num" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
+      <td class="num" id="prnew-tot-${i}" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
       <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
     </tr>`;
   }).join("");
@@ -16157,6 +16703,83 @@ function prnewPasteApply(){
 // SharePoint 상태 파일 경로
 function prnewStatePath(pjt){ return `100.ERP/pr-state-${pjt}.json`; }
 let _prnewState = {draft:[], pr_done:[]};
+// ── 요청자(+업무) 영속 캐시: 100.ERP/prnew-meta.json (키: 프로젝트|품번) — 재조회해도 매칭해서 유지 ──
+let _prnewMeta = {};
+function prnewMetaKey(pjt,pn){ return String(pjt||"").toUpperCase().trim()+"|"+String(pn||"").toUpperCase().trim(); }
+async function prnewMetaLoad(){
+  try{ const j=await spGetJson("100.ERP/prnew-meta.json"); _prnewMeta=(j&&j.map&&typeof j.map==="object")?j.map:{}; }
+  catch(e){ _prnewMeta={}; }
+  return _prnewMeta;
+}
+async function prnewMetaSave(){
+  try{ await spPutJson("100.ERP/prnew-meta.json",{map:_prnewMeta,_updatedAt:new Date().toISOString(),_updatedBy:(typeof myName==="function"?myName():"")}); }
+  catch(e){ console.warn("prnew-meta 저장 실패",e&&e.message); }
+}
+// 현재 그리드 행들의 요청자(+업무)를 meta에 반영 후 저장 (변경 있을 때만)
+async function prnewMetaPersist(pjt){
+  if(!pjt) return;
+  if(!_prnewMeta||typeof _prnewMeta!=="object") await prnewMetaLoad();
+  let changed=false;
+  prnewRows.forEach(r=>{
+    const pn=(r["품번"]||"").trim(); if(!pn) return;
+    const k=prnewMetaKey(pjt,pn);
+    const req=r._requester || (typeof myName==="function"?myName():"");
+    const cur=_prnewMeta[k]||{};
+    const next={...cur, requester:req};
+    if(r._task!==undefined) next.task=r._task;
+    if(JSON.stringify(cur)!==JSON.stringify(next)){ _prnewMeta[k]=next; changed=true; }
+  });
+  if(changed) await prnewMetaSave();
+}
+// ── 업무 선택 모달 (업무일정 트리에서 작업 선택 → 행에 연결 + prnew-meta 저장) ──
+let _prnewTaskCtx=null;
+async function prnewTaskPick(i){
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
+  if(!pjt){ toast("프로젝트를 먼저 선택/조회하세요","bad"); return; }
+  _prnewTaskCtx={rowIdx:i, pjt, proj:null};
+  let ov=document.getElementById("prnewTaskOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="prnewTaskOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000098;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(680px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center"><b>📋 업무 선택 · ${esc(pjt)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewTaskOv').remove()">✕</span></div>
+    <div style="padding:7px 14px;font-size:11.5px;color:#64748b;border-bottom:1px solid #f1f5f9">작업(행)을 클릭하면 이 품목과 연결됩니다 · 폴더는 분류용</div>
+    <div id="prnewTask-body" style="overflow:auto;flex:1;padding:8px 12px;min-height:200px"><div style="padding:30px;text-align:center;color:#9ca3af">업무일정 불러오는 중…</div></div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  try{
+    const data=await wpReadPlan(pjt);
+    _prnewTaskCtx.proj=(data&&data.project)?data.project:null;
+    prnewTaskRender(_prnewTaskCtx.proj);
+  }catch(e){ const b=document.getElementById("prnewTask-body"); if(b)b.innerHTML=`<div style="padding:24px;text-align:center;color:#dc2626">불러오기 실패: ${esc((e&&e.message)||e)}</div>`; }
+}
+function prnewTaskRender(proj){
+  const b=document.getElementById("prnewTask-body"); if(!b)return;
+  if(!proj||!(proj.children||[]).length){ b.innerHTML=`<div style="padding:24px;text-align:center;color:#9ca3af">업무일정이 비어있습니다</div>`; return; }
+  const row=(n,depth)=>{
+    const pad=8+depth*15;
+    if(n.group){
+      return `<div style="padding:5px 8px 5px ${pad}px;font-weight:700;color:#334155;font-size:12.5px">📁 ${esc(n.name||"")}</div>`+(n.children||[]).map(c=>row(c,depth+1)).join("");
+    }
+    return `<div onclick="prnewTaskSelect('${esc(String(n.id))}')" style="padding:6px 8px 6px ${pad}px;cursor:pointer;border-radius:6px;font-size:12.5px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''"><span style="color:#94a3b8;font-size:10px;margin-right:5px">${esc(String(n.id))}</span>${esc(n.name||"")}</div>`+(n.children||[]).map(c=>row(c,depth+1)).join("");
+  };
+  b.innerHTML=(proj.children||[]).map(c=>row(c,0)).join("");
+}
+function prnewTaskSelect(id){
+  if(!_prnewTaskCtx||!_prnewTaskCtx.proj)return;
+  let found=null; (function w(ns){ (ns||[]).forEach(n=>{ if(String(n.id)===String(id))found=n; if(n.children)w(n.children); }); })(_prnewTaskCtx.proj.children);
+  if(!found){ document.getElementById("prnewTaskOv")?.remove(); return; }
+  const r=prnewRows[_prnewTaskCtx.rowIdx]; if(!r){ document.getElementById("prnewTaskOv")?.remove(); return; }
+  r._task={proj:_prnewTaskCtx.pjt, id:found.id, name:found.name};
+  document.getElementById("prnewTaskOv")?.remove();
+  prnewRenderRows();
+  prnewMetaPersist(_prnewTaskCtx.pjt);
+  toast(`업무 연결: ${found.name}`,"ok");
+}
+function prnewTaskClear(i){
+  const r=prnewRows[i]; if(!r)return; r._task=null; prnewRenderRows();
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||""; if(pjt)prnewMetaPersist(pjt);
+}
 
 async function prnewLoadState(pjt){
   try{ const s=await spGetJson(prnewStatePath(pjt)); _prnewState = s || {draft:[], pr_done:[]}; }
@@ -16227,6 +16850,7 @@ async function prnewQuery(){
   const _j=(typeof _J==="function")?_J("재료자원 조회: "+pjt):null;
   try{
     await prnewLoadState(pjt);   // SharePoint 캐시 상태 먼저 로드
+    await prnewMetaLoad();       // 요청자(+업무) 캐시 로드
     // 1) 재료자원 먼저 조회 (영림원 단독 — 동시 세션 충돌 방지)
     const r=await fetch(`${SERVER}/api/erp/material-list?project=${encodeURIComponent(pjt)}`);
     const j=await r.json();
@@ -16254,6 +16878,8 @@ async function prnewQuery(){
         if(!already){ prnewRows.push({...d, _existing:false, _draft:true}); }
       });
       if(!prnewRows.length) prnewAddRow();
+      // 요청자 캐시(prnew-meta) 매칭 — 모든 행에 프로젝트|품번으로 요청자 채움 (재조회해도 유지)
+      prnewRows.forEach(r=>{ const pn=(r["품번"]||"").trim(); if(!pn) return; const mk=_prnewMeta[prnewMetaKey(pjt,pn)]; if(mk){ if(mk.requester) r._requester=mk.requester; if(mk.task!==undefined) r._task=mk.task; } });
       prnewRenderRows();   // ★ 재료자원 먼저 표시 (status 없이 그룹색으로)
       const nDraft=(_prnewState.draft||[]).length, nDone=doneList.length;
       if(_j&&typeof _Jok==="function") _Jok(_j, `${j.rows.length}건`);
@@ -16323,6 +16949,7 @@ async function prnewSave(){
   if(msg){ msg.style.color="#6b7280"; msg.textContent="⏳ 영림원 재료자원 등록 요청 중…"; }
   const _j=(typeof _J==="function")?_J("재료자원 등록: "+v.pjt):null;
   try{
+    await prnewMetaPersist(v.pjt);   // 요청자 캐시 저장
     const r=await fetch(`${SERVER}/api/bom/register-rows`,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({project_name:v.pjt, rows:v.rows})});
     const d=await r.json();
@@ -16395,6 +17022,7 @@ async function prnewPrInput(){
   if(msg){ msg.style.color="#0f4c81"; msg.textContent=`⏳ 구매요청 입력 중… ${itemNos.length}개 품목 (영림원, ~30초)`; }
   const _j=(typeof _J==="function")?_J("구매요청 입력: "+pjt):null;
   try{
+    await prnewMetaPersist(pjt);   // 요청자 캐시 저장
     const r=await fetch(`${SERVER}/api/erp/pr-input-save`,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({project_no:pjt, item_nos:itemNos, delv_date:delv, auto_approval:true})});
     const d=await r.json();
@@ -16470,7 +17098,8 @@ async function prnewDraftSave(){
   const newRows=prnewRows.filter(r=>!r._existing && (r["품명"]||r["품번"]||r["BOM레벨"]))
     .map(r=>({ "BOM레벨":r["BOM레벨"]||"", "조달구분":r["조달구분"]||"", "품목분류":r["품목분류"]||"",
       "품명":r["품명"]||"", "품번":r["품번"]||"", "규격":r["규격"]||"", "구매단위":r["구매단위"]||"EA",
-      "기본소요량":r["기본소요량"]||"", "제작대수":r["제작대수"]||"", "여유수량":r["여유수량"]||"" }));
+      "기본소요량":r["기본소요량"]||"", "제작대수":r["제작대수"]||"", "여유수량":r["여유수량"]||"",
+      _requester: r._requester || (typeof myName==="function"?myName():"") }));   // 요청자 유지(재조회해도 남음)
   if(!newRows.length && !_prnewDeleted.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent="임시저장할 신규 행이 없습니다"; } return; }
   const btn=document.getElementById("prnew-draft-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="저장 중…";
   if(msg){ msg.style.color="#6b7280"; msg.textContent="💾 SharePoint에 임시저장 중…"; }
@@ -16479,6 +17108,7 @@ async function prnewDraftSave(){
     _prnewState.draft = newRows;   // 현재 신규 행 전체로 교체
     try{ localStorage.setItem("prnew_draft_"+pjt, JSON.stringify(newRows)); }catch(e){}  // 브라우저 캐시 백업
     const ok=await prnewSaveState(pjt);
+    await prnewMetaPersist(pjt);   // 요청자 캐시 저장 (재조회해도 유지)
     // 대시보드에서 삭제한 행을 연동 엑셀에서도 제거
     let delMsg="";
     if(_prnewDeleted.length){
