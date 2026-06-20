@@ -940,6 +940,8 @@ body.embed-prnew{background:#fff}
 .wp-ctx{position:fixed;z-index:1000090;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:4px;min-width:210px}
 .wp-ctx-item{display:flex;align-items:center;gap:6px;padding:8px 12px;font-size:13px;color:var(--t1);cursor:pointer;border-radius:7px}
 .wp-ctx-item:hover{background:var(--pd)}
+.exp-marquee{position:fixed;border:1px solid #6366f1;background:rgba(99,102,241,.14);z-index:1000095;pointer-events:none;border-radius:2px}
+#maList .ta-table,#taList .ta-table{user-select:none}
 .wp-ctx-sep{height:1px;background:var(--border);margin:4px 6px}
 .wp-exrow:hover{background:var(--pd)}
 /* 작업 수정 폼 */
@@ -1314,7 +1316,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v326</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v327</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4049,7 +4051,7 @@ function taRender(){
       const note=(it.note||'').trim();
       const mv=TA_MOVED[it.id];
       const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
-      return `<tr style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')">
+      return `<tr class="exp-row" data-aid="${esc(it.id)}" style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}">
         <td style="text-align:center"><input type="checkbox" ${_taSel.has(it.id)?'checked':''} onclick="taToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(taName(it))}${movedBadge}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
@@ -4424,7 +4426,7 @@ function maRender(){
       const mv=MA_MOVED[it.id];
       const mvBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
       const person=MA_FOLDER==='inbox'?(it.fromName||'?'):(it.toName||'?');
-      return `<tr style="${hidden?'opacity:.5':''}${_maSel.has(it.id)?'background:var(--pd)':''}" oncontextmenu="atMenu(event,'ma',${realIdx},'${esc(it.id)}')">
+      return `<tr class="exp-row" data-aid="${esc(it.id)}" style="${hidden?'opacity:.5':''}${_maSel.has(it.id)?'background:var(--pd)':''}">
         <td style="text-align:center"><input type="checkbox" ${_maSel.has(it.id)?'checked':''} onclick="maToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(maName(it))}${mvBadge}${it.subject?`<div class="ta-note">✉ ${esc(it.subject)}</div>`:''}</td>
@@ -4512,6 +4514,136 @@ function maBatchMove(){
   _moveCtx=_moveBatch[0];
   _openMoveModal(true);   // keepBatch
 }
+// ════════ 윈도우 탐색기식 선택 (드래그 박스 / Shift 범위 / Ctrl 토글 / 더블클릭 / 우클릭) ════════
+// 첨부파일 목록(메일 받은·보낸 maList / 팀즈 taList)에 적용. 기존 체크박스와 공존.
+(function(){
+  let anchorId=null, mq=null, md=null;
+  function cfgFor(el){
+    if(el && el.closest){
+      if(el.closest('#taList')) return expCfgTeams();
+      if(el.closest('#maList')) return expCfgMail();
+    }
+    return null;
+  }
+  function rowsOf(cfg){ return [...document.querySelectorAll('#'+cfg.listId+' tbody tr.exp-row')]; }
+  function order(cfg){ return rowsOf(cfg).map(tr=>tr.dataset.aid); }
+  function paint(cfg){ rowsOf(cfg).forEach(tr=>{ const on=cfg.sel.has(tr.dataset.aid); tr.style.background=on?'var(--pd)':''; const cb=tr.querySelector('input[type=checkbox]'); if(cb) cb.checked=on; }); }
+  function selectOnly(cfg,id){ cfg.sel.clear(); if(id) cfg.sel.add(id); }
+  function rangeTo(cfg,id){ const o=order(cfg); const a=o.indexOf(anchorId), b=o.indexOf(id); if(a<0||b<0){ cfg.sel.add(id); return; } const s=Math.min(a,b), e=Math.max(a,b); for(let i=s;i<=e;i++) cfg.sel.add(o[i]); }
+
+  document.addEventListener('mousedown', e=>{
+    const cfg=cfgFor(e.target); if(!cfg) return;
+    if(e.button!==0) return;
+    if(e.target.closest('input,button,a,label,select')) return; // 체크박스/버튼은 기본동작
+    const tr=e.target.closest('tr.exp-row');
+    md={cfg, x:e.clientX, y:e.clientY, id:tr?tr.dataset.aid:null, ctrl:e.ctrlKey||e.metaKey, shift:e.shiftKey, moved:false};
+    e.preventDefault(); // 텍스트 드래그선택 방지
+  });
+  document.addEventListener('mousemove', e=>{
+    if(!md) return;
+    if(!md.moved && (Math.abs(e.clientX-md.x)+Math.abs(e.clientY-md.y))<5) return;
+    md.moved=true;
+    const cfg=md.cfg;
+    if(!mq){
+      if(!md.ctrl && !md.shift) cfg.sel.clear();
+      mq=document.createElement('div'); mq.className='exp-marquee'; document.body.appendChild(mq);
+      mq.base=new Set(cfg.sel);
+    }
+    const x0=Math.min(md.x,e.clientX), y0=Math.min(md.y,e.clientY), w=Math.abs(e.clientX-md.x), h=Math.abs(e.clientY-md.y);
+    mq.style.left=x0+'px'; mq.style.top=y0+'px'; mq.style.width=w+'px'; mq.style.height=h+'px';
+    const box={l:x0,t:y0,r:x0+w,b:y0+h};
+    rowsOf(cfg).forEach(tr=>{
+      const r=tr.getBoundingClientRect();
+      const hit=!(r.right<box.l||r.left>box.r||r.bottom<box.t||r.top>box.b);
+      const id=tr.dataset.aid;
+      if(md.ctrl){ const was=mq.base.has(id); if(hit){ was?cfg.sel.delete(id):cfg.sel.add(id); } else { was?cfg.sel.add(id):cfg.sel.delete(id); } }
+      else { hit?cfg.sel.add(id):cfg.sel.delete(id); }
+    });
+    paint(cfg);
+  });
+  document.addEventListener('mouseup', e=>{
+    if(!md) return;
+    const cfg=md.cfg;
+    if(mq){ mq.remove(); mq=null; cfg.render(); md=null; return; }
+    if(!md.moved){
+      const id=md.id;
+      if(id){
+        if(md.shift && anchorId){ if(!md.ctrl) cfg.sel.clear(); rangeTo(cfg,id); }
+        else if(md.ctrl){ cfg.sel.has(id)?cfg.sel.delete(id):cfg.sel.add(id); anchorId=id; }
+        else { selectOnly(cfg,id); anchorId=id; }
+      } else { cfg.sel.clear(); anchorId=null; }
+      cfg.render();
+    }
+    md=null;
+  });
+  document.addEventListener('dblclick', e=>{
+    const cfg=cfgFor(e.target); if(!cfg) return;
+    if(e.target.closest('input,button,a,label')) return;
+    const tr=e.target.closest('tr.exp-row'); if(!tr) return;
+    const it=cfg.byId(tr.dataset.aid); if(it) cfg.open(it);
+  });
+  document.addEventListener('contextmenu', e=>{
+    const cfg=cfgFor(e.target); if(!cfg) return;
+    const tr=e.target.closest('tr.exp-row'); if(!tr) return;
+    e.preventDefault();
+    const id=tr.dataset.aid;
+    if(!cfg.sel.has(id)){ selectOnly(cfg,id); anchorId=id; cfg.render(); }
+    expMenu(e.clientX,e.clientY,cfg);
+  });
+  document.addEventListener('keydown', e=>{
+    const cfg=(typeof AT_MODE!=='undefined' && AT_MODE==='teams')?expCfgTeams():expCfgMail();
+    const host=document.getElementById(cfg.listId);
+    if(!host || host.offsetParent===null) return; // 해당 탭이 화면에 없으면 무시
+    const tag=(document.activeElement&&document.activeElement.tagName)||'';
+    if(tag==='INPUT'||tag==='TEXTAREA') return;
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a'){ e.preventDefault(); order(cfg).forEach(id=>cfg.sel.add(id)); cfg.render(); }
+    else if(e.key==='Escape'){ cfg.sel.clear(); cfg.render(); }
+  });
+
+  function expMenu(x,y,cfg){
+    document.getElementById('exp-ctx')?.remove();
+    const ids=[...cfg.sel]; const n=ids.length;
+    const single = n===1 ? cfg.byId(ids[0]) : null;
+    const items=[];
+    if(single) items.push(['👁','열기 / 미리보기',()=>cfg.open(single)]);
+    items.push(['📁',`문서함으로 이동·복사${n>1?` (${n}건)`:''}`,()=>cfg.batchMove()]);
+    items.push(['🔗',`링크 복사${n>1?` (${n}건)`:''}`,()=>cfg.copyLinks(ids)]);
+    if(single) items.push(['✏','이름 변경',()=>cfg.rename(single)]);
+    items.push(['🗑',`삭제(숨김)${n>1?` (${n}건)`:''}`,()=>cfg.delMany(ids)]);
+    const m=document.createElement('div'); m.id='exp-ctx'; m.className='wp-ctx';
+    m.innerHTML=items.map((it,i)=>`<div class="wp-ctx-item" data-i="${i}"><span style="width:20px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join('');
+    document.body.appendChild(m);
+    const vw=innerWidth,vh=innerHeight,mw=250,mh=items.length*34+8;
+    m.style.left=Math.min(x,vw-mw-8)+'px'; m.style.top=Math.min(y,vh-mh-8)+'px';
+    m.querySelectorAll('.wp-ctx-item').forEach(el=>{ el.onclick=()=>{ const f=items[+el.dataset.i][2]; m.remove(); f(); }; });
+    const close=()=>{ m.remove(); document.removeEventListener('click',close); };
+    setTimeout(()=>document.addEventListener('click',close),50);
+  }
+
+  window.expCfgTeams=function(){ return {
+    listId:'taList', sel:_taSel, render:taRender,
+    byId:id=>((TA_DATA&&TA_DATA.items)||[]).find(x=>x.id===id),
+    open:it=>taOpen((TA_DATA.items||[]).indexOf(it)),
+    rename:it=>taRename((TA_DATA.items||[]).indexOf(it)),
+    batchMove:()=>taBatchMove(),
+    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((TA_DATA&&TA_DATA.items)||[]).find(x=>x.id===id); return it&&(it.webUrl||it.contentUrl||''); }),
+    delMany:ids=>{ ids.forEach(id=>{ if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id); }); _taSel.clear(); taSaveHidden().then(taLoad); }
+  };};
+  window.expCfgMail=function(){ return {
+    listId:'maList', sel:_maSel, render:maRender,
+    byId:id=>((MA_DATA&&MA_DATA.items)||[]).find(x=>x.id===id),
+    open:it=>maOpen((MA_DATA.items||[]).indexOf(it)),
+    rename:it=>maRename((MA_DATA.items||[]).indexOf(it)),
+    batchMove:()=>maBatchMove(),
+    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((MA_DATA&&MA_DATA.items)||[]).find(x=>x.id===id); return it?maDlUrl(it):''; }),
+    delMany:ids=>{ ids.forEach(id=>{ if(!MA_HIDDEN.includes(id)) MA_HIDDEN.push(id); }); _maSel.clear(); maSaveHidden().then(maLoad); }
+  };};
+  window.expCopyLinks=function(ids,getter){
+    const urls=ids.map(getter).filter(Boolean);
+    if(!urls.length){ toast('복사할 링크가 없습니다','bad'); return; }
+    navigator.clipboard.writeText(urls.join('\n')).then(()=>toast(`링크 ${urls.length}개 복사됨`,'ok')).catch(()=>toast('클립보드 복사 실패','bad'));
+  };
+})();
 
 const DOC_ANALYZE=['doc-vendor','doc-quote','doc-order','doc-invoice','doc-tax']; // 분석 목록 화면 적용 탭
 let docState={};
