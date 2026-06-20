@@ -1314,7 +1314,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v313</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v314</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1380,6 +1380,7 @@ body.embed-prnew{background:#fff}
   <span class="count" id="count"></span>
   <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
   <button class="btn sm danger" id="delBtn" onclick="deleteSelected()" style="display:none">🗑 삭제 <span id="delCnt"></span></button>
+  <button class="btn sm" id="restoreBtn" onclick="restoreSelected()" style="display:none;background:#16a34a;color:#fff;border-color:#16a34a">↩ 복구 <span id="restoreCnt"></span></button>
 </div>
 <div class="mail-subtabs" id="mailSubtabs">
   <button class="mailsub active" id="msub-vendor" onclick="setMailSub('vendor')">🏢 거래처 <span class="msub-cnt" id="msubCntV"></span></button>
@@ -6668,9 +6669,28 @@ function toggleSelectAll(on){
 function updateDelBtn(){
   const n=SELECTED_UIDS.size;
   const b=$('delBtn'); if(!b)return;
-  b.style.display=n?'inline-flex':'none';
+  const inTrash = FOLDER==='trash';
+  b.style.display=(n && !inTrash)?'inline-flex':'none';
   $('delCnt').textContent=n?`(${n})`:'';
+  const rb=$('restoreBtn'); if(rb){ rb.style.display=(n && inTrash)?'inline-flex':'none'; const rc=$('restoreCnt'); if(rc) rc.textContent=n?`(${n})`:''; }
   const sa=$('selAll'); if(sa) sa.checked = (n>0 && n===MAILS.length);
+}
+async function restoreSelected(){
+  const uids=[...SELECTED_UIDS];
+  if(!uids.length) return;
+  if(!confirm(`선택한 ${uids.length}개 메일을 받은편지함으로 복구할까요?`)) return;
+  const b=$('restoreBtn'); b.disabled=true; const old=b.innerHTML; b.innerHTML='↩ 복구 중…';
+  try{
+    const r=await fetch(`${SERVER}/api/mail/restore`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uids})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`${d.count}개 받은편지함으로 복구`,'ok');
+      SELECTED_UIDS=new Set();
+      if(SELECTED && uids.includes(String(SELECTED))){ SELECTED=null; renderReaderEmpty(); }
+      loadList();
+    }else{ toast('복구 실패: '+(d.error||''),'bad'); }
+  }catch(e){ toast('복구 오류: '+e.message,'bad'); }
+  b.disabled=false; b.innerHTML=old; updateDelBtn();
 }
 async function deleteSelected(){
   const uids=[...SELECTED_UIDS];
