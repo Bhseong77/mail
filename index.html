@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v353</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v355</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6734,15 +6734,22 @@ function erpLoadingBar(msg, sub){
 function erpLoadingRow(cols, msg, sub){
   return `<tr><td colspan="${cols||10}" style="padding:0;">${erpLoadingBar(msg,sub)}</td></tr>`;
 }
-// 캐시 삭제 후 강력 새로고침 (다른 PC 옛 캐시 정리). 서버주소 설정만 보존.
+// 캐시 삭제 후 강력 새로고침 (다른 PC 옛 앱캐시 정리). 서버주소 + 무거운 데이터캐시는 보존.
 async function clearAppCache(){
-  if(!confirm("캐시를 모두 삭제하고 새로고침합니다.\n(서버 주소 설정은 유지됩니다)")) return;
+  if(!confirm("앱 캐시를 삭제하고 새로고침합니다.\n(서버주소 · 업무일정/채널 캐시 등 무거운 데이터는 유지 → 빠른 로딩)\n최신 데이터는 자동으로 백그라운드에서 갱신됩니다.")) return;
   try{
-    const keep=localStorage.getItem(SERVER_KEY);
+    // 보존: 서버주소 + 재구축 비싼 데이터 캐시 (업무일정 트리/채널정보/구매요청 임시저장)
+    const KEEP_PREFIX=["wpcache_","chaninfo_","prnew_"];
+    const saved={};
+    try{
+      for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
+        if(k && (k===SERVER_KEY || KEEP_PREFIX.some(p=>k.startsWith(p)))) saved[k]=localStorage.getItem(k);
+      }
+    }catch(_){}
     try{ localStorage.clear(); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
-    if(keep) try{ localStorage.setItem(SERVER_KEY, keep); }catch(e){}
-    // Cache Storage (service worker 등) 정리
+    for(const k in saved){ try{ localStorage.setItem(k, saved[k]); }catch(_){} }
+    // Cache Storage (service worker 등) 정리 → 최신 앱 HTML 강제
     if(window.caches&&caches.keys){ try{ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }catch(e){} }
     // 강력 새로고침 (캐시 무시)
     const u=new URL(location.href); u.searchParams.set('_cc', Date.now()); location.replace(u.toString());
@@ -10042,14 +10049,16 @@ function wpDetailHtml(projId, n, ind){
   const _purLinks=(typeof _wpPrLinks!=="undefined" && _wpPrLinks[n.id])?_wpPrLinks[n.id]:[];
   let purLinkHtml="";
   if(_purLinks.length){
-    const items=_purLinks.map(x=>{
+    const items=_purLinks.map((x,li)=>{
       const t=(typeof _wpPrByNo!=="undefined")?_wpPrByNo[String(x.no||"").toUpperCase()]:null;
       const filled=t?(t.filled||0):0; const status=t?(t.status||""):"";
+      const delBtn=(typeof wpIsPM==="function"&&wpIsPM())?`<span onclick="event.stopPropagation();wpPrLinkDel('${esc(n.id)}',${li})" title="구매 연결 삭제 (관리자)" style="cursor:pointer;color:var(--r);font-size:12px;flex:none;margin-left:2px">✕</span>`:"";
       return `<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
         <span style="font-weight:600;color:var(--t1);font-family:monospace;word-break:break-all">${esc(x.no||"-")}</span>
         <span style="flex:1"></span>
         ${(typeof wpTrkStepHtml==="function")?wpTrkStepHtml(filled):""}
         <span style="font-size:10.5px;color:var(--t2);min-width:34px;text-align:right">${esc(status||"-")}</span>
+        ${delBtn}
       </div>`;
     }).join("");
     purLinkHtml=`<div class="wp-sec">🛒 구매 연결 <span style="font-weight:400;color:var(--t3)">(구매요청서 연동 · ${_purLinks.length}건)</span>${(function(){const r=(typeof wpPrInRate==="function")?wpPrInRate(_purLinks):{pct:0,inDone:0,total:_purLinks.length};const c=r.pct>=100?"#16a34a":(r.pct>0?"#0d9488":"#94a3b8");return ` <span style="font-weight:700;color:${c};font-size:11px">입고율 ${r.pct}% (${r.inDone}/${r.total})</span>`;})()}</div>
@@ -10499,7 +10508,7 @@ async function wpLoadPrLinks(){
           if(byName) tid=byName;
         }
       }
-      (links[tid]=links[tid]||[]).push({proj, no, name:m.task.name||""});
+      (links[tid]=links[tid]||[]).push({proj, no, name:m.task.name||"", key:k});
       const p0=k.split("|")[0]; if(p0)projs.add(p0); if(proj)projs.add(proj);
     }
     _wpPrLinks=links;
@@ -10507,9 +10516,27 @@ async function wpLoadPrLinks(){
     else { _wpPrByNo={}; }
   }catch(e){ _wpPrLinks={}; _wpPrByNo={}; }
 }
+// 구매 연결 삭제 (관리자만) — prnew-meta 에서 해당 품번의 작업연결 해제
+async function wpPrLinkDel(taskId, idx){
+  if(!(typeof wpIsPM==="function" && wpIsPM())){ toast("관리자만 삭제할 수 있습니다","bad"); return; }
+  const arr=_wpPrLinks[taskId]||[]; const link=arr[idx]; if(!link){ toast("연결 정보 없음","bad"); return; }
+  if(!confirm(`이 구매 연결을 삭제할까요?\n품번: ${link.no||"-"}\n\n(구매요청 데이터는 그대로, 이 작업과의 연결만 끊습니다)`)) return;
+  try{
+    if(typeof prnewMetaLoad==="function") await prnewMetaLoad();
+    const key=link.key || (`${link.proj}|${link.no}`);
+    const m=_prnewMeta[key];
+    if(m){
+      delete m.task;                                   // 작업연결만 해제 (요청자 등 유지)
+      if(Object.keys(m).length===0) delete _prnewMeta[key];   // 남은 정보 없으면 엔트리 제거
+    }
+    if(typeof prnewMetaSave==="function") await prnewMetaSave();
+    if(typeof wpLoadPrLinks==="function") await wpLoadPrLinks();
+    wpRender();
+    toast("구매 연결 삭제됨","ok");
+  }catch(e){ toast("삭제 실패: "+((e&&e.message)||e),"bad"); }
+}
 function wpPrLinkBadge(n){
   const xs=_wpPrLinks[n.id]; if(!xs||!xs.length) return "";
-  const r=wpPrInRate(xs);
   const col=r.pct>=100?"#16a34a":(r.pct>0?"#0d9488":"#4338ca");
   const bg=r.pct>=100?"#dcfce7":(r.pct>0?"#ccfbf1":"#eef2ff");
   const title="구매 연결: "+xs.map(x=>x.no).filter(Boolean).join(", ");
