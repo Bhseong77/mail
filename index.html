@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v340</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v341</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10833,12 +10833,19 @@ async function wpCmtAttachLines(c){
   if((c.images||[]).length) out.push(`🖼️ 이미지 ${c.images.length}장 (복사 불가 — 대시보드에서 확인)`);
   return out;
 }
+// 업무일정 항목 딥링크 (?page=workplan&proj=&task=&week= → 해당 작업으로 바로 열림)
+function wpTaskDeepLink(projId, id){
+  let wk="";
+  try{ if(typeof WP_WEEK!=="undefined" && WP_WEEK) wk=`&week=${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}`; }catch(_){}
+  return `${location.origin}${location.pathname}?page=workplan&proj=${encodeURIComponent(projId)}&task=${encodeURIComponent(id)}${wk}`;
+}
 async function wpCmtCopyReport(projId, nodeId, ci){
   const n=wpFind(projId,nodeId); if(!n){ toast("작업을 찾을 수 없음","bad"); return; }
   const c=(n.comments||[])[ci]; if(!c){ toast("보고를 찾을 수 없음","bad"); return; }
   toast("보고내용 정리 중…","ok");
   const lines=[];
   lines.push(`[업무보고] ${n.name||""}`);
+  lines.push(`🔗 업무일정: ${wpTaskDeepLink(projId, nodeId)}`);
   lines.push(`작성: ${c.who||""}${c.when?` · ${c.when}`:""}${c.status?` · ${c.status}`:""}`);
   if(c.txt) lines.push(`내용: ${c.txt}`);
   const att=await wpCmtAttachLines(c);
