@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v343</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v344</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -16917,6 +16917,7 @@ function prnewInit(){
             <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="선택한 행에 가공도면 첨부 (99.가공도면 업로드 · 대표행에 개수)">📐 도면첨부</button>
             <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
+            <button class="acc-period-btn" onclick="prnewDrawMail()" style="color:#b45309;border-color:#fde68a;background:#fffbeb;" title="선택행에 첨부된 도면을 모아 견적요청 메일 작성 (받는사람은 직접 선택)">📧 선택행(도면) 메일보내기</button>
             <button class="acc-period-btn" onclick="prnewClearRows()" style="color:#dc2626;border-color:#fecaca;">행 비우기</button>
             <span style="color:#15803d;font-size:12px;">💡 <b>BOM레벨 칸 더블클릭</b> → 윗행 다음 번호 자동입력 (예 1.47→1.48) · 엑셀 범위는 셀 <b>Ctrl+V</b> 또는 <b>📋엑셀 붙여넣기</b></span>
             <span id="prnew-rowinfo" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
@@ -16954,6 +16955,7 @@ function prnewInit(){
             <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="선택한 행에 가공도면 첨부 (99.가공도면 업로드 · 대표행에 개수)">📐 도면첨부</button>
             <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
+            <button class="acc-period-btn" onclick="prnewDrawMail()" style="color:#b45309;border-color:#fde68a;background:#fffbeb;" title="선택행에 첨부된 도면을 모아 견적요청 메일 작성 (받는사람은 직접 선택)">📧 선택행(도면) 메일보내기</button>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;gap:10px;flex-wrap:wrap;">
             <div>
@@ -17068,7 +17070,7 @@ function prnewToggleAll(el){ prnewRows.forEach(r=>{ r._chk=el.checked; }); prnew
 const PRNEW_DRAW_FOLDER="02.견적서/99.가공도면";
 function prnewDrawCell(r,i){
   const n=(r&&r._draw||[]).length;
-  if(n) return `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewDrawView(${i})" title="첨부도면 보기/관리" style="cursor:pointer;color:#0369a1;background:#e0f2fe;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;">📐 ${n}</span></td>`;
+  if(n) return `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewDrawView(${i})" title="첨부도면 보기/관리 (${n}건)" style="cursor:pointer;color:#0369a1;background:#e0f2fe;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;">📐 첨부</span></td>`;
   return `<td style="text-align:center;color:#cbd5e1;font-size:11px;">–</td>`;
 }
 function prnewDrawAttach(){
@@ -17125,6 +17127,51 @@ function prnewDrawDel(i,di){
   prnewRenderRows();
   if(r&&r._draw&&r._draw.length) prnewDrawView(i);
   toast("도면 제거됨 (SharePoint 파일은 유지)","ok");
+}
+// ── 선택행(도면) 견적요청 메일: 도면 모아 첨부 + 제목/본문 자동, 받는사람은 발신자 선택 ──
+async function prnewDrawMail(){
+  const sel=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk);
+  if(!sel.length){ toast("메일 보낼 행을 선택하세요","bad"); return; }
+  // 선택행들의 첨부도면 모음 (path 기준 중복 제거)
+  const draws=[]; const seen=new Set();
+  for(const {r} of sel){ for(const d of (r._draw||[])){ if(d.path && !seen.has(d.path)){ seen.add(d.path); draws.push(d); } } }
+  if(!draws.length){ toast("선택한 행에 첨부된 도면이 없습니다 (📐 도면첨부 먼저)","bad"); return; }
+  // 품목 목록 (선택행 전체)
+  const items=sel.map(({r})=>{
+    const qty=(prnewNum(r["기본소요량"])*prnewNum(r["제작대수"])) || prnewNum(r["기본소요량"]) || 1;
+    return {name:(r["품명"]||"").trim(), code:(r["품번"]||"").trim(), qty};
+  }).filter(it=>it.name||it.code);
+  const totQty=items.reduce((a,b)=>a+(b.qty||0),0);
+  const today=new Date().toISOString().slice(0,10);
+  const lines=items.map(it=>`  · ${it.name||"(품명)"}${it.code?` / ${it.code}`:""} — ${it.qty}개`).join("\n");
+  const subject=`[견적요청] 주식회사 엔젯 (${today})`;
+  const body=`안녕하세요, 담당자님.\n\n주식회사 엔젯에서 아래와 같이 견적요청드립니다.\n상세 내역은 첨부된 도면을 확인 부탁드립니다.\n\n- 품목 (${items.length}건):\n${lines}\n- 총수량: ${totQty}개\n\n감사합니다.\n경영전략본부 성백훈 드림\nTEL 070-4892-8100`;
+  // 도면 다운로드 → 첨부버퍼
+  const _jid=_J(`견적요청 메일 준비 (도면 ${draws.length})`);
+  const atts=[]; let okc=0;
+  try{
+    const t=await graphToken(); const dv=await spDrive();
+    for(const d of draws){
+      try{
+        const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${dv}/root:/${encPath(d.path)}:/content`,{headers:{Authorization:"Bearer "+t}});
+        if(!r.ok) throw new Error("다운로드 "+r.status);
+        const blob=await r.blob();
+        const b64=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(",")[1]); fr.onerror=()=>rej(new Error("인코딩 실패")); fr.readAsDataURL(blob); });
+        atts.push({filename:d.name||d.file, content_type:d.ctype||blob.type||"application/octet-stream", b64});
+        okc++;
+      }catch(e){ toast(`도면 다운로드 실패: ${d.name} (${(e&&e.message)||e})`,"bad"); }
+    }
+  }catch(e){ _Jno(_jid,"준비 실패: "+((e&&e.message)||e)); toast("도면 준비 실패 (로그인/권한 확인)","bad"); return; }
+  if(!atts.length){ _Jno(_jid,"첨부 0건"); toast("도면 첨부 실패","bad"); return; }
+  // 새 메일 모달 열고 자동 채우기 (받는사람은 발신자가 선택)
+  await openCompose('new');
+  const sj=document.getElementById("cSubj"); if(sj) sj.value=subject;
+  const bd=document.getElementById("cBody"); if(bd) bd.value=body;
+  for(const a of atts){ COMPOSE_ATT.push(a); }
+  if(typeof renderFileChips==="function") renderFileChips();
+  const to=document.getElementById("cTo"); if(to){ to.value=""; setTimeout(()=>to.focus(),50); }
+  _Jok(_jid,`도면 ${okc}건 첨부 · 받는사람 입력 후 발송`);
+  toast(`견적요청 메일 준비완료 (도면 ${okc}건) — 받는사람(가공집) 입력 후 보내세요`,"ok");
 }
 function prnewRenderRows(){
   const tb=document.getElementById("prnew-tbody"); if(!tb) return;
