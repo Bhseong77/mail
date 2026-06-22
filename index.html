@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v338</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v340</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10018,7 +10018,7 @@ function wpDetailHtml(projId, n, ind){
   const files=(n.files||[]).map((f,i)=>{
     const _pm=JSON.stringify({name:f.name,itemId:f.itemId||"",url:f.url||"",folder:f.folder||"",driveId:f.driveId||"",projId}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
     const _eye=f.itemId?`<span onclick='wpFilePreviewMeta(${_pm})' title="미리보기" style="cursor:pointer;color:var(--p)">👁</span>`:"";
-    return `<div class="wp-fchip" oncontextmenu='event.preventDefault();wpCopyFileLink(${_pm})' title="우클릭=링크 복사">📄 <span style="flex:1;${f.itemId?'cursor:pointer':''}" ${f.itemId?`onclick='wpFilePreviewMeta(${_pm})' title="클릭=미리보기"`:""}>${esc(f.name)}</span><span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px">${esc(f.folder||"")}</span>${_eye}${f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--t3);font-size:11px">열기</a>`:""}${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`;
+    return `<div class="wp-fchip">📄 <span style="flex:1;${f.itemId?'cursor:pointer':''}" ${f.itemId?`onclick='wpFilePreviewMeta(${_pm})' title="클릭=미리보기"`:""}>${esc(f.name)}</span><span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px">${esc(f.folder||"")}</span>${_eye}${f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--t3);font-size:11px">열기</a>`:""}${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`;
   }).join("") || `<span style="font-size:11.5px;color:var(--t3)">첨부파일 없음</span>`;
   const hist=(n.history||[]).slice(-60).reverse().map(x=>`<div class="wp-hist"><span style="color:var(--t3);min-width:96px">${esc(x.when)}</span><span style="color:var(--t2)"><b style="color:var(--t1)">${esc(x.who)}</b> · ${esc(x.act)}</span></div>`).join("") || `<div style="font-size:11.5px;color:var(--t3)">이력 없음</div>`;
   const cmts=(n.comments||[]).map((c,ci)=>{
@@ -10026,7 +10026,7 @@ function wpDetailHtml(projId, n, ind){
     const imgs=(c.images||[]).map((im,ii)=>`<img src="${im}" onclick="wpImgView('${im.replace(/'/g,"\\'")}')" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--border);cursor:pointer;margin:4px 4px 0 0">`).join("");
     const prog = "";   // 진행률 표시 제거 — 상태로만 표시
     const stat = c.status?`<span style="font-size:10.5px;background:#f1f5f9;color:var(--t2);padding:1px 6px;border-radius:99px;margin-left:4px">${esc(c.status)}</span>`:"";
-    return `<div class="wp-cmt" id="wpcmt-${n.id}-${ci}"><div class="wp-cmt-av">${esc((c.who||"?").slice(0,1))}</div><div style="flex:1">
+    return `<div class="wp-cmt" id="wpcmt-${n.id}-${ci}" oncontextmenu="wpCmtMenu(event,'${projId}','${n.id}',${ci})" title="우클릭=보고/첨부 복사"><div class="wp-cmt-av">${esc((c.who||"?").slice(0,1))}</div><div style="flex:1">
       <div style="font-size:11.5px"><b>${esc(c.who)}</b> <span style="color:var(--t3)">${esc(c.when)}</span>${prog}${stat}
         ${mine?`<span style="float:right"><span onclick="wpCmtEdit('${projId}','${n.id}',${ci})" style="cursor:pointer;color:var(--t3);font-size:11px">수정</span> <span onclick="wpCmtDel('${projId}','${n.id}',${ci})" style="cursor:pointer;color:var(--r);font-size:11px">삭제</span></span>`:""}</div>
       <div style="font-size:12.5px;color:var(--t2);white-space:pre-wrap">${esc(c.txt)}</div>
@@ -10382,8 +10382,6 @@ function wpComma(n){ return Number(n||0).toLocaleString("en-US"); }
 
 // 첨부행 1개 렌더 (preview=true면 ✕ 제거버튼 포함)
 function wpPurRowHtml(p, preview, id, idx){
-  const pm=JSON.stringify({t:p.t||"",no:p.no||"",item:p.item||p.item_name||"",item_no:p.item_no||"",qty:p.qty||"",delv:p.delv||"",cust:p.cust||"",proj:p.proj||""}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-  const _purCtx=preview?"":` oncontextmenu='event.preventDefault();wpCopyPurLink(${pm})' title="우클릭=구매정보 복사"`;
   if(p.t==="trk"){
     const noU=String(p.item_no||"").toUpperCase();
     const ce=_wpTrkCache[String(p.proj||"").toUpperCase()];
@@ -10392,7 +10390,7 @@ function wpPurRowHtml(p, preview, id, idx){
     const status=live?live.status:(p.status||"-");
     const vendor=live?live.vendor:(p.vendor||"");
     const x=preview?`<span onclick="wpPurRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none;align-self:flex-start">✕</span>`:"";
-    return `<div${_purCtx} style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
       <div style="min-width:0;flex:1">
         <div><span style="font-size:10px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:99px">📊 구매현황</span> <b>${esc(p.item_name||"-")}</b> <span style="color:var(--t3);font-family:monospace;font-size:10px">${esc(p.item_no||"")}</span></div>
         <div style="color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px">
@@ -10410,7 +10408,7 @@ function wpPurRowHtml(p, preview, id, idx){
     ? `${esc(p.date||"-")} · ${esc(p.cust||"-")}${p.pjt?` · ${esc(p.pjt)}`:""} · ${esc(p.item||"-")} · 수량 ${wpComma(p.qty)} · 납품 ${esc(p.delv||"-")}`
     : `${esc(p.date||"-")} · ${esc(p.cust||"-")}${p.pjt?` · ${esc(p.pjt)}`:""}${p.cls?` · ${esc(p.cls)}`:""} · ${esc(p.item||"-")} · 수량 ${wpComma(p.qty)}`;
   const x=preview?`<span onclick="wpPurRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none;align-self:flex-start">✕</span>`:"";
-  return `<div${_purCtx} style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+  return `<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
     <div style="min-width:0;flex:1"><div>${head}</div><div style="color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</div></div>${x}</div>`;
 }
 function wpPurPreviewHtml(id){
@@ -10794,7 +10792,7 @@ function wpRepFileChip(f, preview, id, idx){
   const meta=JSON.stringify({name:f.name,itemId:f.itemId,url:f.url||"",folder:f.folder||"",driveId:f.driveId||"",projId:f.projId||""}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
   const eye=f.itemId?`<span onclick='wpFilePreviewMeta(${meta})' title="미리보기" style="cursor:pointer;color:var(--p);flex:none">👁</span>`:"";
   const x = preview ? `<span onclick="wpRepFileRemove('${id}',${idx})" style="cursor:pointer;color:#94a3b8;flex:none">✕</span>` : (f.url?`<a href="${esc(f.url)}" target="_blank" style="color:var(--t3);font-size:11px;flex:none">열기</a>`:"");
-  return `<div oncontextmenu='event.preventDefault();wpCopyFileLink(${meta})' title="우클릭=링크 복사" style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:4px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
+  return `<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:4px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:4px">
     <span style="cursor:${f.itemId?'pointer':'default'}" ${f.itemId?`onclick='wpFilePreviewMeta(${meta})'`:""}>📄</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:${f.itemId?'pointer':'default'}" ${f.itemId?`onclick='wpFilePreviewMeta(${meta})' title="클릭=미리보기"`:""}>${esc(f.name||"")}</span>
     <span style="font-size:10px;color:var(--t3);background:var(--bg3);padding:1px 6px;border-radius:99px;flex:none">${esc(f.folder||"")}</span>${eye}${x}</div>`;
 }
@@ -10806,28 +10804,56 @@ function wpRepFileCommentHtml(files){
   if(!files||!files.length) return "";
   return `<div style="margin-top:5px">${files.map(f=>wpRepFileChip(f,false)).join("")}</div>`;
 }
-// ── 우클릭: 보고자료/첨부파일 SharePoint 링크 복사 ──
-async function wpCopyFileLink(m){
-  if(typeof m==="string"){ try{ m=JSON.parse(m); }catch(_){ m={}; } }
-  m=m||{};
-  let url=m.url||"";
-  if(!url && m.itemId){ try{ toast("링크 가져오는 중…","ok"); url=await spWebUrlById(m.itemId, m.driveId); }catch(_){ url=""; } }
-  if(!url){ toast("이 파일은 링크가 없습니다 (미업로드 항목)","bad"); return; }
-  try{ await navigator.clipboard.writeText(url); toast("🔗 링크 복사됨 — Ctrl+V로 붙여넣기","ok"); }
+// ── 업무보고 행 우클릭 메뉴 (보고내용 복사 / 첨부자료만 복사) ──
+function wpCmtMenu(e, projId, nodeId, ci){
+  try{ e.preventDefault(); }catch(_){}
+  const old=document.getElementById("wpcmt-ctx"); if(old)old.remove();
+  const menu=document.createElement("div"); menu.id="wpcmt-ctx"; menu.className="wp-ctx";
+  menu.innerHTML=`<div class="wp-ctx-item" onclick="document.getElementById('wpcmt-ctx').remove();wpCmtCopyReport('${projId}','${nodeId}',${ci})"><span style="width:18px;display:inline-block">📋</span>보고내용 복사</div>
+    <div class="wp-ctx-item" onclick="document.getElementById('wpcmt-ctx').remove();wpCmtCopyAttach('${projId}','${nodeId}',${ci})"><span style="width:18px;display:inline-block">📎</span>첨부자료만 복사</div>`;
+  document.body.appendChild(menu);
+  menu.style.left=Math.min(e.clientX,window.innerWidth-230)+"px"; menu.style.top=Math.min(e.clientY,window.innerHeight-100)+"px";
+  const close=()=>{ menu.remove(); document.removeEventListener("click",close); };
+  setTimeout(()=>document.addEventListener("click",close),0);
+}
+// 첨부(파일 링크 + 구매 참조) 줄 배열 — 파일은 url 없으면 itemId로 webUrl 해석
+async function wpCmtAttachLines(c){
+  const out=[];
+  for(const f of (c.files||[])){
+    let url=f.url||"";
+    if(!url && f.itemId){ try{ url=await spWebUrlById(f.itemId, f.driveId); }catch(_){ } }
+    out.push(`📄 ${f.name||""} (${url||"링크 없음"})`);
+  }
+  for(const p of (c.pur||[])){
+    const item=p.item||p.item_name||"";
+    if(p.t==="trk") out.push(`📊 구매현황 ${item}${p.item_no?` (${p.item_no})`:""}`);
+    else if(p.t==="o") out.push(`📝 발주 ${p.no||"-"} ${item}${p.qty?` 수량 ${p.qty}`:""}${p.delv?` 납품 ${p.delv}`:""}${p.cust?` · ${p.cust}`:""}`);
+    else out.push(`📥 입고 ${p.no||"-"} ${item}${p.qty?` 수량 ${p.qty}`:""}${p.cust?` · ${p.cust}`:""}`);
+  }
+  if((c.images||[]).length) out.push(`🖼️ 이미지 ${c.images.length}장 (복사 불가 — 대시보드에서 확인)`);
+  return out;
+}
+async function wpCmtCopyReport(projId, nodeId, ci){
+  const n=wpFind(projId,nodeId); if(!n){ toast("작업을 찾을 수 없음","bad"); return; }
+  const c=(n.comments||[])[ci]; if(!c){ toast("보고를 찾을 수 없음","bad"); return; }
+  toast("보고내용 정리 중…","ok");
+  const lines=[];
+  lines.push(`[업무보고] ${n.name||""}`);
+  lines.push(`작성: ${c.who||""}${c.when?` · ${c.when}`:""}${c.status?` · ${c.status}`:""}`);
+  if(c.txt) lines.push(`내용: ${c.txt}`);
+  const att=await wpCmtAttachLines(c);
+  if(att.length){ lines.push("첨부:"); att.forEach(l=>lines.push("  - "+l)); }
+  try{ await navigator.clipboard.writeText(lines.join("\n")); toast("📋 보고내용 복사됨 — Ctrl+V","ok"); }
   catch(e){ toast("복사 실패: "+((e&&e.message)||e),"bad"); }
 }
-// ── 우클릭: 구매첨부(발주/입고/구매현황) 참조정보 복사 ──
-function wpCopyPurLink(p){
-  if(typeof p==="string"){ try{ p=JSON.parse(p); }catch(_){ p={}; } }
-  p=p||{};
-  const item=p.item||p.item_name||"";
-  let txt;
-  if(p.t==="trk") txt=`[구매현황] ${item}${p.item_no?` (${p.item_no})`:""}`;
-  else if(p.t==="o") txt=`[발주 ${p.no||"-"}] ${item}${p.qty?` 수량 ${p.qty}`:""}${p.delv?` 납품 ${p.delv}`:""}${p.cust?` · ${p.cust}`:""}`;
-  else txt=`[입고 ${p.no||"-"}] ${item}${p.qty?` 수량 ${p.qty}`:""}${p.cust?` · ${p.cust}`:""}`;
-  txt=(txt||"").trim();
-  if(!txt){ toast("복사할 정보 없음","bad"); return; }
-  navigator.clipboard.writeText(txt).then(()=>toast("📋 구매정보 복사됨 — Ctrl+V","ok")).catch(e=>toast("복사 실패: "+((e&&e.message)||e),"bad"));
+async function wpCmtCopyAttach(projId, nodeId, ci){
+  const n=wpFind(projId,nodeId); if(!n){ toast("작업을 찾을 수 없음","bad"); return; }
+  const c=(n.comments||[])[ci]; if(!c){ toast("보고를 찾을 수 없음","bad"); return; }
+  toast("첨부 정리 중…","ok");
+  const att=await wpCmtAttachLines(c);
+  if(!att.length){ toast("첨부자료 없음","bad"); return; }
+  try{ await navigator.clipboard.writeText(att.join("\n")); toast(`📎 첨부 ${att.length}건 복사됨 — Ctrl+V`,"ok"); }
+  catch(e){ toast("복사 실패: "+((e&&e.message)||e),"bad"); }
 }
 function wpRepFileRemove(id, idx){
   if(_wpRepFileBuf[id]) _wpRepFileBuf[id].splice(idx,1);
