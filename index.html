@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v333</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v334</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8684,15 +8684,30 @@ function wpRenumberProject(projId){
   tasks.forEach(t=>{ t._newid=map[t.id]; });
   tasks.forEach(t=>{ if(t.deps&&t.deps.length) t.deps=t.deps.map(d=>map[d]||d); });
   tasks.forEach(t=>{ t.id=t._newid; delete t._newid; });
-  return tasks.length;
+  return map;   // 옛id→새id (구매연결 갱신용)
 }
 async function wpRenumberAll(){
-  if(!confirm("T번호를 트리 순서대로 다시 매기고 전체 저장합니다.\n선행관계는 자동 보정됩니다. 진행할까요?")) return;
-  let total=0;
-  for(const p of wpDisplayProjects()){ total+=wpRenumberProject(p.id); }
+  if(!confirm("T번호를 트리 순서대로 다시 매기고 전체 저장합니다.\n선행관계·구매연결도 자동 보정됩니다. 진행할까요?")) return;
+  let total=0; const maps={};   // projId → {옛id:새id}
+  for(const p of wpDisplayProjects()){ const mp=wpRenumberProject(p.id)||{}; maps[p.id]=mp; total+=Object.keys(mp).length; }
   // 전체 저장
   for(const p of wpDisplayProjects()){ try{ await wpSaveProject(p.id); }catch(_){} }
-  toast(`T번호 정렬 완료 (${total}개) · 전체 저장됨`,"ok");
+  // 구매연결(prnew-meta) task.id 동기화 — 안 하면 옛 id 자리에 온 다른 작업으로 연결이 옮겨감
+  let metaN=0;
+  try{
+    await prnewMetaLoad();
+    let changed=false;
+    for(const k in _prnewMeta){
+      const m=_prnewMeta[k];
+      if(m && m.task && m.task.proj && maps[m.task.proj]){
+        const nid=maps[m.task.proj][m.task.id];
+        if(nid && nid!==m.task.id){ m.task.id=nid; changed=true; metaN++; }
+      }
+    }
+    if(changed) await prnewMetaSave();
+  }catch(_){}
+  try{ if(typeof wpLoadPrLinks==="function") await wpLoadPrLinks(); }catch(_){}
+  toast(`T번호 정렬 완료 (${total}개)${metaN?` · 구매연결 ${metaN}건 갱신`:""} · 전체 저장됨`,"ok");
   WP_SEL=null; wpRender();
 }
 
