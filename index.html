@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v348</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v349</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17105,13 +17105,15 @@ function prnewRowDown(ev,i){
   // 일반 클릭: 셀 편집 그대로 (선택 토글 안 함)
 }
 function prnewRowEnter(ev,i){ if(_prnewDragging) prnewDragTo(i); }
-function prnewRowDblClick(ev,i){                           // 선택행 더블클릭 → 그 아래 행 전부 토글
+function prnewRowDblClick(ev,i){                           // 신규(편집가능) 선택행 더블클릭 → 아래 신규행 전부 토글
   const t=ev.target; if(t&&/^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t.tagName||"")) return;   // 셀 더블클릭(BOM/조달/분류 자동입력) 보존
-  if(!prnewRows[i]||!prnewRows[i]._chk) return;            // 선택된 행에서만
-  if(i+1>=prnewRows.length) return;                        // 아래 행 없음
+  const isNew=r=>r&&!r._pr&&!r._existing;                  // 새로 추가된 행(잠금 아님)
+  if(!isNew(prnewRows[i])||!prnewRows[i]._chk) return;     // 신규 + 선택된 행에서만
+  const below=[]; for(let k=i+1;k<prnewRows.length;k++){ if(isNew(prnewRows[k])) below.push(k); }
+  if(!below.length) return;                                // 아래 신규행 없음
   ev.preventDefault();
-  const mode=!prnewRows[i+1]._chk;                         // 바로 아래행 상태 기준: 해제면 선택, 선택이면 해제
-  for(let k=i+1;k<prnewRows.length;k++){ if(prnewRows[k]) prnewRows[k]._chk=mode; }
+  const mode=!prnewRows[below[0]]._chk;                    // 아래 첫 신규행 상태 기준: 해제면 선택, 선택이면 해제
+  below.forEach(k=>{ prnewRows[k]._chk=mode; });
   _prnewSelAnchor=i;
   prnewApplyChkDom();
 }
