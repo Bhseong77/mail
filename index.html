@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v349</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v351</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10479,12 +10479,28 @@ async function wpLoadPrLinks(){
   try{
     if(typeof prnewMetaLoad!=="function") return;
     await prnewMetaLoad();
+    // 현재 워크플랜 작업 인덱스: 위치기반 T번호가 밀려도 '이름'으로 현재 id를 다시 찾기 위함
+    const curById={}, curByName={};
+    try{
+      (typeof WP_LOADED_PROJ!=="undefined"?WP_LOADED_PROJ:[]).forEach(p=>{
+        const bi=curById[p.id]={}, bn=curByName[p.id]={};
+        (function w(ns){ (ns||[]).forEach(n=>{ if(!n.group && n.name){ bi[n.id]=n.name; if(!(n.name in bn)) bn[n.name]=n.id; } if(n.children)w(n.children); }); })(p.children||[]);
+      });
+    }catch(_){}
     const links={}; const projs=new Set();
     for(const k in (_prnewMeta||{})){
       const m=_prnewMeta[k]; if(!m||!m.task||!m.task.id) continue;
       const no=(k.split("|")[1]||"");   // 품번
-      (links[m.task.id]=links[m.task.id]||[]).push({proj:m.task.proj, no, name:m.task.name||""});
-      const p0=k.split("|")[0]; if(p0)projs.add(p0); if(m.task.proj)projs.add(m.task.proj);
+      // 저장된 task.id가 현재 다른 이름의 작업을 가리키면(T번호 드리프트) → 같은 이름의 현재 작업 id로 보정
+      let tid=m.task.id; const proj=m.task.proj;
+      if(proj && curById[proj] && m.task.name){
+        if(curById[proj][tid] !== m.task.name){
+          const byName=curByName[proj][m.task.name];
+          if(byName) tid=byName;
+        }
+      }
+      (links[tid]=links[tid]||[]).push({proj, no, name:m.task.name||""});
+      const p0=k.split("|")[0]; if(p0)projs.add(p0); if(proj)projs.add(proj);
     }
     _wpPrLinks=links;
     if(Object.keys(links).length){ const t=await wpTrkFetchMulti([...projs]); _wpPrByNo=t.byNo||{}; }
@@ -17104,7 +17120,11 @@ function prnewRowDown(ev,i){
   }
   // 일반 클릭: 셀 편집 그대로 (선택 토글 안 함)
 }
-function prnewRowEnter(ev,i){ if(_prnewDragging) prnewDragTo(i); }
+function prnewRowEnter(ev,i){
+  if(!_prnewDragging) return;
+  if(ev.buttons===0){ _prnewDragging=false; _prnewSelAnchor=_prnewDragAnchor; return; }   // 버튼 떼졌으면(밖에서 mouseup) 드래그 종료
+  prnewDragTo(i);
+}
 function prnewRowDblClick(ev,i){                           // 신규(편집가능) 선택행 더블클릭 → 아래 신규행 전부 토글
   const t=ev.target; if(t&&/^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t.tagName||"")) return;   // 셀 더블클릭(BOM/조달/분류 자동입력) 보존
   const isNew=r=>r&&!r._pr&&!r._existing;                  // 새로 추가된 행(잠금 아님)
@@ -17123,7 +17143,11 @@ function prnewDragTo(j){
   prnewApplyChkDom();
 }
 if(!window._prnewDragInit){ window._prnewDragInit=true;
-  document.addEventListener("mouseup",()=>{ if(_prnewDragging){ _prnewDragging=false; _prnewSelAnchor=_prnewDragAnchor; } });
+  const _endDrag=()=>{ if(_prnewDragging){ _prnewDragging=false; _prnewSelAnchor=_prnewDragAnchor; } };
+  window.addEventListener("mouseup", _endDrag, true);
+  document.addEventListener("mouseup", _endDrag);
+  window.addEventListener("blur", _endDrag);
+  document.addEventListener("mouseleave", _endDrag);
 }
 function prnewToggleAll(el){ prnewRows.forEach(r=>{ r._chk=el.checked; }); prnewRenderRows(); }
 
