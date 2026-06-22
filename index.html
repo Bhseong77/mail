@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v331</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v333</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1463,9 +1463,11 @@ body.embed-prnew{background:#fff}
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
       <h2 style="margin:0;font-size:20px;">📋 주간 업무일정 <span style="font-size:13px;font-weight:400;color:var(--t3)">(프로젝트별 작업 트리 · 간트 · 의존성)</span></h2>
       <span style="flex:1"></span>
+      <span id="wp-weekctl" style="display:none">
       <button class="btn sm" onclick="wpPrevWeek()">◀ 이전주</button>
       <select id="wp-week" onchange="wpLoad()" style="height:34px;font-size:13px;"></select>
       <button class="btn sm" onclick="wpNextWeek()">다음주 ▶</button>
+      </span>
       <div style="display:flex;gap:3px;background:var(--bg3);padding:3px;border-radius:8px;">
         <button id="wp-lg-ko" class="wp-lgbtn on" onclick="wpLang('ko')">한국어</button>
         <button id="wp-lg-en" class="wp-lgbtn" onclick="wpLang('en')">EN</button>
@@ -8642,7 +8644,7 @@ function wpMeEmail(){ try{ return ((msalApp().getAllAccounts()[0]||{}).username|
 function wpISOWeek(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=x.getUTCDay()||7; x.setUTCDate(x.getUTCDate()+4-day); const ys=new Date(Date.UTC(x.getUTCFullYear(),0,1)); const wk=Math.ceil((((x-ys)/86400000)+1)/7); return {year:x.getUTCFullYear(), week:wk}; }
 function wpMonday(year,week){ const simple=new Date(Date.UTC(year,0,1+(week-1)*7)); const dow=simple.getUTCDay(); const mon=new Date(simple); if(dow<=4)mon.setUTCDate(simple.getUTCDate()-simple.getUTCDay()+1); else mon.setUTCDate(simple.getUTCDate()+8-simple.getUTCDay()); return mon; }
 function wpWeekKey(year,week){ return `${year}-W${String(week).padStart(2,'0')}`; }
-function wpFileName(){ return `plan-${WP_WEEK.year}-W${String(WP_WEEK.week).padStart(2,'0')}.json`; }
+function wpFileName(){ return 'plan.json'; }   // 주차 구분 없이 프로젝트당 단일 전체 파일
 
 function _wpErr(e){
   const m=(e&&(e.message||e.stack))||String(e);
@@ -8730,18 +8732,45 @@ async function wpLoad(){
   wpLoadPrLinks().then(()=>wpRender()).catch(()=>{});   // 🛒 구매요청서 업무연결 배지 (prnew-meta 기반, 비차단)
 }
 
-// 04.일정 폴더에서 계획 JSON 읽기
+// 여러 주차 plan(project 객체, 최신 우선)을 하나로 병합 — id 기준 중복 제거, 폴더 위치 보존
+function wpMergePlans(plans){
+  const base = plans[0] ? JSON.parse(JSON.stringify(plans[0])) : {children:[]};
+  base.children = base.children || [];
+  const idx = {};
+  (function ix(ns){ (ns||[]).forEach(n=>{ n.children=n.children||[]; idx[n.id]={node:n}; ix(n.children); }); })(base.children);
+  for(let i=1;i<plans.length;i++){
+    (function walk(ns, baseChildren){
+      (ns||[]).forEach(n=>{
+        if(idx[n.id]){ walk(n.children||[], idx[n.id].node.children); }
+        else { const copy=JSON.parse(JSON.stringify(n)); baseChildren.push(copy);
+          (function reg(x){ x.children=x.children||[]; idx[x.id]={node:x}; (x.children).forEach(reg); })(copy); }
+      });
+    })(plans[i].children||[], base.children);
+  }
+  return base;
+}
+// 04.일정 폴더에서 계획 JSON 읽기 (단일 plan.json, 없으면 모든 주차파일 병합 → 다음 저장 시 plan.json으로 이관)
 async function wpReadPlan(code){
   const t=await graphToken(); const c=await projChannelInfo(code);
   const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+wpFileName())}:/content`;
   const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
-  if(!r.ok) return null;
-  return await r.json();
+  if(r.ok) return await r.json();
+  // plan.json 없음 → 모든 주차 파일(plan-YYYY-Wnn.json)을 병합해 전체 리스트 구성
+  try{
+    const files=await wpListPlanFiles(code);
+    if(files && files.length){
+      files.sort((a,b)=> a.name<b.name?1:(a.name>b.name?-1:0));   // 최신 우선 (병합 base)
+      const plans=[];
+      for(const f of files){ const d=await wpReadPlanFile(code, f.name); if(d && d.project) plans.push(d.project); }
+      if(plans.length){ const merged=wpMergePlans(plans); merged.id=code; return {project:merged}; }
+    }
+  }catch(_){}
+  return null;
 }
 // 04.일정 폴더에 계획 JSON 저장
 async function wpSavePlan(code, projObj){
   await projChanEnsure(code, "04.일정");
-  const body=JSON.stringify({project:projObj, week:wpWeekKey(WP_WEEK.year,WP_WEEK.week), updated:new Date().toISOString(), updated_by:wpMe()}, null, 2);
+  const body=JSON.stringify({project:projObj, week:(WP_WEEK?wpWeekKey(WP_WEEK.year,WP_WEEK.week):''), updated:new Date().toISOString(), updated_by:wpMe()}, null, 2);
   await projChanUpload(code, "04.일정", wpFileName(), new Blob([body],{type:"application/json"}), "application/json");
 }
 // ════════ 일정 스냅샷(백업) / 복원 ════════
