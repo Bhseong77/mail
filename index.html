@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v334</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v336</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8886,8 +8886,9 @@ async function wpSaveProject(projId){
     try{ wpCacheSet(projId, p); }catch(_){}   // 캐시 즉시 갱신
     for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); wpCacheSet(other, op); }catch(_){} }
     toast(touched.length?`저장됨: ${projId} (+공유 ${touched.length})`:"저장됨: "+projId,"ok");
+    return true;
   }
-  catch(e){ toast("저장 실패: "+e.message,"bad"); }
+  catch(e){ toast("저장 실패: "+e.message,"bad"); return false; }
 }
 // 공유 작업(shareId) 동기화 — 동일 shareId 작업을 공유 대상 프로젝트에 미러링
 const WP_SHARE_FIELDS=["name","en","role","owner","owners","owner_email","owner_emails","prog","start","end","blocker","blocker_en","files","comments"];
@@ -10311,7 +10312,7 @@ function wpCmtAddImg(id, dataUrl, panel){
   wrap.innerHTML=`<img src="${dataUrl}" style="max-width:90px;max-height:70px;border-radius:6px;border:1px solid var(--border)"><span onclick="this.parentNode.remove();_wpCmtImgBuf['${id}'][${idx}]=null" style="position:absolute;top:-6px;right:-6px;background:var(--r);color:#fff;width:16px;height:16px;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer">✕</span>`;
   box.appendChild(wrap);
 }
-function wpAddComment(projId,id,btnEl){
+async function wpAddComment(projId,id,btnEl){
   const panel = (btnEl && btnEl.closest) ? btnEl.closest(".wp-detail") : null;
   const inp = (panel && panel.querySelector('textarea[id^="wp-cmt-"]')) || document.getElementById("wp-cmt-"+id);
   const txt=((inp&&inp.value)||"").trim();
@@ -10336,12 +10337,22 @@ function wpAddComment(projId,id,btnEl){
   else if(status && status!=="블로커" && n.blocker){ n.blocker=""; ch.push("블로커 해제(보고)"); }
   if((n.prog||0)>=100){ if(!n.done_date) n.done_date=wpDateToYmd(wpToday()); } else { n.done_date=""; }
   if(ch.length) wpLog(n, ch.join(", "));
-  _wpCmtImgBuf[id]=[];
-  _wpPurBuf[id]=[];
-  _wpRepFileBuf[id]=[];
   // 진행률/완료 변경 시 후행 자동 일정 이동(앞당김/밀기)
   const mv=wpCascade(projId, id); if(mv.length) toast(`후행 ${mv.length}개 일정 자동 조정됨`,"ok");
-  wpSaveProject(projId); wpRender();
+  // ── 우상단 작업큐: 저장중 표시 → 저장 완료되면 갱신 ──
+  if(btnEl) btnEl.disabled=true;
+  const _jid=_J("보고 저장: "+(n.name||id));
+  wpRender();                                  // 낙관적: 새 보고 즉시 표시(입력칸 비움)
+  const ok=await wpSaveProject(projId);
+  if(ok){
+    _wpCmtImgBuf[id]=[]; _wpPurBuf[id]=[]; _wpRepFileBuf[id]=[];   // 성공 후에만 첨부버퍼 비움(실패 시 유실 방지)
+    _Jok(_jid,"보고 저장됨");
+  }else{
+    const arr=n.comments||[]; if(arr[arr.length-1]===rep) arr.pop();   // 실패 시 방금 보고 롤백
+    _Jno(_jid,"저장 실패 — 다시 시도");
+  }
+  wpRender();                                  // 저장된(또는 롤백된) 내용으로 최종 갱신
+  if(btnEl) btnEl.disabled=false;
 }
 function wpCmtEdit(projId,id,ci){
   const n=wpFind(projId,id); const c=(n.comments||[])[ci]; if(!c) return;
@@ -17189,7 +17200,7 @@ function prnewTaskSelect(id){
   let found=null; (function w(ns){ (ns||[]).forEach(n=>{ if(String(n.id)===String(id))found=n; if(n.children)w(n.children); }); })(_prnewTaskCtx.proj.children);
   if(!found){ document.getElementById("prnewTaskOv")?.remove(); return; }
   const idxs=_prnewTaskCtx.rowIdxs||[];
-  idxs.forEach(ix=>{ const r=prnewRows[ix]; if(r) r._task={proj:_prnewTaskCtx.pjt, id:found.id, name:found.name}; });
+  idxs.forEach(ix=>{ const r=prnewRows[ix]; if(r){ r._task={proj:_prnewTaskCtx.pjt, id:found.id, name:found.name}; r._chk=false; } });   // 업무 저장 후 행 선택 초기화
   document.getElementById("prnewTaskOv")?.remove();
   prnewRenderRows();
   const gridPjt=_prnewTaskCtx.gridPjt||(document.getElementById("prnew-pjt")||{}).value||"";
