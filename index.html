@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v344</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v345</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17073,8 +17073,11 @@ function prnewDrawCell(r,i){
   if(n) return `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewDrawView(${i})" title="첨부도면 보기/관리 (${n}건)" style="cursor:pointer;color:#0369a1;background:#e0f2fe;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;">📐 첨부</span></td>`;
   return `<td style="text-align:center;color:#cbd5e1;font-size:11px;">–</td>`;
 }
-function prnewDrawAttach(){
-  const idxs=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk).map(x=>x.i);
+function prnewDrawAttach(forceIdx){
+  let idxs;
+  if(Array.isArray(forceIdx)) idxs=forceIdx;
+  else if(typeof forceIdx==="number") idxs=[forceIdx];
+  else idxs=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk).map(x=>x.i);
   if(!idxs.length){ toast("도면 첨부할 행을 선택하세요","bad"); return; }
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   if(!pjt){ toast("프로젝트를 먼저 선택/조회하세요","bad"); return; }
@@ -17129,8 +17132,10 @@ function prnewDrawDel(i,di){
   toast("도면 제거됨 (SharePoint 파일은 유지)","ok");
 }
 // ── 선택행(도면) 견적요청 메일: 도면 모아 첨부 + 제목/본문 자동, 받는사람은 발신자 선택 ──
-async function prnewDrawMail(){
-  const sel=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk);
+async function prnewDrawMail(forceIdx){
+  let sel;
+  if(typeof forceIdx==="number") sel=[{r:prnewRows[forceIdx], i:forceIdx}];
+  else sel=prnewRows.map((r,i)=>({r,i})).filter(x=>x.r._chk);
   if(!sel.length){ toast("메일 보낼 행을 선택하세요","bad"); return; }
   // 선택행들의 첨부도면 모음 (path 기준 중복 제거)
   const draws=[]; const seen=new Set();
@@ -17561,8 +17566,8 @@ function prnewRowCtx(e, i){
   document.getElementById("prnewCtxMenu")?.remove();
   const checked=prnewRows.filter(r=>r._chk).length;
   const items = checked>0
-    ? [["📋 선택행 업무 추가","prnewTaskPickMulti()"],["✕ 선택행 업무 삭제","prnewClearTaskMulti()"],["🔗 선택행 채팅 공유","prnewShareChat('multi')"]]
-    : [["📋 업무 추가",`prnewTaskPick(${i})`],["✕ 업무 삭제",`prnewTaskClear(${i})`],["🔗 채팅 공유",`prnewShareChat('one',${i})`]];
+    ? [["📋 선택행 업무 추가","prnewTaskPickMulti()"],["✕ 선택행 업무 삭제","prnewClearTaskMulti()"],["📐 선택행 도면첨부","prnewDrawAttach()"],["📧 선택행(도면) 메일보내기","prnewDrawMail()"],["🔗 선택행 채팅 공유","prnewShareChat('multi')"]]
+    : [["📋 업무 추가",`prnewTaskPick(${i})`],["✕ 업무 삭제",`prnewTaskClear(${i})`],["📐 도면첨부",`prnewDrawAttach(${i})`],["📧 도면 메일보내기",`prnewDrawMail(${i})`],["🔗 채팅 공유",`prnewShareChat('one',${i})`]];
   const m=document.createElement("div"); m.id="prnewCtxMenu";
   m.style.cssText=`position:fixed;z-index:1000099;left:${e.clientX}px;top:${e.clientY}px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:5px;min-width:178px`;
   m.innerHTML=items.map(([label,fn])=>`<div onclick="document.getElementById('prnewCtxMenu').remove();${fn}" style="padding:8px 12px;font-size:12.5px;cursor:pointer;border-radius:6px;white-space:nowrap" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''">${label}</div>`).join("");
