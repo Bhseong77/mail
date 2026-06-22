@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v329</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v330</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14517,6 +14517,23 @@ function _ccFmtDateDow(v){
   return `${ymd} <span style="color:${dowColor};font-weight:700;">(${dow})</span>`;
 }
 function _ccNum(n){ const v=Number(String(n==null?'':n).replace(/[, ]/g,'')); return isNaN(v)?(n||''):v.toLocaleString(); }
+// ── 승인취소 상계: 취소건 + (금액·가맹점 일치하는) 승인건을 1:1로 묶어 집계/알림에서 제외 ──
+function _ccIsCancel(r){ return /취소/.test(String(r['승인취소여부']||'')); }
+function _ccAmtKey(r){ return Math.abs(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0); }
+function _ccMerchKey(r){ return String(r['가맹점명']||'').replace(/\s+/g,'').trim(); }
+function _ccExcluded(rows){
+  const ex=new Set(), cancels=[];
+  rows.forEach((r,i)=>{ if(_ccIsCancel(r)){ ex.add(i); cancels.push(i); } });   // 취소건 자체 제외
+  const used=new Set();
+  cancels.forEach(ci=>{                                                          // 매칭 승인건 1:1 상계
+    const key=_ccMerchKey(rows[ci])+'|'+_ccAmtKey(rows[ci]);
+    for(let j=0;j<rows.length;j++){
+      if(j===ci||used.has(j)||_ccIsCancel(rows[j])) continue;
+      if(_ccMerchKey(rows[j])+'|'+_ccAmtKey(rows[j])===key){ ex.add(j); used.add(j); break; }
+    }
+  });
+  return ex;
+}
 
 function _ccDefaultRange(){
   const to=new Date(); const from=new Date(); from.setDate(from.getDate()-30);
@@ -14584,7 +14601,9 @@ async function ccLoad(){
 }
 function ccRender(){
   const list=$('ccList'); if(!list) return;
-  const cnt=$('ccCount'); if(cnt) cnt.textContent=`${CC_ROWS.length}건`;
+  const exSet=_ccExcluded(CC_ROWS);
+  const activeN=CC_ROWS.length-exSet.size;
+  const cnt=$('ccCount'); if(cnt) cnt.textContent = exSet.size?`${activeN}건 (취소상계 ${exSet.size}건 제외)`:`${CC_ROWS.length}건`;
   if(!CC_ROWS.length){ list.innerHTML='<div class="an-empty">조회된 사용내역이 없습니다 (기간/상태 확인).</div>'; return; }
   const acctOpts=sel=>{ const base=['',...CC_ACCOUNTS]; if(sel && !base.includes(sel)) base.push(sel); return base.map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join(''); };
   let h=`<table class="an-tbl"><thead><tr>
@@ -14598,13 +14617,14 @@ function ccRender(){
     const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
     const curAcct = (ed.acct!=null && ed.acct!=='') ? ed.acct : (r['비용계정']||'');
     const curJeokyo = (ed.jeokyo!=null && ed.jeokyo!=='') ? ed.jeokyo : (r['적요']||'');
-    h+=`<tr>
+    const isEx=exSet.has(i);
+    h+=`<tr style="${isEx?'opacity:.4':''}" title="${isEx?'취소 상계 — 집계·알림에서 제외':''}">
       <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
       <td class="c">${esc(r['처리상태']||'')}</td>
       <td class="c" style="font-size:12px">${esc(r['카드번호']||'')}</td>
       <td>${esc(cardNm)}</td>
       <td class="c" style="font-size:12px">${_ccFmtDateDow(r['승인일'])}</td>
-      <td class="c">${esc(r['승인취소여부']||'')}</td>
+      <td class="c">${isEx?'🚫 ':''}${esc(r['승인취소여부']||'')}</td>
       <td class="c">${esc(r['국내외구분']||'')}</td>
       <td>${esc(r['가맹점명']||'')}</td>
       <td>${esc(r['거래처']||'')}</td>
@@ -14613,11 +14633,11 @@ function ccRender(){
       <td><input class="memo" style="width:100%;min-width:180px" value="${esc(curJeokyo)}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
     </tr>`;
   });
-  // 합계 행 (승인금액 합계) — 항상 맨 아래
-  const totAmt=CC_ROWS.reduce((s,r)=>s+(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0),0);
-  const noJeokyo=CC_ROWS.filter((r,i)=>{ const ed=CC_EDIT[_ccRowKey(r,i)]||{}; const jk=(ed.jeokyo!=null&&ed.jeokyo!=='')?ed.jeokyo:(r['적요']||''); return !String(jk).trim(); }).length;
+  // 합계 행 (승인금액 합계, 취소상계분 제외) — 항상 맨 아래
+  const totAmt=CC_ROWS.reduce((s,r,i)=> exSet.has(i)?s:(s+(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0)),0);
+  const noJeokyo=CC_ROWS.filter((r,i)=>{ if(exSet.has(i)) return false; const ed=CC_EDIT[_ccRowKey(r,i)]||{}; const jk=(ed.jeokyo!=null&&ed.jeokyo!=='')?ed.jeokyo:(r['적요']||''); return !String(jk).trim(); }).length;
   h+=`</tbody><tfoot><tr style="background:#f1f5f9;font-weight:700;border-top:2px solid #cbd5e1;">
-    <td class="c" colspan="9" style="text-align:right;">합계 (${CC_ROWS.length}건${noJeokyo?` · 적요 미작성 ${noJeokyo}건`:''})</td>
+    <td class="c" colspan="9" style="text-align:right;">합계 (${activeN}건${exSet.size?` · 취소상계 ${exSet.size}건 제외`:''}${noJeokyo?` · 적요 미작성 ${noJeokyo}건`:''})</td>
     <td class="r" style="color:#0f4c81;">${_ccNum(totAmt)}</td>
     <td colspan="2"></td>
   </tr></tfoot></table>`;
@@ -14687,8 +14707,9 @@ async function ccUpdateBadge(){
     let rows=(data.rows||data.data||[]);
     const set=new Set(nums);
     rows=rows.filter(x=>set.has(_ccDigits(x['카드번호'])));
-    // 미처리 = 적요가 안 써진 행 (적요 작성 여부만 확인)
-    const pending=rows.filter(x=>!(String(x['적요']||'').trim())).length;
+    // 미처리 = 적요가 안 써진 행 (취소상계분 제외)
+    const exSet=_ccExcluded(rows);
+    const pending=rows.filter((x,i)=>!exSet.has(i) && !(String(x['적요']||'').trim())).length;
     const btn=document.getElementById('nav-corpcard');
     if(btn){
       const base='💳 법인카드';
