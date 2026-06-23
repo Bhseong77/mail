@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v361</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v363</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -16492,46 +16492,70 @@ let _poadvSplitGroups = null, _poadvSplitProposal = null;
 function poadvShowSplitModal(proposalNo, groups){
   _poadvSplitGroups = groups; _poadvSplitProposal = proposalNo;
   const custList=Object.keys(groups);
-  const rows=custList.map((c,i)=>{
-    const items=groups[c]; const names=items.map(x=>x.item_name).filter(Boolean);
-    return `<tr>
-      <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#94a3b8;">${i+1}</td>
-      <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#0f4c81;border-bottom:1px solid #f1f5f9;">🏢 ${esc(c)}</td>
-      <td style="padding:8px 10px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">${items.length}품목</td>
-      <td style="padding:8px 10px;font-size:11.5px;color:#64748b;border-bottom:1px solid #f1f5f9;">${esc(names.join(", "))}</td>
-    </tr>`;
+  const today=(typeof poadvToday==="function")?poadvToday():"";
+  let gi=0;
+  const blocks=custList.map((c)=>{
+    gi++;
+    const items=groups[c];
+    const rows=items.map((it,idx)=>{
+      const key=(it.item_no||it.item_name||"")+"";
+      return `<tr>
+        <td style="padding:6px 9px;font-size:12.5px;border-bottom:1px solid #f1f5f9;">${esc(it.item_name||'-')}</td>
+        <td style="padding:6px 9px;font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9;font-family:monospace;">${esc(it.item_no||'')}</td>
+        <td style="padding:6px 9px;font-size:12px;text-align:center;color:#64748b;border-bottom:1px solid #f1f5f9;">${esc(String(it.qty||''))}</td>
+        <td style="padding:4px 9px;border-bottom:1px solid #f1f5f9;">
+          <input class="poadv-sp-price" data-cust="${esc(c)}" data-key="${esc(key)}" type="text" inputmode="numeric" placeholder="단가"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="width:110px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;text-align:right;box-sizing:border-box;"></td>
+        <td style="padding:4px 9px;border-bottom:1px solid #f1f5f9;">
+          <input class="poadv-sp-delv" data-cust="${esc(c)}" data-key="${esc(key)}" type="date" value="" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;box-sizing:border-box;"></td>
+      </tr>`;
+    }).join("");
+    return `<div style="margin-bottom:14px;border:1px solid #e9e4f8;border-radius:10px;overflow:hidden;">
+      <div style="padding:9px 12px;background:#f5f3ff;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;font-weight:800;color:#0f4c81;">발주 ${gi} · 🏢 ${esc(c)}</span>
+        <span style="font-size:11.5px;color:#7c3aed;">${items.length}품목</span>
+        <span style="flex:1"></span>
+        <span style="font-size:11px;color:#64748b;">납기 일괄:</span>
+        <input type="date" onchange="poadvSplitFillDelv('${esc(c).replace(/'/g,"\\'")}',this.value)" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11.5px;">
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#fafafa;">
+          <th style="padding:6px 9px;text-align:left;font-size:10.5px;color:#94a3b8;">품명</th>
+          <th style="padding:6px 9px;text-align:left;font-size:10.5px;color:#94a3b8;">품번</th>
+          <th style="padding:6px 9px;font-size:10.5px;color:#94a3b8;">수량</th>
+          <th style="padding:6px 9px;text-align:left;font-size:10.5px;color:#94a3b8;">단가</th>
+          <th style="padding:6px 9px;text-align:left;font-size:10.5px;color:#94a3b8;">납품예정일</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+    </div>`;
   }).join("");
   let ov=document.getElementById("poadv-split-ov"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="poadv-split-ov";
   ov.style.cssText="position:fixed;inset:0;z-index:1000085;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
-  ov.innerHTML=`<div style="width:min(720px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+  ov.innerHTML=`<div style="width:min(820px,96vw);max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#7c3aed;color:#fff">
-      <b>🏢 거래처별 발주 분할 <span style="font-weight:400;font-size:12px;opacity:.85">· 품의 ${esc(proposalNo)}</span></b>
+      <b>🏢 거래처별 발주 분할 <span style="font-weight:400;font-size:12px;opacity:.85">· 품의 ${esc(proposalNo)} · 거래처 ${custList.length}개</span></b>
       <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('poadv-split-ov').remove()">✕</span></div>
-    <div style="padding:14px 18px 6px;">
-      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#5b21b6;line-height:1.6;">
-        이 품의는 거래처가 <b>${custList.length}개</b>입니다. 영림원 발주는 거래처당 1건이므로,
-        <b>거래처별로 발주 ${custList.length}건</b>을 순차 생성합니다. (발주일·단가·납기는 품의 승계값 사용)
+    <div style="padding:12px 18px 4px;">
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:9px 12px;font-size:12px;color:#5b21b6;line-height:1.55;">
+        거래처별로 <b>발주 ${custList.length}건</b>을 순차 생성합니다. <b>단가·납기를 품목마다 입력</b>하세요 (비우면 품의 승계값 사용).
+        <span style="color:#94a3b8;">발주일: ${esc(today)}</span>
       </div>
     </div>
-    <div style="flex:1;overflow:auto;padding:8px 18px;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr style="background:#f8fafc;">
-          <th style="padding:8px 10px;font-size:11px;color:#64748b;width:30px;">#</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">거래처</th>
-          <th style="padding:8px 10px;font-size:11px;color:#64748b;">품목수</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">품명</th>
-        </tr></thead><tbody>${rows}</tbody>
-      </table>
-    </div>
+    <div style="flex:1;overflow:auto;padding:10px 18px;">${blocks}</div>
     <div style="padding:14px 18px;border-top:1px solid #eef2f7;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-      <span style="flex:1;font-size:11.5px;color:#94a3b8;">※ 각 발주는 영림원에 순차 저장됩니다 (1건당 ~30초)</span>
+      <span style="flex:1;font-size:11.5px;color:#94a3b8;">※ 단가 입력 시 금액 자동계산 · 각 발주 ~30초</span>
       <button onclick="document.getElementById('poadv-split-ov').remove()" style="padding:9px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;">취소</button>
       <button onclick="poadvDoSplitOrders()" style="padding:9px 18px;border:none;background:#7c3aed;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">🧾 발주 ${custList.length}건 생성</button>
     </div>
   </div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
+}
+// 거래처 블록 납기 일괄 채움
+function poadvSplitFillDelv(cust, val){
+  if(!val) return;
+  document.querySelectorAll(`#poadv-split-ov .poadv-sp-delv[data-cust="${(window.CSS&&CSS.escape)?CSS.escape(cust):cust}"]`).forEach(inp=>{ inp.value=val; });
 }
 // 거래처별로 save-order-from-proposal 순차 호출 (keep_names = 그 거래처 품명들)
 async function poadvDoSplitOrders(){
@@ -16546,10 +16570,19 @@ async function poadvDoSplitOrders(){
   for(let i=0;i<custList.length;i++){
     const cust=custList[i];
     const keep=[...new Set(groups[cust].map(x=>x.item_name).filter(Boolean))];
+    // 그 거래처 품목들의 단가/납기 수집 (품번 우선 키)
+    const sel=(window.CSS&&CSS.escape)?CSS.escape(cust):cust;
+    const prices={}, delvDates={};
+    document.querySelectorAll(`#poadv-split-ov .poadv-sp-price[data-cust="${sel}"]`).forEach(inp=>{
+      const k=inp.getAttribute("data-key")||""; const v=(inp.value||"").trim(); if(k && v) prices[k]=v;
+    });
+    document.querySelectorAll(`#poadv-split-ov .poadv-sp-delv[data-cust="${sel}"]`).forEach(inp=>{
+      const k=inp.getAttribute("data-key")||""; const v=(inp.value||"").trim(); if(k && v) delvDates[k]=v;
+    });
     if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ 발주 ${i+1}/${custList.length} 생성 중 — 🏢 ${cust} (품목 ${keep.length}건, ~30초)…`; }
     try{
       const r=await fetch(`${SERVER}/api/erp/save-order-from-proposal`,{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({proposal_no:proposalNo, keep_names:keep, date})});
+        body:JSON.stringify({proposal_no:proposalNo, keep_names:keep, date, prices, delv_dates:delvDates})});
       const d=await r.json();
       let res;
       if(d && d.job_id){ res=await poadvPollSaveJob(d.job_id, null); }
@@ -16562,8 +16595,61 @@ async function poadvDoSplitOrders(){
   if(msg){ msg.style.color=okN===custList.length?"#15803d":"#dc2626";
     msg.textContent=`${okN===custList.length?"✅":"⚠️"} 거래처별 발주 ${okN}/${custList.length}건 — ${summary}`; }
   if(_j){ (okN===custList.length?_Jok:_Jno)(_j, `${okN}/${custList.length}건 완료`); }
-  // 발주목록 갱신
-  if(typeof poadvListLoad==="function") setTimeout(()=>poadvListLoad(true), 1500);
+  // 발주목록 갱신 후 → 거래처별 구매발주서 PDF 결과 모달
+  if(typeof poadvListLoad==="function"){ try{ await poadvListLoad(true); }catch(_){} }
+  poadvShowSplitResult(proposalNo, results);
+}
+// 분할 발주 결과 — 거래처별 발주번호 + 구매발주서 PDF 버튼
+function poadvShowSplitResult(proposalNo, results){
+  const rows=results.map((r,i)=>`<tr>
+    <td style="padding:9px 11px;font-size:12.5px;font-weight:700;color:#0f4c81;border-bottom:1px solid #f1f5f9;">🏢 ${esc(r.cust)}</td>
+    <td style="padding:9px 11px;font-size:12.5px;border-bottom:1px solid #f1f5f9;font-family:monospace;">${r.ok?esc(r.po_no||"(번호미확인)"):`<span style="color:#dc2626;">실패: ${esc(r.msg||"")}</span>`}</td>
+    <td style="padding:6px 11px;text-align:right;border-bottom:1px solid #f1f5f9;">
+      ${(r.ok&&r.po_no)?`<button onclick="poadvSplitPrint('${esc(r.po_no).replace(/'/g,"\\'")}')" style="padding:6px 13px;border:none;background:#0f4c81;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">📄 구매발주서 PDF</button>`:`<span style="color:#cbd5e1;font-size:11px;">-</span>`}
+    </td></tr>`).join("");
+  const okN=results.filter(r=>r.ok).length;
+  let ov=document.getElementById("poadv-splitres-ov"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="poadv-splitres-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000086;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(600px,94vw);max-height:84vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:${okN===results.length?"#15803d":"#d97706"};color:#fff">
+      <b>${okN===results.length?"✅":"⚠️"} 거래처별 발주 생성 ${okN}/${results.length}건 <span style="font-weight:400;font-size:12px;opacity:.85">· 품의 ${esc(proposalNo)}</span></b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('poadv-splitres-ov').remove()">✕</span></div>
+    <div style="padding:12px 18px 4px;font-size:12px;color:#64748b;">각 발주의 <b>구매발주서 PDF</b>를 생성해 거래처에 보내세요. (PDF 미리보기에서 메일발송)</div>
+    <div style="flex:1;overflow:auto;padding:8px 18px 16px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#f8fafc;">
+          <th style="padding:8px 11px;text-align:left;font-size:11px;color:#64748b;">거래처</th>
+          <th style="padding:8px 11px;text-align:left;font-size:11px;color:#64748b;">발주번호</th>
+          <th style="padding:8px 11px;text-align:right;font-size:11px;color:#64748b;">구매발주서</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid #eef2f7;display:flex;justify-content:flex-end;">
+      <button onclick="document.getElementById('poadv-splitres-ov').remove()" style="padding:9px 18px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;">닫기</button>
+    </div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+// 발주번호 → 전체 품목 로드 후 구매발주서 PDF (poadvReprint)
+async function poadvSplitPrint(po_no){
+  if(!(_poadvOrders||[]).some(x=>x.po_no===po_no)){ try{ await poadvListLoad(true); }catch(_){} }
+  let o=(_poadvOrders||[]).find(x=>x.po_no===po_no);
+  if(!o){ if(typeof toast==="function") toast(`발주 ${po_no} 을 목록에서 못찾음 — 새로고침 후 재시도`,"bad"); return; }
+  if(typeof poadvShowLoadingModal==="function") poadvShowLoadingModal(po_no);
+  try{
+    const r=await fetch(`${SERVER}/api/erp/order-items?po_no=${encodeURIComponent(po_no)}`);
+    const j=await r.json();
+    if(j&&j.rows&&j.rows.length){
+      o.items=j.rows.map(x=>({pjt_no:x.pjt_no||"",pjt_name:x.pjt_name||"",item_name:x.item_name||"",item_no:x.item_no||"",
+        spec:x.spec||"",unit:x.unit||"EA",maker:x.maker||"",qty:poadvNum(x.qty),price:poadvNum(x.price),
+        amount:poadvNum(x.amount||x.total),delv:x.delv||"",emp_name:x.emp_name||""}));
+      o._itemsLoaded=true;
+    }
+  }catch(e){}
+  const lo=document.getElementById("poadv-det-ov"); if(lo) lo.remove();
+  poadvReprint(po_no);
 }
 // 영림원 날짜(20260706 또는 2026-07-06) → input[type=date] 형식
 function poadvFmtDate(s){
