@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v363</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v364</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7048,8 +7048,54 @@ function renderBody(m,d){
     }
   }catch(e){}
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
-  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button><button class="btn sm" onclick="mailPrint()">🖨 인쇄</button>${moveBtn}</div>`;
+  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button><button class="btn sm" onclick="mailPrint()">🖨 인쇄</button><button class="btn sm" onclick="mailSavePdf()">📄 PDF저장</button>${moveBtn}</div>`;
   $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+fwdHtml+attHtml+bodyHtml;
+}
+
+// ── 메일 본문 → PDF 저장 (견적서/거래명세서/세금계산서/발주서 문서함) ──
+function mailSavePdf(){
+  if(!CUR_BODY){ toast("메일 본문을 먼저 여세요","bad"); return; }
+  let ov=document.getElementById("mailpdf-ov"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="mailpdf-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000090;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+  const folders=[["doc-invoice","📋 거래명세서"],["doc-quote","📄 견적서"],["doc-tax","🧾 세금계산서"],["doc-order","📦 발주서"]];
+  ov.innerHTML=`<div style="width:min(440px,92vw);background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff">
+      <b>📄 메일을 PDF로 저장</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('mailpdf-ov').remove()">✕</span></div>
+    <div style="padding:16px 18px;">
+      <div style="font-size:12.5px;color:#64748b;margin-bottom:14px;line-height:1.5;">메일 본문이 PDF로 변환되어 선택한 문서함에 저장됩니다.<br><b style="color:#334155;">${esc((CUR_MAIL&&CUR_MAIL.subject)||"(제목 없음)")}</b></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${folders.map(([k,lbl])=>`<button onclick="mailDoSavePdf('${k}')" style="padding:16px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;color:#0f4c81;transition:background .15s;" onmouseover="this.style.background='#eef4fb'" onmouseout="this.style.background='#f8fafc'">${lbl}</button>`).join("")}
+      </div>
+    </div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function mailDoSavePdf(folderKey){
+  document.getElementById("mailpdf-ov")?.remove();
+  const m=CUR_MAIL||{}, d=CUR_BODY||{};
+  const html=(d.isHtml&&d.bodyHtml)?d.bodyHtml:`<pre style="white-space:pre-wrap;font-family:inherit;">${esc(d.body||"")}</pre>`;
+  const _j=(typeof _J==="function")?_J("메일 PDF 저장"):null;
+  toast("PDF 변환 중… (~5초)","ok");
+  try{
+    const r=await fetch(`${SERVER}/api/mail/html-to-pdf`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({html, title:(m.subject||"mail")})});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||"변환 실패");
+    const bin=atob(j.pdf_b64); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    // 파일명: 제목_날짜.pdf (SharePoint 금지문자 제거)
+    const dt=String(m.date||"").replace(/[^0-9]/g,"").slice(0,8);
+    const dstr=dt.length===8?`${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`:(typeof poadvToday==="function"?poadvToday():"");
+    let fn=`${(m.subject||"메일").trim()}_${dstr}.pdf`.replace(/[\\\/:*?"<>|]/g,"_").replace(/\s+/g," ").slice(0,120);
+    const path=`${DOC_MAP[folderKey]}/${fn}`;
+    await spUploadFile(path, bytes, "application/pdf");
+    if(_j&&typeof _Jok==="function") _Jok(_j, fn);
+    toast(`✅ ${(DOC_TITLE[folderKey]||"문서함").replace(/^[^ ]+ /,"")}에 저장됨: ${fn}`,"ok");
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    toast("PDF 저장 실패: "+(e.message||e),"bad");
+  }
 }
 async function dlAtt(uid,idx,name){ return mailAttGet(uid,idx,name,false); }
 // ── 메일 첨부 다운로드 매니저 (스트리밍 진행률 + 다운로드 큐 + 다른이름저장) ──
