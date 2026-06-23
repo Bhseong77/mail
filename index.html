@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v358</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v359</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -18393,7 +18393,9 @@ async function prnewProposalInput(reqNo){
     // 거래처 빈 행 있으면: 목록에서 지정한 거래처가 있으면 그걸로 바로 저장, 없으면 모달
     if(d.needs_cust){
       const picked=_prnewReqCust[reqNo];
-      if(picked && picked.name){ prnewDoProposalSave(reqNo, picked.name); }
+      if(picked && picked.perItem && Array.isArray(picked.items) && picked.items.some(x=>x&&x.name)){
+        prnewDoProposalSave(reqNo, null, picked.items);          // 품목별 거래처
+      } else if(picked && picked.name){ prnewDoProposalSave(reqNo, picked.name); }
       else prnewShowCustModal(reqNo, d.items||[]);
     }else{
       prnewDoProposalSave(reqNo, null);
@@ -18462,14 +18464,22 @@ function prnewCustSaveConfirm(reqNo){
   prnewDoProposalSave(reqNo, cust);
 }
 
-// 실제 저장 (거래처 포함)
-async function prnewDoProposalSave(reqNo, cust){
+// 실제 저장 (거래처 포함). perItem 있으면 품목별 거래처 전송
+async function prnewDoProposalSave(reqNo, cust, perItem){
   const msg=document.getElementById("prnew-msg");
-  if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ 구매품의 입력 중… ${reqNo}${cust?` · 거래처 ${cust}`:""} (영림원, ~30초)`; }
+  const piList=(perItem||[]).filter(x=>x&&x.name);
+  const label = piList.length ? `품목별 ${piList.length}건` : (cust?`거래처 ${cust}`:"");
+  if(msg){ msg.style.color="#7c3aed"; msg.textContent=`⏳ 구매품의 입력 중… ${reqNo}${label?` · ${label}`:""} (영림원, ~30초)`; }
   const _j=(typeof _J==="function")?_J("구매품의 저장: "+reqNo):null;
   try{
+    const payload={req_no:reqNo};
+    if(piList.length){
+      payload.custs = piList.map(x=>({item_name:x.item_name||"", item_no:x.item_no||"", cust:x.name}));
+    } else {
+      payload.cust = cust||"";
+    }
     const r=await fetch(`${SERVER}/api/erp/save-proposal-input`,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({req_no:reqNo, cust:cust||""})});
+      body:JSON.stringify(payload)});
     const d=await r.json();
     if(d.success){
       if(_j&&typeof _Jok==="function") _Jok(_j, d.proposal_no||"저장됨");
