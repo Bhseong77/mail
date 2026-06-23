@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v357</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v358</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -18193,24 +18193,90 @@ async function prnewSaveReqCust(){
   try{ localStorage.setItem(PRNEW_CUST_KEY, JSON.stringify(_prnewReqCust)); }catch(_){}
   try{ await spPutJson("100.ERP/prnew_req_cust.json", {data:_prnewReqCust, updated:new Date().toISOString()}); }catch(_){}
 }
-// 거래처 선택 모달 (거래처조회 데이터)
+// 거래처 선택 모달 — 품목별 거래처 지정 (대표품명 포함 각 품목마다)
 async function prnewPickCust(reqNo){
   let custs=[];
   try{ custs=await poadvLoadCustomers(); }catch(_){}
+  _prnewCustList = custs;
+  const custNames=[...new Set((custs||[]).map(c=>c.cust_name||c.name||"").filter(Boolean))];
+  // 해당 요청의 품목들 (목록 로드 시 보유)
+  const o=(_prnewList||[]).find(x=>x.req_no===reqNo);
+  const items=(o&&o.items&&o.items.length)?o.items:[{item_name:(o&&o.item_name)||"", item_no:"", qty:"", delv:""}];
+  // 기존 지정값 복원 (품목별 or 단일)
+  const saved=_prnewReqCust[reqNo]||{};
+  const savedItems=(saved.items||[]);
+  const getSaved=(it,i)=>{
+    const m=savedItems.find(s=> (it.item_no && s.item_no===it.item_no) || s.item_name===it.item_name );
+    if(m) return m.name||"";
+    return ""; // 단일 fallback은 비워둠(전체적용으로 채우게)
+  };
   let ov=document.getElementById("prnewCustPickOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="prnewCustPickOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000080;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
-  ov.innerHTML=`<div style="width:min(560px,94vw);max-height:82vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+  const rowsHtml=items.map((it,i)=>`<tr>
+    <td style="padding:7px 9px;font-size:12.5px;border-bottom:1px solid #f1f5f9;">${esc(it.item_name||'-')}</td>
+    <td style="padding:7px 9px;font-size:11.5px;color:#94a3b8;border-bottom:1px solid #f1f5f9;font-family:monospace;">${esc(it.item_no||'')}</td>
+    <td style="padding:7px 9px;font-size:12px;text-align:center;color:#64748b;border-bottom:1px solid #f1f5f9;">${esc(String(it.qty||''))}</td>
+    <td style="padding:5px 9px;border-bottom:1px solid #f1f5f9;">
+      <input class="prnew-icust" data-idx="${i}" list="prnewItemCustDL" value="${esc(getSaved(it,i))}" placeholder="거래처 선택·입력"
+        autocomplete="off" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;box-sizing:border-box;">
+    </td></tr>`).join("");
+  ov.innerHTML=`<div style="width:min(680px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#7c3aed;color:#fff">
-      <b>🏢 구매거래처 선택 <span style="font-weight:400;font-size:12px;opacity:.85">· 요청 ${esc(reqNo)}</span></b>
+      <b>🏢 품목별 구매거래처 지정 <span style="font-weight:400;font-size:12px;opacity:.85">· 요청 ${esc(reqNo)} · ${items.length}건</span></b>
       <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewCustPickOv').remove()">✕</span></div>
-    <div style="padding:10px 14px;border-bottom:1px solid #eef2f7"><input id="prnewCustQ" placeholder="🔍 거래처명·대표·사업자번호 검색" oninput="prnewCustPickRender('${esc(reqNo).replace(/'/g,"\\'")}',this.value)" style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box"></div>
-    <div id="prnewCustPickList" style="flex:1;overflow:auto;min-height:240px"></div>
+    <div style="padding:12px 16px;border-bottom:1px solid #eef2f7;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;color:#64748b;font-weight:600;">전체 동일 적용:</span>
+      <input id="prnewCustAll" list="prnewItemCustDL" placeholder="거래처명" autocomplete="off"
+        style="flex:1;min-width:160px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;box-sizing:border-box;">
+      <button onclick="prnewItemCustApplyAll()" style="padding:7px 12px;border:none;background:#0f4c81;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">↓ 전체 적용</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:0 16px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="position:sticky;top:0;background:#f8fafc;">
+          <th style="padding:8px 9px;text-align:left;font-size:11px;color:#64748b;">품명</th>
+          <th style="padding:8px 9px;text-align:left;font-size:11px;color:#64748b;">품번</th>
+          <th style="padding:8px 9px;font-size:11px;color:#64748b;">수량</th>
+          <th style="padding:8px 9px;text-align:left;font-size:11px;color:#64748b;min-width:200px;">구매거래처</th>
+        </tr></thead><tbody>${rowsHtml}</tbody>
+      </table>
+      <datalist id="prnewItemCustDL">${custNames.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+    </div>
+    <div style="padding:14px 18px;border-top:1px solid #eef2f7;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+      <span style="flex:1;font-size:11.5px;color:#94a3b8;">※ 거래처는 거래처조회와 동일한 이름으로 입력하세요</span>
+      <button onclick="document.getElementById('prnewCustPickOv').remove()" style="padding:9px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;">취소</button>
+      <button onclick="prnewItemCustSave('${esc(reqNo).replace(/'/g,"\\'")}')" style="padding:9px 18px;border:none;background:#7c3aed;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">💾 거래처 지정 저장</button>
+    </div>
   </div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
-  _prnewCustList = custs;     // 모달 datalist 등과 공유
-  prnewCustPickRender(reqNo, "");
+}
+// 전체 동일 적용 — 빈 칸만 채움(이미 입력된 건 유지)
+function prnewItemCustApplyAll(){
+  const all=(document.getElementById("prnewCustAll")||{}).value||"";
+  if(!all.trim()) return;
+  document.querySelectorAll("#prnewCustPickOv .prnew-icust").forEach(inp=>{ if(!inp.value.trim()) inp.value=all.trim(); });
+}
+// 품목별 거래처 저장
+async function prnewItemCustSave(reqNo){
+  const o=(_prnewList||[]).find(x=>x.req_no===reqNo);
+  const items=(o&&o.items&&o.items.length)?o.items:[{item_name:(o&&o.item_name)||"", item_no:""}];
+  const inputs=[...document.querySelectorAll("#prnewCustPickOv .prnew-icust")];
+  const custByName={}; (_prnewCustList||[]).forEach(c=>{ const nm=c.cust_name||c.name; if(nm) custByName[nm]=c.cust_seq||c.seq||""; });
+  const perItem=[]; let filled=0;
+  inputs.forEach((inp,i)=>{
+    const nm=(inp.value||"").trim(); const it=items[i]||{};
+    if(nm) filled++;
+    perItem.push({item_name:it.item_name||"", item_no:it.item_no||"", name:nm, seq:custByName[nm]||""});
+  });
+  if(!filled){ if(typeof toast==="function") toast("거래처를 하나 이상 입력하세요","bad"); return; }
+  // 대표(첫 입력된) 거래처를 name/seq에도 저장 → 목록 표시·기존 흐름 호환
+  const firstWith=perItem.find(p=>p.name);
+  _prnewReqCust[reqNo]={ name:firstWith?firstWith.name:"", seq:firstWith?firstWith.seq:"", items:perItem, perItem:true };
+  await prnewSaveReqCust();
+  document.getElementById("prnewCustPickOv")?.remove();
+  if(typeof toast==="function") toast(`거래처 지정 저장 · ${filled}/${items.length}건`,"ok");
+  prnewListRender((document.getElementById("prnew-list-q")||{}).value||"");
 }
 function prnewCustPickRender(reqNo, q){
   const list=document.getElementById("prnewCustPickList"); if(!list) return;
@@ -18245,7 +18311,8 @@ async function prnewListLoad(refresh){
     rows.forEach(x=>{
       const no=x.req_no||""; if(!no) return;
       if(!G[no]) G[no]={req_no:no, date:x.req_date||"", pjt_no:x.pjt_no||"",
-        pjt_name:x.pjt_name||"", item_name:x.item_name||"", status:x.status||"", n:0};
+        pjt_name:x.pjt_name||"", item_name:x.item_name||"", status:x.status||"", n:0, items:[]};
+      G[no].items.push({item_name:x.item_name||"", item_no:x.item_no||x.pn||"", qty:x.qty||x.req_qty||"", delv:x.delv||x.delv_date||""});
       G[no].n++;
     });
     _prnewList=Object.values(G);
@@ -18280,9 +18347,12 @@ function prnewListRender(q){
     // 확정(승인)이면 구매품의 입력 버튼 — 거래처 지정돼야 활성
     const isConfirmed = st==="확정(승인)";
     const cust=_prnewReqCust[o.req_no];
-    const custCell = (cust && cust.name)
+    const perItemN=(cust&&cust.perItem&&Array.isArray(cust.items))?cust.items.filter(x=>x&&x.name).length:0;
+    const custCell = (cust && cust.perItem && perItemN)
+      ? `<span style="font-size:12px;color:#0f4c81;font-weight:600;" title="${esc((cust.items||[]).filter(x=>x.name).map(x=>`${x.item_name}→${x.name}`).join(' · '))}">🏢 품목별 ${perItemN}건</span> <button onclick="prnewPickCust('${esc(o.req_no).replace(/'/g,"\\'")}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;">변경</button>`
+      : ((cust && cust.name)
       ? `<span style="font-size:12px;color:#0f4c81;font-weight:600;">🏢 ${esc(cust.name)}</span> <button onclick="prnewPickCust('${esc(o.req_no).replace(/'/g,"\\'")}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;">변경</button>`
-      : `<button onclick="prnewPickCust('${esc(o.req_no).replace(/'/g,"\\'")}')" style="padding:4px 10px;border:1px dashed #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#7c3aed;font-weight:600;white-space:nowrap;">🏢 거래처 선택</button>`;
+      : `<button onclick="prnewPickCust('${esc(o.req_no).replace(/'/g,"\\'")}')" style="padding:4px 10px;border:1px dashed #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#7c3aed;font-weight:600;white-space:nowrap;">🏢 거래처 선택</button>`);
     const action = !isConfirmed
       ? `<span style="color:#cbd5e1;font-size:11px;">-</span>`
       : ((cust && cust.name)
