@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v373</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v374</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8936,7 +8936,18 @@ async function wpReadPlan(code){
   const _tc=performance.now();
   const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+wpFileName())}:/content`;
   const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
-  if(r.ok){ const j=await r.json(); console.log(`[wpReadPlan] ${code} plan.json ✓ · 채널/토큰 ${(_tc-_t0)|0}ms · fetch ${(performance.now()-_tc)|0}ms · 합 ${(performance.now()-_t0)|0}ms`); return j; }
+  const _tf=performance.now();
+  if(r.ok){
+    const txt=await r.text(); const _tt=performance.now();
+    const j=JSON.parse(txt); const _tp=performance.now();
+    try{
+      const mb=(txt.length/1048576).toFixed(2);
+      const strip=(o)=>{ if(Array.isArray(o)) return o.map(strip); if(o&&typeof o==="object"){ const c={}; for(const k in o){ if(k==="history"||k==="comments"||k==="files"||k==="_hist") continue; c[k]=strip(o[k]); } return c; } return o; };
+      const lean=(JSON.stringify(strip(j)).length/1048576).toFixed(2);
+      console.log(`[wpReadPlan] ${code} ✓ · 응답대기 ${(_tf-_tc)|0}ms · 본문수신 ${(_tt-_tf)|0}ms · 파싱 ${(_tp-_tt)|0}ms · 크기 ${mb}MB → 슬림 ${lean}MB · 합 ${(_tp-_t0)|0}ms`);
+    }catch(_){}
+    return j;
+  }
   console.warn(`[wpReadPlan] ${code} ⚠ plan.json 없음(${r.status}) → 주차파일 병합 경로(느림)`);
   // plan.json 없음 → 모든 주차 파일(plan-YYYY-Wnn.json)을 병합해 전체 리스트 구성
   try{
