@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v369</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v370</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8832,7 +8832,50 @@ function wpCacheKey(code){ return `wpcache_${code}_${wpFileName()}`; }
 function wpCacheGet(code){ try{ const s=localStorage.getItem(wpCacheKey(code)); return s?JSON.parse(s):null; }catch(_){ return null; } }
 function wpCacheSet(code,proj){ try{ localStorage.setItem(wpCacheKey(code), JSON.stringify(proj)); }catch(_){} }
 
+// 스켈레톤 우선 로드 — 작은 파일 1개로 즉시 렌더, 폴더 펼칠 때 드릴다운
 async function wpLoad(){
+  const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
+  WP_SEL=null; WP_ATTACH=null;
+  const projs=wpProjects();
+  // 스켈레톤 시도 (작은 파일 1개)
+  let skel=null; try{ skel=await spGetJson(WP_SKELETON_PATH); }catch(_){}
+  const hasSkel = skel && Array.isArray(skel.projects) && skel.projects.length;
+  if(!hasSkel){ return _wpLoadFull(); }   // 스켈레톤 없으면 기존 전체로드
+  // 즉시 렌더: 캐시 있으면 full, 없으면 스켈레톤 stub
+  WP_LOADED_PROJ = projs.map(code=>{
+    const cached=wpCacheGet(code); if(cached){ cached.id=code; return cached; }
+    const s=(skel.projects||[]).find(p=>p.code===code);
+    if(s){ return { id:code, name:s.name||code, prog:s.prog||0, _stub:true,
+      children:(s.folders||[]).map(f=>({ id:f.id, name:f.name, group:(f.group!==false), prog:f.prog||0, _n:f.n||0, children:[] })) }; }
+    return { id:code, name:code, prog:0, children:[], _loading:true };
+  });
+  wpSeedOpen(); wpMeta(); wpRender();   // ⚡ 여기서 첫 화면이 즉시 뜸
+  // 캐시로 full 들어온 프로젝트는 pr-links/cascade 비차단 보강
+  const anyFull=WP_LOADED_PROJ.some(p=>p && !p._stub && !p._loading);
+  if(anyFull){ wpLoadPrLinks().then(()=>wpRender()).catch(()=>{}); }
+}
+// 프로젝트 full 로드 보장 (스텁이면 plan.json 로드). 폴더 펼칠 때 호출.
+async function wpEnsureProject(code){
+  const idx=wpProjects().indexOf(code); if(idx<0) return;
+  const p=WP_LOADED_PROJ[idx];
+  if(p && !p._stub && !p._loading) return;       // 이미 full
+  if(p && p._loadingFull) return p._loadingFull;  // 중복 로드 방지
+  const run=(async()=>{
+    try{
+      const data=await wpReadPlan(code);
+      if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); WP_LOADED_PROJ[idx]=proj; }
+      else if(WP_LOADED_PROJ[idx]){ WP_LOADED_PROJ[idx]._stub=false; delete WP_LOADED_PROJ[idx]._loadingFull; }
+      wpSeedOpen(); wpRender();
+      // 이 프로젝트만 후처리(비차단): 후행 일정 cascade + 구매연결 배지
+      setTimeout(()=>{ try{ const mv=wpCascadeAll(code); if(mv&&mv.length){ wpSaveProject(code).catch(()=>{}); } }catch(_){} }, 0);
+      wpLoadPrLinks().then(()=>wpRender()).catch(()=>{});
+      wpSaveSkeleton();
+    }catch(_){ if(WP_LOADED_PROJ[idx]){ WP_LOADED_PROJ[idx]._stub=false; delete WP_LOADED_PROJ[idx]._loadingFull; } wpRender(); }
+  })();
+  if(WP_LOADED_PROJ[idx]) WP_LOADED_PROJ[idx]._loadingFull=run;
+  return run;
+}
+async function _wpLoadFull(){
   const v=document.getElementById("wp-week").value; const m=v.match(/(\d+)-W(\d+)/); if(m) WP_WEEK={year:+m[1],week:+m[2]};
   WP_SEL=null; WP_ATTACH=null;
   const projs=wpProjects();
@@ -9093,7 +9136,14 @@ async function wpLinkCopy(srcProjId, taskId, targetProjs){
 }
 function wpView(v){ WP_VIEW=v; document.getElementById("wp-v-tree").classList.toggle("on",v==="tree"); document.getElementById("wp-v-gantt").classList.toggle("on",v==="gantt"); document.getElementById("wp-v-order").classList.toggle("on",v==="order"); wpRender(); }
 function wpExpandAll(o){ Object.keys(WP_OPEN).forEach(k=>WP_OPEN[k]=o); wpRender(); }
-function wpToggle(id){ WP_OPEN[id]=!WP_OPEN[id]; wpRender(); }
+function wpToggle(id){
+  // 스텁(미로드) 프로젝트의 폴더를 펼치면 → 먼저 그 프로젝트 full 로드
+  if(WP_OPEN[id]!==true){
+    const proj=(WP_LOADED_PROJ||[]).find(p=>p && p._stub && (p.children||[]).some(c=>c && c.id===id));
+    if(proj){ WP_OPEN[id]=true; wpRender(); wpEnsureProject(proj.id); return; }
+  }
+  WP_OPEN[id]=!WP_OPEN[id]; wpRender();
+}
 function wpSelect(id){ if(WP_JUST_DRAGGED){ WP_JUST_DRAGGED=false; return; } WP_SEL=WP_SEL===id?null:id; WP_ATTACH=null; wpRender(); }
 let WP_JUST_DRAGGED=false;
 function wpPrevWeek(){ const s=document.getElementById("wp-week"); if(s.selectedIndex<s.options.length-1){ s.selectedIndex++; wpLoad(); } }
@@ -9655,7 +9705,7 @@ function wpAskDestToggle(){
   document.getElementById("wp-ask-dmbox").style.display = dest==="dm"?"block":"none";
 }
 function wpRowHtml(projId, n, depth, parentNotDone){
-  const kids=n.children&&n.children.length, open=WP_OPEN[n.id]!==false, ind=depth*20;
+  const kids=(n.children&&n.children.length)||(n._n>0), open=WP_OPEN[n.id]!==false, ind=depth*20;
   const dnd = wpIsPM() ? `draggable="true" ondragstart="wpDragStart(event,'${projId}','${n.id}')" ondragend="wpDragEnd(event)" ondragover="wpDragOver(event,'${n.id}',${n.group?1:0})" ondragleave="wpDragLeave(event,'${n.id}')" ondrop="wpDrop(event,'${projId}','${n.id}',${n.group?1:0})"` : "";
   const handle = wpIsPM() ? `<span class="wp-grip" title="드래그로 이동" style="cursor:grab;color:var(--t3);font-size:13px">⠿</span>` : "";
   if(n.group){
@@ -9664,7 +9714,7 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     let h=`<div class="wp-grp" id="wprow-${n.id}" style="margin-left:${ind}px" ${dnd} onclick="wpToggle('${n.id}')" oncontextmenu="wpCtxMenu(event,'${projId}','${n.id}')">
       ${handle}<span style="font-size:14px">${open?"▾":"▸"}</span>📂
       <span style="font-size:13px;font-weight:600">${esc(wpNm(n))}</span>
-      <span style="font-size:11px;color:var(--t3)">${(n.children||[]).length}작업</span>
+      <span style="font-size:11px;color:var(--t3)">${(n._n!=null?n._n:(n.children||[]).length)}작업</span>
       ${(!open && refFiles.length)?refFiles.slice(0,2).map(f=>`<a href="${esc(f.url||'#')}" target="_blank" onclick="event.stopPropagation()" title="${esc(f.name)}" style="font-size:10.5px;color:var(--p2);background:var(--pd);padding:1px 7px;border-radius:99px;text-decoration:none;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">📎 ${esc(f.name)}</a>`).join("")+(refFiles.length>2?`<span style="font-size:10px;color:var(--t3)">+${refFiles.length-2}</span>`:""):""}
       ${(!open && n.memo)?`<span title="${esc(n.memo)}" style="font-size:10.5px;color:var(--t3)">📝</span>`:""}
       <span style="flex:1"></span>
