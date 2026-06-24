@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v368</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v369</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1486,6 +1486,7 @@ body.embed-prnew{background:#fff}
       <button class="btn sm" onclick="wpExpandAll(false)">모두 접기</button>
       <button class="btn sm" id="wp-renum" onclick="wpRenumberAll()" style="display:none;" title="T번호를 트리 순서대로 다시 매기고 전체 저장">🔢 T번호 정렬+저장</button>
       <button class="btn sm" id="wp-snap" onclick="wpSnapshotModal()" style="display:none;" title="일정 백업/복원">💾 백업/복원</button>
+      <button class="btn sm" onclick="wpSaveSkeleton(true)" title="스켈레톤 파일 즉시 생성(테스트)">🦴 스켈레톤 저장</button>
       <button class="btn primary sm" id="wp-addgrp" onclick="wpAddGroup()" style="display:none;">＋ 할일 추가</button>
     </div>
 
@@ -8755,7 +8756,7 @@ async function wpInit(){
 function wpProjects(){ return (typeof pProjects!=="undefined" && pProjects.length) ? pProjects : ["BR26002","BP26009"]; }
 
 // ── 업무일정 스켈레톤 (프로젝트+폴더헤더+% 만 담은 작은 파일 → 즉시 로드용) ──
-const WP_SKELETON_PATH="01.통합관리/99.서버/wp_skeleton.json";
+const WP_SKELETON_PATH="100.ERP/wp_skeleton.json";
 function wpBuildSkeleton(proj){
   if(!proj || proj._loading) return null;
   const folders=(proj.children||[]).map(f=>({
@@ -8764,13 +8765,19 @@ function wpBuildSkeleton(proj){
   }));
   return { code:proj.id, name:proj.name||proj.id, prog:wpAggProg(proj), folders };
 }
-async function wpSaveSkeleton(){
+let _wpSkelTimer=null;
+async function _wpDoSaveSkeleton(verbose){
   try{
     const projects=(WP_LOADED_PROJ||[]).map(wpBuildSkeleton).filter(Boolean);
-    if(!projects.length) return;
-    try{ await spEnsureFolder("01.통합관리/99.서버"); }catch(_){}
+    if(!projects.length){ console.warn("[skeleton] 저장할 프로젝트 데이터 없음", WP_LOADED_PROJ); if(verbose) toast("스켈레톤: 데이터 없음","bad"); return; }
     await spPutJson(WP_SKELETON_PATH, {updated:new Date().toISOString(), projects});
-  }catch(e){ /* 스켈레톤 저장 실패는 무시 (로드에 영향 없음) */ }
+    console.log("[skeleton] 저장 완료 →", WP_SKELETON_PATH, projects);
+    if(verbose) toast(`스켈레톤 저장됨 · 프로젝트 ${projects.length} (${WP_SKELETON_PATH})`,"ok");
+  }catch(e){ console.error("[skeleton] 저장 실패:", e); if(verbose) toast("스켈레톤 저장 실패: "+(e.message||e),"bad"); }
+}
+function wpSaveSkeleton(verbose){
+  if(verbose){ return _wpDoSaveSkeleton(true); }   // 수동: 즉시
+  clearTimeout(_wpSkelTimer); _wpSkelTimer=setTimeout(()=>_wpDoSaveSkeleton(false), 500);  // 자동: 디바운스
 }
 // 화면에 그릴 프로젝트 = 설정된 코드 순서로만 (WP_LOADED_PROJ엔 동기화용 stale 프로젝트가 섞일 수 있어 제외)
 function wpDisplayProjects(){ const codes=wpProjects(); return codes.map(c=>WP_LOADED_PROJ.find(p=>p.id===c)).filter(Boolean); }
@@ -8836,7 +8843,7 @@ async function wpLoad(){
   const tasks=projs.map((code,idx)=>wpReadPlan(code).then(data=>{
     if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); WP_LOADED_PROJ[idx]=proj; }
     else if(WP_LOADED_PROJ[idx]){ delete WP_LOADED_PROJ[idx]._loading; }   // 캐시 유지 or 빈
-    wpSeedOpen(); wpRender();
+    wpSeedOpen(); wpRender(); wpSaveSkeleton();   // 프로젝트 로드될 때마다 스켈레톤 갱신(디바운스)
   }).catch(()=>{ if(WP_LOADED_PROJ[idx]) delete WP_LOADED_PROJ[idx]._loading; wpRender(); }));
   await Promise.all(tasks);
   wpMeta();
