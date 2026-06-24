@@ -1317,7 +1317,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v366</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v368</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1378,7 +1378,7 @@ body.embed-prnew{background:#fff}
   </div>
   <div class="search">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-    <input id="q" type="text" placeholder="제목·보낸사람 검색" oninput="FOLDER==='draft'?renderDraftList():renderList()">
+    <input id="q" type="text" placeholder="제목·발신자·본문 검색" oninput="mailSearchInput()">
   </div>
   <span class="count" id="count"></span>
   <label class="sel-all" title="전체 선택"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)"> 전체</label>
@@ -6835,11 +6835,35 @@ function _updateNewBadge(){
   else if(bd){ bd.style.display='none'; }
 }
 function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
+// 검색: 제목·발신자는 즉시, 본문은 서버(IMAP)에서 디바운스 검색해 병합
+let _searchExtra=[], _searchTimer=null, _searchQ="";
+function mailSearchInput(){
+  if(FOLDER==='draft'){ renderDraftList(); return; }
+  renderList();                                   // 즉시 (제목·발신자)
+  const q=$('q').value.trim();
+  clearTimeout(_searchTimer);
+  if(q.length<2){ if(_searchExtra.length){ _searchExtra=[]; _searchQ=""; renderList(); } return; }
+  _searchTimer=setTimeout(async()=>{
+    try{
+      const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&q=${encodeURIComponent(q)}&limit=100`);
+      const d=await r.json();
+      if(d&&d.ok){ _searchExtra=d.mails||[]; _searchQ=q; if($('q').value.trim()===q) renderList(); }
+    }catch(_){}
+  }, 450);
+}
 function renderList(){
   const subtabs=$('mailSubtabs'); if(subtabs) subtabs.style.display=(FOLDER==='draft')?'none':'flex';
   const q=$('q').value.trim().toLowerCase();
   let rows=MAILS;
-  if(q){rows=MAILS.filter(m=>{const a=mailParty(m);return (m.subject||'').toLowerCase().includes(q)||partyName(m).toLowerCase().includes(q)||(a[0]&&a[0].email||'').toLowerCase().includes(q);});}
+  if(q){
+    const cm=MAILS.filter(m=>{const a=mailParty(m);return (m.subject||'').toLowerCase().includes(q)||partyName(m).toLowerCase().includes(q)||(a[0]&&a[0].email||'').toLowerCase().includes(q);});
+    let extra=[];
+    if(_searchExtra.length && _searchQ.toLowerCase()===q){
+      const have=new Set(cm.map(m=>String(m.uid)));
+      extra=_searchExtra.filter(m=>!have.has(String(m.uid)));
+    }
+    rows=cm.concat(extra);
+  }
   // 하위탭 분류 (임시저장 제외): 거래처(고객사 제외) → 견적서/거래명세서/세금계산서는 거래처 중 문서종류
   if(FOLDER!=='draft'){
     const isCust=m=>_mailIsCustomer(m);
@@ -8729,6 +8753,25 @@ async function wpInit(){
 }
 
 function wpProjects(){ return (typeof pProjects!=="undefined" && pProjects.length) ? pProjects : ["BR26002","BP26009"]; }
+
+// ── 업무일정 스켈레톤 (프로젝트+폴더헤더+% 만 담은 작은 파일 → 즉시 로드용) ──
+const WP_SKELETON_PATH="01.통합관리/99.서버/wp_skeleton.json";
+function wpBuildSkeleton(proj){
+  if(!proj || proj._loading) return null;
+  const folders=(proj.children||[]).map(f=>({
+    id:f.id, name:f.name||"", group:(f.group!==false),
+    n:(f.children||[]).length, prog:wpAggProg(f)
+  }));
+  return { code:proj.id, name:proj.name||proj.id, prog:wpAggProg(proj), folders };
+}
+async function wpSaveSkeleton(){
+  try{
+    const projects=(WP_LOADED_PROJ||[]).map(wpBuildSkeleton).filter(Boolean);
+    if(!projects.length) return;
+    try{ await spEnsureFolder("01.통합관리/99.서버"); }catch(_){}
+    await spPutJson(WP_SKELETON_PATH, {updated:new Date().toISOString(), projects});
+  }catch(e){ /* 스켈레톤 저장 실패는 무시 (로드에 영향 없음) */ }
+}
 // 화면에 그릴 프로젝트 = 설정된 코드 순서로만 (WP_LOADED_PROJ엔 동기화용 stale 프로젝트가 섞일 수 있어 제외)
 function wpDisplayProjects(){ const codes=wpProjects(); return codes.map(c=>WP_LOADED_PROJ.find(p=>p.id===c)).filter(Boolean); }
 // T번호를 트리 순서대로 재정렬 + 선행관계(deps) 보정
@@ -8803,6 +8846,7 @@ async function wpLoad(){
   if(cascaded.length){ for(const pid of cascaded){ try{ await wpSaveProject(pid); }catch(_){} } toast("지연 반영: 후행 일정 자동 이동됨","ok"); }
   wpRender();
   wpLoadPrLinks().then(()=>wpRender()).catch(()=>{});   // 🛒 구매요청서 업무연결 배지 (prnew-meta 기반, 비차단)
+  wpSaveSkeleton();   // 스켈레톤 갱신 (비차단) — 다음 로드 즉시표시용
 }
 
 // 여러 주차 plan(project 객체, 최신 우선)을 하나로 병합 — id 기준 중복 제거, 폴더 위치 보존
@@ -8944,6 +8988,7 @@ async function wpSaveProject(projId){
     try{ wpCacheSet(projId, p); }catch(_){}   // 캐시 즉시 갱신
     for(const other of touched){ const op=WP_LOADED_PROJ.find(x=>x.id===other); if(op) try{ await wpSavePlan(other, op); wpCacheSet(other, op); }catch(_){} }
     toast(touched.length?`저장됨: ${projId} (+공유 ${touched.length})`:"저장됨: "+projId,"ok");
+    wpSaveSkeleton();   // 저장 시 스켈레톤도 갱신
     return true;
   }
   catch(e){ toast("저장 실패: "+e.message,"bad"); return false; }
