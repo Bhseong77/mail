@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v371</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v372</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8764,7 +8764,9 @@ function wpBuildSkeleton(proj){
     id:f.id, name:f.name||"", group:(f.group!==false),
     n:(f.children||[]).length, prog:wpAggProg(f)
   }));
-  return { code:proj.id, name:proj.name||proj.id, prog:wpAggProg(proj), folders };
+  const ci=(typeof _projChanCache!=="undefined") ? _projChanCache[proj.id] : null;
+  return { code:proj.id, name:proj.name||proj.id, prog:wpAggProg(proj), folders,
+    chan: (ci && ci.driveId && ci.rootId) ? {driveId:ci.driveId, rootId:ci.rootId, channelId:ci.channelId||null, name:ci.name||null} : null };
 }
 let _wpSkelTimer=null;
 async function _wpDoSaveSkeleton(verbose){
@@ -8842,6 +8844,12 @@ async function wpLoad(){
   let skel=null; try{ skel=await spGetJson(WP_SKELETON_PATH); }catch(_){}
   const hasSkel = skel && Array.isArray(skel.projects) && skel.projects.length;
   if(!hasSkel){ return _wpLoadFull(); }   // 스켈레톤 없으면 기존 전체로드
+  // 채널정보(driveId/rootId) 주입 → 캐시삭제 후에도 Graph 채널해석 생략 (plan fetch만)
+  (skel.projects||[]).forEach(s=>{
+    if(s.chan && s.chan.driveId && s.chan.rootId){
+      try{ _projChanCache[s.code]={...s.chan, _at:Date.now()}; localStorage.setItem("chaninfo_"+s.code, JSON.stringify(_projChanCache[s.code])); }catch(_){}
+    }
+  });
   // 즉시 렌더: 캐시 있으면 full, 없으면 스켈레톤 stub
   WP_LOADED_PROJ = projs.map(code=>{
     const cached=wpCacheGet(code); if(cached){ cached.id=code; return cached; }
@@ -8854,6 +8862,8 @@ async function wpLoad(){
   // 캐시로 full 들어온 프로젝트는 pr-links/cascade 비차단 보강
   const anyFull=WP_LOADED_PROJ.some(p=>p && !p._stub && !p._loading);
   if(anyFull){ wpLoadPrLinks().then(()=>wpRender()).catch(()=>{}); }
+  // 첫 페인트 후 백그라운드로 각 프로젝트 plan 미리 로드 → 폴더 펼침이 즉시
+  setTimeout(()=>{ (WP_LOADED_PROJ||[]).forEach(p=>{ if(p && p._stub && !p._loadingFull) wpEnsureProject(p.id); }); }, 120);
 }
 // 프로젝트 full 로드 보장 (스텁이면 plan.json 로드). 폴더 펼칠 때 호출.
 async function wpEnsureProject(code){
