@@ -152,6 +152,7 @@ body{display:flex;flex-direction:column;height:100vh}
 .empty,.err{padding:40px;text-align:center;color:var(--t2);font-size:13.5px}
 .err{color:var(--r)}
 .spin{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:sp .7s linear infinite;margin:34px auto}
+.wp-spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
 @keyframes sp{to{transform:rotate(360deg)}}
 .skel{padding:13px 16px;border-bottom:1px solid var(--border)}
 .skel div{height:10px;background:linear-gradient(90deg,#eef1f6,#f6f8fb,#eef1f6);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:4px;margin:5px 0}
@@ -1317,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v370</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v371</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -9725,7 +9726,10 @@ function wpRowHtml(projId, n, depth, parentNotDone){
     // 펼쳐졌을 때: 참고자료·설명 자동 표시 (자료 있거나 편집모드일 때)
     if(open && WP_SEL===n.id && WP_ATTACH && WP_ATTACH.mode==="folderref") h+=wpFolderRefPanel(projId,n,ind);
     else if(open && hasRef) h+=wpFolderRefCompact(projId,n,ind);
-    if(open && kids) h+=(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,false)).join("");
+    if(open && kids){
+      if((n.children||[]).length) h+=(n.children||[]).map(c=>wpRowHtml(projId,c,depth+1,false)).join("");
+      else h+=`<div style="padding:11px 0 11px ${14+(depth+1)*20}px;color:var(--t3);font-size:12.5px;display:flex;align-items:center;gap:7px"><span class="wp-spin"></span> 불러오는 중…</div>`;
+    }
     return h;
   }
   const st=wpStatus(n,parentNotDone), locked=st==="locked", ic=WP_STIC[st], sel=WP_SEL===n.id;
