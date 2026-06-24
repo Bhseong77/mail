@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v372</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v373</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8863,7 +8863,7 @@ async function wpLoad(){
   const anyFull=WP_LOADED_PROJ.some(p=>p && !p._stub && !p._loading);
   if(anyFull){ wpLoadPrLinks().then(()=>wpRender()).catch(()=>{}); }
   // 첫 페인트 후 백그라운드로 각 프로젝트 plan 미리 로드 → 폴더 펼침이 즉시
-  setTimeout(()=>{ (WP_LOADED_PROJ||[]).forEach(p=>{ if(p && p._stub && !p._loadingFull) wpEnsureProject(p.id); }); }, 120);
+  setTimeout(()=>{ const ids=(WP_LOADED_PROJ||[]).filter(p=>p && p._stub && !p._loadingFull).map(p=>p.id); console.log("[prefetch] 백그라운드 로드 시작:",ids); ids.forEach(id=>wpEnsureProject(id)); }, 120);
 }
 // 프로젝트 full 로드 보장 (스텁이면 plan.json 로드). 폴더 펼칠 때 호출.
 async function wpEnsureProject(code){
@@ -8872,8 +8872,10 @@ async function wpEnsureProject(code){
   if(p && !p._stub && !p._loading) return;       // 이미 full
   if(p && p._loadingFull) return p._loadingFull;  // 중복 로드 방지
   const run=(async()=>{
+    const _e0=performance.now();
     try{
       const data=await wpReadPlan(code);
+      console.log(`[wpEnsure] ${code} 전체 로드 ${(performance.now()-_e0)|0}ms`);
       if(data && data.project){ const proj=data.project; proj.id=code; wpCacheSet(code,proj); WP_LOADED_PROJ[idx]=proj; }
       else if(WP_LOADED_PROJ[idx]){ WP_LOADED_PROJ[idx]._stub=false; delete WP_LOADED_PROJ[idx]._loadingFull; }
       wpSeedOpen(); wpRender();
@@ -8929,18 +8931,22 @@ function wpMergePlans(plans){
 }
 // 04.일정 폴더에서 계획 JSON 읽기 (단일 plan.json, 없으면 모든 주차파일 병합 → 다음 저장 시 plan.json으로 이관)
 async function wpReadPlan(code){
+  const _t0=performance.now();
   const t=await graphToken(); const c=await projChannelInfo(code);
+  const _tc=performance.now();
   const url=`https://graph.microsoft.com/v1.0/drives/${c.driveId}/items/${c.rootId}:/${encPath("04.일정/"+wpFileName())}:/content`;
   const r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
-  if(r.ok) return await r.json();
+  if(r.ok){ const j=await r.json(); console.log(`[wpReadPlan] ${code} plan.json ✓ · 채널/토큰 ${(_tc-_t0)|0}ms · fetch ${(performance.now()-_tc)|0}ms · 합 ${(performance.now()-_t0)|0}ms`); return j; }
+  console.warn(`[wpReadPlan] ${code} ⚠ plan.json 없음(${r.status}) → 주차파일 병합 경로(느림)`);
   // plan.json 없음 → 모든 주차 파일(plan-YYYY-Wnn.json)을 병합해 전체 리스트 구성
   try{
     const files=await wpListPlanFiles(code);
+    console.warn(`[wpReadPlan] ${code} 주차파일 ${files?files.length:0}개 순차 로드 시작…`);
     if(files && files.length){
       files.sort((a,b)=> a.name<b.name?1:(a.name>b.name?-1:0));   // 최신 우선 (병합 base)
       const plans=[];
       for(const f of files){ const d=await wpReadPlanFile(code, f.name); if(d && d.project) plans.push(d.project); }
-      if(plans.length){ const merged=wpMergePlans(plans); merged.id=code; return {project:merged}; }
+      if(plans.length){ const merged=wpMergePlans(plans); merged.id=code; console.warn(`[wpReadPlan] ${code} 병합완료 · 합 ${(performance.now()-_t0)|0}ms (${files.length}파일)`); return {project:merged}; }
     }
   }catch(_){}
   return null;
