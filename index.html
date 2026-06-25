@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v386</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v387</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17763,8 +17763,8 @@ function prnewInit(){
                 <th style="width:44px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
                 <th style="width:40px;" title="조달구분">조달</th>
                 <th style="width:74px;" title="품목분류">분류</th>
-                <th title="품명">품명 <span class="poadv-req">*</span></th>
-                <th title="품번">품번 <span class="poadv-req">*</span></th>
+                <th style="width:210px;" title="품명">품명 <span class="poadv-req">*</span></th>
+                <th style="width:240px;" title="품번">품번 <span class="poadv-req">*</span></th>
                 <th style="width:56px;">규격</th>
                 <th style="width:36px;" title="구매단위">단위</th>
                 <th style="width:50px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
@@ -17772,6 +17772,7 @@ function prnewInit(){
                 <th style="width:42px;" title="여유수량">여유</th>
                 <th style="width:48px;" title="총소요량">총량</th>
                 <th style="width:24px;"></th>
+                <th></th>
               </tr></thead>
               <tbody id="prnew-tbody"></tbody>
             </table>
@@ -18159,6 +18160,7 @@ function prnewRenderRows(){
       <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${lockInput?"disabled":""}></td>
       <td class="num" id="prnew-tot-${i}" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
       <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
+      <td></td>
     </tr>`;
   }).join("");
   const ri=document.getElementById("prnew-rowinfo"); if(ri){
