@@ -421,7 +421,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sx-c-blocker{background:var(--rd);color:var(--r);border-color:transparent}
 .sx-c-delay{background:var(--yd);color:var(--y);border-color:transparent}
 /* 구매요청입력 그리드 — 컬럼 폭 축소(고정 레이아웃 + 헤더 줄바꿈) */
-#prnew-tbl{table-layout:fixed;width:auto;min-width:100%}
+#prnew-tbl{table-layout:fixed;width:auto}
 /* 조회 대형 로딩 오버레이 */
 #prnew-loading{position:fixed;inset:0;z-index:100000;background:rgba(248,250,252,.94);display:none;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 #prnew-loading .pl-card{text-align:center;padding:48px}
@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v389</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v390</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17760,16 +17760,16 @@ function prnewInit(){
                 <th style="width:46px;" title="가공도면 첨부 (99.가공도면)">도면</th>
                 <th style="width:54px;">요청자</th>
                 <th style="width:62px;">상태</th>
-                <th style="width:38px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
-                <th style="width:38px;" title="조달구분">조달</th>
+                <th style="width:46px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
+                <th style="width:44px;" title="조달구분">조달</th>
                 <th style="width:58px;" title="품목분류">분류</th>
                 <th style="width:150px;">품명 <span class="poadv-req">*</span></th>
                 <th style="width:155px;">품번 <span class="poadv-req">*</span></th>
                 <th style="width:40px;">규격</th>
-                <th style="width:30px;" title="구매단위">단위</th>
-                <th style="width:42px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
-                <th style="width:38px;" title="제작대수">대수 <span class="poadv-req">*</span></th>
-                <th style="width:38px;" title="여유수량">여유</th>
+                <th style="width:38px;" title="구매단위">단위</th>
+                <th style="width:46px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
+                <th style="width:44px;" title="제작대수">대수 <span class="poadv-req">*</span></th>
+                <th style="width:44px;" title="여유수량">여유</th>
                 <th style="width:42px;" title="총소요량">총량</th>
                 <th style="width:30px;"></th>
               </tr></thead>
