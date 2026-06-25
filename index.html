@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v383</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v384</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4867,7 +4867,7 @@ async function ftGridRender(p, path){
     <button class="ftg-nav" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
     <span id="ftgSel-${p}" style="font-size:12px;color:var(--t3)">폴더 ${folders.length} · 파일 ${files.length}</span>
   </div>`;
-  h+=`<div class="ftg-grid" id="ftgGrid-${p}" onmousedown="ftgBoxStart(event,'${p}')" oncontextmenu="if(event.target.classList.contains('ftg-grid')){ftgCtx(event,'${p}','','',false,'${q(path)}')}" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftgGridDrop(event,'${p}','${q(path)}',this)">`;
+  h+=`<div class="ftg-grid" id="ftgGrid-${p}" onmousedown="ftgBoxStart(event,'${p}')" oncontextmenu="if(event.target.classList.contains('ftg-grid')){ftgCtx(event,'${p}','','',false,'${q(path)}')}" ondragover="ftgGridOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftgGridDrop(event,'${p}','${q(path)}',this)">`;
   if(!folders.length && !files.length) h+=`<div style="color:var(--t3);padding:36px;grid-column:1/-1;text-align:center;pointer-events:none">빈 폴더입니다 · 파일을 끌어다 놓거나 ⬆ 업로드</div>`;
   for(const f of folders){ const cp=path?`${path}/${f.name}`:f.name;
     FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:true,path:cp,size:0}; _ftgOrder[p].push(f.id);
@@ -4969,6 +4969,11 @@ function ftgDragStart(e,p,id,name,isFolder,childPath,size){
   ftDragStart(e,p,id,name,isFolder,childPath);   // 내부 폴더이동용 단일 페이로드
 }
 // ── OS에서 끌어온 파일 = 현재 폴더에 업로드 / 내부드래그 = 이동 ──
+function ftgGridOver(e,el){
+  // OS 파일 드래그(_ftDrag 없음) 또는 내부 드래그 모두 드롭 허용
+  const isFiles = e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files');
+  if(_ftDrag || isFiles){ e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = _ftDrag?'move':'copy'; el.classList.add('ft-drop-hover'); }
+}
 function ftgGridDrop(e,p,path,el){
   el.classList.remove('ft-drop-hover');
   if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
