@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v381</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v382</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4786,6 +4786,7 @@ async function ftDrop(e,p,destPath,el){
     toast(`"${d.name}" 이동 완료`,'ok'); actLog(`📂 이동: ${d.name} → ${DOC_TITLE[p].replace(/^[^ ]+ /,'')}/${destPath||'(루트)'}`);
     FT_CHILDREN={}; DOC_INDEX_AT=0;
     renderFileTree(p);
+    if(document.getElementById('ftBody-'+p)) ftGridRender(p, FT_SEL[p]||'');
   }catch(err){ toast('이동 실패: '+err.message,'bad'); }
 }
 async function ftToggle(p,path){
@@ -4796,7 +4797,53 @@ async function ftToggle(p,path){
   await ftRenderNodes(p);
   if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
 }
-function ftSelect(p,path){ FT_SEL[p]=path; ftRenderNodes(p); if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
+function ftSelect(p,path){
+  FT_SEL[p]=path;
+  if(path){ let acc=''; path.split('/').forEach(seg=>{ acc=acc?acc+'/'+seg:seg; FT_OPEN[ftKey(p,acc)]=true; }); }
+  ftRenderNodes(p);
+  if(document.getElementById('ftBody-'+p)) ftGridRender(p,path);
+  if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
+// ── 탐색기식 아이콘 그리드 (오른쪽 패널) ──
+function _ftgStyle(){ if(document.getElementById('ftg-style')) return; const s=document.createElement('style'); s.id='ftg-style'; s.textContent=`
+.ftg-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap}
+.ftg-crumb{cursor:pointer;color:#2563eb;font-weight:600}
+.ftg-crumb:hover{text-decoration:underline}
+.ftg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:4px;padding:14px;overflow:auto;align-content:start;flex:1}
+.ftg-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:10px;cursor:pointer;position:relative;user-select:none;border:1px solid transparent}
+.ftg-item:hover{background:var(--bg2);border-color:var(--border)}
+.ftg-ic{font-size:34px;line-height:1}
+.ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden}
+.ftg-acts{position:absolute;top:3px;right:3px;display:none;gap:2px}
+.ftg-item:hover .ftg-acts{display:flex}
+.ftg-acts button{border:none;background:rgba(255,255,255,.94);box-shadow:0 1px 3px rgba(0,0,0,.18);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;line-height:1}
+.ftg-grid.ft-drop-hover{background:#eff6ff;outline:2px dashed #60a5fa;outline-offset:-4px}
+.ftg-item.ft-drop-hover{background:#dbeafe;border-color:#60a5fa}`; document.head.appendChild(s); }
+async function ftGridRender(p, path){
+  _ftgStyle();
+  const body=document.getElementById('ftBody-'+p); if(!body) return;
+  let items=FT_CHILDREN[ftKey(p,path)]; if(!items) items=await ftLoadChildren(p,path);
+  const folders=items.filter(x=>x.folder && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
+  const files=items.filter(x=>x.file && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
+  const q=s=>esc(s).replace(/'/g,"\\'");
+  let crumb=`<span class="ftg-crumb" onclick="ftSelect('${p}','')">🗂️ 전체</span>`;
+  let acc=''; (path?path.split('/'):[]).forEach(seg=>{ acc=acc?acc+'/'+seg:seg; crumb+=` <span style="color:var(--t3)">›</span> <span class="ftg-crumb" onclick="ftSelect('${p}','${q(acc)}')">${esc(seg)}</span>`; });
+  body.style.display='flex'; body.style.flexDirection='column'; body.style.alignItems='stretch'; body.style.justifyContent='flex-start'; body.style.overflow='hidden';
+  let h=`<div class="ftg-bar">${crumb}<span style="flex:1"></span><span style="font-size:12px;color:var(--t3)">폴더 ${folders.length} · 파일 ${files.length}</span></div>`;
+  h+=`<div class="ftg-grid" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${q(path)}',this)">`;
+  if(!folders.length && !files.length) h+=`<div style="color:var(--t3);padding:36px;grid-column:1/-1;text-align:center">빈 폴더입니다</div>`;
+  for(const f of folders){ const cp=path?`${path}/${f.name}`:f.name;
+    h+=`<div class="ftg-item" draggable="true" ondragstart="ftDragStart(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="event.stopPropagation();ftDrop(event,'${p}','${q(cp)}',this)" ondblclick="ftSelect('${p}','${q(cp)}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" title="${esc(f.name)}"><div class="ftg-ic">📁</div><div class="ftg-nm">${esc(f.name)}</div></div>`; }
+  for(const f of files){
+    h+=`<div class="ftg-item" draggable="true" ondragstart="ftDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
+  }
+  h+=`</div>`;
+  body.innerHTML=h;
+}
+async function ftgDownload(id,name){
+  const _j=(typeof _J==='function')?_J('다운로드 '+name):null;
+  try{ const blob=await spFetchBlob(id); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); if(_j&&typeof _Jok==='function')_Jok(_j,'완료'); toast('⬇ 다운로드 시작: '+name,'ok'); }
+  catch(e){ if(_j&&typeof _Jno==='function')_Jno(_j,e.message); toast('다운로드 실패: '+e.message,'bad'); }
+}
 // ── 트리 파일 다중선택 (Ctrl/Shift 클릭 + 일괄 이동·복사·링크) ──
 function ftVisFileIds(p){ return [...document.querySelectorAll('#ftree-'+p+' .ft-row.file')].map(r=>r.dataset.ftid); }
 function ftPaintSel(p){ const s=FT_FSEL[p]||new Set(); document.querySelectorAll('#ftree-'+p+' .ft-row.file').forEach(r=>{ r.classList.toggle('fsel', s.has(r.dataset.ftid)); }); }
@@ -5936,6 +5983,7 @@ async function renderDocTree(p){
   _ftPreviewPanel=p;
   renderTabs(p);
   await renderFileTree(p);
+  if(document.getElementById('ftBody-'+p)) ftGridRender(p, FT_SEL[p]||'');
 }
 let _ftPreviewPanel=null;
 // ── 파일 탭 시스템 ──
