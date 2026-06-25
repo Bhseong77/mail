@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v376</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v377</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10486,9 +10486,11 @@ const WP_CMT_IMG_DIR="04.일정/댓글이미지";
 const WP_IMG_PLACEHOLDER="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='70'%3E%3Crect width='90' height='70' fill='%23eef2f7'/%3E%3C/svg%3E";
 const _wpSpImgCache={};
 function wpProjOf(id){ for(const p of (WP_LOADED_PROJ||[])){ if(p && wpFind(p.id,id)) return p.id; } return ((WP_LOADED_PROJ||[])[0]||{}).id; }
+const _wpCmtDirEnsured={}; let _wpImgSeq=0;
 async function wpUploadCmtImage(projId, blob, fname){
+  if(!_wpCmtDirEnsured[projId]){ try{ await projChanEnsure(projId, "04.일정"); await projChanEnsure(projId, WP_CMT_IMG_DIR); }catch(_){} _wpCmtDirEnsured[projId]=1; }
   const ext=((blob.type||"image/png").split("/")[1]||"png").replace("jpeg","jpg");
-  const name=fname||`cmt_${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+  const name=fname||`cmt_${Date.now()}_${(_wpImgSeq++)}_${Math.random().toString(36).slice(2,6)}.${ext}`;
   const buf=await blob.arrayBuffer();
   const item=await projChanUpload(projId, WP_CMT_IMG_DIR, name, buf, blob.type||"image/png");
   const ci=await projChannelInfo(projId);
