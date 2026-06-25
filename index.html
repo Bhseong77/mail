@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v379</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v380</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -11710,12 +11710,14 @@ async function pMitSubmit(){
   const msg=document.getElementById('pmit-msg'), go=document.getElementById('pmit-go');
   if(rows.some(r=>!(r.qty>0))){ msg.style.color='#dc2626'; msg.textContent='수량을 1 이상 입력하세요.'; return; }
   go.disabled=true; msg.style.color='#64748b'; msg.textContent='⏳ 영림원 자재출고 입력 중… (30초~1분)';
+  const _j=_J(`자재출고 ${rows.length}건`);
   try{
     const r=await fetch(`${SERVER}/api/erp/material-issue`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
     const init=await r.json();
     const d=(init&&init.job_id)?await poadvPollSaveJob(init.job_id,null):init;
     if(d&&d.success){
       msg.style.color='#15803d'; msg.textContent=`✅ 출고번호 ${d.out_no} 생성 (${rows.length}건)`;
+      _Jok(_j, `출고번호 ${d.out_no}`);
       // 동기화 기다리지 않고 즉시 출고완료+출고번호 반영 (낙관적 업데이트)
       try{
         const today=new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -11725,8 +11727,8 @@ async function pMitSubmit(){
       }catch(_){}
       _mitSel.clear(); pRenderStatus(); toast(`✅ 자재출고 완료 — 출고번호 ${d.out_no}`,'ok');
       setTimeout(()=>ov.remove(), 1700);
-    }else{ msg.style.color='#dc2626'; msg.textContent='실패: '+((d&&d.message)||'출고번호 미발급'); }
-  }catch(e){ msg.style.color='#dc2626'; msg.textContent='오류: '+(e.message||e); }
+    }else{ msg.style.color='#dc2626'; msg.textContent='실패: '+((d&&d.message)||'출고번호 미발급'); _Jno(_j, (d&&d.message)||'출고번호 미발급'); }
+  }catch(e){ msg.style.color='#dc2626'; msg.textContent='오류: '+(e.message||e); _Jno(_j, e.message||String(e)); }
   finally{ go.disabled=false; }
 }
 function pRenderStatus(){
