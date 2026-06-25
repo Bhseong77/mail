@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v380</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v381</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2107,6 +2107,7 @@ body.embed-prnew{background:#fff}
         <input type="text" id="adm_card" placeholder="카드명칭 (예: 신한 법인카드)" style="flex:1;min-width:160px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
         <input type="text" id="adm_card_no" placeholder="카드번호" style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
         <input type="text" id="adm_card_exp" placeholder="유효기간 (MM/YY)" style="width:140px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
+        <input type="text" id="adm_card_limit" placeholder="월 한도 (원)" inputmode="numeric" style="width:130px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--t1)" onkeydown="if(event.key==='Enter')admAddCard()">
         <button class="btn primary" type="button" onclick="admAddCard()">＋ 추가</button>
       </div>
       <div id="adm_cards" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -3654,21 +3655,30 @@ function admRenderCards(){
     ? cards.map((c,i)=>{
         const o=(typeof c==='string')?{name:c}:c;
         const meta=[o.number?`번호 ${esc(o.number)}`:'', o.expiry?`유효 ${esc(o.expiry)}`:''].filter(Boolean).join(' · ');
-        return `<span class="chip" style="align-items:center"><b>💳 ${esc(o.name||'')}</b>${meta?`<span style="color:var(--t3);font-size:11px;margin-left:6px">${meta}</span>`:''}<span style="cursor:pointer;margin-left:8px" onclick="admDelCard(${i})">✕</span></span>`;
+        const lim=(o.limit!=null&&o.limit!=='')?Number(o.limit)||0:0;
+        return `<span class="chip" style="align-items:center"><b>💳 ${esc(o.name||'')}</b>${meta?`<span style="color:var(--t3);font-size:11px;margin-left:6px">${meta}</span>`:''}<span style="margin-left:8px;font-size:11px;color:var(--t3)">월한도 ₩<input type="text" inputmode="numeric" value="${lim?lim.toLocaleString():''}" placeholder="0" onchange="admSetCardLimit(${i},this.value)" style="width:92px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:11px;text-align:right;background:var(--bg);color:var(--t1)"></span><span style="cursor:pointer;margin-left:8px" onclick="admDelCard(${i})">✕</span></span>`;
       }).join('')
     : '<span style="color:var(--t3);font-size:12px">등록된 카드 없음</span>';
+}
+async function admSetCardLimit(i, val){
+  const c=(AN_CONFIG.cards||[])[i]; if(c==null) return;
+  const lim=parseFloat(String(val||'').replace(/[^0-9.]/g,''))||0;
+  const o=(typeof c==='string')?{name:c}:c; o.limit=lim; AN_CONFIG.cards[i]=o;
+  try{ await saveAnConfig(); admRenderCards(); toast(`월한도 저장: ${o.name} ₩${lim.toLocaleString()}`,'ok'); }
+  catch(e){ toast('저장 실패: '+e.message,'bad'); }
 }
 async function admAddCard(){
   const name=($('adm_card').value||'').trim();
   const number=($('adm_card_no')?.value||'').trim();
   const expiry=($('adm_card_exp')?.value||'').trim();
+  const limit=parseFloat(($('adm_card_limit')?.value||'').replace(/[^0-9.]/g,''))||0;
   if(!name){ toast('카드명칭을 입력하세요','bad'); return; }
   AN_CONFIG.cards=AN_CONFIG.cards||[];
   if(AN_CONFIG.cards.some(c=>_cardName(c)===name)){ toast('이미 등록된 카드명칭','bad'); return; }
-  AN_CONFIG.cards.push({name, number, expiry});
+  AN_CONFIG.cards.push({name, number, expiry, limit});
   try{
     await saveAnConfig();
-    $('adm_card').value=''; if($('adm_card_no'))$('adm_card_no').value=''; if($('adm_card_exp'))$('adm_card_exp').value='';
+    $('adm_card').value=''; if($('adm_card_no'))$('adm_card_no').value=''; if($('adm_card_exp'))$('adm_card_exp').value=''; if($('adm_card_limit'))$('adm_card_limit').value='';
     admRenderCards(); toast('카드 추가됨','ok'); try{ actLog(`💳 카드 등록: ${name}`); }catch(e){}
   }catch(e){ AN_CONFIG.cards.pop(); toast('저장 실패: '+e.message,'bad'); }
 }
@@ -15123,6 +15133,10 @@ function permWrapWrites(){
 // (제) 비용계정 — 영림원 자동전표환경설정 계정 기준(우선 흔한 것). 추후 ERP에서 전체 동기화 가능.
 const CC_ACCOUNTS=["(제)복리후생비","(제)여비교통비","(제)차량유지비","(제)도서인쇄비","(제)운반비","(제)소모품비","(제)통신비","(제)교육훈련비","(제)접대비","(제)지급수수료","(제)수도광열비","(제)소모공구비","(제)지급임차료","(제)보험료","(제)세금과공과","(제)광고선전비","(제)회의비","(제)외주가공비","(제)전력비"];
 let CC_ROWS=[];        // 서버 원본(필터 후)
+let CC_CARDFILTER=null; // KPI 박스 클릭 필터 (null=전체, 아니면 카드 digits)
+function ccCardColor(i){ const pal=['#378ADD','#1D9E75','#7F77DD','#EF9F27','#D4537E','#D85A30','#0F6E56','#185FA5']; return pal[i%pal.length]; }
+function _ccLimitOf(num){ const c=(AN_CONFIG.cards||[]).find(c=>c&&_ccDigits(c.number)===num); return c?(parseFloat(String(c.limit||0).replace(/[^0-9.]/g,''))||0):0; }
+function ccCardFilter(num){ CC_CARDFILTER=(CC_CARDFILTER===num)?null:(num||null); ccRender(); }
 let CC_EDIT={};        // {rowKey: {acct, gubun}}  (비용계정/비용구분 입력값 — 로컬 보관, 전표처리 단계에서 사용)
 let CC_LOADING=false;
 
@@ -15240,16 +15254,55 @@ function ccRender(){
   const activeN=CC_ROWS.length-exSet.size;
   const cnt=$('ccCount'); if(cnt) cnt.textContent = exSet.size?`${activeN}건 (취소상계 ${exSet.size}건 제외)`:`${CC_ROWS.length}건`;
   if(!CC_ROWS.length){ list.innerHTML='<div class="an-empty">조회된 사용내역이 없습니다 (기간/상태 확인).</div>'; return; }
+  const _ccAmt=r=>(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0);
+  // ── 카드별 집계 (취소상계 제외) ──
+  const cards=(AN_CONFIG.cards||[]).filter(c=>c&&c.number);
+  const stat={}; cards.forEach((c,idx)=>{ const d=_ccDigits(c.number); stat[d]={name:c.name||'',digits:d,limit:_ccLimitOf(d),color:ccCardColor(idx),count:0,usage:0}; });
+  let totUse=0, totCnt=0, totPend=0;
+  CC_ROWS.forEach((r,i)=>{ if(exSet.has(i)) return; const d=_ccDigits(r['카드번호']); const amt=_ccAmt(r);
+    totUse+=amt; totCnt++; if(String(r['처리상태']||'').indexOf('미처리')>=0) totPend++;
+    if(stat[d]){ stat[d].count++; stat[d].usage+=amt; } });
+  const _won=n=>'₩'+Math.round(n).toLocaleString();
+  const allSel=CC_CARDFILTER===null;
+  let kpi=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:12px 4px 16px">`;
+  kpi+=`<div onclick="ccCardFilter(null)" style="cursor:pointer;background:var(--bg2);border:2px solid ${allSel?'#378ADD':'transparent'};border-radius:12px;padding:12px 14px">
+    <div style="font-size:13px;font-weight:700;color:#185FA5;margin-bottom:6px">📊 전체</div>
+    <div style="font-size:22px;font-weight:700">${totCnt}<span style="font-size:12px;color:var(--t3);font-weight:400"> 건</span></div>
+    <div style="font-size:12px;color:var(--t2);margin-top:2px">사용 ${_won(totUse)}</div>
+    ${totPend?`<div style="font-size:11px;color:#b45309;margin-top:4px">미처리 ${totPend}</div>`:''}
+  </div>`;
+  cards.forEach(c=>{ const s=stat[_ccDigits(c.number)]; if(!s) return;
+    const sel=CC_CARDFILTER===s.digits;
+    const rem=s.limit-s.usage, pct=s.limit>0?Math.min(100,Math.round(s.usage/s.limit*100)):0;
+    const barC=pct>=80?'#E24B4A':(pct>=50?'#EF9F27':'#639922');
+    const remC=rem<0?'#dc2626':(pct>=80?'#854F0B':'#3B6D11');
+    kpi+=`<div onclick="ccCardFilter('${s.digits}')" style="cursor:pointer;background:var(--bg);border:2px solid ${sel?s.color:'var(--border)'};border-radius:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <span style="width:9px;height:9px;border-radius:50%;background:${s.color}"></span>
+        <span style="font-size:13px;font-weight:700">${esc(s.name)}</span>
+      </div>
+      <div style="font-size:22px;font-weight:700">${s.count}<span style="font-size:12px;color:var(--t3);font-weight:400"> 건</span></div>
+      <div style="font-size:12px;color:var(--t2);margin-top:2px">사용 ${_won(s.usage)}</div>
+      ${s.limit>0?`<div style="display:flex;justify-content:space-between;margin-top:6px"><span style="font-size:11px;color:var(--t2)">잔여한도</span><span style="font-size:12px;font-weight:700;color:${remC}">${rem<0?'-':''}${_won(Math.abs(rem))}</span></div>
+      <div style="height:4px;border-radius:99px;background:var(--border);margin-top:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${barC}"></div></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:3px;text-align:right">한도 ${_won(s.limit)}</div>`
+      :`<div style="font-size:10px;color:var(--t3);margin-top:6px">월한도 미설정 · 관리자설정에서 입력</div>`}
+    </div>`;
+  });
+  kpi+=`</div>`;
   const acctOpts=sel=>{ const base=['',...CC_ACCOUNTS]; if(sel && !base.includes(sel)) base.push(sel); return base.map(a=>`<option ${sel===a?'selected':''} value="${esc(a)}">${a||'-'}</option>`).join(''); };
-  let h=`<table class="an-tbl"><thead><tr>
+  let h=kpi+`<table class="an-tbl"><thead><tr>
     <th class="c"><input type="checkbox" onclick="ccCheckAll(this.checked)"></th>
     <th class="c">처리상태</th><th class="c">카드번호</th><th>카드명</th>
     <th class="c">승인일</th><th class="c">승인취소</th><th class="c">국내외</th><th>가맹점명</th><th>거래처</th>
     <th class="r">승인금액</th><th class="c">비용계정</th><th>적요 <span style="color:var(--r)">*</span></th></tr></thead><tbody>`;
   CC_ROWS.forEach((r,i)=>{
+    if(CC_CARDFILTER && _ccDigits(r['카드번호'])!==CC_CARDFILTER) return;
     const k=_ccRowKey(r,i);
     const ed=CC_EDIT[k]||{};
     const cardNm=ccCardName(r['카드번호'])||r['카드명']||'';
+    const _ci=(AN_CONFIG.cards||[]).filter(c=>c&&c.number).findIndex(c=>_ccDigits(c.number)===_ccDigits(r['카드번호']));
+    const _dot=_ci>=0?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ccCardColor(_ci)};margin-right:5px;vertical-align:middle"></span>`:'';
     const curAcct = (ed.acct!=null && ed.acct!=='') ? ed.acct : (r['비용계정']||'');
     const curJeokyo = (ed.jeokyo!=null && ed.jeokyo!=='') ? ed.jeokyo : (r['적요']||'');
     const isEx=exSet.has(i);
@@ -15257,7 +15310,7 @@ function ccRender(){
       <td class="c"><input type="checkbox" class="cc-chk" data-k="${esc(k)}"></td>
       <td class="c">${esc(r['처리상태']||'')}</td>
       <td class="c" style="font-size:12px">${esc(r['카드번호']||'')}</td>
-      <td>${esc(cardNm)}</td>
+      <td>${_dot}${esc(cardNm)}</td>
       <td class="c" style="font-size:12px">${_ccFmtDateDow(r['승인일'])}</td>
       <td class="c">${isEx?'🚫 ':''}${esc(r['승인취소여부']||'')}</td>
       <td class="c">${esc(r['국내외구분']||'')}</td>
@@ -15268,11 +15321,13 @@ function ccRender(){
       <td><input class="memo" style="width:100%;min-width:180px" value="${esc(curJeokyo)}" placeholder="적요 입력" onchange="ccSet('${esc(k)}','jeokyo',this.value)"></td>
     </tr>`;
   });
-  // 합계 행 (승인금액 합계, 취소상계분 제외) — 항상 맨 아래
-  const totAmt=CC_ROWS.reduce((s,r,i)=> exSet.has(i)?s:(s+(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0)),0);
-  const noJeokyo=CC_ROWS.filter((r,i)=>{ if(exSet.has(i)) return false; const ed=CC_EDIT[_ccRowKey(r,i)]||{}; const jk=(ed.jeokyo!=null&&ed.jeokyo!=='')?ed.jeokyo:(r['적요']||''); return !String(jk).trim(); }).length;
+  // 합계 행 (승인금액 합계, 취소상계분 제외, 카드필터 반영) — 항상 맨 아래
+  const _inF=(r)=>!CC_CARDFILTER || _ccDigits(r['카드번호'])===CC_CARDFILTER;
+  const totAmt=CC_ROWS.reduce((s,r,i)=> (exSet.has(i)||!_inF(r))?s:(s+(parseFloat(String(r['승인금액']||'0').replace(/[^0-9.-]/g,''))||0)),0);
+  const fActiveN=CC_ROWS.filter((r,i)=>!exSet.has(i)&&_inF(r)).length;
+  const noJeokyo=CC_ROWS.filter((r,i)=>{ if(exSet.has(i)||!_inF(r)) return false; const ed=CC_EDIT[_ccRowKey(r,i)]||{}; const jk=(ed.jeokyo!=null&&ed.jeokyo!=='')?ed.jeokyo:(r['적요']||''); return !String(jk).trim(); }).length;
   h+=`</tbody><tfoot><tr style="background:#f1f5f9;font-weight:700;border-top:2px solid #cbd5e1;">
-    <td class="c" colspan="9" style="text-align:right;">합계 (${activeN}건${exSet.size?` · 취소상계 ${exSet.size}건 제외`:''}${noJeokyo?` · 적요 미작성 ${noJeokyo}건`:''})</td>
+    <td class="c" colspan="9" style="text-align:right;">합계 (${fActiveN}건${exSet.size?` · 취소상계 ${exSet.size}건 제외`:''}${noJeokyo?` · 적요 미작성 ${noJeokyo}건`:''}${CC_CARDFILTER?' · 카드필터 적용':''})</td>
     <td class="r" style="color:#0f4c81;">${_ccNum(totAmt)}</td>
     <td colspan="2"></td>
   </tr></tfoot></table>`;
