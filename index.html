@@ -421,7 +421,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sx-c-blocker{background:var(--rd);color:var(--r);border-color:transparent}
 .sx-c-delay{background:var(--yd);color:var(--y);border-color:transparent}
 /* 구매요청입력 그리드 — 컬럼 폭 축소(고정 레이아웃 + 헤더 줄바꿈) */
-#prnew-tbl{table-layout:fixed;width:auto;min-width:100%}
+#prnew-tbl{table-layout:fixed;width:100%;min-width:1000px}
 /* 조회 대형 로딩 오버레이 */
 #prnew-loading{position:fixed;inset:0;z-index:100000;background:rgba(248,250,252,.94);display:none;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 #prnew-loading .pl-card{text-align:center;padding:48px}
@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v384</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v386</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17753,25 +17753,25 @@ function prnewInit(){
           <div style="overflow-x:auto;">
             <table class="poadv-tbl" id="prnew-tbl">
               <thead><tr>
-                <th style="width:76px;">진행상태</th>
-                <th style="width:30px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
-                <th style="width:30px;">#</th>
-                <th style="width:80px;">업무</th>
-                <th style="width:46px;" title="가공도면 첨부 (99.가공도면)">도면</th>
-                <th style="width:54px;">요청자</th>
-                <th style="width:62px;">상태</th>
-                <th style="width:42px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
-                <th style="width:44px;" title="조달구분">조달</th>
-                <th style="width:66px;" title="품목분류">분류</th>
-                <th style="width:150px;">품명 <span class="poadv-req">*</span></th>
-                <th style="width:155px;">품번 <span class="poadv-req">*</span></th>
-                <th style="width:40px;">규격</th>
-                <th style="width:38px;" title="구매단위">단위</th>
-                <th style="width:46px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
+                <th style="width:44px;">진행상태</th>
+                <th style="width:24px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
+                <th style="width:26px;">#</th>
+                <th style="width:50px;">업무</th>
+                <th style="width:40px;" title="가공도면 첨부 (99.가공도면)">도면</th>
+                <th style="width:46px;">요청자</th>
+                <th style="width:42px;">상태</th>
+                <th style="width:44px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
+                <th style="width:40px;" title="조달구분">조달</th>
+                <th style="width:74px;" title="품목분류">분류</th>
+                <th title="품명">품명 <span class="poadv-req">*</span></th>
+                <th title="품번">품번 <span class="poadv-req">*</span></th>
+                <th style="width:56px;">규격</th>
+                <th style="width:36px;" title="구매단위">단위</th>
+                <th style="width:50px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
                 <th style="width:42px;" title="제작대수">대수 <span class="poadv-req">*</span></th>
                 <th style="width:42px;" title="여유수량">여유</th>
                 <th style="width:48px;" title="총소요량">총량</th>
-                <th style="width:30px;"></th>
+                <th style="width:24px;"></th>
               </tr></thead>
               <tbody id="prnew-tbody"></tbody>
             </table>
@@ -18685,10 +18685,30 @@ function prnewValidate(){
   return {ok:errs.length===0, errs, pjt, rows:newRows};
 }
 
+// ── 가공품 분류 행 = 도면 첨부 필수 (임시저장·재료자원등록 공통) ──
+function prnewDrawMissing(){
+  const miss=[];
+  prnewRows.forEach((r,i)=>{
+    if(r._existing) return;                              // 기존 영림원 행 제외, 신규 입력분만
+    if(!(r["품명"]||r["품번"]||r["BOM레벨"])) return;     // 빈 행 제외
+    const cls=String(r["품목분류"]||"");
+    if(cls.includes("가공") && !((r._draw||[]).length))
+      miss.push({i, name:(r["품명"]||r["품번"]||(i+1)+"번 행")});
+  });
+  return miss;
+}
+function prnewFlashDrawMiss(dm){
+  try{ prnewRows.forEach(r=>r._chk=false); dm.forEach(x=>{ if(prnewRows[x.i]) prnewRows[x.i]._chk=true; });
+    if(typeof prnewApplyChkDom==="function") prnewApplyChkDom(); else prnewRenderRows();
+    const tbl=document.getElementById("prnew-tbl"); if(tbl) tbl.scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(_){}
+}
 async function prnewSave(){
   const v=prnewValidate();
   const msg=document.getElementById("prnew-msg");
   if(!v.ok){ if(msg){ msg.style.color="#dc2626"; msg.textContent="⚠️ 미입력: "+v.errs.join(", "); } return; }
+  const dmS=prnewDrawMissing();
+  if(dmS.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent=`⚠️ 가공품은 도면 첨부 필수 — 미첨부 ${dmS.length}건: ${dmS.map(x=>x.name).slice(0,6).join(", ")}${dmS.length>6?" 외":""}`; } prnewFlashDrawMiss(dmS); toast("가공품 도면을 먼저 첨부하세요","bad"); return; }
   const btn=document.getElementById("prnew-save-btn"); btn.disabled=true; const ot=btn.textContent; btn.textContent="등록 요청 중…";
   if(msg){ msg.style.color="#6b7280"; msg.textContent="⏳ 영림원 재료자원 등록 요청 중…"; }
   const _j=(typeof _J==="function")?_J("재료자원 등록: "+v.pjt):null;
@@ -18838,6 +18858,8 @@ async function prnewDraftSave(){
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   const msg=document.getElementById("prnew-msg");
   if(!pjt){ if(msg){ msg.style.color="#dc2626"; msg.textContent="프로젝트번호를 선택하세요"; } return; }
+  const dmD=prnewDrawMissing();
+  if(dmD.length){ if(msg){ msg.style.color="#dc2626"; msg.textContent=`⚠️ 가공품은 도면 첨부 필수 — 미첨부 ${dmD.length}건: ${dmD.map(x=>x.name).slice(0,6).join(", ")}${dmD.length>6?" 외":""}`; } prnewFlashDrawMiss(dmD); toast("가공품 도면을 먼저 첨부하세요","bad"); return; }
   // 신규 행(기존 영림원 행 아님)만 임시저장 대상 — 품번/품명 있는 것
   const newRows=prnewRows.filter(r=>!r._existing && (r["품명"]||r["품번"]||r["BOM레벨"]))
     .map(r=>({ "BOM레벨":r["BOM레벨"]||"", "조달구분":r["조달구분"]||"", "품목분류":r["품목분류"]||"",
