@@ -421,7 +421,7 @@ table.grid input:hover,table.grid select:hover{background:#fff;border-color:var(
 .sx-c-blocker{background:var(--rd);color:var(--r);border-color:transparent}
 .sx-c-delay{background:var(--yd);color:var(--y);border-color:transparent}
 /* 구매요청입력 그리드 — 컬럼 폭 축소(고정 레이아웃 + 헤더 줄바꿈) */
-#prnew-tbl{table-layout:fixed;width:100%;min-width:1000px}
+#prnew-tbl{table-layout:fixed;width:auto;min-width:100%}
 /* 조회 대형 로딩 오버레이 */
 #prnew-loading{position:fixed;inset:0;z-index:100000;background:rgba(248,250,252,.94);display:none;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 #prnew-loading .pl-card{text-align:center;padding:48px}
@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v387</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v389</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -17753,26 +17753,25 @@ function prnewInit(){
           <div style="overflow-x:auto;">
             <table class="poadv-tbl" id="prnew-tbl">
               <thead><tr>
-                <th style="width:44px;">진행상태</th>
-                <th style="width:24px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
-                <th style="width:26px;">#</th>
-                <th style="width:50px;">업무</th>
-                <th style="width:40px;" title="가공도면 첨부 (99.가공도면)">도면</th>
-                <th style="width:46px;">요청자</th>
-                <th style="width:42px;">상태</th>
-                <th style="width:44px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
-                <th style="width:40px;" title="조달구분">조달</th>
-                <th style="width:74px;" title="품목분류">분류</th>
-                <th style="width:210px;" title="품명">품명 <span class="poadv-req">*</span></th>
-                <th style="width:240px;" title="품번">품번 <span class="poadv-req">*</span></th>
-                <th style="width:56px;">규격</th>
-                <th style="width:36px;" title="구매단위">단위</th>
-                <th style="width:50px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
-                <th style="width:42px;" title="제작대수">대수 <span class="poadv-req">*</span></th>
-                <th style="width:42px;" title="여유수량">여유</th>
-                <th style="width:48px;" title="총소요량">총량</th>
-                <th style="width:24px;"></th>
-                <th></th>
+                <th style="width:76px;">진행상태</th>
+                <th style="width:30px;"><input type="checkbox" id="prnew-chkall" onclick="prnewToggleAll(this)" title="전체선택"></th>
+                <th style="width:30px;">#</th>
+                <th style="width:80px;">업무</th>
+                <th style="width:46px;" title="가공도면 첨부 (99.가공도면)">도면</th>
+                <th style="width:54px;">요청자</th>
+                <th style="width:62px;">상태</th>
+                <th style="width:38px;" title="BOM레벨">BOM <span class="poadv-req">*</span></th>
+                <th style="width:38px;" title="조달구분">조달</th>
+                <th style="width:58px;" title="품목분류">분류</th>
+                <th style="width:150px;">품명 <span class="poadv-req">*</span></th>
+                <th style="width:155px;">품번 <span class="poadv-req">*</span></th>
+                <th style="width:40px;">규격</th>
+                <th style="width:30px;" title="구매단위">단위</th>
+                <th style="width:42px;" title="기본소요량">소요량 <span class="poadv-req">*</span></th>
+                <th style="width:38px;" title="제작대수">대수 <span class="poadv-req">*</span></th>
+                <th style="width:38px;" title="여유수량">여유</th>
+                <th style="width:42px;" title="총소요량">총량</th>
+                <th style="width:30px;"></th>
               </tr></thead>
               <tbody id="prnew-tbody"></tbody>
             </table>
@@ -18160,7 +18159,6 @@ function prnewRenderRows(){
       <td><input data-r="${i}" data-f="여유수량" class="num" type="number" value="${esc(r["여유수량"]||"")}" oninput="prnewRowInput(${i},'여유수량',this)" ${lockInput?"disabled":""}></td>
       <td class="num" id="prnew-tot-${i}" style="padding-right:6px;color:#0f4c81;font-weight:600;">${tot? tot.toLocaleString():""}</td>
       <td class="poadv-del" onclick="prnewDelRow(${i})">✕</td>
-      <td></td>
     </tr>`;
   }).join("");
   const ri=document.getElementById("prnew-rowinfo"); if(ri){
