@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v382</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v383</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2664,6 +2664,16 @@ async function spMoveItem(itemId,newParentPath){
   const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,
     {method:"PATCH",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({parentReference:{id:pid}})});
   if(!r.ok) throw new Error("이동 실패 "+r.status); return await r.json();
+}
+async function spCopyItem(itemId,destParentPath){
+  const t=await graphToken(); const d=await spDrive();
+  await spEnsureFolder(destParentPath);
+  const pr=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(destParentPath)}`,{headers:{Authorization:"Bearer "+t}});
+  if(!pr.ok) throw new Error("대상 폴더 확인 실패");
+  const pid=(await pr.json()).id;
+  const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}/copy`,
+    {method:"POST",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify({parentReference:{driveId:d,id:pid}})});
+  if(!(r.ok||r.status===202)) throw new Error("복사 실패 "+r.status); return true; // 202=비동기 복사
 }
 async function spDeleteItem(itemId){
   const t=await graphToken(); const d=await spDrive();
@@ -4797,52 +4807,189 @@ async function ftToggle(p,path){
   await ftRenderNodes(p);
   if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p); }
 }
+let FT_NAV={}, _ftNavLock=false;           // 뒤로/앞으로 히스토리
+let FTG_SEL={}, FTG_META={}, _ftgAnchor={}, _ftgOrder={};  // 다중선택
+let FT_CLIP={};                            // 클립보드 {p:{op,items}}
+let _ftDragBundle=null;                    // 메일 드래그첨부용 묶음
+function _ftNavPush(p,path){ const n=FT_NAV[p]||(FT_NAV[p]={stack:[''],idx:0}); if(n.stack[n.idx]===path) return; n.stack=n.stack.slice(0,n.idx+1); n.stack.push(path); n.idx=n.stack.length-1; }
+function ftBack(p){ const n=FT_NAV[p]; if(!n||n.idx<=0) return; n.idx--; _ftNavLock=true; ftSelect(p,n.stack[n.idx]); _ftNavLock=false; }
+function ftForward(p){ const n=FT_NAV[p]; if(!n||n.idx>=n.stack.length-1) return; n.idx++; _ftNavLock=true; ftSelect(p,n.stack[n.idx]); _ftNavLock=false; }
+function ftUp(p){ const cur=FT_SEL[p]||''; if(!cur) return; ftSelect(p, cur.split('/').slice(0,-1).join('/')); }
 function ftSelect(p,path){
   FT_SEL[p]=path;
   if(path){ let acc=''; path.split('/').forEach(seg=>{ acc=acc?acc+'/'+seg:seg; FT_OPEN[ftKey(p,acc)]=true; }); }
   ftRenderNodes(p);
+  if(!_ftNavLock) _ftNavPush(p,path);
+  if(FTG_SEL[p]) FTG_SEL[p].clear();
   if(document.getElementById('ftBody-'+p)) ftGridRender(p,path);
   if(DOC_ANALYZE.includes(p)){ AN_FILTER[p].customer=path.split('/')[0]||''; anRender(p);} }
 // ── 탐색기식 아이콘 그리드 (오른쪽 패널) ──
 function _ftgStyle(){ if(document.getElementById('ftg-style')) return; const s=document.createElement('style'); s.id='ftg-style'; s.textContent=`
-.ftg-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap}
+.ftg-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap}
+.ftg-nav{border:1px solid var(--border);background:var(--bg);border-radius:7px;cursor:pointer;font-size:13px;padding:3px 9px;line-height:1.4}
+.ftg-nav:disabled{opacity:.35;cursor:default}
 .ftg-crumb{cursor:pointer;color:#2563eb;font-weight:600}
 .ftg-crumb:hover{text-decoration:underline}
-.ftg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:4px;padding:14px;overflow:auto;align-content:start;flex:1}
+.ftg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:4px;padding:14px;overflow:auto;align-content:start;flex:1;position:relative}
 .ftg-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:10px;cursor:pointer;position:relative;user-select:none;border:1px solid transparent}
 .ftg-item:hover{background:var(--bg2);border-color:var(--border)}
-.ftg-ic{font-size:34px;line-height:1}
-.ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden}
+.ftg-item.ftg-sel{background:#dbeafe;border-color:#3b82f6}
+.ftg-item.ftg-cut{opacity:.45}
+.ftg-ic{font-size:34px;line-height:1;pointer-events:none}
+.ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden;pointer-events:none}
 .ftg-acts{position:absolute;top:3px;right:3px;display:none;gap:2px}
 .ftg-item:hover .ftg-acts{display:flex}
 .ftg-acts button{border:none;background:rgba(255,255,255,.94);box-shadow:0 1px 3px rgba(0,0,0,.18);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;line-height:1}
+.ftg-band{position:absolute;background:rgba(59,130,246,.14);border:1px solid #3b82f6;border-radius:3px;pointer-events:none;z-index:5}
 .ftg-grid.ft-drop-hover{background:#eff6ff;outline:2px dashed #60a5fa;outline-offset:-4px}
-.ftg-item.ft-drop-hover{background:#dbeafe;border-color:#60a5fa}`; document.head.appendChild(s); }
+.ftg-item.ft-drop-hover{background:#dbeafe;border-color:#60a5fa}
+.cbox.ftg-mailover{outline:3px dashed #16a34a;outline-offset:-4px}`; document.head.appendChild(s); }
 async function ftGridRender(p, path){
-  _ftgStyle();
+  _ftgStyle(); _ftComposeDropInit();
   const body=document.getElementById('ftBody-'+p); if(!body) return;
   let items=FT_CHILDREN[ftKey(p,path)]; if(!items) items=await ftLoadChildren(p,path);
   const folders=items.filter(x=>x.folder && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
   const files=items.filter(x=>x.file && x.name!=='_analysis.json').sort((a,b)=>winCompare(a.name,b.name));
   const q=s=>esc(s).replace(/'/g,"\\'");
+  FTG_META[p]={}; _ftgOrder[p]=[];
+  const nav=FT_NAV[p]||{stack:[''],idx:0};
   let crumb=`<span class="ftg-crumb" onclick="ftSelect('${p}','')">🗂️ 전체</span>`;
   let acc=''; (path?path.split('/'):[]).forEach(seg=>{ acc=acc?acc+'/'+seg:seg; crumb+=` <span style="color:var(--t3)">›</span> <span class="ftg-crumb" onclick="ftSelect('${p}','${q(acc)}')">${esc(seg)}</span>`; });
   body.style.display='flex'; body.style.flexDirection='column'; body.style.alignItems='stretch'; body.style.justifyContent='flex-start'; body.style.overflow='hidden';
-  let h=`<div class="ftg-bar">${crumb}<span style="flex:1"></span><span style="font-size:12px;color:var(--t3)">폴더 ${folders.length} · 파일 ${files.length}</span></div>`;
-  h+=`<div class="ftg-grid" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${q(path)}',this)">`;
-  if(!folders.length && !files.length) h+=`<div style="color:var(--t3);padding:36px;grid-column:1/-1;text-align:center">빈 폴더입니다</div>`;
+  const clip=FT_CLIP[p];
+  let h=`<div class="ftg-bar">
+    <button class="ftg-nav" onclick="ftBack('${p}')" ${nav.idx<=0?'disabled':''} title="뒤로">◀</button>
+    <button class="ftg-nav" onclick="ftForward('${p}')" ${nav.idx>=nav.stack.length-1?'disabled':''} title="앞으로">▶</button>
+    <button class="ftg-nav" onclick="ftUp('${p}')" ${!path?'disabled':''} title="상위 폴더">▲</button>
+    <span style="width:6px"></span>${crumb}<span style="flex:1"></span>
+    ${clip&&clip.items.length?`<button class="ftg-nav" onclick="ftgPaste('${p}')" style="color:#16a34a;font-weight:700">📥 붙여넣기 (${clip.items.length})</button>`:''}
+    <button class="ftg-nav" onclick="ftNewFolder('${p}', FT_SEL['${p}']||'')">📁 새 폴더</button>
+    <button class="ftg-nav" onclick="ftUploadTo('${p}', FT_SEL['${p}'])">⬆ 업로드</button>
+    <span id="ftgSel-${p}" style="font-size:12px;color:var(--t3)">폴더 ${folders.length} · 파일 ${files.length}</span>
+  </div>`;
+  h+=`<div class="ftg-grid" id="ftgGrid-${p}" onmousedown="ftgBoxStart(event,'${p}')" oncontextmenu="if(event.target.classList.contains('ftg-grid')){ftgCtx(event,'${p}','','',false,'${q(path)}')}" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftgGridDrop(event,'${p}','${q(path)}',this)">`;
+  if(!folders.length && !files.length) h+=`<div style="color:var(--t3);padding:36px;grid-column:1/-1;text-align:center;pointer-events:none">빈 폴더입니다 · 파일을 끌어다 놓거나 ⬆ 업로드</div>`;
   for(const f of folders){ const cp=path?`${path}/${f.name}`:f.name;
-    h+=`<div class="ftg-item" draggable="true" ondragstart="ftDragStart(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="event.stopPropagation();ftDrop(event,'${p}','${q(cp)}',this)" ondblclick="ftSelect('${p}','${q(cp)}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" title="${esc(f.name)}"><div class="ftg-ic">📁</div><div class="ftg-nm">${esc(f.name)}</div></div>`; }
+    FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:true,path:cp,size:0}; _ftgOrder[p].push(f.id);
+    h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}',0)" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="event.stopPropagation();ftDrop(event,'${p}','${q(cp)}',this)" ondblclick="ftSelect('${p}','${q(cp)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" title="${esc(f.name)}"><div class="ftg-ic">📁</div><div class="ftg-nm">${esc(f.name)}</div></div>`; }
   for(const f of files){
-    h+=`<div class="ftg-item" draggable="true" ondragstart="ftDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftCtxMenu(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
+    FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:false,path:path,size:f.size||0}; _ftgOrder[p].push(f.id);
+    h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}',${f.size||0})" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
   }
   h+=`</div>`;
   body.innerHTML=h;
+  _ftgPaint(p);
 }
+// ── 선택 ──
+function _ftgPaint(p){ const sel=FTG_SEL[p]||new Set(); const clip=FT_CLIP[p]; const cutIds=(clip&&clip.op==='cut')?new Set(clip.items.map(x=>x.id)):new Set();
+  document.querySelectorAll('#ftBody-'+p+' .ftg-item').forEach(el=>{ el.classList.toggle('ftg-sel', sel.has(el.dataset.id)); el.classList.toggle('ftg-cut', cutIds.has(el.dataset.id)); });
+  const lbl=document.getElementById('ftgSel-'+p); if(lbl && sel.size) lbl.textContent=`${sel.size}개 선택`; }
+function ftgClick(e,p,id){
+  e.stopPropagation();
+  const sel=FTG_SEL[p]||(FTG_SEL[p]=new Set());
+  if(e.shiftKey && _ftgAnchor[p]){ const o=_ftgOrder[p]||[]; const a=o.indexOf(_ftgAnchor[p]),b=o.indexOf(id); if(a>=0&&b>=0){ if(!(e.ctrlKey||e.metaKey)) sel.clear(); const s=Math.min(a,b),en=Math.max(a,b); for(let i=s;i<=en;i++) sel.add(o[i]); } }
+  else if(e.ctrlKey||e.metaKey){ sel.has(id)?sel.delete(id):sel.add(id); _ftgAnchor[p]=id; }
+  else { sel.clear(); sel.add(id); _ftgAnchor[p]=id; }
+  _ftgPaint(p);
+}
+function ftgBoxStart(e,p){
+  if(e.button!==0 || !e.target.classList.contains('ftg-grid')) return;
+  const grid=e.currentTarget, rect=grid.getBoundingClientRect();
+  const sel=FTG_SEL[p]||(FTG_SEL[p]=new Set());
+  if(!(e.ctrlKey||e.metaKey)){ sel.clear(); _ftgPaint(p); }
+  const band=document.createElement('div'); band.className='ftg-band'; grid.appendChild(band);
+  const sx=e.clientX, sy=e.clientY; let moved=false;
+  const move=(ev)=>{ moved=true; const x=Math.min(ev.clientX,sx),y=Math.min(ev.clientY,sy),w=Math.abs(ev.clientX-sx),h=Math.abs(ev.clientY-sy);
+    band.style.left=(x-rect.left+grid.scrollLeft)+'px'; band.style.top=(y-rect.top+grid.scrollTop)+'px'; band.style.width=w+'px'; band.style.height=h+'px';
+    const bb={l:x,t:y,r:x+w,b:y+h};
+    grid.querySelectorAll('.ftg-item').forEach(el=>{ const r=el.getBoundingClientRect(); const hit=!(r.right<bb.l||r.left>bb.r||r.bottom<bb.t||r.top>bb.b); if(hit) sel.add(el.dataset.id); el.classList.toggle('ftg-sel', sel.has(el.dataset.id)); }); };
+  const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); band.remove(); if(moved)_ftgPaint(p); };
+  document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+}
+function _ftgSelMeta(p){ const meta=FTG_META[p]||{}; return [...(FTG_SEL[p]||[])].map(id=>meta[id]).filter(Boolean); }
+// ── 클립보드 ──
+function ftgCopy(p){ const m=_ftgSelMeta(p); if(!m.length){ toast('선택된 항목 없음','bad'); return; } FT_CLIP[p]={op:'copy',items:m}; toast(`📋 복사: ${m.length}개`,'ok'); ftGridRender(p,FT_SEL[p]||''); }
+function ftgCut(p){ const m=_ftgSelMeta(p); if(!m.length){ toast('선택된 항목 없음','bad'); return; } FT_CLIP[p]={op:'cut',items:m}; toast(`✂️ 잘라내기: ${m.length}개`,'ok'); ftGridRender(p,FT_SEL[p]||''); }
+async function ftgPaste(p){
+  const clip=FT_CLIP[p]; if(!clip||!clip.items.length){ toast('붙여넣을 항목이 없습니다','bad'); return; }
+  const dest=FT_SEL[p]||'', root=DOC_MAP[p], destFull=dest?`${root}/${dest}`:root;
+  const isCopy=clip.op==='copy';
+  const _j=(typeof _J==='function')?_J(`${isCopy?'복사':'이동'} ${clip.items.length}개`):null;
+  let ok=0,fail=0;
+  for(const it of clip.items){ try{ if(isCopy) await spCopyItem(it.id,destFull); else await spMoveItem(it.id,destFull); ok++; }catch(e){ fail++; } }
+  if(!isCopy) FT_CLIP[p]=null;
+  if(_j){ (fail?_Jno:_Jok)(_j, fail?`실패 ${fail}`:`완료 ${ok}`); }
+  toast(`${isCopy?'복사':'이동'} 완료 ${ok}${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok');
+  FT_CHILDREN={}; DOC_INDEX_AT=0;
+  setTimeout(()=>{ renderFileTree(p); ftGridRender(p, FT_SEL[p]||''); }, isCopy?1400:250);
+}
+async function ftgTeamsLink(p,id,name){ try{ const u=await spWebUrlById(id); if(!u) throw new Error('링크를 찾을 수 없음'); await navigator.clipboard.writeText(u); toast('🔗 링크 복사됨: '+name,'ok'); }catch(e){ try{ const u=await spWebUrlById(id); prompt('아래 링크를 복사하세요 (Ctrl+C):', u||''); }catch(_){} toast('클립보드 복사 실패 — 수동 복사하세요','bad'); } }
 async function ftgDownload(id,name){
   const _j=(typeof _J==='function')?_J('다운로드 '+name):null;
   try{ const blob=await spFetchBlob(id); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); if(_j&&typeof _Jok==='function')_Jok(_j,'완료'); toast('⬇ 다운로드 시작: '+name,'ok'); }
   catch(e){ if(_j&&typeof _Jno==='function')_Jno(_j,e.message); toast('다운로드 실패: '+e.message,'bad'); }
+}
+async function ftgDownloadSel(p){ const m=_ftgSelMeta(p).filter(x=>!x.isFolder); if(!m.length){ toast('다운로드할 파일 없음','bad'); return; } for(const it of m){ await ftgDownload(it.id,it.name); await new Promise(r=>setTimeout(r,400)); } }
+async function ftgDeleteSel(p){ const m=_ftgSelMeta(p); if(!m.length){ toast('선택된 항목 없음','bad'); return; } if(!confirm(`${m.length}개 항목을 삭제할까요?`)) return; const _j=(typeof _J==='function')?_J(`삭제 ${m.length}개`):null; let ok=0,fail=0; for(const it of m){ try{ await spDeleteItem(it.id); ok++; }catch(e){ fail++; } } if(_j){ (fail?_Jno:_Jok)(_j, fail?`실패 ${fail}`:`완료 ${ok}`); } toast(`삭제 ${ok}${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok'); if(FTG_SEL[p])FTG_SEL[p].clear(); FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); ftGridRender(p,FT_SEL[p]||''); }
+// ── 우클릭 메뉴 (탐색기식) ──
+function ftgCtx(e,p,id,name,isFolder,path){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById('ft-ctx')?.remove();
+  const sel=FTG_SEL[p]||(FTG_SEL[p]=new Set());
+  if(id){ if(!sel.has(id)){ sel.clear(); sel.add(id); _ftgAnchor[p]=id; _ftgPaint(p); } }
+  const n=sel.size, single=n===1, q=s=>esc(s||'').replace(/'/g,"\\'");
+  const clip=FT_CLIP[p], items=[];
+  if(id){
+    if(!isFolder && single){ items.push(['👁','미리보기',`ftPreviewModal('${p}','${id}','${q(name)}')`]); items.push(['✉','메일 첨부',`ftMailAttach('${id}','${q(name)}',0)`]); }
+    items.push(['📋',single?'복사':`복사 (${n})`,`ftgCopy('${p}')`]);
+    items.push(['✂️',single?'잘라내기':`잘라내기 (${n})`,`ftgCut('${p}')`]);
+    if(clip&&clip.items.length) items.push(['📥',`붙여넣기 (${clip.items.length})`,`ftgPaste('${p}')`]);
+    if(single) items.push(['🔗','Teams 링크 복사',`ftgTeamsLink('${p}','${id}','${q(name)}')`]);
+    if(!isFolder) items.push(['⬇',single?'다운로드':`다운로드 (${n})`,single?`ftgDownload('${id}','${q(name)}')`:`ftgDownloadSel('${p}')`]);
+    if(single) items.push(['✏️','이름 변경',`treeRename('${p}','${id}','${q(name)}')`]);
+    items.push(['📂','다른 폴더로 이동',`ftgCut('${p}');toast('이동할 폴더로 가서 붙여넣기 하세요','ok')`]);
+    items.push(['🗑️',single?'삭제':`삭제 (${n})`,`ftgDeleteSel('${p}')`]);
+  } else {
+    if(clip&&clip.items.length) items.push(['📥',`붙여넣기 (${clip.items.length})`,`ftgPaste('${p}')`]);
+    items.push(['📁','새 폴더',`ftNewFolder('${p}', FT_SEL['${p}']||'')`]);
+    items.push(['⬆','업로드',`ftUploadTo('${p}', FT_SEL['${p}'])`]);
+  }
+  const menu=document.createElement('div'); menu.id='ft-ctx'; menu.className='wp-ctx';
+  menu.innerHTML=items.map(it=>`<div class="wp-ctx-item" onclick="document.getElementById('ft-ctx').remove();${it[2]}"><span style="width:18px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join('');
+  document.body.appendChild(menu);
+  const vw=window.innerWidth,vh=window.innerHeight,mw=240,mh=items.length*34+8;
+  menu.style.left=Math.min(e.clientX,vw-mw-8)+'px'; menu.style.top=Math.min(e.clientY,vh-mh-8)+'px';
+  setTimeout(()=>{ const close=()=>{ menu.remove(); document.removeEventListener('click',close); }; document.addEventListener('click',close); },50);
+}
+// ── 드래그: 내부이동 + 메일첨부 묶음 ──
+function ftgDragStart(e,p,id,name,isFolder,childPath,size){
+  const sel=FTG_SEL[p]||(FTG_SEL[p]=new Set());
+  if(sel.has(id) && sel.size>1){ _ftDragBundle={p, items:_ftgSelMeta(p)}; }
+  else { sel.clear(); sel.add(id); _ftgAnchor[p]=id; _ftgPaint(p); _ftDragBundle={p, items:[FTG_META[p][id]].filter(Boolean)}; }
+  ftDragStart(e,p,id,name,isFolder,childPath);   // 내부 폴더이동용 단일 페이로드
+}
+// ── OS에서 끌어온 파일 = 현재 폴더에 업로드 / 내부드래그 = 이동 ──
+function ftgGridDrop(e,p,path,el){
+  el.classList.remove('ft-drop-hover');
+  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+    e.preventDefault(); e.stopPropagation();
+    _ftUploadCtx={page:p,dir:path||''};
+    Promise.resolve(ftUploadFiles(e.dataTransfer.files)).then(()=>{ FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); ftGridRender(p,FT_SEL[p]||''); });
+    return;
+  }
+  ftDrop(e,p,path,el);   // 내부 이동
+}
+// ── 메일쓰기 창에 드래그 → 첨부 ──
+function _ftComposeDropInit(){
+  const c=document.getElementById('compose'); if(!c || c._ftdrop) return; c._ftdrop=1;
+  const box=c.querySelector('.cbox')||c;
+  box.addEventListener('dragover',e=>{ if(_ftDragBundle){ e.preventDefault(); box.classList.add('ftg-mailover'); } });
+  box.addEventListener('dragleave',e=>{ if(!box.contains(e.relatedTarget)) box.classList.remove('ftg-mailover'); });
+  box.addEventListener('drop',async e=>{ if(!_ftDragBundle) return; e.preventDefault(); e.stopPropagation(); box.classList.remove('ftg-mailover');
+    const files=_ftDragBundle.items.filter(x=>x && !x.isFolder); _ftDragBundle=null;
+    if(!files.length){ toast('폴더는 첨부할 수 없습니다','bad'); return; }
+    for(const it of files){ try{ await ftMailAttach(it.id, it.name, it.size||0); }catch(_){} }
+  });
 }
 // ── 트리 파일 다중선택 (Ctrl/Shift 클릭 + 일괄 이동·복사·링크) ──
 function ftVisFileIds(p){ return [...document.querySelectorAll('#ftree-'+p+' .ft-row.file')].map(r=>r.dataset.ftid); }
