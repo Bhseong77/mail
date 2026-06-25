@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v378</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v379</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -11716,6 +11716,13 @@ async function pMitSubmit(){
     const d=(init&&init.job_id)?await poadvPollSaveJob(init.job_id,null):init;
     if(d&&d.success){
       msg.style.color='#15803d'; msg.textContent=`✅ 출고번호 ${d.out_no} 생성 (${rows.length}건)`;
+      // 동기화 기다리지 않고 즉시 출고완료+출고번호 반영 (낙관적 업데이트)
+      try{
+        const today=new Date().toISOString().slice(0,10).replace(/-/g,'');
+        if(_trkData){ _trkData.mr=_trkData.mr||[]; rows.forEach(r=>{
+          _trkData.mr.push({item_no:r.mat_no, item_name:r.item_name||'', out_no:d.out_no, out_date:today, qty:r.qty});
+        }); try{ _trkCacheSet(_trkData); }catch(_){ } }
+      }catch(_){}
       _mitSel.clear(); pRenderStatus(); toast(`✅ 자재출고 완료 — 출고번호 ${d.out_no}`,'ok');
       setTimeout(()=>ov.remove(), 1700);
     }else{ msg.style.color='#dc2626'; msg.textContent='실패: '+((d&&d.message)||'출고번호 미발급'); }
@@ -11765,10 +11772,11 @@ function pRenderStatus(){
       <td><div style="font-family:monospace;font-size:11px;color:var(--t3)">${pEsc(it.item_no||"")}</div><div style="font-weight:600">${pEsc(it.item_name||"")}</div>${it.spec?`<div style="font-size:11px;color:var(--t3)">${pEsc(it.spec)}</div>`:""}</td>
       <td style="padding:4px 6px">${_trkStepper(it)}</td>
       <td><span style="${_TRK_BADGE[it.lc]};font-size:11.5px;padding:3px 10px;border-radius:7px;white-space:nowrap">${pEsc(it.label)}</span>${issuable?` <button onclick="event.stopPropagation();pMitOne('${key}')" title="이 자재 출고" style="margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">🟢 출고</button>`:""}</td>
+      <td style="font-family:monospace;font-size:11px;color:${it.out&&it.out.no?'#0369a1':'var(--t3)'}">${it.out&&it.out.no?pEsc(it.out.no):""}</td>
       <td class="num"><span style="color:${it.inDone&&it.inQty>0?'#15803d':(it.inQty>0?'#92400e':'var(--t3)')};font-weight:600">${it.inQty}</span><span style="color:var(--t3)"> / ${it.reqQty||'-'}</span></td>
       <td>${pEsc(it.vendor||"")}</td>
       <td style="font-size:11px;color:var(--t3);white-space:nowrap">${pEsc(it.lastDate||"")}</td>
-    </tr>`;}).join("") : `<tr><td colspan="8"><div class="pempty">조건에 맞는 품목이 없습니다.</div></td></tr>`;
+    </tr>`;}).join("") : `<tr><td colspan="9"><div class="pempty">조건에 맞는 품목이 없습니다.</div></td></tr>`;
 
   host.innerHTML=`
     <div class="pfilter" style="flex-wrap:wrap">
@@ -11788,7 +11796,7 @@ function pRenderStatus(){
       <thead><tr>
         <th style="width:30px"></th><th>PJT</th><th>품번 · 품명</th>
         <th style="text-align:center"><div style="display:flex">${stageHdr}</div></th>
-        <th>현재 상태</th><th class="num">입고/요청</th><th>거래처</th><th>최근일</th>
+        <th>현재 상태</th><th>출고번호</th><th class="num">입고/요청</th><th>거래처</th><th>최근일</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table></div></div>
