@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v401</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v403</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1772,21 +1772,30 @@ body.embed-prnew{background:#fff}
             </div>
           </div>
 
-          <!-- STEP 1: 작성 상태 발주 불러오기 -->
+          <!-- STEP 1: 납품품목 조회 (프로젝트구매납품품목조회) -->
           <div class="acc-card">
             <div class="acc-card-header">
-              <div class="acc-card-title">STEP 1. 납품할 발주 선택</div>
-              <div class="acc-card-subtitle">진행상태=작성 인 발주만 납품 가능</div>
+              <div class="acc-card-title">STEP 1. 납품품목 조회 (프로젝트구매납품품목조회)</div>
+              <div class="acc-card-subtitle">프로젝트 + 기간 조회 → 납품번호 행 선택 → 원재료/연구비로 납품확인</div>
             </div>
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
-              <button class="acc-period-btn today" onclick="dvnewLoadDrafts(false)">🔄 작성 발주 불러오기</button>
-              <button class="acc-period-btn" onclick="dvnewLoadDrafts(true)" title="영림원에서 즉시 재조회">↻ 새로고침</button>
-              <button class="acc-period-btn vch-fast-refresh" onclick="refreshAllDraftsParallel(this)" title="작성류 5개를 동시에 영림원에서 즉시 조회 (병렬)" style="background:#7c3aed;color:#fff;">⚡ 전체 빠른 새로고침</button>
-              <input type="text" id="dvnew-search" placeholder="발주번호/품목/거래처 필터 (선택)" oninput="dvnewRenderList()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
-              <span id="dvnew-search-info" style="color:#6b7280;font-size:14px;"></span>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <select id="dvnew-proj" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">프로젝트 전체</option></select>
+              <label style="font-size:13px;color:#475569;">납품일</label>
+              <input type="date" id="dvnew-from" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <span style="color:#9ca3af;">~</span>
+              <input type="date" id="dvnew-to" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <button class="acc-period-btn today" onclick="dvnewLoadItems()">🔍 조회</button>
+              <input type="text" id="dvnew-search" placeholder="🔍 납품번호/발주번호/품명/거래처" oninput="dvnewRenderItems()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:240px;">
+              <span id="dvnew-info" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
             </div>
-            <div id="dvnew-list" style="max-height:420px;overflow-y:auto;">
-              <div style="text-align:center;color:#9ca3af;padding:32px;">「작성 발주 불러오기」를 눌러주세요</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+              <span id="dvnew-sel-label" style="font-size:13px;color:#475569;font-weight:600;">납품번호 선택: <span style="color:#9ca3af;">없음</span></span>
+              <span style="flex:1"></span>
+              <button class="acc-period-btn" id="dvnew-btn-raw" onclick="dvnewConfirmRaw()" disabled style="background:#0f766e;color:#fff;opacity:.5;">📦 원재료로 납품확인</button>
+              <button class="acc-period-btn" id="dvnew-btn-res" onclick="dvnewConfirmResearch()" disabled style="background:#7c3aed;color:#fff;opacity:.5;">🧪 연구비로 납품확인</button>
+            </div>
+            <div id="dvnew-list" style="max-height:480px;overflow:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">[🔍 조회]를 눌러 납품품목을 불러오세요</div>
             </div>
           </div>
 
@@ -12050,6 +12059,40 @@ function _trkStepper(it){
 }
 const _TRK_BADGE={green:"background:#dcfce7;color:#15803d",amber:"background:#fef3c7;color:#92400e",blue:"background:#dbeafe;color:#1d4ed8",gray:"background:#f1f5f9;color:#475569"};
 
+// 자재출고된 항목 → 영림원 '프로젝트자재출고' 엑셀 양식으로 내보내기
+function pExportMaterialIssue(){
+  try{
+    const rows=(typeof pBuildTrack==="function")?pBuildTrack():[];
+    // 출고완료(out 있음)만
+    const outRows=rows.filter(m=> m && m.out && (m.out.no || m.out.qty || m.out.date));
+    if(!outRows.length){ if(typeof toast==="function") toast("자재출고된 항목이 없습니다","bad"); return; }
+    // 엑셀 양식: 행1 타이틀, 행2 헤더(13컬럼), 행3~ 데이터
+    const HEADERS=["프로젝트","프로젝트번호","자재명","자재번호","규격","창고","단위","수량","기준단위","기준단위수량","LotNo","비고","현재고"];
+    const aoa=[["프로젝트자재출고"], HEADERS];
+    outRows.forEach(m=>{
+      const qty=(m.out&&m.out.qty)||m.reqQty||"";
+      aoa.push([
+        "",                       // 프로젝트(명) — 비움
+        m.proj||"",               // 프로젝트번호 (BR26002)
+        m.item_name||"",          // 자재명
+        m.item_no||"",            // 자재번호 (BR26002_BR26002-0H0-P014A)
+        m.spec||"",               // 규격
+        "본사",                    // 창고 (고정)
+        m.unit||"EA",             // 단위 (기본 EA)
+        qty,                      // 수량 (출고수량)
+        "", "", "", "", ""        // 기준단위/기준단위수량/LotNo/비고/현재고 — 비움
+      ]);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    // 컬럼 폭 살짝
+    ws["!cols"]=[{wch:12},{wch:12},{wch:24},{wch:30},{wch:14},{wch:8},{wch:6},{wch:8},{wch:8},{wch:10},{wch:10},{wch:12},{wch:8}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const today=new Date().toISOString().slice(0,10).replace(/-/g,"");
+    XLSX.writeFile(wb, `프로젝트자재출고_${today}.xlsx`);
+    if(typeof toast==="function") toast(`출고 ${outRows.length}건 엑셀 내보내기 완료`,"ok");
+  }catch(e){ if(typeof toast==="function") toast("내보내기 실패: "+e.message,"bad"); console.error(e); }
+}
 function pStatusFilter(f){ _trkFilter=f; pRenderStatus(); }
 function pStatusSearch(v){ _trkQ=(v||"").trim().toLowerCase(); pRenderStatus(); }
 
@@ -12199,6 +12242,7 @@ function pRenderStatus(){
       <span style="flex:1"></span>
       <input id="trk-q" placeholder="🔍 품번·품명 검색" oninput="pStatusSearch(this.value)" value="${pEsc(_trkQ)}">
       ${fbtn("all","전체")} ${fbtn("po_wait","발주〉입고대기")} ${fbtn("incomplete","미완료만")}
+      <button class="pbtn" onclick="pExportMaterialIssue()" title="자재출고된 항목을 영림원 자재출고 엑셀 양식으로 내보내기" style="background:#0f766e;color:#fff;border-color:#0f766e">📤 출고 엑셀 내보내기</button>
       ${_mitSel.size?`<button class="pbtn" onclick="pMitOpenSel()" style="background:#16a34a;color:#fff;border-color:#16a34a">📦 선택 ${_mitSel.size}건 자재출고</button><button class="pbtn" onclick="pMitClear()" title="선택 해제">✕</button>`:""}
       <button class="pbtn" onclick="pTrackSyncNow(this)" title="영림원에서 지금 끌어오기 (발주·품의·입고·출고) — 1~2분 걸릴 수 있어요" style="background:#7c3aed;color:#fff;border-color:#7c3aed">⚡ 지금 동기화</button>
       <button class="pbtn" onclick="pTrackForceRefresh()">↻ 새로고침</button>
@@ -13256,6 +13300,97 @@ async function bgSave(label, url, payload, onDone){
 // ════════════════════════════════════════════════════════
 let dvnewDrafts = [];
 let dvnewSelected = null;
+// ── 납품품목 조회 (프로젝트구매납품품목조회) ──
+let _dvnewItems = [];      // 서버 조회 결과 (행 단위)
+let _dvnewSelDelv = null;  // 선택된 납품번호
+function dvnewInitDates(){
+  const t=new Date(), f=new Date(); f.setDate(f.getDate()-30);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const fi=document.getElementById("dvnew-from"), ti=document.getElementById("dvnew-to");
+  if(fi&&!fi.value) fi.value=fmt(f); if(ti&&!ti.value) ti.value=fmt(t);
+  // 프로젝트 셀렉트 채우기 (관리자 등록 프로젝트)
+  const sel=document.getElementById("dvnew-proj");
+  if(sel && sel.options.length<=1){
+    const projs=(typeof pProjects!=="undefined"&&pProjects.length)?pProjects:(typeof ADMIN_PROJECTS!=="undefined"?ADMIN_PROJECTS:[]);
+    (projs||[]).forEach(p=>{ const o=document.createElement("option"); o.value=String(p); o.textContent=String(p); sel.appendChild(o); });
+  }
+}
+async function dvnewLoadItems(){
+  dvnewInitDates();
+  const proj=(document.getElementById("dvnew-proj")||{}).value||"";
+  const fr=((document.getElementById("dvnew-from")||{}).value||"").replace(/-/g,"");
+  const to=((document.getElementById("dvnew-to")||{}).value||"").replace(/-/g,"");
+  const list=document.getElementById("dvnew-list");
+  if(list) list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 영림원에서 납품품목 조회 중… (~20초)</div>';
+  const info=document.getElementById("dvnew-info"); if(info) info.textContent="";
+  try{
+    const url=`${SERVER}/api/erp/delivery-items?from=${fr}&to=${to}${proj?`&project=${encodeURIComponent(proj)}`:""}`;
+    const r=await fetch(url); const d=await r.json();
+    if(d.error) throw new Error(d.error);
+    _dvnewItems=d.rows||[];
+    if(info) info.textContent=`총 ${_dvnewItems.length}건`;
+    dvnewRenderItems();
+  }catch(e){
+    if(list) list.innerHTML=`<div style="text-align:center;color:#dc2626;padding:24px;">조회 실패: ${esc(e.message)}</div>`;
+  }
+}
+function _dvnewNum(n){ return (Number(n)||0).toLocaleString(); }
+function dvnewRenderItems(){
+  const list=document.getElementById("dvnew-list"); if(!list) return;
+  const q=((document.getElementById("dvnew-search")||{}).value||"").trim().toLowerCase();
+  let rows=_dvnewItems;
+  if(q) rows=rows.filter(r=>(`${r.delv_no} ${r.po_no} ${r.item_name} ${r.item_no} ${r.cust_name} ${r.pjt_no}`).toLowerCase().includes(q));
+  if(!rows.length){ list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:24px;">조회 결과 없음</div>'; return; }
+  // 납품번호별 그룹
+  const groups={};
+  rows.forEach(r=>{ (groups[r.delv_no]=groups[r.delv_no]||[]).push(r); });
+  let h=`<table class="acc-table" style="width:100%;font-size:12.5px;border-collapse:collapse;">
+    <thead><tr style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+      <th style="text-align:left;padding:7px 8px;">납품번호</th><th>발주일</th><th>발주번호</th><th>담당자</th>
+      <th style="text-align:left;">프로젝트명</th><th>PJT번호</th>
+      <th style="text-align:left;">품명</th><th class="r">단가</th><th class="r">수량</th>
+      <th class="r">금액</th><th class="r">부가세</th><th class="r">금액계</th>
+      <th class="r">입고수량</th><th>입고상태</th><th>자산분류</th>
+    </tr></thead><tbody>`;
+  Object.keys(groups).forEach(dno=>{
+    const g=groups[dno]; const head=g[0]; const sel=(_dvnewSelDelv===dno)?'background:#ede9fe;':'';
+    g.forEach((r,idx)=>{
+      const isHead=idx===0;
+      h+=`<tr style="${sel}cursor:pointer;border-top:${isHead?'2px solid #e2e8f0':'1px solid #f1f5f9'};" onclick="dvnewSelectDelv('${esc(dno).replace(/'/g,"")}')" ondblclick="dvnewOpenDelv('${esc(dno).replace(/'/g,"")}')" title="클릭: 선택 · 더블클릭: 납품입력창 열기">`;
+      if(isHead){
+        h+=`<td style="padding:6px 8px;font-weight:700;color:#0f4c81;" rowspan="${g.length}">${esc(dno)}</td>
+            <td rowspan="${g.length}">${esc(head.po_date)}</td>
+            <td rowspan="${g.length}">${esc(head.po_no)}</td>
+            <td rowspan="${g.length}">${esc(head.emp_name)}</td>
+            <td rowspan="${g.length}" style="text-align:left;font-size:11.5px;">${esc(head.pjt_name)}</td>
+            <td rowspan="${g.length}">${esc(head.pjt_no)}</td>`;
+      }
+      h+=`<td style="text-align:left;">${esc(r.item_name)}<div style="font-size:10.5px;color:#94a3b8;font-family:monospace;">${esc(r.item_no)}</div></td>
+          <td class="r">${_dvnewNum(r.price)}</td><td class="r">${_dvnewNum(r.qty)}</td>
+          <td class="r">${_dvnewNum(r.amt)}</td><td class="r">${_dvnewNum(r.vat)}</td><td class="r">${_dvnewNum(r.tot_amt)}</td>
+          <td class="r">${_dvnewNum(r.in_qty)}</td><td>${esc(r.in_status)}</td>
+          <td><span style="font-size:11px;padding:1px 6px;border-radius:99px;background:${r.asset_name==='연구비'?'#ede9fe;color:#6d28d9':'#e0f2fe;color:#0369a1'}">${esc(r.asset_name||'-')}</span></td></tr>`;
+    });
+  });
+  h+=`</tbody></table>`;
+  list.innerHTML=h;
+}
+function dvnewSelectDelv(dno){
+  _dvnewSelDelv=dno; dvnewRenderItems();
+  const lbl=document.getElementById("dvnew-sel-label");
+  if(lbl) lbl.innerHTML=`납품번호 선택: <b style="color:#0f4c81;">${esc(dno)}</b>`;
+  ["dvnew-btn-raw","dvnew-btn-res"].forEach(id=>{ const b=document.getElementById(id); if(b){ b.disabled=false; b.style.opacity="1"; } });
+}
+function dvnewOpenDelv(dno){ dvnewSelectDelv(dno); if(typeof toast==="function") toast("납품입력창 자동화는 2단계에서 구현됩니다","ok"); }
+// 2·3단계에서 구현될 자동화 (현재 스텁)
+function dvnewConfirmRaw(){
+  if(!_dvnewSelDelv){ if(typeof toast==="function") toast("납품번호를 선택하세요","bad"); return; }
+  if(typeof toast==="function") toast(`[2단계 예정] 원재료 납품확인: ${_dvnewSelDelv} — 납품입력창 저장 자동화`,"ok");
+}
+function dvnewConfirmResearch(){
+  if(!_dvnewSelDelv){ if(typeof toast==="function") toast("납품번호를 선택하세요","bad"); return; }
+  if(typeof toast==="function") toast(`[3단계 예정] 연구비 납품확인: ${_dvnewSelDelv} — 연_품번 변환 자동화`,"ok");
+}
 let dvnewDone = new Set(JSON.parse(localStorage.getItem('dvnewDoneOrders') || '[]'));
 
 // ── 입고정산처리(프로젝트구매입고정산처리) 조회 목록 ──
@@ -15273,7 +15408,7 @@ function pInProj(row){
 /* ===== 작성 페이지 최초 진입 시 STEP1 자동 로드 (캐시 우선=빠름) ===== */
 let _pWriteInited = {};
 function pWriteInit(name){
-  const loaders = { pp_new:'ppnewLoadConfirmed', po_new:'ponewLoadDrafts', dv_new:'dvnewLoadDrafts', iv_new:'ivnewLoadList', vch:'vchLoadList' };
+  const loaders = { pp_new:'ppnewLoadConfirmed', po_new:'ponewLoadDrafts', dv_new:'dvnewInitDates', iv_new:'ivnewLoadList', vch:'vchLoadList' };
   if(name==='pp_new' && typeof ppnewApplyLoginUser==='function'){ try{ ppnewApplyLoginUser(); }catch(e){} }
   if(_pWriteInited[name]) return;
   _pWriteInited[name] = true;
