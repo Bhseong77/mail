@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v393</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v395</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2620,7 +2620,17 @@ async function _previewInner(opts){
     if(!url && opts.itemId) url=await spDownloadUrl(opts.itemId, opts.driveId);
     return `<img src="${esc(url)}" style="max-width:100%;max-height:78vh;display:block;margin:0 auto;object-fit:contain">`;
   }
-  // PDF + Office: /preview 임베드 URL (보기 전용 — iframe 임베드 허용됨)
+  // PDF: blob 직접 로드 → 브라우저 내장 PDF 뷰어 (텍스트 선택·복사 가능). 실패 시 /preview 임베드 폴백
+  if(/\.pdf$/i.test(name)){
+    try{
+      let blob=null;
+      if(opts.itemId){ blob=await spFetchBlob(opts.itemId, opts.driveId); }
+      else if(opts.docPath){ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/root:/${encPath(opts.docPath)}/content`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) blob=await r.blob(); }
+      else if(opts.directUrl){ const r=await fetch(opts.directUrl); if(r.ok) blob=await r.blob(); }
+      if(blob){ const u=URL.createObjectURL(blob); setTimeout(()=>{try{URL.revokeObjectURL(u);}catch(_){}}, 600000); return `<iframe src="${u}#toolbar=1" style="width:100%;height:80vh;border:none"></iframe>`; }
+    }catch(e){ console.warn('PDF blob 로드 실패, 임베드 폴백', e&&e.message); }
+  }
+  // PDF(폴백) + Office: /preview 임베드 URL (보기 전용 — iframe 임베드 허용됨)
   let pv=opts.directUrl;
   if(!pv && opts.docPath){ try{ pv=await spPreviewByPath(opts.docPath); }catch(e){} }
   if(!pv && opts.itemId){ try{ pv=await spPreviewUrl(opts.itemId, opts.driveId); }catch(e){} }
@@ -5826,9 +5836,60 @@ async function _anViaVision(f, basePrompt, rotations){
   const d=await r.json(); const c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
   try{ return JSON.parse(c); }catch(_){ return null; }
 }
+// 전자세금계산서 로컬 파서 (고정 양식 — PDF 텍스트 추출 기반)
+function parseTaxInvoice(text){
+  const t=(text||'').replace(/\r/g,'');
+  const lines=t.split('\n').map(s=>s.trim()).filter(Boolean);
+  const out={company:'', approvalNo:'', quoteDate:'', items:[], supply:'', vat:''};
+  // 승인번호 (8-8-8 자리)
+  let m=t.match(/승인번호\s*([0-9]{8}-[0-9]{8}-[0-9]{8})/) || t.match(/([0-9]{8}-[0-9]{8}-[0-9]{8})/);
+  if(m) out.approvalNo=m[1];
+  // 공급자 상호 (첫 번째 '상호 … 성명' = 공급자, 엔젯이면 다음 것)
+  const cos=[...t.matchAll(/상호\s*(.+?)\s*성명/g)].map(x=>x[1].trim()).filter(Boolean);
+  out.company = cos.find(c=>!/엔젯|enjet/i.test(c)) || cos[0] || '';
+  // 작성일자 라인 다음: YYYYMMDD 공급가액 세액
+  const di=lines.findIndex(l=>/작성일자/.test(l));
+  if(di>=0){
+    for(let k=di; k<Math.min(di+3,lines.length); k++){
+      const mm=lines[k].match(/(\d{8})\s+([\d,]+)\s+([\d,]+)/);
+      if(mm){ out.quoteDate=`${mm[1].slice(0,4)}-${mm[1].slice(4,6)}-${mm[1].slice(6,8)}`; out.supply=mm[2].replace(/,/g,''); out.vat=mm[3].replace(/,/g,''); break; }
+    }
+  }
+  // 품목 라인: 날짜(2~4자리) 품목/규격 단위 수량 단가 공급가액 세액
+  const UNIT=/(EA|ea|개|식|SET|set|PCS|pcs|대|건|box|BOX|ROLL|m|M|kg|KG)/;
+  for(const l of lines){
+    const im=l.match(/^\d{2,4}\s+(.+?)\s+(EA|ea|개|식|SET|set|PCS|pcs|대|건|box|BOX|ROLL|m|M|kg|KG)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$/);
+    if(im){
+      out.items.push({ item:im[1].trim(), qty:im[3].replace(/,/g,''), price:im[4].replace(/,/g,''), amount:im[5].replace(/,/g,'') });
+    }
+  }
+  return out;
+}
 async function _analyzeOne(p, f){
   let text='';
   try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
+  if(p==='doc-tax'){
+    // 전자세금계산서는 고정 양식 → 로컬 파싱 우선 (AI보다 정확)
+    const tx=parseTaxInvoice(text);
+    console.log('🧾 세금계산서 로컬파싱:', f.name, tx);
+    if(tx.items.length || tx.approvalNo){
+      const prev=AN_DATA[p][f.id]||{};
+      const _isEnjet=s=>/엔젯|enjet/i.test(String(s||''));
+      AN_DATA[p][f.id]={
+        company: (!_isEnjet(tx.company)&&tx.company)||f.customer||prev.company||'',
+        quoteDate: tx.quoteDate||prev.quoteDate||'',
+        approvalNo: tx.approvalNo||prev.approvalNo||'',
+        category: prev.category||(typeof guessCategory==='function'?guessCategory((tx.company||'')+' '+tx.items.map(x=>x.item).join(' ')):'')||'',
+        items: tx.items.length? tx.items : (prev.items||[]),
+        delivery:'', payment:'', warranty:'',
+        negoAmount: tx.supply||prev.negoAmount||'',
+        supply: tx.supply||'', vat: tx.vat||'',
+        memo:prev.memo||'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+      };
+      return tx;
+    }
+    // 로컬 파싱 실패(스캔 등) → 아래 AI 흐름으로 폴백
+  }
   if(p==='doc-order'){
     // 발주서는 고정 양식 → 로컬 파싱 (AI 미사용)
     const parsed=await parseOrderWithFallback(text, f.name);
