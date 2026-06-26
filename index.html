@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v395</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v396</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5836,32 +5836,26 @@ async function _anViaVision(f, basePrompt, rotations){
   const d=await r.json(); const c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
   try{ return JSON.parse(c); }catch(_){ return null; }
 }
-// 전자세금계산서 로컬 파서 (고정 양식 — PDF 텍스트 추출 기반)
+// 전자세금계산서 로컬 파서 (pdf.js는 줄바꿈 없이 공백조인 → 전체 텍스트 정규식 기반)
 function parseTaxInvoice(text){
-  const t=(text||'').replace(/\r/g,'');
-  const lines=t.split('\n').map(s=>s.trim()).filter(Boolean);
+  const t=(text||'').replace(/\s+/g,' ').trim();
   const out={company:'', approvalNo:'', quoteDate:'', items:[], supply:'', vat:''};
-  // 승인번호 (8-8-8 자리)
-  let m=t.match(/승인번호\s*([0-9]{8}-[0-9]{8}-[0-9]{8})/) || t.match(/([0-9]{8}-[0-9]{8}-[0-9]{8})/);
-  if(m) out.approvalNo=m[1];
-  // 공급자 상호 (첫 번째 '상호 … 성명' = 공급자, 엔젯이면 다음 것)
+  // 승인번호 (8-8-8)
+  let m=t.match(/([0-9]{8}-[0-9]{8}-[0-9]{8})/); if(m) out.approvalNo=m[1];
+  // 공급자 상호 (엔젯 제외)
   const cos=[...t.matchAll(/상호\s*(.+?)\s*성명/g)].map(x=>x[1].trim()).filter(Boolean);
   out.company = cos.find(c=>!/엔젯|enjet/i.test(c)) || cos[0] || '';
-  // 작성일자 라인 다음: YYYYMMDD 공급가액 세액
-  const di=lines.findIndex(l=>/작성일자/.test(l));
-  if(di>=0){
-    for(let k=di; k<Math.min(di+3,lines.length); k++){
-      const mm=lines[k].match(/(\d{8})\s+([\d,]+)\s+([\d,]+)/);
-      if(mm){ out.quoteDate=`${mm[1].slice(0,4)}-${mm[1].slice(4,6)}-${mm[1].slice(6,8)}`; out.supply=mm[2].replace(/,/g,''); out.vat=mm[3].replace(/,/g,''); break; }
-    }
-  }
-  // 품목 라인: 날짜(2~4자리) 품목/규격 단위 수량 단가 공급가액 세액
-  const UNIT=/(EA|ea|개|식|SET|set|PCS|pcs|대|건|box|BOX|ROLL|m|M|kg|KG)/;
-  for(const l of lines){
-    const im=l.match(/^\d{2,4}\s+(.+?)\s+(EA|ea|개|식|SET|set|PCS|pcs|대|건|box|BOX|ROLL|m|M|kg|KG)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$/);
-    if(im){
-      out.items.push({ item:im[1].trim(), qty:im[3].replace(/,/g,''), price:im[4].replace(/,/g,''), amount:im[5].replace(/,/g,'') });
-    }
+  // 작성일자 이후 첫 'YYYYMMDD 공급가액 세액'
+  const ai=t.indexOf('작성일자'); const tail=ai>=0? t.slice(ai): t;
+  m=tail.match(/(\d{8})\s+([\d,]{3,})\s+([\d,]+)/);
+  if(m){ out.quoteDate=`${m[1].slice(0,4)}-${m[1].slice(4,6)}-${m[1].slice(6,8)}`; out.supply=m[2].replace(/,/g,''); out.vat=m[3].replace(/,/g,''); }
+  // 품목 행: 날짜(2~4자리) 품목/규격 단위 수량 단가 공급가액 세액 (전체에서 반복 매칭)
+  const re=/(?<![\d,])(\d{2,4})\s+(.+?)\s+(EA|ea|개|식|SET|set|PCS|pcs|대|건|BOX|box|ROLL|roll|kg|KG|m|M)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)/g;
+  let im;
+  while((im=re.exec(t))){
+    const nm=im[2].trim();
+    if(/품목|규격|단위|수량|단가|공급가액|세액|비고|합계/.test(nm)) continue;  // 헤더 라인 제외
+    out.items.push({ item:nm, qty:im[4], price:im[5].replace(/,/g,''), amount:im[6].replace(/,/g,'') });
   }
   return out;
 }
@@ -6103,6 +6097,28 @@ async function anAnalyze(p, silent){
       // 1) 브라우저에서 직접 텍스트 추출 (서버 안 거침)
       let text='';
       try{ text=await extractTextBrowser(f); }catch(ex){ console.warn('텍스트 추출 실패',f.name,ex.message); }
+      // 세금계산서는 고정 양식 → 로컬 파싱 우선 (AI보다 정확)
+      if(p==='doc-tax'){
+        const tx=parseTaxInvoice(text);
+        console.log('🧾 세금계산서 로컬파싱(벌크):', f.name, tx);
+        if(tx.items.length || tx.approvalNo){
+          const _isEnjet=s=>/엔젯|enjet/i.test(String(s||''));
+          AN_DATA[p][f.id]={
+            company: (!_isEnjet(tx.company)&&tx.company)||f.customer||'',
+            quoteDate: tx.quoteDate||'',
+            approvalNo: tx.approvalNo||'',
+            category: (typeof guessCategory==='function'?guessCategory((tx.company||'')+' '+tx.items.map(x=>x.item).join(' ')):''),
+            items: tx.items,
+            delivery:'', payment:'', warranty:'',
+            negoAmount: tx.supply||'', supply: tx.supply||'', vat: tx.vat||'',
+            memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+          };
+          okN++;
+          if(done%3===0){ anRender(p); if(!silent) toast(`분석 중… ${done}/${pending.length}`); }
+          continue;
+        }
+        // 로컬 실패 → 아래 AI 폴백
+      }
       // 발주서는 고정 양식 → 로컬 파싱 (AI 미사용)
       if(p==='doc-order'){
         const parsed=await parseOrderWithFallback(text, f.name);
