@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v397</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v398</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -16862,9 +16862,14 @@ function poadvCustRender(q){
 }
 
 function poadvCustPick(name, seq){
-  document.getElementById("poadv-cust").value=name;
-  document.getElementById("poadv-cust-seq").value=seq||"";
+  const el=document.getElementById("poadv-cust");
+  if(el){ el.value=name; const s=document.getElementById("poadv-cust-seq"); if(s) s.value=seq||""; }
+  else if(typeof _prnewVPTarget!=="undefined" && _prnewVPTarget){
+    _prnewVPTarget.value=name; try{_prnewVPTarget.dispatchEvent(new Event("input",{bubbles:true}));}catch(_){}
+    _prnewCustList=null;  // 신규등록 반영 위해 캐시 갱신
+  }
   const ov=document.getElementById("poadv-cust-ov"); if(ov) ov.remove();
+  const pv=document.getElementById("prnewVPov"); if(pv) pv.remove();
 }
 
 // 신규 거래처 등록 (영림원 매입거래처)
@@ -19161,6 +19166,41 @@ async function prnewPickCust(reqNo){
   }
   prnewRenderCustModal(reqNo, items, custs);
 }
+// ── 거래처 선택 picker (거래처조회 검색 + 영림원 신규등록 재사용) ──
+let _prnewVPTarget=null;
+async function prnewVendorPickerOpen(inputEl){
+  _prnewVPTarget=inputEl;
+  let custs=_prnewCustList;
+  if(!custs||!custs.length){ try{ custs=await poadvLoadCustomers(); _prnewCustList=custs; }catch(_){ custs=[]; } }
+  let ov=document.getElementById("prnewVPov"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="prnewVPov";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000090;background:rgba(15,23,42,.5);display:flex;align-items:flex-start;justify-content:center;padding-top:7vh";
+  ov.innerHTML=`<div style="width:min(460px,94vw);max-height:82vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:#7c3aed;color:#fff"><b>🏢 거래처 선택</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewVPov').remove()">✕</span></div>
+    <div style="padding:11px 14px;border-bottom:1px solid #eef2f7"><input id="prnewVPq" placeholder="거래처명·사업자번호·대표 검색" autocomplete="off" oninput="prnewVendorPickerRender(this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;box-sizing:border-box"></div>
+    <div id="prnewVPlist" style="flex:1;overflow:auto"></div>
+  </div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  prnewVendorPickerRender("");
+  setTimeout(()=>{ const q=document.getElementById("prnewVPq"); if(q) q.focus(); },50);
+}
+function prnewVendorPickerRender(q){
+  const list=document.getElementById("prnewVPlist"); if(!list) return;
+  let arr=_prnewCustList||[]; q=(q||"").trim().toLowerCase();
+  if(q) arr=arr.filter(c=>(`${c.cust_name||c.name||""} ${c.biz_no||""} ${c.owner||""}`).toLowerCase().includes(q));
+  let html=`<div onclick="prnewVendorPickerNew()" style="padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:13.5px;color:#0f4c81;font-weight:700;background:#f8fafc">➕ 신규 거래처 등록 (영림원)</div>`;
+  if(!arr.length) html+='<div style="padding:14px;color:#94a3b8;font-size:13px">검색 결과 없음 — 위에서 신규 등록하세요</div>';
+  else html+=arr.slice(0,80).map(c=>{ const nm=esc(c.cust_name||c.name||"");
+    return `<div onclick="prnewVendorPickerPick('${nm.replace(/'/g,"\\'")}')" style="padding:9px 14px;border-bottom:1px solid #f6f7f9;cursor:pointer;font-size:13px">🏢 <b>${nm}</b>${c.biz_no?`<span style="color:#94a3b8;font-size:11.5px"> · ${esc(c.biz_no)}</span>`:""}${c.owner?`<span style="color:#94a3b8;font-size:11.5px"> · ${esc(c.owner)}</span>`:""}</div>`;
+  }).join("");
+  list.innerHTML=html;
+}
+function prnewVendorPickerPick(name){
+  if(_prnewVPTarget){ _prnewVPTarget.value=name; try{_prnewVPTarget.dispatchEvent(new Event("input",{bubbles:true}));}catch(_){} }
+  document.getElementById("prnewVPov")?.remove();
+}
+function prnewVendorPickerNew(){ poadvCustNew(); }  // 영림원 신규등록 모달 재사용 (성공 시 poadvCustPick→target 채움)
 // 품목별 거래처 모달 렌더
 function prnewRenderCustModal(reqNo, items, custs){
   const custNames=[...new Set((custs||[]).map(c=>c.cust_name||c.name||"").filter(Boolean))];
@@ -19179,8 +19219,9 @@ function prnewRenderCustModal(reqNo, items, custs){
     <td style="padding:7px 9px;font-size:11.5px;color:#94a3b8;border-bottom:1px solid #f1f5f9;font-family:monospace;">${esc(it.item_no||'')}</td>
     <td style="padding:7px 9px;font-size:12px;text-align:center;color:#64748b;border-bottom:1px solid #f1f5f9;">${esc(String(it.qty||''))}</td>
     <td style="padding:5px 9px;border-bottom:1px solid #f1f5f9;">
-      <input class="prnew-icust" data-idx="${i}" list="prnewItemCustDL" value="${esc(getSaved(it))}" placeholder="거래처 선택·입력"
-        autocomplete="off" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;box-sizing:border-box;">
+      <input class="prnew-icust" data-idx="${i}" value="${esc(getSaved(it))}" placeholder="거래처 선택·입력" readonly
+        onclick="prnewVendorPickerOpen(this)" title="클릭: 거래처 검색·신규등록"
+        autocomplete="off" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;box-sizing:border-box;cursor:pointer;background:#fff;">
     </td></tr>`).join("");
   ov.innerHTML=`<div style="width:min(680px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#7c3aed;color:#fff">
@@ -19188,8 +19229,8 @@ function prnewRenderCustModal(reqNo, items, custs){
       <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewCustPickOv').remove()">✕</span></div>
     <div style="padding:12px 16px;border-bottom:1px solid #eef2f7;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span style="font-size:12px;color:#64748b;font-weight:600;">전체 동일 적용:</span>
-      <input id="prnewCustAll" list="prnewItemCustDL" placeholder="거래처명" autocomplete="off"
-        style="flex:1;min-width:160px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;box-sizing:border-box;">
+      <input id="prnewCustAll" placeholder="거래처명 (클릭하여 선택)" readonly onclick="prnewVendorPickerOpen(this)" autocomplete="off"
+        style="flex:1;min-width:160px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;box-sizing:border-box;cursor:pointer;background:#fff;">
       <button onclick="prnewItemCustApplyAll()" style="padding:7px 12px;border:none;background:#0f4c81;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">↓ 전체 적용</button>
     </div>
     <div style="flex:1;overflow:auto;padding:0 16px;">
