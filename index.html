@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v405</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v406</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -13394,7 +13394,8 @@ function dvnewShowItems(dno){
   let ov=document.getElementById("dvnewItemsOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="dvnewItemsOv";
   ov.style.cssText="position:fixed;inset:0;z-index:1000090;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;";
-  const rowsH=g.map((r,i)=>`<tr style="border-top:1px solid #f1f5f9;">
+  const rowsH=g.map((r,i)=>`<tr style="border-top:1px solid #f1f5f9;" data-itemno="${esc(r.item_no)}">
+    <td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="dvnew-item-chk" value="${esc(r.item_no)}" data-yeon="${String(r.item_no||'').startsWith('연_')?1:0}" onclick="event.stopPropagation();dvnewChkSync()"></td>
     <td style="padding:6px 8px;text-align:center;color:#94a3b8;">${i+1}</td>
     <td style="text-align:left;padding:6px 8px;">${esc(r.item_name)}<div style="font-size:10.5px;color:#94a3b8;font-family:monospace;">${esc(r.item_no)}</div></td>
     <td style="text-align:left;">${esc(r.spec||'')}</td>
@@ -13417,23 +13418,34 @@ function dvnewShowItems(dno){
     <div style="flex:1;overflow:auto;padding:0 18px;">
       <table class="acc-table" style="width:100%;font-size:12px;border-collapse:collapse;">
         <thead><tr style="position:sticky;top:0;background:#f8fafc;">
+          <th style="width:34px;"><input type="checkbox" id="dvnew-chk-all" onclick="dvnewChkAll(this)" title="전체선택"></th>
           <th>#</th><th style="text-align:left;">품명·품번</th><th style="text-align:left;">규격</th><th>단위</th>
           <th class="r">단가</th><th class="r">수량</th><th class="r">금액</th><th class="r">부가세</th><th class="r">금액계</th>
           <th class="r">입고수량</th><th>자산분류</th><th>소분류</th>
         </tr></thead><tbody>${rowsH}</tbody>
         <tfoot><tr style="background:#f1f4f8;font-weight:700;border-top:2px solid #e2e8f0;">
-          <td colspan="5" class="r">합계</td><td class="r">${_dvnewNum(sum('qty'))}</td>
+          <td colspan="6" class="r">합계</td><td class="r">${_dvnewNum(sum('qty'))}</td>
           <td class="r">${_dvnewNum(sum('amt'))}</td><td class="r">${_dvnewNum(sum('vat'))}</td><td class="r">${_dvnewNum(sum('tot_amt'))}</td>
           <td class="r">${_dvnewNum(sum('in_qty'))}</td><td colspan="2"></td></tr></tfoot>
       </table>
     </div>
-    <div style="padding:13px 18px;border-top:1px solid #eef2f7;display:flex;gap:8px;justify-content:flex-end;">
-      <button class="acc-period-btn" onclick="document.getElementById('dvnewItemsOv').remove();dvnewConfirmRaw()" style="background:#0f766e;color:#fff;">📦 원재료로 납품확인</button>
-      <button class="acc-period-btn" onclick="document.getElementById('dvnewItemsOv').remove();dvnewConfirmResearch()" style="background:#7c3aed;color:#fff;">🧪 연구비로 납품확인</button>
+    <div style="padding:13px 18px;border-top:1px solid #eef2f7;display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+      <div style="font-size:12.5px;color:#475569;">
+        선택 <b id="dvnew-chk-count" style="color:#0f4c81;">0</b>건
+        <span style="color:#94a3b8;">· 체크 후 ‘선택행’ 버튼은 그 품목만 처리</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="acc-period-btn" onclick="dvnewConfirmSel('${esc(dno).replace(/'/g,"")}','research')" style="background:#7c3aed;color:#fff;">🧪 선택행 연구비로</button>
+        <button class="acc-period-btn" onclick="dvnewConfirmSel('${esc(dno).replace(/'/g,"")}','raw')" style="background:#0f766e;color:#fff;">📦 선택행 원재료로</button>
+        <span style="width:1px;background:#e5e7eb;margin:0 2px;"></span>
+        <button class="acc-period-btn" onclick="document.getElementById('dvnewItemsOv').remove();dvnewConfirmRaw()" style="background:#0f766e;color:#fff;opacity:.85;">전체 원재료</button>
+        <button class="acc-period-btn" onclick="document.getElementById('dvnewItemsOv').remove();dvnewConfirmResearch()" style="background:#7c3aed;color:#fff;opacity:.85;">전체 연구비</button>
+      </div>
     </div>
   </div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
+  if(typeof dvnewChkSync==="function") dvnewChkSync();
 }
 function dvnewSelectDelv(dno){
   _dvnewSelDelv=dno; dvnewRenderItems();
@@ -13466,9 +13478,60 @@ async function dvnewConfirmRaw(){
     if(typeof toast==="function") toast("오류: "+e.message,"bad");
   }
 }
-function dvnewConfirmResearch(){
+// 전체 연구비로 납품확인 (모든 비-연_ 행 변환)
+async function dvnewConfirmResearch(){
   if(!_dvnewSelDelv){ if(typeof toast==="function") toast("납품번호를 선택하세요","bad"); return; }
-  if(typeof toast==="function") toast(`[3단계 예정] 연구비 납품확인: ${_dvnewSelDelv} — 연_품번 변환 자동화`,"ok");
+  const dno=_dvnewSelDelv;
+  const proj=(_dvnewItems.find(r=>r.delv_no===dno)||{}).pjt_no||"";
+  if(!confirm(`납품번호 ${dno}\n전체 품목을 연구비로 변환·저장할까요?\n(연_품번 신규등록 포함, 다소 시간 소요)`)) return;
+  await _dvnewRunResearch(dno, proj, null, "research", "전체 연구비 변환");
+}
+// 체크박스 동기화
+function dvnewChkSync(){
+  const chks=[...document.querySelectorAll(".dvnew-item-chk")];
+  const sel=chks.filter(c=>c.checked);
+  const cnt=document.getElementById("dvnew-chk-count"); if(cnt) cnt.textContent=sel.length;
+  const all=document.getElementById("dvnew-chk-all");
+  if(all) all.checked=(chks.length>0 && sel.length===chks.length);
+}
+function dvnewChkAll(box){
+  document.querySelectorAll(".dvnew-item-chk").forEach(c=>{ c.checked=box.checked; });
+  dvnewChkSync();
+}
+// 선택행만 연구비/원재료로 변환·저장
+async function dvnewConfirmSel(dno, direction){
+  const sel=[...document.querySelectorAll(".dvnew-item-chk")].filter(c=>c.checked);
+  if(!sel.length){ if(typeof toast==="function") toast("품목을 체크하세요","bad"); return; }
+  const items=sel.map(c=>c.value);
+  const proj=(_dvnewItems.find(r=>r.delv_no===dno)||{}).pjt_no||"";
+  const labelKo=direction==="raw"?"원재료로 복원":"연구비로 변환";
+  if(!confirm(`납품번호 ${dno}\n선택한 ${items.length}개 품목을 ${labelKo}·저장할까요?`)) return;
+  const ov=document.getElementById("dvnewItemsOv"); if(ov) ov.remove();
+  await _dvnewRunResearch(dno, proj, items, direction, `선택 ${items.length}건 ${labelKo}`);
+}
+// 공통 실행 + 작업큐 연결
+async function _dvnewRunResearch(dno, proj, items, direction, jobLabel){
+  const _j=(typeof _J==="function")?_J(`${jobLabel}: ${dno}`):null;
+  if(typeof toast==="function") toast(`${jobLabel} 진행 중… ${dno} (영림원, 품목당 ~7초)`,"ok");
+  try{
+    const r=await fetch(`${SERVER}/api/erp/delivery-confirm-research`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({delv_no:dno, project:proj, items:items, direction:direction})});
+    const d=await r.json();
+    if(d.success){
+      const m=`${d.converted||0}/${d.rows||0}행 · ${dno}`;
+      if(_j&&typeof _Jok==="function") _Jok(_j, m);
+      if(typeof toast==="function") toast(`✅ ${jobLabel} 완료 — ${m}`,"ok");
+      // 목록 갱신 (자산분류 반영)
+      if(typeof dvnewLoadItems==="function") setTimeout(dvnewLoadItems, 400);
+    }else{
+      const em=d.message||d.error||"실패";
+      if(_j&&typeof _Jno==="function") _Jno(_j, em);
+      if(typeof toast==="function") toast(`❌ ${em}`,"bad");
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(typeof toast==="function") toast("오류: "+e.message,"bad");
+  }
 }
 let dvnewDone = new Set(JSON.parse(localStorage.getItem('dvnewDoneOrders') || '[]'));
 
