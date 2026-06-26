@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v391</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v393</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5405,7 +5405,7 @@ function anRender(p){
     const cats=allCategories();
     let sumSupply=0, sumVat=0, sumTot=0;
     let h=`<table class="an-tbl"><thead><tr>
-      <th>회사명</th><th class="c">작성일</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">VAT</th><th class="r">합계</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+      <th>회사명</th><th class="c">작성일</th><th class="c">승인번호</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">VAT</th><th class="r">합계</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
     for(const r of rows){
       const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
       const rowspan=items.length;
@@ -5418,6 +5418,7 @@ function anRender(p){
         if(ix===0){
           h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
           h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:98px" value="${esc(r.quoteDate||r.date||'')}" onchange="anField('${p}','${r.fid}','quoteDate',this.value)"></td>`;
+          h+=`<td rowspan="${rowspan}" class="c"><input class="memo" style="width:130px;font-family:monospace;font-size:11px" placeholder="승인번호" value="${esc(r.approvalNo||r['승인번호']||'')}" onchange="anField('${p}','${r.fid}','approvalNo',this.value)"></td>`;
           const catOpts=cats.map(c=>`<option ${c===_cat?'selected':''}>${esc(c)}</option>`).join('')+`<option value="__new__">＋ 새 분류…</option>`;
           h+=`<td rowspan="${rowspan}" class="c"><select class="memo" style="width:92px" onchange="anCatChange('${p}','${r.fid}',this)">${catOpts}</select></td>`;
         }
@@ -5430,7 +5431,7 @@ function anRender(p){
       });
     }
     h+=`</tbody><tfoot><tr style="background:#f1f4f8;font-weight:700;">
-      <td colspan="6" class="r">합계</td>
+      <td colspan="7" class="r">합계</td>
       <td class="r">${esc(fmtNum(sumSupply))}</td>
       <td class="r">${esc(fmtNum(sumVat))}</td>
       <td class="r" style="color:#0f4c81;">${esc(fmtNum(sumTot))}</td>
@@ -5855,8 +5856,8 @@ async function _analyzeOne(p, f){
   }
   const prompt=`다음은 ${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 문서에서 추출한 텍스트다. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
 ⚠️ 반드시 아래 [내용]과 [파일명]에 실제로 적힌 정보만 사용하라. [내용]에 없는 값은 빈 문자열로 두고, 다른 문서·SharePoint·외부 지식으로 추측하거나 채우지 마라.
-{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
-- quoteDate(견적작성일자): 문서가 작성/발행된 날짜. "견적일자","작성일","발행일","Date","견적일","일자" 등으로 표기됨. YYYY-MM-DD 형식으로. 없으면 빈 문자열.
+{"company":"발행 회사명","quoteDate":"견적 작성일자(YYYY-MM-DD)","approvalNo":"전자세금계산서 승인번호(예: 20260617-41000016-59983316, 없으면 빈 문자열)","category":"분류","delivery":"납기/납품기일","payment":"대금지급방법","warranty":"보증기간","negoAmount":"네고/할인 후 최종 협의금액(숫자만, 없으면 빈 문자열)","items":[{"item":"품목명","qty":"수량","price":"단가(숫자만)","amount":"금액(숫자만)"}]}
+- approvalNo(승인번호): 전자세금계산서 상단의 "승인번호"(보통 24자리 숫자-하이픈, 예 20260617-41000016-59983316). 세금계산서가 아니면 빈 문자열.
 - category(분류): 품목 성격을 [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나로. 판단 어려우면 빈 문자열.
 - delivery(납기): 물품을 언제 납품/인도하는지. 문서에 "납기","납품기일","납품시기","delivery","리드타임" 등으로 표기됨.
 - payment(대금지급방법): 대금을 어떻게 지급하는지 (예: "계약시 30% 납품전 70% 현금"). "대금지불","지급조건","결제조건" 등으로 표기됨.
@@ -5889,6 +5890,7 @@ ${text.slice(0,6000)}`;
   AN_DATA[p][f.id]={
     company:_company,
     quoteDate:(info&&info.quoteDate)||prev.quoteDate||'',
+    approvalNo:(info&&info.approvalNo)||prev.approvalNo||'',
     category:(info&&info.category)||prev.category||'',
     items:(info&&info.items&&info.items.length?info.items:prev.items)||[],
     delivery:(info&&info.delivery)||'',
@@ -6973,6 +6975,39 @@ async function clearAppCache(){
 function saveSettings(){const v=$('srvInput').value.trim().replace(/\/+$/,'');if(v){SERVER=v;localStorage.setItem(SERVER_KEY,v);}closeSettings();checkHealth();loadList();}
 async function refreshEndpoint(){ toast('SharePoint에서 서버 주소 확인 중…'); await resolveServerEndpoint(); $('srvInput').value=SERVER; toast('서버 주소: '+SERVER,'ok'); checkHealth(); loadList(); }
 async function checkHealth(){const s=$('status'),t=$('statusTxt');s.className='hdr-sync';t.textContent='확인 중…';try{const r=await fetch(SERVER+'/api/mail/health');const d=await r.json();if(d.ok){s.className='hdr-sync on';t.textContent='연결됨';}else{s.className='hdr-sync off';t.textContent='로그인 실패';}}catch(e){s.className='hdr-sync off';t.textContent='서버 오프라인';}}
+// ── 받은메일함 자동 새로고침 (30초 폴링) ──
+let _mailPollTimer=null, _mailPolling=false; const _MAIL_POLL_MS=30000;
+async function mailPoll(){
+  if(_mailPolling || document.hidden) return;
+  if(typeof FOLDER==='undefined' || FOLDER!=='inbox') return;          // 받은메일함일 때만
+  if(typeof _searchQ!=='undefined' && _searchQ) return;                 // 검색 중엔 스킵
+  if(typeof SERVER==='undefined' || !SERVER) return;
+  _mailPolling=true;
+  try{
+    const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=100`);
+    const d=await r.json();
+    if(d && d.ok && Array.isArray(d.mails)){
+      const have=new Set((MAILS||[]).map(m=>String(m.uid)));
+      const fresh=d.mails.filter(m=>!have.has(String(m.uid)));
+      if(fresh.length){
+        MAILS=d.mails.slice();        // 서버 최신본으로 갱신 (SELECTED는 유지)
+        if(typeof renderList==='function') renderList();
+        if(typeof updateCount==='function') updateCount();
+        toast(`📩 새 메일 ${fresh.length}통`,'ok');
+        try{ const t=document.title; document.title=`📩(${fresh.length}) 새 메일`; setTimeout(()=>{document.title=t;},4000); }catch(_){}
+      } else if(d.mails.length!==(MAILS||[]).length){
+        MAILS=d.mails.slice();        // 삭제/읽음 등 변화 반영 (조용히)
+        if(typeof renderList==='function') renderList();
+        if(typeof updateCount==='function') updateCount();
+      }
+    }
+  }catch(e){}
+  finally{ _mailPolling=false; }
+}
+function startMailAutoRefresh(){ if(_mailPollTimer) return; _mailPollTimer=setInterval(mailPoll, _MAIL_POLL_MS); }
+function stopMailAutoRefresh(){ if(_mailPollTimer){ clearInterval(_mailPollTimer); _mailPollTimer=null; } }
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) mailPoll(); });
+startMailAutoRefresh();
 async function loadList(){$('list').innerHTML='<div class="skel"><div style="width:60%"></div><div style="width:90%"></div></div>'.repeat(6);SELECTED=null;renderReaderEmpty();try{const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&limit=100`);const d=await r.json();if(!d.ok){$('list').innerHTML=`<div class="err">조회 실패: ${esc(d.error||'')}</div>`;MAILS=[];updateCount();return;}MAILS=d.mails||[];renderList();if(DEEPLINK_UID){const tgt=DEEPLINK_UID;DEEPLINK_UID=null;const exists=MAILS.find(x=>String(x.uid)===String(tgt));if(exists){openMail(exists.uid);}else{openMail(tgt);}}setTimeout(()=>{if(FOLDER==='inbox')autoScanOnLoad();},1200);}catch(e){$('list').innerHTML=`<div class="err">서버 연결 실패<br><span style="font-size:12px">${esc(e.message)}</span><br><br><button class="btn" onclick="openSettings()">서버 주소 설정</button></div>`;MAILS=[];updateCount();}}
 function mailParty(m){return (FOLDER==='sent')?(m.to||[]):(m.from||[]);}
 const _AV_COLORS=['#ef4444','#f97316','#f59e0b','#10b981','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#ec4899','#14b8a6','#0ea5e9','#84cc16'];
