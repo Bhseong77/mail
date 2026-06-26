@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v404</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v405</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -13442,10 +13442,29 @@ function dvnewSelectDelv(dno){
   ["dvnew-btn-raw","dvnew-btn-res"].forEach(id=>{ const b=document.getElementById(id); if(b){ b.disabled=false; b.style.opacity="1"; } });
 }
 function dvnewOpenDelv(dno){ dvnewSelectDelv(dno); if(typeof toast==="function") toast("납품입력창 자동화는 2단계에서 구현됩니다","ok"); }
-// 2·3단계에서 구현될 자동화 (현재 스텁)
-function dvnewConfirmRaw(){
+// 원재료로 납품확인 — 더블클릭→납품입력창→저장
+async function dvnewConfirmRaw(){
   if(!_dvnewSelDelv){ if(typeof toast==="function") toast("납품번호를 선택하세요","bad"); return; }
-  if(typeof toast==="function") toast(`[2단계 예정] 원재료 납품확인: ${_dvnewSelDelv} — 납품입력창 저장 자동화`,"ok");
+  const dno=_dvnewSelDelv;
+  const proj=(_dvnewItems.find(r=>r.delv_no===dno)||{}).pjt_no||"";
+  if(!confirm(`납품번호 ${dno}\n원재료로 납품확인(저장) 진행할까요?`)) return;
+  const _j=(typeof _J==="function")?_J("원재료 납품확인: "+dno):null;
+  if(typeof toast==="function") toast(`원재료 납품확인 진행 중… ${dno} (영림원, ~30초)`,"ok");
+  try{
+    const r=await fetch(`${SERVER}/api/erp/delivery-confirm-raw`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({delv_no:dno, project:proj})});
+    const d=await r.json();
+    if(d.success){
+      if(_j&&typeof _Jok==="function") _Jok(_j, d.delv_no||dno);
+      if(typeof toast==="function") toast(`✅ 원재료 납품확인 완료 — ${d.delv_no||dno}`,"ok");
+    }else{
+      if(_j&&typeof _Jno==="function") _Jno(_j, d.message||d.error||"실패");
+      if(typeof toast==="function") toast(`❌ ${d.message||d.error||"납품확인 실패"}`,"bad");
+    }
+  }catch(e){
+    if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
+    if(typeof toast==="function") toast("오류: "+e.message,"bad");
+  }
 }
 function dvnewConfirmResearch(){
   if(!_dvnewSelDelv){ if(typeof toast==="function") toast("납품번호를 선택하세요","bad"); return; }
