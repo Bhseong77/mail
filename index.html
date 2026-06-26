@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v406</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v407</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -3992,7 +3992,7 @@ async function buildDocIndex(force){
         else if(it.file && it.name!=='_analysis.json'){
           const dest=label+(rel?'/'+rel:'');
           const k=_docKey(it.name);
-          (byName[k]=byName[k]||[]).push({size:it.size||0, dest});
+          (byName[k]=byName[k]||[]).push({size:it.size||0, dest, fid:it.id});
         }
       }
       await Promise.all(subdirs.map(([p,r])=>walk(p,r)));
@@ -4011,6 +4011,18 @@ function docFindMoved(name,size){
   return list[0].dest;
 }
 function docFindMovedFlexible(name,size){ return docFindMoved(name,size); }
+// 문서함 사본 fid 목록 (영구삭제 시 사본까지 제거용)
+function docFindFids(name,size){
+  if(!DOC_INDEX_NAME) return [];
+  const list=DOC_INDEX_NAME[_docKey(name)]||[];
+  let cand=list;
+  if(size){ const exact=list.filter(x=>x.size===size); if(exact.length) cand=exact; }
+  return cand.map(x=>x.fid).filter(Boolean);
+}
+// 관리자(슈퍼관리자) 여부 — 첨부 영구삭제 등 위험작업 전용
+function atIsAdmin(){
+  try{ return ((_account&&(_account.username||''))||'').toLowerCase()==='baekhoon@enjet.co.kr'; }catch(e){ return false; }
+}
 // 이동 직후: 전체 재스캔 없이 방금 올린 파일만 인덱스에 추가 (즉시 ✅ + 빠름)
 function docIndexAdd(name,size,dest){
   if(!DOC_INDEX_NAME) DOC_INDEX_NAME={};
@@ -4021,6 +4033,33 @@ function docIndexAdd(name,size,dest){
 const TA_PATH="teams_attachments.json";
 const TA_HIDDEN_PATH="teams_attachments_hidden.json";
 const TA_MOVED_PATH="teams_attachments_moved.json";
+const TA_DELETED_PATH="teams_attachments_deleted.json"; // 영구삭제 id (재수집돼도 제외)
+let TA_DELETED=[];
+// ── 첨부 영구삭제 코어 (관리자 전용) ──
+// it: 첨부항목(id,name,size,itemId,driveId), opts: {indexPath, dataObj, deletedArr, deletedPath}
+async function atPermDelete(it, opts){
+  if(!atIsAdmin()){ toast('영구삭제는 관리자만 가능합니다','bad'); return false; }
+  const moved=docFindFids(it.name, it.size);          // 문서함 사본 fid들
+  const targets=[];
+  if(it.itemId) targets.push(it.itemId);              // SharePoint 원본(팀즈 등)
+  for(const f of moved){ if(!targets.includes(f)) targets.push(f); }
+  let spFail=0;
+  for(const fid of targets){ try{ await spDeleteItem(fid); }catch(e){ spFail++; } }
+  // 수집 인덱스에서 제거 후 되쓰기 (대시보드 영구 제거)
+  try{
+    if(opts.dataObj && Array.isArray(opts.dataObj.items)){
+      opts.dataObj.items=opts.dataObj.items.filter(x=>x.id!==it.id);
+      await spPutJson(opts.indexPath, opts.dataObj);
+    }
+  }catch(e){ toast('인덱스 갱신 실패: '+e.message,'bad'); }
+  // 영구삭제 id 기록 (재수집돼도 제외)
+  try{
+    if(!opts.deletedArr.includes(it.id)) opts.deletedArr.push(it.id);
+    await spPutJson(opts.deletedPath,{deleted:opts.deletedArr,updatedAt:new Date().toISOString()});
+  }catch(e){}
+  actLog(`🗑 첨부 영구삭제: ${it.name}${targets.length?` (SharePoint ${targets.length-spFail}/${targets.length})`:''}`);
+  return true;
+}
 let TA_DATA=null;
 let TA_HIDDEN=[];  // 숨긴 항목 id 배열 (SharePoint 공유)
 let TA_MOVED={};   // {id: dest} — 문서함 스캔으로 계산 (이름+크기 일치)
@@ -4030,6 +4069,9 @@ async function taLoad(){
   TA_DATA=await spGetJson(TA_PATH);
   const hid=await spGetJson(TA_HIDDEN_PATH);
   TA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[]; TA_RENAME=(hid&&hid.renames)?hid.renames:{};
+  const del=await spGetJson(TA_DELETED_PATH);
+  TA_DELETED=(del&&Array.isArray(del.deleted))?del.deleted:[];
+  if(TA_DATA && Array.isArray(TA_DATA.items) && TA_DELETED.length){ TA_DATA.items=TA_DATA.items.filter(x=>!TA_DELETED.includes(x.id)); }
   if(!TA_DATA){ $('taList').innerHTML='<div class="an-empty">수집된 첨부파일이 없습니다. (서버 수집 스크립트 teams_attachments.py 실행 필요)</div>'; TA_SUBTEXT='T Project 채팅 첨부파일'; atUpdateSub(); return; }
   // 문서함 스캔(캐시 3분) → 이동완료 계산
   $('taList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
@@ -4129,6 +4171,7 @@ function taRender(){
           ${hidden
             ? `<button class="btn sm" onclick="taUnhide('${esc(it.id)}')" title="목록에 복원">↩ 복원</button>`
             : `<button class="btn sm" onclick="taHide('${esc(it.id)}')" title="목록에서 삭제(숨김)">🗑</button>`}
+          ${atIsAdmin()?`<button class="btn sm danger" onclick="taDelete(${realIdx})" title="영구삭제 (SharePoint까지·복구불가)" style="background:#dc2626;color:#fff;border-color:#dc2626">⛔ 영구삭제</button>`:''}
         </div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
@@ -4142,6 +4185,18 @@ async function taUnhide(id){
   TA_HIDDEN=TA_HIDDEN.filter(x=>x!==id);
   await taSaveHidden();
   taLoad();
+}
+async function taDelete(idx){
+  if(!atIsAdmin()){ toast('영구삭제는 관리자만 가능합니다','bad'); return; }
+  const it=(TA_DATA.items||[])[idx]; if(!it) return;
+  const mv=docFindFids(it.name,it.size).length;
+  if(!confirm(`⛔ 영구삭제 (복구 불가)\n\n파일: ${it.name}\n${it.itemId?'· SharePoint 원본 삭제\n':''}${mv?`· 문서함 사본 ${mv}개 삭제\n`:''}· 첨부 목록에서 영구 제거\n\n정말 삭제할까요?`)) return;
+  const _j=(typeof _J==="function")?_J("첨부 영구삭제: "+it.name):null;
+  try{
+    const ok=await atPermDelete(it,{indexPath:TA_PATH,dataObj:TA_DATA,deletedArr:TA_DELETED,deletedPath:TA_DELETED_PATH});
+    if(ok){ if(_j&&typeof _Jok==="function") _Jok(_j,it.name); toast('영구삭제 완료','ok'); taLoad(); }
+    else if(_j&&typeof _Jno==="function") _Jno(_j,"권한 없음");
+  }catch(e){ if(_j&&typeof _Jno==="function") _Jno(_j,e.message); toast('삭제 실패: '+e.message,'bad'); }
 }
 function taOpen(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
@@ -4362,11 +4417,15 @@ function ftMoveAny(p,itemId,name){
 const MA_PATH="mail_attachments.json";
 const MA_HIDDEN_PATH="mail_attachments_hidden.json";
 const MA_MOVED_PATH="mail_attachments_moved.json";
+const MA_DELETED_PATH="mail_attachments_deleted.json"; // 영구삭제 id
+let MA_DELETED=[];
 let MA_DATA=null, MA_HIDDEN=[], MA_MOVED={}, MA_FOLDER='inbox', MA_SHOW_HIDDEN=false, MA_RENAME={};
 async function maLoad(){
   $('maList').innerHTML='<div class="an-empty">불러오는 중…</div>';
   MA_DATA=await spGetJson(MA_PATH);
   const hid=await spGetJson(MA_HIDDEN_PATH); MA_HIDDEN=(hid&&Array.isArray(hid.hidden))?hid.hidden:[]; MA_RENAME=(hid&&hid.renames)?hid.renames:{};
+  const del=await spGetJson(MA_DELETED_PATH); MA_DELETED=(del&&Array.isArray(del.deleted))?del.deleted:[];
+  if(MA_DATA && Array.isArray(MA_DATA.items) && MA_DELETED.length){ MA_DATA.items=MA_DATA.items.filter(x=>!MA_DELETED.includes(x.id)); }
   if(!MA_DATA){ $('maList').innerHTML='<div class="an-empty">수집된 메일 첨부파일이 없습니다. (서버 수집 스크립트 mail_attachments.py 실행 필요)</div>'; MA_SUBTEXT='enjet_ed 메일 첨부파일'; atUpdateSub(); return; }
   $('maList').innerHTML='<div class="an-empty">문서함 확인 중…</div>';
   try{ await buildDocIndex(false); }catch(e){}
@@ -4501,12 +4560,25 @@ function maRender(){
           <button class="btn sm" onclick="maOpen(${realIdx})" title="다운로드">👁</button>
           <button class="btn sm ${mv?'':'primary'}" onclick="maMove(${realIdx})">${mv?'📁 다시 이동':'📁 이동'}</button>
           ${hidden?`<button class="btn sm" onclick="maUnhide('${esc(it.id)}')">↩ 복원</button>`:`<button class="btn sm" onclick="maHide('${esc(it.id)}')">🗑</button>`}
+          ${atIsAdmin()?`<button class="btn sm danger" onclick="maDelete(${realIdx})" title="영구삭제 (SharePoint 사본까지·복구불가)" style="background:#dc2626;color:#fff;border-color:#dc2626">⛔ 영구삭제</button>`:''}
         </div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
 }
 function maDlUrl(it){ return `${SERVER}/api/mail/attachment?folder=${encodeURIComponent(it.folder)}&uid=${encodeURIComponent(it.uid)}&idx=${it.idx}`; }
 function maName(it){ return (MA_RENAME&&MA_RENAME[it.id])||it.name||'(이름없음)'; }
+async function maDelete(idx){
+  if(!atIsAdmin()){ toast('영구삭제는 관리자만 가능합니다','bad'); return; }
+  const it=(MA_DATA.items||[])[idx]; if(!it) return;
+  const mv=docFindFids(it.name,it.size).length;
+  if(!confirm(`⛔ 영구삭제 (복구 불가)\n\n파일: ${maName(it)}\n${mv?`· 문서함 사본 ${mv}개 삭제\n`:''}· 첨부 목록에서 영구 제거\n(원본 메일은 그대로 유지됩니다)\n\n정말 삭제할까요?`)) return;
+  const _j=(typeof _J==="function")?_J("메일첨부 영구삭제: "+maName(it)):null;
+  try{
+    const ok=await atPermDelete(it,{indexPath:MA_PATH,dataObj:MA_DATA,deletedArr:MA_DELETED,deletedPath:MA_DELETED_PATH});
+    if(ok){ if(_j&&typeof _Jok==="function") _Jok(_j,maName(it)); toast('영구삭제 완료','ok'); maLoad(); }
+    else if(_j&&typeof _Jno==="function") _Jno(_j,"권한 없음");
+  }catch(e){ if(_j&&typeof _Jno==="function") _Jno(_j,e.message); toast('삭제 실패: '+e.message,'bad'); }
+}
 async function maDownload(idx){
   const it=(MA_DATA.items||[])[idx]; if(!it) return;
   try{ const r=await fetch(maDlUrl(it)); if(!r.ok) throw new Error(r.status); const b=await r.blob(); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=maName(it); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); }
