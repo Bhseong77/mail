@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v413</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v414</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1952,10 +1952,11 @@ body.embed-prnew{background:#fff}
 <div class="page" id="page-cloudium">
   <div style="max-width:1320px;margin:0 auto;padding:18px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:20px">📁 클라우디움 <span style="font-size:13px;font-weight:400;color:var(--t3)">(사이버다임 문서중앙화 · 읽기연동)</span></h2>
+      <h2 style="margin:0;font-size:20px">📁 클라우디움 <span style="font-size:13px;font-weight:400;color:var(--t3)">(사이버다임 문서중앙화 · 다운로드/업로드)</span></h2>
       <span id="clmSub" style="font-size:12px;color:var(--t3)"></span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <input id="clmSearch" placeholder="🔍 현재 폴더 검색" oninput="clmFilter()" style="padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px">
+        <button class="btn sm" onclick="clmUploadHere()" title="현재 폴더에 파일 업로드">⬆ 업로드</button>
         <button class="btn sm" onclick="clmReload()">↻ 새로고침</button>
       </div>
     </div>
@@ -4836,6 +4837,54 @@ async function clmReload(){
   clmRenderTree();
   const d2=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}&refresh=1`);
   if(d2&&d2.ok){ CLM_DOCS=d2.items||[]; clmRenderList(); toast('클라우디움 새로고침 완료','ok'); }
+}
+
+// ════════ 업로드: 파일선택(에이전트) → upLoad(에이전트) → documentCreate(서버경유) ════════
+// 진단 확정 3단계:
+//  1) openFileSelectDlg(에이전트 JSONP) → 로컬 filePath
+//  2) upLoad(에이전트 JSONP, filePath '\'단일) → fileID/fileSize/fileDate
+//  3) documentCreate(웹, Flask프록시) → folderOID+name+fileID+fileSize+fileDate → 문서등록
+function clmUploadHere(){
+  const folderOID=CLM_CUR||CLM_ROOT;
+  const node=CLM_TREE[folderOID];
+  const fname=node?node.item.name:'전사 폴더';
+  toast(`업로드할 파일을 선택하세요 (대상: ${fname})`,'ok');
+  // 1) 파일 선택 (에이전트가 다이얼로그 띄움)
+  clmAgentCall('openFileSelectDlg', { useMulti:'1' }, (sel)=>{
+    if(sel&&sel._neterr){ toast('에이전트에 연결할 수 없습니다. cloudium 앱 실행을 확인하세요','warn'); return; }
+    const arr=sel&&sel.success?sel.success:[];
+    if(!arr.length){ /* 취소 */ return; }
+    clmUploadFiles(folderOID, arr.map(x=>({path:(x.filePath||'').replace(/\\\\/g,'\\'), size:x.fileSize})));
+  });
+}
+// 선택된 파일들 순차 업로드 (에이전트 upLoad → 서버 documentCreate)
+async function clmUploadFiles(folderOID, files){
+  let okN=0, failN=0;
+  for(const f of files){
+    const nm=(f.path.split('\\').pop()||f.path);
+    toast(`업로드 중: ${nm}`,'ok');
+    // 2) 에이전트 upLoad → fileID 회수
+    const up=await new Promise(res=>{
+      clmAgentCall('upLoad', { filePath:f.path, blobTypes:'doc', checkIn:'0', hooking:'0' }, res);
+    });
+    if(!up||up._neterr||up.result!=='S'||!(up.success&&up.success[0])){
+      failN++; const r=(up&&up.fail&&up.fail[0])?up.fail[0].reason:'';
+      toast(`업로드 실패: ${nm} ${r||''}`,'warn'); continue;
+    }
+    const s=up.success[0];
+    // 3) 서버 경유 documentCreate (CORS 때문에 Flask 프록시)
+    try{
+      const r=await fetch(`${SERVER}/api/cloudium/doc_create`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ folderOID, name:nm, fileID:s.fileID, fileSize:s.fileSize, fileDate:s.fileDate })
+      });
+      const j=await r.json();
+      if(j&&j.ok){ okN++; }
+      else { failN++; toast(`문서등록 실패: ${nm} ${(j&&j.msg)||''}`,'warn'); }
+    }catch(e){ failN++; toast(`문서등록 오류: ${nm}`,'warn'); }
+  }
+  if(okN) toast(`업로드 완료: ${okN}건${failN?` (실패 ${failN})`:''}`,'ok');
+  if(okN) clmReload();   // 새로고침해서 올라온 파일 표시
 }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
