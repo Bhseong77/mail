@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v423</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v424</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5085,7 +5085,9 @@ function clmCtxMenu(ev,oid,isFolder){
   menu.style.cssText=`position:fixed;left:${ev.clientX}px;top:${ev.clientY}px;z-index:999999;background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:4px;min-width:160px;font-size:13px`;
   const mi=(label,fn,disabled)=>`<div class="clmCtxItem" data-fn="${fn}" style="padding:8px 12px;cursor:${disabled?'default':'pointer'};border-radius:6px;${disabled?'opacity:.4':''}" ${disabled?'':`onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"`}>${label}</div>`;
   if(isFolder){
-    menu.innerHTML=mi('📂 열기','open');
+    menu.innerHTML=mi('📂 열기','open')+
+      `<div style="height:1px;background:var(--border);margin:4px 0"></div>`+
+      mi('🔒 보안설정','security');
   }else{
     const n=CLM_SEL.size;
     menu.innerHTML=
@@ -5095,6 +5097,7 @@ function clmCtxMenu(ev,oid,isFolder){
       mi('📋 복사','copy')+mi('✂️ 이동','move')+
       (n<=1?mi('✏️ 이름변경','rename'):'')+
       (n<=1?mi('🔗 링크 복사','share'):'')+
+      (n<=1?mi('🔒 보안설정','security'):'')+
       mi(`🗑 삭제${n>1?` (${n}개)`:''}`,'delete');
   }
   document.body.appendChild(menu);
@@ -5107,10 +5110,147 @@ function clmCtxMenu(ev,oid,isFolder){
       else if(fn==='move'){ if(!CLM_SEL.has(oid)){CLM_SEL.clear();CLM_SEL.add(oid);} clmBatchMove(); }
       else if(fn==='rename'){ CLM_SEL.clear();CLM_SEL.add(oid); clmBatchRename(); }
       else if(fn==='share'){ CLM_SEL.clear();CLM_SEL.add(oid); clmBatchShare(); }
+      else if(fn==='security'){ clmSecurityModal(oid, isFolder); }
       else if(fn==='delete'){ if(!CLM_SEL.has(oid)){CLM_SEL.clear();CLM_SEL.add(oid);} clmBatchDelete(); }
     };
   });
   setTimeout(()=>{ const close=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',close); } }; document.addEventListener('click',close); },50);
+}
+
+// ══════════ 클라우디움 보안설정(ACL) 모달 ══════════
+//  권한 매핑(파일): 모든권한=31, 삭제=15, 수정=7, 읽기=3, 목록보기=1
+const CLM_PERM_OPTS=[
+  {v:31, label:'모든 권한'},
+  {v:15, label:'삭제'},
+  {v:7,  label:'수정'},
+  {v:3,  label:'읽기'},
+  {v:1,  label:'목록 보기'},
+];
+function clmPermLabel(p){ const o=CLM_PERM_OPTS.find(x=>x.v===Number(p)); return o?o.label:`권한값 ${p}`; }
+let _clmAcl={oid:'', type:'DO', aceList:[], inherit:true, name:''};
+async function clmSecurityModal(oid, isFolder){
+  const it=(CLM_DOCS||[]).find(x=>x.oid===oid)||{};
+  _clmAcl={oid, type:isFolder?'FO':'DO', aceList:[], inherit:true, name:it.name||''};
+  document.getElementById('clmAclOv')?.remove();
+  const ov=document.createElement('div'); ov.id='clmAclOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:1000099;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center';
+  ov.innerHTML=`<div style="width:min(640px,96vw);max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:13px 18px;background:#0f4c81;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b>🔒 보안설정 · ${esc(it.name||oid)}</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('clmAclOv').remove()">✕</span></div>
+    <div style="padding:12px 18px;border-bottom:1px solid #f1f5f9">
+      <div style="font-size:11.5px;color:var(--t3);margin-bottom:6px">부서·사용자 추가 (이름 검색)</div>
+      <div style="display:flex;gap:6px">
+        <input id="clmAclSearch" placeholder="이름 입력 후 Enter (예: 변도영, 영업)" style="flex:1;height:32px;border:1px solid var(--border);border-radius:6px;padding:0 10px;font-size:13px" onkeydown="if(event.key==='Enter')clmAclSearchGo()">
+        <button class="btn sm primary" onclick="clmAclSearchGo()">🔍 검색</button>
+      </div>
+      <div id="clmAclSearchRes" style="margin-top:6px;max-height:140px;overflow:auto"></div>
+    </div>
+    <div style="padding:8px 18px;flex:1;overflow:auto">
+      <div style="font-size:11.5px;color:var(--t3);margin:4px 0 8px">현재 권한</div>
+      <div id="clmAclList"><div class="an-empty">불러오는 중…</div></div>
+    </div>
+    <div style="padding:10px 18px;border-top:1px solid #eef0f3;background:#fafbfc">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t2);cursor:pointer;margin-bottom:4px">
+        <input type="checkbox" id="clmAclInherit" checked style="width:15px;height:15px"> 상위 폴더에서 보안을 변경하면 함께 변경됩니다</label>
+      ${isFolder?`<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t2);cursor:pointer">
+        <input type="checkbox" id="clmAclSub" style="width:15px;height:15px"> 하위 폴더·문서에도 함께 적용</label>`:''}
+    </div>
+    <div style="padding:11px 18px;border-top:1px solid #eef0f3;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn sm" onclick="document.getElementById('clmAclOv').remove()">취소</button>
+      <button class="btn primary sm" onclick="clmAclSave()">💾 저장</button>
+    </div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  // 현재 권한 로드
+  try{
+    const d=await clmApi(`/api/cloudium/acl/get?oid=${encodeURIComponent(oid)}&type=${_clmAcl.type}`);
+    if(!d||!d.ok){ document.getElementById('clmAclList').innerHTML='<div style="color:var(--r);font-size:12px">권한을 불러오지 못했습니다</div>'; return; }
+    _clmAcl.aceList=d.aceList||[];
+    _clmAcl.inherit=d.flagInheritACL!==false;
+    const ick=document.getElementById('clmAclInherit'); if(ick) ick.checked=_clmAcl.inherit;
+    clmAclRender();
+  }catch(e){ document.getElementById('clmAclList').innerHTML=`<div style="color:var(--r);font-size:12px">${esc(e.message)}</div>`; }
+}
+function clmAclTypeIcon(t){ return t==='UR'?'👤':(t==='GR'?'🏢':(t==='PG'?'📁':(t==='DE'?'📱':'•'))); }
+function clmAclRender(){
+  const box=document.getElementById('clmAclList'); if(!box) return;
+  if(!_clmAcl.aceList.length){ box.innerHTML='<div class="an-empty">권한 없음</div>'; return; }
+  box.innerHTML=_clmAcl.aceList.map((a,i)=>{
+    const isSystem=(a.targetObjectType==='PG' && (a.aclOwnerOID==='S000'||a.aclOwnerOID==='H000'));
+    const isDevice=a.targetObjectType==='DE';
+    const perm=Number(a.permission);
+    const opts=CLM_PERM_OPTS.map(o=>`<option value="${o.v}" ${o.v===perm?'selected':''}>${o.label}</option>`).join('');
+    const path=a.ownerFullPath||(a.ownerObject&&a.ownerObject.fullPathName)||'';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid #f3f4f6">
+      <span>${clmAclTypeIcon(a.targetObjectType)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.objectName||'')}</div>
+        ${path?`<div style="font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(path)}</div>`:''}
+      </div>
+      ${isSystem||isDevice
+        ? `<span style="font-size:11.5px;color:var(--t3);padding:0 8px">${clmPermLabel(perm)} ${isSystem?'(시스템)':'(기기)'}</span>`
+        : `<select onchange="clmAclSetPerm(${i},this.value)" style="height:30px;font-size:12px;border:1px solid var(--border);border-radius:6px">${opts}</select>
+           <span onclick="clmAclRemove(${i})" style="cursor:pointer;color:var(--r);font-size:13px" title="권한 제거">✕</span>`}
+    </div>`;
+  }).join('');
+}
+function clmAclSetPerm(i, v){ if(_clmAcl.aceList[i]) _clmAcl.aceList[i].permission=Number(v); }
+function clmAclRemove(i){ _clmAcl.aceList.splice(i,1); clmAclRender(); }
+async function clmAclSearchGo(){
+  const kw=(document.getElementById('clmAclSearch').value||'').trim();
+  const res=document.getElementById('clmAclSearchRes');
+  if(!kw){ res.innerHTML=''; return; }
+  res.innerHTML='<div style="font-size:12px;color:var(--t3);padding:6px">검색 중…</div>';
+  try{
+    const d=await clmApi(`/api/cloudium/acl/search?keyword=${encodeURIComponent(kw)}&types=GR,PG,UR`);
+    if(!d||!d.ok){ res.innerHTML='<div style="font-size:12px;color:var(--r);padding:6px">검색 실패</div>'; return; }
+    const items=d.items||[];
+    if(!items.length){ res.innerHTML='<div style="font-size:12px;color:var(--t3);padding:6px">결과 없음</div>'; return; }
+    res.innerHTML=items.slice(0,30).map(x=>{
+      const t=x.objectType||''; const nm=x.name||''; const oid=x.OID||'';
+      const path=x.fullPathName||x.groupFullPathName||''; const acc=x.account||'';
+      const _x=JSON.stringify(x).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+      const exists=_clmAcl.aceList.some(a=>a.aclOwnerOID===oid);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f3f4f6;${exists?'opacity:.5':'cursor:pointer'}" ${exists?'':`onclick='clmAclAdd(${_x})'`}>
+        <span>${clmAclTypeIcon(t)}</span>
+        <div style="flex:1;min-width:0"><div style="font-size:12.5px">${esc(nm)}${acc?` <span style="color:var(--t3);font-size:11px">(${esc(acc)})</span>`:''}</div>
+        ${path?`<div style="font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(path)}</div>`:''}</div>
+        <span style="font-size:11px;color:${exists?'var(--t3)':'var(--p)'}">${exists?'추가됨':'+ 추가'}</span></div>`;
+    }).join('');
+  }catch(e){ res.innerHTML=`<div style="font-size:12px;color:var(--r);padding:6px">${esc(e.message)}</div>`; }
+}
+function clmAclAdd(x){
+  const oid=x.OID||''; const t=x.objectType||'';
+  if(_clmAcl.aceList.some(a=>a.aclOwnerOID===oid)){ toast('이미 추가됨','bad'); return; }
+  // 새 ace 구성 (getAces 항목 구조와 동일하게, 기본 권한=읽기3)
+  const owner={objectType:t, name:x.name||'', OID:oid};
+  if(x.account!=null) owner.account=x.account;
+  if(x.fullPathName||x.groupFullPathName) owner.fullPathName=x.fullPathName||x.groupFullPathName;
+  _clmAcl.aceList.push({
+    objectType:'AE', objectName:x.name||'', targetObjectType:t, sortOrder:'',
+    aclOID:(_clmAcl.aceList[0]&&_clmAcl.aceList[0].aclOID)||'',
+    ownerObject:owner, aclOwnerOID:oid, accessGrade:'c', weight:2,
+    flagUserDefined:false, ownerFullPath:x.fullPathName||x.groupFullPathName||'',
+    permission:3, OID:'', opCodes:'', searchObjectTotalCount:0, objectHashValue:''
+  });
+  clmAclRender();
+  document.getElementById('clmAclSearchRes').innerHTML='';
+  document.getElementById('clmAclSearch').value='';
+  toast(`추가: ${x.name} (기본 읽기)`,'ok');
+}
+async function clmAclSave(){
+  const inherit=document.getElementById('clmAclInherit')?.checked!==false;
+  const withSub=document.getElementById('clmAclSub')?.checked||false;
+  const btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  try{
+    const r=await fetch(`${SERVER}/api/cloudium/acl/save`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({oid:_clmAcl.oid, type:_clmAcl.type, aceList:_clmAcl.aceList, inherit, withSubFolders:withSub})
+    });
+    const j=await r.json();
+    if(j&&j.ok){ toast('보안설정 저장됨','ok'); document.getElementById('clmAclOv')?.remove(); }
+    else { toast('저장 실패: '+((j&&j.msg)||(j&&j.error)||''),'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
+  }catch(e){ toast('저장 오류: '+e.message,'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
 }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
