@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v412</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v413</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4737,61 +4737,96 @@ function clmRenderList(){
         <td style="font-size:12px;color:var(--t3)">${taFmtSize(it.size)}</td>
         <td style="color:var(--t3);font-size:12px">${dt}</td>
         <td style="font-size:12px">${esc(it.creator||'')}</td>
-        <td><button class="btn sm" onclick="clmDocAction('${it.oid}')" title="PC로 다운로드 (cloudium 에이전트)">⬇</button></td></tr>`;
+        <td><button class="btn sm" onclick="clmDocAction('${it.oid}')" title="PC로 저장 (탐색기 위치 선택)">⬇ 저장</button> <button class="btn sm" onclick="clmDocOpen('${it.oid}')" title="바로 열기">📂</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
-// 사이버다임 로컬 에이전트(127.0.0.1:36443) viewFile 직접 다운로드.
-// 진단 확정: 랜딩이 쓰는 URL = https://127.0.0.1:36443/viewFile?docID&fileID_&fileID&fileName&fileDate...
-// 에이전트는 "그 PC 본인"에서 도므로 사용자 브라우저가 자기 127.0.0.1 로 가야 함(내부망 전제, 전 PC 에이전트 설치됨).
+// ════════ 사이버다임 로컬 에이전트(127.0.0.1:36443) 다운로드/열기 ════════
+// 진단 확정:
+//  · 저장 = /downLoad (JSONP, callback 필수) + openSelectFolderDlg=true → 탐색기 저장 다이얼로그
+//  · 열기 = /viewFile (실행)
+//  · 에이전트는 "그 PC 본인"에서 동작 → 사용자 브라우저가 자기 127.0.0.1 로 호출 (내부망 전제, 전 PC 에이전트 설치)
+//  · URL 규칙(mergeParams): ipport + cmd + '?' + key=encodeURIComponent(val)&...  (GET, sessionKey 포함)
 const CLM_AGENT='https://127.0.0.1:36443';
-function clmBuildViewFileUrl(it){
-  const p=new URLSearchParams();
-  p.set('fileName', it.fileName||it.name||'');
-  p.set('docID', it.oid||'');                              // 문서 OID
-  p.set('fileID_', it.fileOID||'');                        // 파일 OID
-  p.set('fileID', it.storageFileID||'');                   // storageFileID
-  // fileDate = storageFile 생성일. 에이전트는 'YYYY-MM-DD HH:mm:ss.0' 형식 사용.
-  p.set('fileDate', clmFmtFileDate(it.createdAt||it.modifiedAt));
-  if(it.fdcs) p.set('fdcs', it.fdcs);
-  if(it.size!=null) p.set('fileSize', it.size);
-  p.set('convertFileType','');
-  p.set('history','true'); p.set('overWrite','true'); p.set('recently','true');
-  p.set('clientType','I'); p.set('now', Date.now());
-  return `${CLM_AGENT}/viewFile?${p.toString()}`;
-}
-function clmFmtFileDate(ms){
-  if(!ms) return '';
-  try{ const d=new Date(Number(ms)); const z=n=>String(n).padStart(2,'0');
+let _clmJsonpSeq=0;
+
+// epoch ms 또는 'YYYY-MM-DD HH:mm:ss.0' 문자열 → 에이전트 형식 문자열
+function clmFmtFileDate(v){
+  if(!v) return '';
+  if(typeof v==='string') return v;           // 이미 문자열 날짜면 그대로
+  try{ const d=new Date(Number(v)); const z=n=>String(n).padStart(2,'0');
     return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}.0`;
   }catch(e){ return ''; }
 }
+
+// SESSION_KEY 쿠키 읽기 (에이전트 호출에 필요)
+function clmSessionKey(){
+  try{ const m=document.cookie.match(/(?:^|;\s*)SESSION_KEY=([^;]+)/); return m?decodeURIComponent(m[1]):''; }catch(e){ return ''; }
+}
+
+// JSONP 호출 — 에이전트는 GET+callback 만 처리. <script> 태그로 호출하고 콜백으로 결과 수신.
+function clmAgentCall(cmd, params, cb){
+  const cbName='clmJsonp_'+(++_clmJsonpSeq);
+  const p=new URLSearchParams();
+  p.set('sessionKey', clmSessionKey());
+  p.set('callback', cbName);
+  Object.keys(params).forEach(k=>{ if(params[k]!=null) p.set(k, params[k]); });
+  p.set('clientType','I'); p.set('now', Date.now());
+  const url=`${CLM_AGENT}/${cmd}?${p.toString()}`;
+  let done=false;
+  const sc=document.createElement('script');
+  const cleanup=()=>{ try{delete window[cbName];}catch(e){window[cbName]=undefined;} if(sc.parentNode)sc.parentNode.removeChild(sc); };
+  window[cbName]=(data)=>{ done=true; cleanup(); if(cb)cb(data); };
+  sc.onerror=()=>{ if(done)return; cleanup(); if(cb)cb({result:'ERR',_neterr:true}); };
+  sc.src=url;
+  document.body.appendChild(sc);
+  // 저장 다이얼로그는 사용자가 위치 고를 때까지 콜백이 안 옴 → 타임아웃은 "실패"로 보지 않음
+  setTimeout(()=>{ if(!done){ cleanup(); /* 다이얼로그 대기중일 수 있음: 무음 */ } }, 120000);
+}
+
+// 다운로드(저장) — 탐색기 저장위치 선택 다이얼로그
 function clmDocAction(oid){
   const it=(CLM_DOCS||[]).find(x=>x.oid===oid);
   if(!it){ toast('문서 정보를 찾을 수 없습니다','warn'); return; }
+  if(it.isFolder){ clmTreeClick(oid); return; }
   if(it.checkOut&&it.checkOut!=='N'){
-    if(!confirm('편집 중(체크아웃)인 문서입니다. 그래도 다운로드할까요?')) return;
+    if(!confirm('편집 중(체크아웃)인 문서입니다. 그래도 저장할까요?')) return;
   }
-  const url=clmBuildViewFileUrl(it);
-  // 에이전트 생존확인 → 숨김 iframe 으로 viewFile 호출(페이지 이탈 없이 다운로드 트리거)
-  clmAgentDownload(url, it.name);
-}
-// 에이전트로 다운로드 트리거. 살아있으면 iframe src로 호출(브라우저 이탈 X),
-// 죽어있으면(에이전트 미설치/미실행) 안내.
-function clmAgentDownload(url, name){
-  toast(`다운로드 시작: ${name||''}`,'ok');
-  let ifr=document.getElementById('clmDlFrame');
-  if(!ifr){ ifr=document.createElement('iframe'); ifr.id='clmDlFrame'; ifr.style.display='none'; document.body.appendChild(ifr); }
-  // 에이전트가 죽어있으면 iframe 로드 실패 → 일정 시간 후 폴백 안내
-  let done=false;
-  ifr.onload=()=>{ done=true; };
-  try{ ifr.src=url; }catch(e){}
-  setTimeout(()=>{
-    if(!done){
-      // 일부 환경에선 onload 가 안 올 수 있어 경고만(실패 단정 X)
-      // 에이전트 미설치 의심 시 안내
-      // toast('에이전트 응답이 없으면 cloudium 앱(에이전트) 설치/실행을 확인하세요','warn');
+  toast(`저장 위치를 선택하세요: ${it.name||''}`,'ok');
+  clmAgentCall('downLoad', {
+    docID: it.oid,
+    fileID_: it.fileOID,
+    fileID: it.storageFileID,
+    fileName: it.fileName||it.name,
+    fileDate: clmFmtFileDate(it.createdAt||it.modifiedAt),
+    fileSize: (it.size!=null?it.size:''),
+    fdcs: it.fdcs||'',
+    overWrite: 'true',
+    downloadAt: 'webBrowser',
+    openSelectFolderDlg: 'true'      // ★탐색기 저장위치 선택
+  }, (data)=>{
+    if(data&&data._neterr){ toast('에이전트에 연결할 수 없습니다. cloudium 앱(에이전트) 실행을 확인하세요','warn'); return; }
+    const ok = data && (data.result==='S' || data.result==='s' || data.result===true);
+    if(ok){ toast('저장 완료','ok'); }
+    else if(data&&(data.fail||data.error)){
+      const f=(data.fail||data.error||[])[0]||{};
+      toast('저장 실패: '+(f.reason||f.msg||data.result||''),'warn');
     }
-  }, 4000);
+    // 그 외(취소 등)는 무음
+  });
+}
+
+// 열기(실행) — viewFile. 우클릭/보조 버튼용
+function clmDocOpen(oid){
+  const it=(CLM_DOCS||[]).find(x=>x.oid===oid);
+  if(!it||it.isFolder) return;
+  toast(`여는 중: ${it.name||''}`,'ok');
+  clmAgentCall('viewFile', {
+    docID: it.oid, fileID_: it.fileOID, fileID: it.storageFileID,
+    fileName: it.fileName||it.name, fileDate: clmFmtFileDate(it.createdAt||it.modifiedAt),
+    fdcs: it.fdcs||'', convertFileType:'', history:'true', overWrite:'true', recently:'true'
+  }, (data)=>{
+    if(data&&data._neterr) toast('에이전트에 연결할 수 없습니다','warn');
+  });
 }
 async function clmReload(){
   const oid=CLM_CUR||CLM_ROOT;
