@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v416</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v417</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2328,7 +2328,13 @@ body.embed-prnew{background:#fff}
 <script>
 const SERVER_KEY='enjet_server_url';
 const DEFAULT_SERVER='https://jonathan-ivory-draw-take.trycloudflare.com';
-let SERVER=(localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'');
+// 로컬 서빙(Flask /dashboard)으로 열렸으면 SERVER = 자기 origin (CORS 없음, 에이전트 PNA 통과).
+// 그 외(github.io 등)는 저장값 또는 터널 기본값.
+const _isLocalServe = (location.protocol==='http:'||location.protocol==='https:') &&
+  (location.hostname==='localhost'||location.hostname==='127.0.0.1'||/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(location.hostname)) &&
+  location.port==='5000';
+let SERVER = _isLocalServe ? location.origin.replace(/\/+$/,'')
+  : (localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'');
 let FOLDER='inbox', MAILS=[], SELECTED=null;
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -9533,6 +9539,8 @@ const SERVER_ENDPOINT_SITE="enjetco.sharepoint.com:/sites/TIC";
 const SERVER_ENDPOINT_PATH="01.통합관리/99.서버/server-endpoint.json";
 let _epDriveId=null;
 async function resolveServerEndpoint(){
+  // 로컬 서빙(localhost:5000 등)으로 열렸으면 SERVER=자기 origin 유지 (SharePoint 주소로 덮지 않음).
+  if(_isLocalServe){ return SERVER; }
   try{
     const t=await graphToken();
     if(!_epDriveId){
