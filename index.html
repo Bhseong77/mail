@@ -797,7 +797,7 @@ body.embed-prnew{background:#fff}
   /* 헤더: 세계시계(US/IN/KR) 숨김 — 폰에선 불필요한 세로공간 */
   .hdr-clock{display:none}
   /* 중복 버튼 숨김 (하단 '더보기' 시트에 이미 있음) */
-  #permNavBtn,#adminNavBtn{display:none!important}
+  #permNavBtn,#adminNavBtn,#clmNavBtn{display:none!important}
   .hdr-sub{font-size:10.5px;line-height:1.35}
   .hdr{padding:8px 12px 9px}
   /* 업무일정 트리: 행이 폰 폭을 넘으면 줄바꿈(오른쪽 잘림 방지) */
@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v410</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v411</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1329,6 +1329,7 @@ body.embed-prnew{background:#fff}
     <div class="hdr-sync" id="status"><span class="sync-dot"></span><span id="statusTxt">확인 중…</span></div>
     <button class="btn-hdr" id="permNavBtn" style="display:none" onclick="showPage('perm')">🔐 권한설정</button>
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
+    <button class="btn-hdr" id="clmNavBtn" style="display:none" onclick="showPage('cloudium')">📁 클라우디움</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr hide-mobile" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
@@ -1363,7 +1364,6 @@ body.embed-prnew{background:#fff}
     <div class="nav-dropdown" id="navdd-schedule"></div>
   </div>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
-  <button id="nav-cloudium" onclick="showPage('cloudium')">📁 클라우디움</button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
 </div>
@@ -2778,7 +2778,7 @@ function mobSheetOpen(group){
     // 권한 페이지 추가(슈퍼관리자)
     if(group==='more'){
       const upn=((_account&&_account.username)||'').toLowerCase();
-      if(upn==='baekhoon@enjet.co.kr'){ cfg.items.push(['🔐','권한설정','perm'],['⚙️','관리자설정','admin']); }
+      if(upn==='baekhoon@enjet.co.kr'){ cfg.items.push(['🔐','권한설정','perm'],['⚙️','관리자설정','admin'],['📁','클라우디움','cloudium']); }
     }
     ttl.textContent=cfg.title;
     body.innerHTML=cfg.items.map(([ic,label,pg])=>`<div class="ms-item" onclick="mobNavGo('${pg}')"><span class="ms-ic">${ic}</span>${label}</div>`).join('');
@@ -9311,7 +9311,7 @@ function startApp(){
   // 관리자(baekhoon)만 관리자설정 버튼 표시
   try{
     const upn=(_account&&(_account.username||'')).toLowerCase();
-    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; const pb=$('permNavBtn'); if(pb) pb.style.display='inline-block'; }
+    if(upn==='baekhoon@enjet.co.kr'){ const ab=$('adminNavBtn'); if(ab) ab.style.display='inline-block'; const pb=$('permNavBtn'); if(pb) pb.style.display='inline-block'; const cb=$('clmNavBtn'); if(cb) cb.style.display='inline-block'; }
   }catch(e){}
   // 권한 로드 → 탭 보기/입력 권한 적용
   try{ if(typeof loadPerm==='function'){ loadPerm().then(()=>{ try{ permEnforce(); }catch(e){} }); } }catch(e){}
@@ -15909,6 +15909,7 @@ function _isAdmin(){ return _myEmail()===SUPER_ADMIN; }
 function _permConfigured(){ return !!(PERM && PERM.perm && Object.keys(PERM.perm).length); }
 function canView(tab){
   if(tab==='perm') return _isSuperAdmin();               // 권한설정 = 슈퍼관리자 전용
+  if(tab==='cloudium') return _isSuperAdmin();           // 클라우디움 = 슈퍼관리자 전용(보안자료)
   if(tab==='admin') return _isAdmin();
   if(_isAdmin()) return true;
   if(!_permConfigured()) return true;                 // 설정 전 = 전체 허용
