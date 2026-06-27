@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v417</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v418</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4660,6 +4660,7 @@ function clmBanner(msg){
   b.innerHTML=`<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:8px 12px;border-radius:8px;font-size:12.5px;margin-bottom:10px">⚠ 클라우디움 ${esc(msg)} <span style="color:var(--t3)">— 세션 만료 시 쿠키/CSRF 갱신 필요 (자동 로그인은 다음 단계)</span></div>`;
 }
 async function cloudiumInit(){
+  clmEnsureSessionKey();  // 에이전트 호출용 SESSION_KEY 확보(쿠키 못 읽는 환경 대비)
   if(!CLM_TREE[CLM_ROOT]){
     CLM_TREE[CLM_ROOT]={item:{oid:CLM_ROOT,name:'전사 폴더',isFolder:true,path:'전사 폴더'},children:null,expanded:true};
     $('clmTree').innerHTML='<div class="an-empty">불러오는 중…</div>';
@@ -4791,8 +4792,23 @@ function clmFmtFileDate(v){
 }
 
 // SESSION_KEY 쿠키 읽기 (에이전트 호출에 필요)
+// localhost 등 다른 도메인에서 열리면 cloudium 쿠키를 못 읽음 → 서버에서 받은 값(_clmSK) 사용.
+let _clmSK='';
 function clmSessionKey(){
-  try{ const m=document.cookie.match(/(?:^|;\s*)SESSION_KEY=([^;]+)/); return m?decodeURIComponent(m[1]):''; }catch(e){ return ''; }
+  try{ const m=document.cookie.match(/(?:^|;\s*)SESSION_KEY=([^;]+)/); if(m) return decodeURIComponent(m[1]); }catch(e){}
+  return _clmSK||'';
+}
+// 서버에서 SESSION_KEY 받아오기 (쿠키 못 읽는 환경용). 클라우디움 진입 시 호출.
+async function clmEnsureSessionKey(){
+  // 쿠키로 읽히면 그대로
+  try{ const m=document.cookie.match(/(?:^|;\s*)SESSION_KEY=([^;]+)/); if(m){ _clmSK=decodeURIComponent(m[1]); return _clmSK; } }catch(e){}
+  if(_clmSK) return _clmSK;
+  try{
+    const r=await fetch(`${SERVER}/api/cloudium/agent_session`);
+    const j=await r.json();
+    if(j&&j.ok&&j.sessionKey){ _clmSK=j.sessionKey; }
+  }catch(e){}
+  return _clmSK;
 }
 
 // JSONP 호출 — 에이전트는 GET+callback 만 처리. <script> 태그로 호출하고 콜백으로 결과 수신.
@@ -4800,6 +4816,14 @@ function clmSessionKey(){
 //   그게 곧 "연결실패"는 아님(다운로드/열기는 다이얼로그 띄우고 빈응답일 수 있음).
 //   진짜 연결여부는 clmAgentPing(/alive) 으로 따로 확인.
 function clmAgentCall(cmd, params, cb){
+  // sessionKey 가 비어있으면 먼저 서버에서 확보 후 호출 (localhost 등 쿠키 못 읽는 환경)
+  if(!clmSessionKey()){
+    clmEnsureSessionKey().then(()=>_clmAgentCallRaw(cmd,params,cb));
+    return;
+  }
+  _clmAgentCallRaw(cmd,params,cb);
+}
+function _clmAgentCallRaw(cmd, params, cb){
   const cbName='clmJsonp_'+(++_clmJsonpSeq);
   const p=new URLSearchParams();
   p.set('sessionKey', clmSessionKey());
