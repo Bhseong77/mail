@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v407</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v409</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1449,11 +1449,13 @@ body.embed-prnew{background:#fff}
       <button class="ma-subtab active" id="atTabInbox" onclick="atSwitch('inbox')">📥 받은편지함<span class="nav-cnt" id="maInboxCnt" style="display:none">0</span></button>
       <button class="ma-subtab" id="atTabSent" onclick="atSwitch('sent')">📤 보낸편지함<span class="nav-cnt" id="maSentCnt" style="display:none">0</span></button>
       <button class="ma-subtab" id="atTabTeams" onclick="atSwitch('teams')">💬 팀즈채팅방<span class="nav-cnt" id="atTeamsCnt" style="display:none">0</span></button>
+      <button class="ma-subtab" id="atTabTrash" onclick="atSwitch('trash')">🗑 휴지통<span class="nav-cnt" id="atTrashCnt" style="display:none;background:#dc2626">0</span></button>
     </div>
     <!-- maRender/taRender 가 읽는 검색칸 (숨김, atSearch와 동기화) -->
     <input type="hidden" id="maSearch"><input type="hidden" id="taSearch">
     <div id="maList"></div>
     <div id="taList" style="display:none"></div>
+    <div id="atTrashList" style="display:none"></div>
   </div>
 </div>
 
@@ -4087,7 +4089,7 @@ async function taLoad(){
   TA_UNSORTED=unsorted;
   const tb=$('atTeamsCnt'); if(tb){ if(unsorted>0){ tb.textContent=unsorted; tb.style.display='inline-block'; } else tb.style.display='none'; }
   if(typeof atUpdateNav==='function') atUpdateNav();
-  taRender();
+  taRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
 }
 async function taSaveHidden(){
   try{ await spPutJson(TA_HIDDEN_PATH,{hidden:TA_HIDDEN,renames:TA_RENAME,updatedAt:new Date().toISOString()}); }
@@ -4134,8 +4136,8 @@ function taRender(){
   if(!TA_DATA) return;
   const q=($('taSearch').value||'').toLowerCase().trim();
   let items=TA_DATA.items||[];
-  // 숨김 필터
-  if(!TA_SHOW_HIDDEN) items=items.filter(it=>!TA_HIDDEN.includes(it.id));
+  // 휴지통(숨김) 항목은 메인 목록에서 항상 제외
+  items=items.filter(it=>!TA_HIDDEN.includes(it.id));
   if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.author||'').toLowerCase().includes(q)||(it.note||'').toLowerCase().includes(q));
   // 정렬: 미이동 먼저(위), 이동완료 나중(아래) / 같은 그룹 내 작성일시 최신순
   items=items.slice().sort((a,b)=>{
@@ -4143,7 +4145,7 @@ function taRender(){
     if(am!==bm) return am-bm;               // 미이동(0)이 위로
     return (b.created||'').localeCompare(a.created||'');  // 최신순
   });
-  const hidBtn=TA_HIDDEN.length?`<button class="btn sm" onclick="taToggleHidden()" style="margin-bottom:10px">${TA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${TA_HIDDEN.length})`}</button>`:'';
+  const hidBtn='';
   if(!items.length){ _taVisIds=[]; $('taList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
   _taVisIds=items.map(it=>it.id);
   const allSel=_taVisIds.length && _taVisIds.every(id=>_taSel.has(id));
@@ -4168,10 +4170,7 @@ function taRender(){
         <td><div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="btn sm" onclick="taOpen(${realIdx})" title="열기/미리보기">👁</button>
           <button class="btn sm ${mv?'':'primary'}" onclick="taMove(${realIdx})" title="문서함으로 복사">${mv?'📁 다시 이동':'📁 이동'}</button>
-          ${hidden
-            ? `<button class="btn sm" onclick="taUnhide('${esc(it.id)}')" title="목록에 복원">↩ 복원</button>`
-            : `<button class="btn sm" onclick="taHide('${esc(it.id)}')" title="목록에서 삭제(숨김)">🗑</button>`}
-          ${atIsAdmin()?`<button class="btn sm danger" onclick="taDelete(${realIdx})" title="영구삭제 (SharePoint까지·복구불가)" style="background:#dc2626;color:#fff;border-color:#dc2626">⛔ 영구삭제</button>`:''}
+          <button class="btn sm" onclick="taHide('${esc(it.id)}')" title="휴지통으로 이동 (복원 가능)" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c">🗑 휴지통</button>
         </div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
@@ -4439,30 +4438,37 @@ async function maLoad(){
   const ib=cnt('inbox'), sb=cnt('sent');
   setB('maInboxCnt',ib); setB('maSentCnt',sb);
   MA_UNSORTED=ib+sb; if(typeof atUpdateNav==='function') atUpdateNav();
-  maRender();
+  maRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
 }
 async function maSaveHidden(){ try{ await spPutJson(MA_HIDDEN_PATH,{hidden:MA_HIDDEN,renames:MA_RENAME,updatedAt:new Date().toISOString()}); }catch(e){ toast('숨김 저장 실패','bad'); } }
 let MA_SUBTEXT='', TA_SUBTEXT='', MA_UNSORTED=0, TA_UNSORTED=0, AT_MODE='inbox';
 function maSwitch(folder){ atSwitch(folder); }
-function atUpdateSub(){ const el=$('atSub'); if(el) el.textContent = (AT_MODE==='teams') ? TA_SUBTEXT : MA_SUBTEXT; }
+function atUpdateSub(){ const el=$('atSub'); if(!el) return; el.textContent = (AT_MODE==='trash') ? `🗑 휴지통 · ${atTrashCount()}건 (복원 가능)` : (AT_MODE==='teams' ? TA_SUBTEXT : MA_SUBTEXT); }
 function atUpdateNav(){ const b=$('atNavCnt'); if(!b) return; const n=(MA_UNSORTED||0)+(TA_UNSORTED||0); if(n>0){ b.textContent=n; b.style.display='inline-block'; } else b.style.display='none'; }
+let _atTrashQ='';
 function atSwitch(mode){
   AT_MODE=mode;
   const u=$('atUnified'); if(u) u.style.display='none';
   if($('atSearch')) $('atSearch').value='';
+  _atTrashQ='';
   $('atTabInbox')?.classList.toggle('active', mode==='inbox');
   $('atTabSent')?.classList.toggle('active', mode==='sent');
   $('atTabTeams')?.classList.toggle('active', mode==='teams');
+  $('atTabTrash')?.classList.toggle('active', mode==='trash');
   const isTeams = mode==='teams';
-  $('maList').style.display = isTeams?'none':'';
+  const isTrash = mode==='trash';
+  $('maList').style.display = (isTeams||isTrash)?'none':'';
   $('taList').style.display = isTeams?'':'none';
-  $('atSearch').placeholder = '🔍 통합검색 (받은·보낸·팀즈 전체)';
-  if(isTeams){ taRender(); }
+  const tl=$('atTrashList'); if(tl) tl.style.display = isTrash?'':'none';
+  $('atSearch').placeholder = isTrash ? '🔍 휴지통 검색' : '🔍 통합검색 (받은·보낸·팀즈 전체)';
+  if(isTrash){ atTrashRender(); }
+  else if(isTeams){ taRender(); }
   else { if(MA_FOLDER!==mode && typeof _maSel!=='undefined') _maSel.clear(); MA_FOLDER=mode; maRender(); }
   atUpdateSub();
 }
 function atSearchInput(){
   const v=($('atSearch').value||'').trim();
+  if(AT_MODE==='trash'){ _atTrashQ=v; atTrashRender(); return; }
   if($('maSearch')) $('maSearch').value=v;
   if($('taSearch')) $('taSearch').value=v;
   if(v){ atUnifiedSearch(v); }
@@ -4518,6 +4524,82 @@ function atUnifiedSearch(q){
       </div></td>
     </tr>`; }).join('')}</tbody></table>`;
 }
+// ════════ 휴지통(첨부 통합) ════════
+// 메일·팀즈의 숨김(휴지통) 항목을 한 탭에서 보고 복원/영구삭제
+function atTrashCount(){
+  let n=0;
+  (MA_DATA&&MA_DATA.items||[]).forEach(it=>{ if(MA_HIDDEN.includes(it.id)) n++; });
+  (TA_DATA&&TA_DATA.items||[]).forEach(it=>{ if(TA_HIDDEN.includes(it.id)) n++; });
+  return n;
+}
+function atUpdateTrashCnt(){
+  const b=$('atTrashCnt'); if(!b) return;
+  const n=atTrashCount();
+  if(n>0){ b.textContent=n; b.style.display='inline-block'; } else b.style.display='none';
+}
+function atTrashRender(){
+  const box=$('atTrashList'); if(!box) return;
+  const q=(_atTrashQ||'').toLowerCase().trim();
+  const rows=[];
+  (MA_DATA&&MA_DATA.items||[]).forEach(it=>{
+    if(!MA_HIDDEN.includes(it.id)) return;
+    const realIdx=(MA_DATA.items||[]).indexOf(it);
+    const hay=(maName(it)+' '+(it.subject||'')+' '+(it.fromName||'')+' '+(it.toName||'')).toLowerCase();
+    if(q&&!hay.includes(q)) return;
+    rows.push({kind:'ma', idx:realIdx, id:it.id, src:it.folder==='sent'?'보낸편지함':'받은편지함', srcColor:it.folder==='sent'?'#a16207':'#1d4ed8',
+      icon:taIcon(it.name), name:maName(it), sub:it.subject||'', person:it.folder==='sent'?(it.toName||'?'):(it.fromName||'?'), when:it.created});
+  });
+  (TA_DATA&&TA_DATA.items||[]).forEach(it=>{
+    if(!TA_HIDDEN.includes(it.id)) return;
+    const realIdx=(TA_DATA.items||[]).indexOf(it);
+    const hay=(taName(it)+' '+(it.author||'')+' '+(it.channel||'')).toLowerCase();
+    if(q&&!hay.includes(q)) return;
+    rows.push({kind:'ta', idx:realIdx, id:it.id, src:'팀즈채팅방', srcColor:'#7c3aed',
+      icon:taIcon(it.name), name:taName(it), sub:it.channel||it.author||'', person:it.author||'?', when:it.created});
+  });
+  rows.sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+  const total=atTrashCount();
+  const emptyBtn=(atIsAdmin()&&total)?`<button class="btn sm danger" onclick="atEmptyTrash()" title="휴지통 전체 영구삭제" style="background:#dc2626;color:#fff;border-color:#dc2626">🧹 휴지통 비우기 (전체 영구삭제)</button>`:'';
+  const head=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <div style="font-size:12.5px;color:var(--t3)">🗑 휴지통 — ${total}건 · ↩복원하면 다시 목록으로 돌아갑니다${atIsAdmin()?' · ⛔영구삭제는 SharePoint 사본까지 제거':' · (영구삭제는 관리자만)'}</div>${emptyBtn}</div>`;
+  if(!rows.length){ box.innerHTML=head+'<div class="an-empty">'+(q?'검색 결과 없음':'휴지통이 비어 있어요')+'</div>'; return; }
+  box.innerHTML=head+`<table class="ta-table"><thead><tr>
+    <th style="width:42px"></th><th>파일명 / 제목</th><th style="width:96px">위치</th><th style="width:110px">보낸/작성</th><th style="width:120px">일시</th><th style="width:210px">작업</th>
+    </tr></thead><tbody>${rows.map(r=>{
+      const dt=r.when?new Date(r.when).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+      const openFn=r.kind==='ma'?`maOpen(${r.idx})`:`taOpen(${r.idx})`;
+      const restoreFn=r.kind==='ma'?`maUnhide('${esc(r.id)}')`:`taUnhide('${esc(r.id)}')`;
+      const delFn=r.kind==='ma'?`maDelete(${r.idx})`:`taDelete(${r.idx})`;
+      return `<tr>
+        <td style="text-align:center;font-size:18px">${r.icon}</td>
+        <td class="ta-name">${esc(r.name)}${r.sub?`<div class="ta-note">✉ ${esc(r.sub)}</div>`:''}</td>
+        <td><span style="font-size:11px;font-weight:600;color:${r.srcColor};background:${r.srcColor}1a;padding:2px 7px;border-radius:99px">${r.src}</span></td>
+        <td style="font-size:12px">${esc(r.person)}</td>
+        <td style="color:var(--t3);font-size:12px">${dt}</td>
+        <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn sm" onclick="${openFn}" title="열기/미리보기">👁</button>
+          <button class="btn sm primary" onclick="${restoreFn}" title="목록으로 복원">↩ 복원</button>
+          ${atIsAdmin()?`<button class="btn sm danger" onclick="${delFn}" title="영구삭제 (SharePoint 사본까지·복구불가)" style="background:#dc2626;color:#fff;border-color:#dc2626">⛔ 영구삭제</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+async function atEmptyTrash(){
+  if(!atIsAdmin()){ toast('영구삭제는 관리자만 가능합니다','bad'); return; }
+  const total=atTrashCount(); if(!total){ toast('휴지통이 비어 있어요','ok'); return; }
+  if(!confirm(`🧹 휴지통 비우기\n\n휴지통의 ${total}개 항목을 모두 영구삭제할까요?\n· SharePoint 문서함 사본까지 삭제 (복구 불가)\n· 원본 메일은 그대로 유지됩니다`)) return;
+  const _j=(typeof _J==="function")?_J(`휴지통 비우기 (${total}건)`):null;
+  try{
+    const maItems=(MA_DATA&&MA_DATA.items||[]).filter(it=>MA_HIDDEN.includes(it.id)).slice();
+    const taItems=(TA_DATA&&TA_DATA.items||[]).filter(it=>TA_HIDDEN.includes(it.id)).slice();
+    let ok=0, fail=0;
+    for(const it of maItems){ try{ (await atPermDelete(it,{indexPath:MA_PATH,dataObj:MA_DATA,deletedArr:MA_DELETED,deletedPath:MA_DELETED_PATH}))?ok++:fail++; }catch(e){ fail++; } }
+    for(const it of taItems){ try{ (await atPermDelete(it,{indexPath:TA_PATH,dataObj:TA_DATA,deletedArr:TA_DELETED,deletedPath:TA_DELETED_PATH}))?ok++:fail++; }catch(e){ fail++; } }
+    if(_j&&typeof _Jok==="function") _Jok(_j,`${ok}건 영구삭제${fail?` · 실패 ${fail}`:''}`);
+    toast(`휴지통 비움 — ${ok}건 영구삭제${fail?` (실패 ${fail})`:''}`, fail?'warn':'ok');
+    await maLoad(); await taLoad(); if(AT_MODE==='trash') atTrashRender();
+  }catch(e){ if(_j&&typeof _Jno==="function") _Jno(_j,e.message); toast('비우기 실패: '+e.message,'bad'); }
+}
 async function attachInit(){
   // 데이터 없으면 로드 (둘 다)
   if(!MA_DATA) await maLoad(); else maRender();
@@ -4530,11 +4612,10 @@ function maRender(){
   if(!MA_DATA) return;
   const q=($('maSearch').value||'').toLowerCase().trim();
   let items=(MA_DATA.items||[]).filter(it=>it.folder===MA_FOLDER);
-  if(!MA_SHOW_HIDDEN) items=items.filter(it=>!MA_HIDDEN.includes(it.id));
   if(q) items=items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.subject||'').toLowerCase().includes(q)||(it.fromName||'').toLowerCase().includes(q)||(it.toName||'').toLowerCase().includes(q));
+  items=items.filter(it=>!MA_HIDDEN.includes(it.id)); // 휴지통 항목 제외
   items=items.slice().sort((a,b)=>{ const am=MA_MOVED[a.id]?1:0,bm=MA_MOVED[b.id]?1:0; if(am!==bm)return am-bm; return (b.created||'').localeCompare(a.created||''); });
-  const hidN=(MA_DATA.items||[]).filter(it=>it.folder===MA_FOLDER&&MA_HIDDEN.includes(it.id)).length;
-  const hidBtn=hidN?`<button class="btn sm" onclick="maToggleHidden()" style="margin-bottom:10px">${MA_SHOW_HIDDEN?'👁 숨김 항목 숨기기':`🗑 숨긴 항목 보기 (${hidN})`}</button>`:'';
+  const hidBtn='';
   if(!items.length){ _maVisIds=[]; $('maList').innerHTML=hidBtn+'<div class="an-empty">'+(q?'검색 결과 없음':'표시할 첨부파일 없음')+'</div>'; return; }
   const who=MA_FOLDER==='inbox'?'보낸사람':'받는사람';
   _maVisIds=items.map(it=>it.id);
@@ -4559,8 +4640,7 @@ function maRender(){
         <td><div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="btn sm" onclick="maOpen(${realIdx})" title="다운로드">👁</button>
           <button class="btn sm ${mv?'':'primary'}" onclick="maMove(${realIdx})">${mv?'📁 다시 이동':'📁 이동'}</button>
-          ${hidden?`<button class="btn sm" onclick="maUnhide('${esc(it.id)}')">↩ 복원</button>`:`<button class="btn sm" onclick="maHide('${esc(it.id)}')">🗑</button>`}
-          ${atIsAdmin()?`<button class="btn sm danger" onclick="maDelete(${realIdx})" title="영구삭제 (SharePoint 사본까지·복구불가)" style="background:#dc2626;color:#fff;border-color:#dc2626">⛔ 영구삭제</button>`:''}
+          <button class="btn sm" onclick="maHide('${esc(it.id)}')" title="휴지통으로 이동 (복원 가능)" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c">🗑 휴지통</button>
         </div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
@@ -13581,25 +13661,42 @@ async function dvnewConfirmSel(dno, direction){
   const ov=document.getElementById("dvnewItemsOv"); if(ov) ov.remove();
   await _dvnewRunResearch(dno, proj, items, direction, `선택 ${items.length}건 ${labelKo}`);
 }
-// 공통 실행 + 작업큐 연결
+// 공통 실행 + 작업큐 연결 (비동기 job 폴링 — Cloudflare 100초 타임아웃 회피)
 async function _dvnewRunResearch(dno, proj, items, direction, jobLabel){
   const _j=(typeof _J==="function")?_J(`${jobLabel}: ${dno}`):null;
-  if(typeof toast==="function") toast(`${jobLabel} 진행 중… ${dno} (영림원, 품목당 ~7초)`,"ok");
+  const n=items?items.length:0;
+  if(typeof toast==="function") toast(`${jobLabel} 시작… ${dno} (영림원, 품목당 ~7초${n?`·약 ${Math.ceil(n*8/60)}분`:''})`,"ok");
   try{
     const r=await fetch(`${SERVER}/api/erp/delivery-confirm-research`,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({delv_no:dno, project:proj, items:items, direction:direction})});
     const d=await r.json();
-    if(d.success){
-      const m=`${d.converted||0}/${d.rows||0}행 · ${dno}`;
-      if(_j&&typeof _Jok==="function") _Jok(_j, m);
-      if(typeof toast==="function") toast(`✅ ${jobLabel} 완료 — ${m}`,"ok");
-      // 목록 갱신 (자산분류 반영)
-      if(typeof dvnewLoadItems==="function") setTimeout(dvnewLoadItems, 400);
-    }else{
-      const em=d.message||d.error||"실패";
-      if(_j&&typeof _Jno==="function") _Jno(_j, em);
-      if(typeof toast==="function") toast(`❌ ${em}`,"bad");
+    if(!d.job_id){ throw new Error(d.error||d.message||"작업 시작 실패"); }
+    // 상태 폴링 (최대 ~20분)
+    const t0=Date.now(); const maxMs=20*60*1000;
+    while(Date.now()-t0<maxMs){
+      await new Promise(res=>setTimeout(res, 4000));
+      let s; try{
+        const sr=await fetch(`${SERVER}/api/erp/delivery-confirm-research/status/${d.job_id}`);
+        s=await sr.json();
+      }catch(e){ continue; } // 일시적 네트워크 오류는 무시하고 계속 폴링
+      if(s.message && _j && typeof _jobUpdate==="function") _jobUpdate(_j,'running',s.message);
+      if(s.status==="done"||s.status==="fail"){
+        const res=s.result||{};
+        if(s.status==="done" && res.success){
+          const m=`${res.converted||0}/${res.rows||0}행 · ${dno}`;
+          if(_j&&typeof _Jok==="function") _Jok(_j, m);
+          if(typeof toast==="function") toast(`✅ ${jobLabel} 완료 — ${m}`,"ok");
+          if(typeof dvnewLoadItems==="function") setTimeout(dvnewLoadItems, 400);
+        }else{
+          const em=res.message||res.error||s.message||"실패";
+          if(_j&&typeof _Jno==="function") _Jno(_j, em);
+          if(typeof toast==="function") toast(`❌ ${em}`,"bad");
+        }
+        return;
+      }
     }
+    if(_j&&typeof _Jno==="function") _Jno(_j, "시간 초과(20분) — 서버 로그 확인");
+    if(typeof toast==="function") toast("⌛ 시간 초과 — 서버에서 계속 처리 중일 수 있어요","warn");
   }catch(e){
     if(_j&&typeof _Jno==="function") _Jno(_j, e.message);
     if(typeof toast==="function") toast("오류: "+e.message,"bad");
