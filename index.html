@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v414</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v416</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1956,6 +1956,7 @@ body.embed-prnew{background:#fff}
       <span id="clmSub" style="font-size:12px;color:var(--t3)"></span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <input id="clmSearch" placeholder="🔍 현재 폴더 검색" oninput="clmFilter()" style="padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px">
+        <button class="btn sm" onclick="clmNewFolder()" title="현재 폴더에 새 폴더 생성">📁＋ 새 폴더</button>
         <button class="btn sm" onclick="clmUploadHere()" title="현재 폴더에 파일 업로드">⬆ 업로드</button>
         <button class="btn sm" onclick="clmReload()">↻ 새로고침</button>
       </div>
@@ -4707,6 +4708,9 @@ async function clmOpenFolder(oid){
   clmRenderList();
 }
 function clmFilter(){ clmRenderList(); }
+let CLM_SEL=new Set();        // 선택된 oid (다중선택)
+let CLM_CLIP=null;            // {mode:'copy'|'move', items:[{oid,objectType,name}], from:folderOID}
+function clmSelClear(){ CLM_SEL.clear(); }
 function clmRenderList(){
   const q=($('clmSearch').value||'').toLowerCase().trim();
   let items=CLM_DOCS.slice();
@@ -4715,15 +4719,31 @@ function clmRenderList(){
   const folderName=node?node.item.name:'전사 폴더';
   const nFolder=CLM_DOCS.filter(i=>i.isFolder).length, nDoc=CLM_DOCS.length-nFolder;
   $('clmSub').textContent=`${folderName} · 폴더 ${nFolder} · 문서 ${nDoc}`;
-  if(!items.length){ $('clmList').innerHTML='<div class="an-empty">'+(q?'검색 결과 없음':'빈 폴더')+'</div>'; return; }
-  $('clmList').innerHTML=`<table class="ta-table"><thead><tr>
-    <th style="width:42px"></th><th>이름</th><th style="width:70px">버전</th><th style="width:80px">크기</th><th style="width:96px">수정일</th><th style="width:90px">작성자</th><th style="width:90px">작업</th>
+  // 선택바(있을 때만)
+  const selN=CLM_SEL.size;
+  const clipInfo=CLM_CLIP?`<span style="color:var(--t3);margin-left:8px">📋 ${CLM_CLIP.items.length}개 ${CLM_CLIP.mode==='copy'?'복사':'이동'} 대기 — 여기에 <button class="btn sm" onclick="clmPaste()">📥 붙여넣기</button></span>`:'';
+  const selBar = (selN>0||CLM_CLIP) ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;flex-wrap:wrap">
+      ${selN>0?`<b>${selN}개 선택</b>
+        <button class="btn sm" onclick="clmBatchCopy()">📋 복사</button>
+        <button class="btn sm" onclick="clmBatchMove()">✂️ 이동</button>
+        <button class="btn sm" onclick="clmBatchDelete()">🗑 삭제</button>
+        ${selN===1?`<button class="btn sm" onclick="clmBatchRename()">✏️ 이름변경</button><button class="btn sm" onclick="clmBatchShare()">🔗 링크복사</button>`:''}
+        <button class="btn sm" onclick="clmSelAll(false)">선택해제</button>`:''}
+      ${clipInfo}
+    </div>` : '';
+  if(!items.length){ $('clmList').innerHTML=selBar+'<div class="an-empty">'+(q?'검색 결과 없음':'빈 폴더')+'</div>'; return; }
+  $('clmList').innerHTML=selBar+`<table class="ta-table"><thead><tr>
+    <th style="width:30px"><input type="checkbox" onclick="clmSelAll(this.checked)" ${selN&&selN===items.filter(i=>!i.isFolder).length?'checked':''}></th>
+    <th style="width:42px"></th><th>이름</th><th style="width:70px">버전</th><th style="width:80px">크기</th><th style="width:96px">수정일</th><th style="width:90px">작성자</th><th style="width:120px">작업</th>
     </tr></thead><tbody>${items.map(it=>{
       const dt=it.modifiedAt?new Date(it.modifiedAt).toLocaleDateString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit'}):'';
+      const selected=CLM_SEL.has(it.oid);
+      const rowStyle=selected?'background:var(--accent-bg,#eef2ff)':'';
       if(it.isFolder){
-        return `<tr style="cursor:pointer" onclick="clmTreeClick('${it.oid}')">
-          <td style="text-align:center;font-size:18px">📁</td>
-          <td class="ta-name" style="font-weight:600">${esc(it.name)}</td>
+        return `<tr style="cursor:pointer;${rowStyle}" oncontextmenu="clmCtxMenu(event,'${it.oid}',true);return false">
+          <td style="text-align:center"></td>
+          <td style="text-align:center;font-size:18px" onclick="clmTreeClick('${it.oid}')">📁</td>
+          <td class="ta-name" style="font-weight:600" onclick="clmTreeClick('${it.oid}')">${esc(it.name)}</td>
           <td style="color:var(--t3);font-size:12px">폴더</td>
           <td></td>
           <td style="color:var(--t3);font-size:12px">${dt}</td>
@@ -4731,7 +4751,8 @@ function clmRenderList(){
           <td><button class="btn sm" onclick="event.stopPropagation();clmTreeClick('${it.oid}')">📂 열기</button></td></tr>`;
       }
       const editing=it.checkOut&&it.checkOut!=='N';
-      return `<tr>
+      return `<tr style="${rowStyle}" oncontextmenu="clmCtxMenu(event,'${it.oid}',false);return false">
+        <td style="text-align:center"><input type="checkbox" ${selected?'checked':''} onclick="clmSelToggle('${it.oid}',this.checked,event)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.fileName||it.name)}</td>
         <td class="ta-name">${esc(it.name)}${editing?' <span style="font-size:10px;color:#b45309">✏편집중</span>':''}${it.secureVdr?' <span style="font-size:10px;color:#7c3aed">🔒VDR</span>':''}</td>
         <td style="font-size:12px;color:var(--t2)">${esc(it.version||'')}</td>
@@ -4741,6 +4762,10 @@ function clmRenderList(){
         <td><button class="btn sm" onclick="clmDocAction('${it.oid}')" title="PC로 저장 (탐색기 위치 선택)">⬇ 저장</button> <button class="btn sm" onclick="clmDocOpen('${it.oid}')" title="바로 열기">📂</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
+// ── 다중선택 ──
+function clmSelToggle(oid,on,ev){ if(ev)ev.stopPropagation(); if(on)CLM_SEL.add(oid); else CLM_SEL.delete(oid); clmRenderList(); }
+function clmSelAll(on){ CLM_SEL.clear(); if(on){ CLM_DOCS.filter(i=>!i.isFolder).forEach(i=>CLM_SEL.add(i.oid)); } clmRenderList(); }
+function clmSelItems(){ return CLM_DOCS.filter(i=>CLM_SEL.has(i.oid)).map(i=>({oid:i.oid,objectType:i.isFolder?'FO':'DO',name:i.name})); }
 // ════════ 사이버다임 로컬 에이전트(127.0.0.1:36443) 다운로드/열기 ════════
 // 진단 확정:
 //  · 저장 = /downLoad (JSONP, callback 필수) + openSelectFolderDlg=true → 탐색기 저장 다이얼로그
@@ -4765,6 +4790,9 @@ function clmSessionKey(){
 }
 
 // JSONP 호출 — 에이전트는 GET+callback 만 처리. <script> 태그로 호출하고 콜백으로 결과 수신.
+// 주의: 에이전트 응답이 JSONP(cb(...)) 가 아니면 script onerror 가 날 수 있는데,
+//   그게 곧 "연결실패"는 아님(다운로드/열기는 다이얼로그 띄우고 빈응답일 수 있음).
+//   진짜 연결여부는 clmAgentPing(/alive) 으로 따로 확인.
 function clmAgentCall(cmd, params, cb){
   const cbName='clmJsonp_'+(++_clmJsonpSeq);
   const p=new URLSearchParams();
@@ -4777,11 +4805,25 @@ function clmAgentCall(cmd, params, cb){
   const sc=document.createElement('script');
   const cleanup=()=>{ try{delete window[cbName];}catch(e){window[cbName]=undefined;} if(sc.parentNode)sc.parentNode.removeChild(sc); };
   window[cbName]=(data)=>{ done=true; cleanup(); if(cb)cb(data); };
-  sc.onerror=()=>{ if(done)return; cleanup(); if(cb)cb({result:'ERR',_neterr:true}); };
+  sc.onerror=()=>{ if(done)return; done=true; cleanup();
+    // 응답이 JSONP 아님(또는 연결실패) — ping 으로 연결여부 구분
+    clmAgentPing((alive)=>{ if(cb)cb(alive?{result:'NORESP',_noresp:true}:{result:'ERR',_neterr:true}); });
+  };
   sc.src=url;
   document.body.appendChild(sc);
-  // 저장 다이얼로그는 사용자가 위치 고를 때까지 콜백이 안 옴 → 타임아웃은 "실패"로 보지 않음
-  setTimeout(()=>{ if(!done){ cleanup(); /* 다이얼로그 대기중일 수 있음: 무음 */ } }, 120000);
+  // 다이얼로그(저장/선택)는 사용자가 고를 때까지 콜백이 안 옴 → 타임아웃은 "실패"로 보지 않음
+  setTimeout(()=>{ if(!done){ done=true; cleanup(); /* 다이얼로그 대기 가능: 무음 */ } }, 180000);
+}
+// 에이전트 생존확인 (/alive). script 로드 성공=살아있음.
+function clmAgentPing(cb){
+  const sc=document.createElement('script');
+  let fin=false;
+  const done=(v)=>{ if(fin)return; fin=true; if(sc.parentNode)sc.parentNode.removeChild(sc); cb(v); };
+  sc.onload=()=>done(true);
+  sc.onerror=()=>done(false);
+  sc.src=`${CLM_AGENT}/alive?callback=clmAlive_${Date.now()}`;
+  document.body.appendChild(sc);
+  setTimeout(()=>done(false), 3000);
 }
 
 // 다운로드(저장) — 탐색기 저장위치 선택 다이얼로그
@@ -4806,6 +4848,7 @@ function clmDocAction(oid){
     openSelectFolderDlg: 'true'      // ★탐색기 저장위치 선택
   }, (data)=>{
     if(data&&data._neterr){ toast('에이전트에 연결할 수 없습니다. cloudium 앱(에이전트) 실행을 확인하세요','warn'); return; }
+    if(data&&data._noresp){ return; } // 다이얼로그 떴고 응답형식만 다름 — 정상
     const ok = data && (data.result==='S' || data.result==='s' || data.result===true);
     if(ok){ toast('저장 완료','ok'); }
     else if(data&&(data.fail||data.error)){
@@ -4872,11 +4915,18 @@ async function clmUploadFiles(folderOID, files){
       toast(`업로드 실패: ${nm} ${r||''}`,'warn'); continue;
     }
     const s=up.success[0];
-    // 3) 서버 경유 documentCreate (CORS 때문에 Flask 프록시)
+    // 3) 서버 경유 문서등록 (documentCreate + replaceFileSystemDocFile, CORS 때문에 Flask 프록시)
+    //    upLoad fileID → storageFileID, fileDate → localLastModifiedAt, localCreatedAt → localCreatedAt
     try{
       const r=await fetch(`${SERVER}/api/cloudium/doc_create`,{
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ folderOID, name:nm, fileID:s.fileID, fileSize:s.fileSize, fileDate:s.fileDate })
+        body: JSON.stringify({
+          folderOID, name:nm,
+          storageFileID: s.fileID,
+          fileSize: s.fileSize,
+          localLastModifiedAt: s.fileDate,
+          localCreatedAt: s.localCreatedAt
+        })
       });
       const j=await r.json();
       if(j&&j.ok){ okN++; }
@@ -4885,6 +4935,112 @@ async function clmUploadFiles(folderOID, files){
   }
   if(okN) toast(`업로드 완료: ${okN}건${failN?` (실패 ${failN})`:''}`,'ok');
   if(okN) clmReload();   // 새로고침해서 올라온 파일 표시
+}
+
+// ════════ 파일관리 (삭제/이름변경/새폴더/복사/이동/링크) — 진단 확정 ════════
+async function _clmPost(path, body){
+  try{
+    const r=await fetch(`${SERVER}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    return await r.json();
+  }catch(e){ return {ok:false,msg:'서버 연결 실패'}; }
+}
+// 삭제 (휴지통)
+async function clmBatchDelete(){
+  const items=clmSelItems(); if(!items.length) return;
+  if(!confirm(`${items.length}개 항목을 휴지통으로 삭제할까요?`)) return;
+  const j=await _clmPost('/api/cloudium/delete',{oids:items.map(i=>i.oid).join(','),folderOID:CLM_CUR});
+  if(j&&j.ok){ toast(`${items.length}개 삭제됨 (휴지통)`,'ok'); clmSelClear(); clmReload(); }
+  else toast('삭제 실패: '+((j&&j.msg)||''),'warn');
+}
+// 이름변경 (1개)
+async function clmBatchRename(){
+  const items=clmSelItems(); if(items.length!==1) return;
+  const it=items[0];
+  const nn=prompt('새 이름:', it.name); if(!nn||nn===it.name) return;
+  const j=await _clmPost('/api/cloudium/rename',{oid:it.oid,name:nn,folderOID:CLM_CUR});
+  if(j&&j.ok){ toast('이름 변경됨','ok'); clmSelClear(); clmReload(); }
+  else toast('이름변경 실패: '+((j&&j.msg)||''),'warn');
+}
+// 새 폴더
+async function clmNewFolder(){
+  const parent=CLM_CUR||CLM_ROOT;
+  const nm=prompt('새 폴더 이름:'); if(!nm) return;
+  const j=await _clmPost('/api/cloudium/newfolder',{parentOID:parent,name:nm});
+  if(j&&j.ok){ toast('폴더 생성됨','ok'); clmReload(); }
+  else toast('폴더 생성 실패: '+((j&&j.msg)||''),'warn');
+}
+// 복사/이동 — 클립보드에 담고, 대상 폴더에서 붙여넣기
+function clmBatchCopy(){
+  const items=clmSelItems(); if(!items.length) return;
+  CLM_CLIP={mode:'copy',items,from:CLM_CUR};
+  toast(`${items.length}개 복사 — 대상 폴더로 이동 후 붙여넣기`,'ok'); clmSelClear(); clmRenderList();
+}
+function clmBatchMove(){
+  const items=clmSelItems(); if(!items.length) return;
+  CLM_CLIP={mode:'move',items,from:CLM_CUR};
+  toast(`${items.length}개 이동 — 대상 폴더로 이동 후 붙여넣기`,'ok'); clmSelClear(); clmRenderList();
+}
+async function clmPaste(){
+  if(!CLM_CLIP||!CLM_CLIP.items.length) return;
+  const target=CLM_CUR||CLM_ROOT;
+  if(target===CLM_CLIP.from){ toast('같은 폴더입니다','warn'); return; }
+  const ep=CLM_CLIP.mode==='copy'?'/api/cloudium/copy':'/api/cloudium/move';
+  const j=await _clmPost(ep,{targetFolderOID:target,sourceFolderOID:CLM_CLIP.from,items:CLM_CLIP.items});
+  if(j&&j.ok){
+    toast(`${CLM_CLIP.items.length}개 ${CLM_CLIP.mode==='copy'?'복사':'이동'} 완료`,'ok');
+    CLM_CLIP=null; clmReload();
+  } else toast((CLM_CLIP.mode==='copy'?'복사':'이동')+' 실패: '+((j&&j.msg)||''),'warn');
+}
+// 링크 복사 (Teams/메일 붙여넣기용)
+async function clmBatchShare(){
+  const items=clmSelItems(); if(items.length!==1) return;
+  try{
+    const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(items[0].oid)}`);
+    const j=await r.json();
+    if(j&&j.ok&&j.url){
+      try{ await navigator.clipboard.writeText(j.url); toast('🔗 링크 복사됨 (Teams/메일에 붙여넣기)','ok'); }
+      catch(e){ prompt('아래 링크를 복사하세요 (Ctrl+C):', j.url); }
+    } else toast('링크 생성 실패','warn');
+  }catch(e){ toast('링크 생성 오류','warn'); }
+}
+// 우클릭 컨텍스트 메뉴
+function clmCtxMenu(ev,oid,isFolder){
+  ev.preventDefault();
+  // 우클릭한 항목이 선택에 없으면 단독 선택
+  if(!isFolder && !CLM_SEL.has(oid)){ CLM_SEL.clear(); CLM_SEL.add(oid); clmRenderList(); }
+  const old=document.getElementById('clmCtx'); if(old)old.remove();
+  const it=(CLM_DOCS||[]).find(x=>x.oid===oid)||{};
+  const menu=document.createElement('div');
+  menu.id='clmCtx';
+  menu.style.cssText=`position:fixed;left:${ev.clientX}px;top:${ev.clientY}px;z-index:999999;background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:4px;min-width:160px;font-size:13px`;
+  const mi=(label,fn,disabled)=>`<div class="clmCtxItem" data-fn="${fn}" style="padding:8px 12px;cursor:${disabled?'default':'pointer'};border-radius:6px;${disabled?'opacity:.4':''}" ${disabled?'':`onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"`}>${label}</div>`;
+  if(isFolder){
+    menu.innerHTML=mi('📂 열기','open');
+  }else{
+    const n=CLM_SEL.size;
+    menu.innerHTML=
+      mi('⬇ 저장 (PC로)','save')+
+      mi('📂 열기','viewfile')+
+      `<div style="height:1px;background:var(--border);margin:4px 0"></div>`+
+      mi('📋 복사','copy')+mi('✂️ 이동','move')+
+      (n<=1?mi('✏️ 이름변경','rename'):'')+
+      (n<=1?mi('🔗 링크 복사','share'):'')+
+      mi(`🗑 삭제${n>1?` (${n}개)`:''}`,'delete');
+  }
+  document.body.appendChild(menu);
+  menu.querySelectorAll('.clmCtxItem').forEach(el=>{
+    el.onclick=()=>{ const fn=el.getAttribute('data-fn'); menu.remove();
+      if(fn==='open'||fn==='viewfile'&&isFolder) clmTreeClick(oid);
+      else if(fn==='save') clmDocAction(oid);
+      else if(fn==='viewfile') clmDocOpen(oid);
+      else if(fn==='copy'){ if(!CLM_SEL.has(oid)){CLM_SEL.clear();CLM_SEL.add(oid);} clmBatchCopy(); }
+      else if(fn==='move'){ if(!CLM_SEL.has(oid)){CLM_SEL.clear();CLM_SEL.add(oid);} clmBatchMove(); }
+      else if(fn==='rename'){ CLM_SEL.clear();CLM_SEL.add(oid); clmBatchRename(); }
+      else if(fn==='share'){ CLM_SEL.clear();CLM_SEL.add(oid); clmBatchShare(); }
+      else if(fn==='delete'){ if(!CLM_SEL.has(oid)){CLM_SEL.clear();CLM_SEL.add(oid);} clmBatchDelete(); }
+    };
+  });
+  setTimeout(()=>{ const close=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',close); } }; document.addEventListener('click',close); },50);
 }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
