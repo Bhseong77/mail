@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v424</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v425</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1330,6 +1330,7 @@ body.embed-prnew{background:#fff}
     <button class="btn-hdr" id="permNavBtn" style="display:none" onclick="showPage('perm')">🔐 권한설정</button>
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
     <button class="btn-hdr" id="clmNavBtn" style="display:none" onclick="showPage('cloudium')">📁 클라우디움</button>
+    <button class="btn-hdr" id="pushBtn" style="display:none;opacity:.5" onclick="pushToggle()" title="알림 켜기">🔔</button>
     <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr hide-mobile" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
@@ -2337,6 +2338,120 @@ let SERVER = _isLocalServe ? location.origin.replace(/\/+$/,'')
   : (localStorage.getItem(SERVER_KEY)||DEFAULT_SERVER).replace(/\/+$/,'');
 let FOLDER='inbox', MAILS=[], SELECTED=null;
 const $=id=>document.getElementById(id);
+
+// ══════════════════ Web Push (OS 알림 구독) ══════════════════
+// PWA(github.io 고정 origin)에 SW 등록됨 → 푸시 구독 → Flask(SERVER)로 전송·저장.
+// Flask 가 메일/파일/ERP 이벤트 감지시 그 구독으로 푸시 → 앱 닫혀도 OS 알림.
+const PUSH_VAPID_KEY_URL = ()=>`${SERVER}/api/push/vapid_public`;  // 서버가 공개키 제공
+let _pushSubscribed=false;
+
+function _urlB64ToUint8(base64){
+  const pad='='.repeat((4-base64.length%4)%4);
+  const b64=(base64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b64); const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+// 알림 상태 확인 (UI 표시용)
+async function pushStatus(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+  if(Notification.permission==='denied') return 'denied';
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    return sub ? 'subscribed' : 'default';
+  }catch(_){ return 'default'; }
+}
+
+// 알림 켜기 (권한요청 → 구독 → 서버저장)
+async function pushEnable(){
+  try{
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      toast('이 브라우저는 푸시 알림을 지원하지 않습니다','bad'); return false;
+    }
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ toast('알림 권한이 거부되었습니다 (브라우저 설정에서 허용 필요)','bad'); return false; }
+
+    // 서버에서 VAPID 공개키 받기
+    let pub;
+    try{
+      const r=await fetch(PUSH_VAPID_KEY_URL());
+      const j=await r.json();
+      pub=j.publicKey || j.key;
+    }catch(e){ toast('서버 푸시키를 받지 못했습니다 (Flask 푸시설정 확인)','bad'); return false; }
+    if(!pub){ toast('서버에 VAPID 공개키가 없습니다','bad'); return false; }
+
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:_urlB64ToUint8(pub)
+      });
+    }
+    // 서버에 구독 저장 (누구 구독인지 식별 위해 사용자 정보도)
+    const who = (typeof myName==='function'?myName():'') || (typeof wpMe==='function'?wpMe():'') || '';
+    const email = (typeof wpMeEmail==='function'?wpMeEmail():'') || '';
+    await fetch(`${SERVER}/api/push/subscribe`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ subscription:sub, who, email, ua:navigator.userAgent })
+    });
+    _pushSubscribed=true;
+    toast('🔔 알림이 켜졌습니다 (앱을 닫아도 알림이 옵니다)','ok');
+    _pushUpdateBtn();
+    return true;
+  }catch(e){ toast('알림 켜기 실패: '+e.message,'bad'); return false; }
+}
+
+// 알림 끄기 (구독 해지)
+async function pushDisable(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){
+      try{ await fetch(`${SERVER}/api/push/unsubscribe`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})}); }catch(_){}
+      await sub.unsubscribe();
+    }
+    _pushSubscribed=false;
+    toast('알림이 꺼졌습니다','ok');
+    _pushUpdateBtn();
+  }catch(e){ toast('알림 끄기 실패: '+e.message,'bad'); }
+}
+
+async function pushToggle(){
+  const st=await pushStatus();
+  if(st==='subscribed') return pushDisable();
+  return pushEnable();
+}
+
+// 헤더 🔔 버튼 상태 갱신
+async function _pushUpdateBtn(){
+  const btn=document.getElementById('pushBtn'); if(!btn) return;
+  const st=await pushStatus();
+  if(st==='unsupported'){ btn.style.display='none'; return; }
+  btn.style.display='';
+  if(st==='subscribed'){ btn.textContent='🔔'; btn.title='알림 켜짐 (클릭하면 끄기)'; btn.style.opacity='1'; }
+  else if(st==='denied'){ btn.textContent='🔕'; btn.title='알림 차단됨 (브라우저 설정에서 허용)'; btn.style.opacity='.5'; }
+  else { btn.textContent='🔔'; btn.title='알림 켜기'; btn.style.opacity='.5'; }
+}
+
+// SW 메시지 (알림 클릭시 해당 화면 이동)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', (e)=>{
+    const d=e.data||{};
+    if(d.type==='notification-click' && d.url){
+      try{
+        // url 이 #page 형태면 해당 페이지로
+        const m=String(d.url).match(/#?(page-)?([a-z\-]+)/i);
+        if(m && typeof showPage==='function') showPage(m[2]);
+      }catch(_){}
+    }
+  });
+  // 앱 로드시 버튼 상태 갱신
+  window.addEventListener('load', ()=>{ setTimeout(_pushUpdateBtn, 1500); });
+}
+
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // 윈도우 탐색기식 정렬: 숫자(자연순) → 한글 가나다 → 영문 ABC → 기타
 function winSortKey(name){
