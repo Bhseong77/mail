@@ -1337,7 +1337,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v446</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v447</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5968,6 +5968,14 @@ async function clmTimedRun(){
 }
 
 // ══════════ T Project 메신저 ══════════
+const TC_CHAT_ID="19:ba85fc9a0d73428e8440ee872caef504@thread.v2";
+const TC_GRAPH="https://graph.microsoft.com/v1.0";
+// 로그인한 사람 본인 토큰으로 Graph 직접 호출 (메시지는 본인 명의로 전송)
+async function tcGraph(path, opts){
+  const tok=await chatToken();
+  const r=await fetch(TC_GRAPH+path, {...opts, headers:{Authorization:"Bearer "+tok, "Content-Type":"application/json", ...(opts&&opts.headers||{})}});
+  return r;
+}
 let _tc={open:false, msgs:[], lastId:'', unread:0, pollTimer:null, attachQueue:[], lastSeen:'', replyTo:null};
 function tcToggle(){
   const p=document.getElementById('tcPanel'); if(!p) return;
@@ -6004,6 +6012,11 @@ async function tcLoad(scroll){
     const r=await fetch(`${SERVER}/api/teams/chat/messages?top=30`); const d=await r.json();
     if(!d||!d.ok){ body.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:12px;padding:20px">불러오기 실패: ${esc((d&&d.msg)||'')}</div>`; return; }
     _tc.msgs=d.messages||[];
+    // 로그인한 사람 기준으로 "내 메시지" 재판정 (서버는 성백훈 기준이라 무시)
+    try{
+      const myId=await myAadId();
+      if(myId) _tc.msgs.forEach(m=>{ m.mine=(m.fromId===myId); });
+    }catch(_){}
     if(_tc.msgs.length) _tc.lastId=_tc.msgs[_tc.msgs.length-1].id;
     tcRender();
     if(scroll) setTimeout(()=>{ body.scrollTop=body.scrollHeight; }, 50);
@@ -6120,8 +6133,8 @@ async function tcReact(idx,reaction){
   const m=_tc.msgs[idx]; if(!m) return;
   const has=m.reactions&&m.reactions[reaction];
   try{
-    await fetch(`${SERVER}/api/teams/chat/react`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:m.id,reaction,remove:!!has})});
+    const action=has?'unsetReaction':'setReaction';
+    await tcGraph(`/chats/${TC_CHAT_ID}/messages/${m.id}/${action}`,{method:'POST',body:JSON.stringify({reactionType:reaction})});
     setTimeout(()=>tcLoad(false),600);
   }catch(e){ toast('반응 실패: '+e.message,'warn'); }
 }
@@ -6149,7 +6162,7 @@ function tcCancelReply(){ _tc.replyTo=null; tcRenderReplyBar(); }
 function tcCopyLink(idx){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
-  const url=m.webUrl||`https://teams.microsoft.com/l/message/${CHAT_ID}/${m.id}`;
+  const url=m.webUrl||`https://teams.microsoft.com/l/message/${TC_CHAT_ID}/${m.id}`;
   navigator.clipboard.writeText(url).then(()=>toast('링크 복사됨','ok'));
 }
 async function tcEdit(idx){
@@ -6159,11 +6172,10 @@ async function tcEdit(idx){
   const nv=prompt('메시지 편집:',cur);
   if(nv==null||nv.trim()===cur) return;
   try{
-    const r=await fetch(`${SERVER}/api/teams/chat/edit`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:m.id,text:nv.trim()})});
-    const d=await r.json();
-    if(d&&d.ok){ toast('편집됨','ok'); tcLoad(false); }
-    else toast('편집 실패: '+((d&&d.msg)||''),'warn');
+    const content=esc(nv.trim()).replace(/\n/g,'<br>');
+    const r=await tcGraph(`/chats/${TC_CHAT_ID}/messages/${m.id}`,{method:'PATCH',body:JSON.stringify({body:{contentType:'html',content}})});
+    if(r.status===200||r.status===204){ toast('편집됨','ok'); tcLoad(false); }
+    else toast('편집 실패: '+r.status,'warn');
   }catch(e){ toast('오류: '+e.message,'warn'); }
 }
 async function tcDelete(idx){
@@ -6171,11 +6183,9 @@ async function tcDelete(idx){
   const m=_tc.msgs[idx]; if(!m||!m.mine) return;
   if(!confirm('이 메시지를 삭제할까요?')) return;
   try{
-    const r=await fetch(`${SERVER}/api/teams/chat/delete`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:m.id})});
-    const d=await r.json();
-    if(d&&d.ok){ toast('삭제됨','ok'); tcLoad(false); }
-    else toast('삭제 실패: '+((d&&d.msg)||''),'warn');
+    const r=await tcGraph(`/me/chats/${TC_CHAT_ID}/messages/${m.id}/softDelete`,{method:'POST'});
+    if(r.status===200||r.status===204){ toast('삭제됨','ok'); tcLoad(false); }
+    else toast('삭제 실패: '+r.status,'warn');
   }catch(e){ toast('오류: '+e.message,'warn'); }
 }
 function tcReload(){ tcLoad(true); }
@@ -6188,19 +6198,33 @@ async function tcSend(){
   if(!text && !_tc.attachQueue.length) return;
   inp.disabled=true;
   try{
-    // 첨부 먼저 업로드
+    // 첨부 먼저 업로드 (서버 경유 — 본인 OneDrive)
     for(const f of _tc.attachQueue){
       const fd=new FormData(); fd.append('file',f); if(text) fd.append('text','');
       await fetch(`${SERVER}/api/teams/chat/upload`,{method:'POST',body:fd});
     }
     _tc.attachQueue=[]; tcRenderAttach();
-    // 텍스트 메시지
+    // 텍스트 메시지 — 로그인한 사람 본인 토큰으로 직접 전송
     if(text){
-      const payload={text};
-      if(_tc.replyTo) payload.reply=_tc.replyTo;
-      const r=await fetch(`${SERVER}/api/teams/chat/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const d=await r.json();
-      if(!(d&&d.ok)){ toast('전송 실패: '+((d&&d.msg)||''),'warn'); inp.disabled=false; return; }
+      const content=esc(text).replace(/\n/g,'<br>');
+      const payload={body:{contentType:'html',content}};
+      // 인용답장 (Teams messageReference)
+      if(_tc.replyTo && _tc.replyTo.id){
+        const rid=String(_tc.replyTo.id);
+        const ref=JSON.stringify({
+          messageId:rid,
+          messagePreview:(_tc.replyTo.preview||'').slice(0,200),
+          messageSender:{application:null,device:null,user:{userIdentityType:'aadUser',
+            tenantId:_tc.replyTo.senderTenant||'', id:_tc.replyTo.senderId||'', displayName:_tc.replyTo.senderName||''}}
+        });
+        payload.attachments=[{id:rid,contentType:'messageReference',content:ref}];
+        payload.body.content=`<attachment id="${rid}"></attachment>`+content;
+      }
+      const r=await tcGraph(`/chats/${TC_CHAT_ID}/messages`,{method:'POST',body:JSON.stringify(payload)});
+      if(!(r.status===200||r.status===201)){
+        const et=await r.text();
+        toast('전송 실패: '+r.status,'warn'); console.warn('tcSend',et); inp.disabled=false; return;
+      }
     }
     _tc.replyTo=null; tcRenderReplyBar();
     inp.value=''; tcAutoGrow(inp);
