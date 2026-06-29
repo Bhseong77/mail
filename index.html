@@ -1337,7 +1337,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v445</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v446</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5968,7 +5968,7 @@ async function clmTimedRun(){
 }
 
 // ══════════ T Project 메신저 ══════════
-let _tc={open:false, msgs:[], lastId:'', unread:0, pollTimer:null, attachQueue:[], lastSeen:''};
+let _tc={open:false, msgs:[], lastId:'', unread:0, pollTimer:null, attachQueue:[], lastSeen:'', replyTo:null};
 function tcToggle(){
   const p=document.getElementById('tcPanel'); if(!p) return;
   if(p.classList.contains('on')){ tcClose(); return; }
@@ -6058,6 +6058,14 @@ function tcRender(){
     html=html.replace(/<img /g,'<img style="max-width:200px;max-height:200px;border-radius:8px;display:block;margin:2px 0;cursor:pointer" onclick="window.open(this.src,\'_blank\')" ');
     if(m.deleted) html='<i style="color:#94a3b8">삭제된 메시지</i>';
     if(m.edited && !m.deleted) html+=' <span style="font-size:9px;color:#94a3b8">(편집됨)</span>';
+    // 인용답장 카드 (Teams처럼 원본 미리보기)
+    let replyCard='';
+    if(m.reply && m.reply.id){
+      replyCard=`<div style="background:${mine?'rgba(255,255,255,.18)':'#f1f5f9'};border-left:3px solid ${mine?'rgba(255,255,255,.6)':'#4f46e5'};border-radius:5px;padding:4px 8px;margin-bottom:4px;font-size:11px">
+        <b style="color:${mine?'#fff':'#4f46e5'}">${esc(m.reply.sender||'')}</b>
+        <div style="color:${mine?'rgba(255,255,255,.8)':'#64748b'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.reply.preview||'')}</div>
+      </div>`;
+    }
     // 첨부 파일 칩
     const atts=(m.attachments||[]).filter(a=>a.contentType==='reference'||a.name).map(a=>
       `<a href="${esc(a.contentUrl||'#')}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;color:#4f46e5;padding:3px 8px;border-radius:8px;font-size:11px;text-decoration:none;margin-top:3px">📎 ${esc(a.name||'파일')}</a>`).join(' ');
@@ -6069,7 +6077,7 @@ function tcRender(){
       ${!mine?`<div style="font-size:10.5px;color:#64748b;margin-bottom:2px">${esc(m.from||'')}</div>`:''}
       <div style="display:flex;align-items:center;gap:2px;${mine?'flex-direction:row-reverse':''}">
         <div style="display:flex;align-items:flex-end;gap:4px;${mine?'flex-direction:row-reverse':''}">
-          <div style="background:${mine?'#4f46e5':'#fff'};color:${mine?'#fff':'#1e293b'};padding:7px 11px;border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};font-size:13px;line-height:1.4;word-break:break-word;border:${mine?'none':'1px solid #e5e7eb'}">${html}${atts}</div>
+          <div style="background:${mine?'#4f46e5':'#fff'};color:${mine?'#fff':'#1e293b'};padding:7px 11px;border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};font-size:13px;line-height:1.4;word-break:break-word;border:${mine?'none':'1px solid #e5e7eb'}">${replyCard}${html}${atts}</div>
           <span style="font-size:9.5px;color:#94a3b8;white-space:nowrap">${timeStr}</span>
         </div>
         ${menuBtn}
@@ -6120,10 +6128,24 @@ async function tcReact(idx,reaction){
 function tcReply(idx){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
-  const inp=document.getElementById('tcInput');
-  const quote=(m.content||'').replace(/<[^>]+>/g,'').slice(0,40);
-  inp.value=`> ${m.from}: ${quote}\n`; tcAutoGrow(inp); inp.focus();
+  const preview=(m.content||'').replace(/<[^>]+>/g,'').trim().slice(0,80) || (m.attachments&&m.attachments.length?'📎 첨부':'');
+  _tc.replyTo={id:m.id, preview, senderName:m.from, senderId:m.fromId, senderTenant:m.fromTenant};
+  tcRenderReplyBar();
+  document.getElementById('tcInput')?.focus();
 }
+function tcRenderReplyBar(){
+  let bar=document.getElementById('tcReplyBar');
+  const drop=document.getElementById('tcDrop');
+  if(!_tc.replyTo){ if(bar) bar.remove(); return; }
+  if(!bar){
+    bar=document.createElement('div'); bar.id='tcReplyBar';
+    drop.insertBefore(bar, drop.firstChild);
+  }
+  bar.style.cssText='display:flex;align-items:center;gap:8px;background:#eef2ff;border-left:3px solid #4f46e5;border-radius:6px;padding:5px 8px;margin-bottom:6px;font-size:11.5px';
+  bar.innerHTML=`<div style="flex:1;min-width:0"><b style="color:#4f46e5">↩ ${esc(_tc.replyTo.senderName)}</b><div style="color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_tc.replyTo.preview)}</div></div>
+    <span onclick="tcCancelReply()" style="cursor:pointer;color:#94a3b8;font-size:14px">✕</span>`;
+}
+function tcCancelReply(){ _tc.replyTo=null; tcRenderReplyBar(); }
 function tcCopyLink(idx){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
@@ -6174,10 +6196,13 @@ async function tcSend(){
     _tc.attachQueue=[]; tcRenderAttach();
     // 텍스트 메시지
     if(text){
-      const r=await fetch(`${SERVER}/api/teams/chat/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+      const payload={text};
+      if(_tc.replyTo) payload.reply=_tc.replyTo;
+      const r=await fetch(`${SERVER}/api/teams/chat/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json();
       if(!(d&&d.ok)){ toast('전송 실패: '+((d&&d.msg)||''),'warn'); inp.disabled=false; return; }
     }
+    _tc.replyTo=null; tcRenderReplyBar();
     inp.value=''; tcAutoGrow(inp);
     await tcLoad(true);
   }catch(e){ toast('전송 오류: '+e.message,'warn'); }
