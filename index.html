@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v433</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v434</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7192,22 +7192,18 @@ async function doFileMove(){
 // 미분석 문서를 Copilot으로 분석
 // 브라우저에서 직접 파일 텍스트 추출 (PDF=pdf.js, 엑셀=SheetJS) — 서버/터널 불필요
 async function extractTextBrowser(f){
-  // Graph로 직접 다운로드 (downloadUrl 또는 items/{id}/content)
-  let blob=null;
-  try{
-    if(f.url){ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); }
-  }catch(_){}
-  if(!blob){ // downloadUrl 만료 시 Graph content로 폴백
-    const t=await graphToken(); const d=await spDrive();
-    const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}});
-    if(r.ok) blob=await r.blob();
-  }
+  const blob=await _fetchDocBlob(f);
   if(!blob) throw new Error("다운로드 실패");
   const name=(f.name||'').toLowerCase();
   if(name.endsWith('.pdf')){
     if(!window.pdfjsLib) throw new Error("pdf.js 미로드");
     const buf=await blob.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    // 한글 PDF 폰트(CMap) 처리 — CMap 없으면 한글 텍스트 추출 실패
+    const pdf=await pdfjsLib.getDocument({
+      data:buf,
+      cMapUrl:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+      cMapPacked:true
+    }).promise;
     let text=''; const n=Math.min(pdf.numPages,10);
     for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); text+=tc.items.map(x=>x.str).join(' ')+'\n'; }
     return text.slice(0,8000);
@@ -7539,8 +7535,18 @@ function _vendorMerge(a,b){ a=a||{}; b=b||{}; const o={}; ["company","bizno","ce
 function _blobToDataUrl(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(new Error("read fail")); r.readAsDataURL(blob); }); }
 async function _fetchDocBlob(f){
   let blob=null;
-  try{ if(f.url){ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); } }catch(_){}
-  if(!blob){ try{ const t=await graphToken(); const d=await spDrive(); const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}}); if(r.ok) blob=await r.blob(); }catch(_){} }
+  // 1) fid 있으면 Graph content API 우선 (항상 CORS 통과, 인증 헤더). SharePoint webUrl 직접 fetch는 CORS 막힘.
+  if(f.id){
+    try{
+      const t=await graphToken(); const d=await spDrive();
+      const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${f.id}/content`,{headers:{Authorization:"Bearer "+t}});
+      if(r.ok) blob=await r.blob();
+    }catch(_){}
+  }
+  // 2) 폴백: f.url 이 Graph pre-signed downloadUrl 이면 CORS 통과 (webUrl 은 막힘)
+  if(!blob && f.url && /graph\.microsoft\.com|sharepoint\.com.*tempauth|download\.aspx/i.test(f.url)){
+    try{ const r=await fetch(f.url); if(r.ok) blob=await r.blob(); }catch(_){}
+  }
   return blob;
 }
 async function _docToImages(f, blob, rotation){
@@ -7548,7 +7554,7 @@ async function _docToImages(f, blob, rotation){
   const name=(f.name||"").toLowerCase(); const urls=[];
   if(name.endsWith(".pdf")){
     if(!window.pdfjsLib) return urls;
-    const buf=await blob.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const buf=await blob.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf, cMapUrl:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/", cMapPacked:true}).promise;
     const n=Math.min(pdf.numPages,2);
     for(let i=1;i<=n;i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:2, rotation});
       const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height;
