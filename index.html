@@ -5068,6 +5068,23 @@ function clmDocAction(oid){
   });
 }
 
+// 기술자료 탭: 클라우디움 파일 클릭 → 그 파일이 든 클라우디움 폴더를 탐색기로 열기
+function techClmOpen(folderOid, fileName){
+  if(!folderOid){ toast('폴더 정보를 찾을 수 없습니다','warn'); return; }
+  toast(`탐색기에서 폴더를 엽니다…`,'ok');
+  clmAgentCall('openFolderByExplorer', { folderOID: folderOid, clientType:'W' }, (data)=>{
+    if(data&&data._neterr){ toast('에이전트에 연결할 수 없습니다. cloudium 앱 실행을 확인하세요','warn'); return; }
+    // 성공/다이얼로그 무음
+  });
+}
+// 기술자료 탭: 100MB↑ 업로드 시 → 클라우디움 대응 폴더를 탐색기로 열고 직접 복사 안내
+async function techClmUploadGuide(p, path){
+  const coid=await techClmResolveOid(path);
+  if(!coid){ toast('이 폴더는 클라우디움에 대응 폴더가 없습니다. 먼저 클라우디움에 폴더를 만드세요.','warn'); return false; }
+  toast('100MB 초과 — 클라우디움에 직접 올려주세요. 폴더를 엽니다…','warn');
+  clmAgentCall('openFolderByExplorer', { folderOID: coid, clientType:'W' }, ()=>{});
+  return true;
+}
 // 열기(실행) — viewFile. 우클릭/보조 버튼용
 function clmDocOpen(oid){
   const it=(CLM_DOCS||[]).find(x=>x.oid===oid);
@@ -6574,10 +6591,77 @@ let FT_OPEN={}, FT_SEL={}, FT_CHILDREN={};
 let FT_FSEL={}, _ftAnchor={};   // 트리 파일 다중선택 (탭별 itemId Set / 범위선택 기준)
 let _ftCtxTarget=null, _ftCtxJustOpened=0;
 function ftKey(p,path){ return p+'|'+path; }
+// ════════ 기술자료: SP ↔ 클라우디움 합쳐보기 ════════
+// SP 06.기술자료/{00.공통|02.프로젝트}/... ↔ 클라우디움 같은 경로(폴더명 매칭)
+// 기준점: SP 06.기술자료 바로 아래 폴더명 = 클라우디움 루트(101.T프로젝트) 하위 폴더명
+const TECH_CLM_ROOTS={  // SP 06.기술자료/<key> ↔ 클라우디움 OID
+  '00.공통':'1PyHtl_Tb88',
+  '00. 공통':'1PyHtl_Tb88',
+  '02.프로젝트':'1PyHtl_TbAJ',
+  '02. 프로젝트':'1PyHtl_TbAJ',
+};
+let _clmPathCache={};   // 'oid|폴더명' → 자식 폴더 oid (경로해석 캐시)
+let _clmDocsCache={};   // oid → 파일목록 (TTL)
+// SP 상대경로(path, 06.기술자료 기준)를 클라우디움 폴더 OID로 변환. 없으면 null.
+async function techClmResolveOid(path){
+  // path 예: "02.프로젝트/BR26002/02.설계/MD"  또는 ""(루트)
+  const parts=(path||'').split('/').filter(Boolean);
+  if(!parts.length) return null;       // 루트는 SP만(00.공통/02.프로젝트 폴더 자체)
+  // 1) 첫 조각 = 기준점
+  let oid=TECH_CLM_ROOTS[parts[0]];
+  if(!oid) return null;                // 매핑 기준점 아니면 클라우디움 없음
+  // 2) 나머지 조각을 폴더명으로 타고 내려감
+  for(let i=1;i<parts.length;i++){
+    const want=parts[i];
+    const ck=oid+'|'+want;
+    let next=_clmPathCache[ck];
+    if(next===undefined){
+      let kids=[];
+      try{ const d=await clmApi(`/api/cloudium/children?oid=${encodeURIComponent(oid)}`); kids=(d&&d.ok)?(d.items||[]):[]; }catch(e){ kids=[]; }
+      // 폴더명 정규화 매칭(공백/점 차이 흡수)
+      const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+      const hit=kids.find(k=>k.isFolder&&norm(k.name)===norm(want));
+      next=hit?hit.oid:null;
+      _clmPathCache[ck]=next;
+    }
+    if(!next) return null;
+    oid=next;
+  }
+  return oid;
+}
+// 클라우디움 폴더(oid)의 파일목록 → SP아이템 형식으로 변환(_clm 플래그)
+async function techClmFiles(oid){
+  if(!oid) return [];
+  let docs=_clmDocsCache[oid];
+  if(!docs){
+    try{ const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`); docs=(d&&d.ok)?(d.items||[]):[]; }catch(e){ docs=[]; }
+    _clmDocsCache[oid]=docs;
+  }
+  // 파일만(폴더는 SP 트리가 이미 그림) → SP아이템 형식 변환
+  return docs.filter(x=>!x.isFolder).map(x=>({
+    id:'CLM:'+x.oid, name:x.fileName||x.name, file:{}, size:x.size||0,
+    _clm:true, _clmParentOid:oid,
+    oid:x.oid, fileOID:x.fileOID, storageFileID:x.storageFileID,
+    fileName:x.fileName||x.name, lastModifiedDateTime:x.modifiedAt||x.createdAt||''
+  }));
+}
 async function ftLoadChildren(p,path){
   const root=DOC_MAP[p];
   const full=path?`${root}/${path}`:root;
-  const items=await spList(full);
+  let items=await spList(full);
+  // 기술자료 탭만: 같은 경로 클라우디움 파일 합치기(라벨용 _clm)
+  if(p==='doc-tech'){
+    try{
+      const coid=await techClmResolveOid(path);
+      if(coid){
+        const clmFiles=await techClmFiles(coid);
+        // 이름 중복 시 SP 우선(중복 표시 방지) — 클라우디움만 따로 추가
+        const spNames=new Set(items.filter(x=>x.file).map(x=>String(x.name).toLowerCase()));
+        const add=clmFiles.filter(f=>!spNames.has(String(f.name).toLowerCase()));
+        items=items.concat(add);
+      }
+    }catch(e){ console.warn('클라우디움 합치기 실패',path,e); }
+  }
   FT_CHILDREN[ftKey(p,path)]=items;
   return items;
 }
@@ -6708,6 +6792,11 @@ function _ftgStyle(){ if(document.getElementById('ftg-style')) return; const s=d
 .ftg-item:hover{background:var(--bg2);border-color:var(--border)}
 .ftg-item.ftg-sel{background:#dbeafe;border-color:#3b82f6}
 .ftg-item.ftg-cut{opacity:.45}
+.ftg-item.ftg-clm{cursor:pointer}
+.ftg-item.ftg-clm:hover{background:#eef6ff;border-color:var(--clm,#0f766e)}
+.ftg-lbl{position:absolute;top:4px;right:4px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;line-height:1.4;pointer-events:none}
+.ftg-lbl.sp{background:#dbeafe;color:#1d4ed8}
+.ftg-lbl.clm{background:#ccfbf1;color:#0f766e}
 .ftg-ic{font-size:34px;line-height:1;pointer-events:none}
 .ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden;pointer-events:none}
 .ftg-acts{position:absolute;top:3px;right:3px;display:none;gap:2px}
@@ -6746,8 +6835,14 @@ async function ftGridRender(p, path){
     FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:true,path:cp,size:0}; _ftgOrder[p].push(f.id);
     h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}',0)" ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="event.stopPropagation();ftDrop(event,'${p}','${q(cp)}',this)" ondblclick="ftSelect('${p}','${q(cp)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',true,'${q(cp)}')" title="${esc(f.name)}"><div class="ftg-ic">📁</div><div class="ftg-nm">${esc(f.name)}</div></div>`; }
   for(const f of files){
-    FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:false,path:path,size:f.size||0}; _ftgOrder[p].push(f.id);
-    h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}',${f.size||0})" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
+    FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:false,path:path,size:f.size||0,_clm:!!f._clm,_clmParentOid:f._clmParentOid};
+    _ftgOrder[p].push(f.id);
+    if(f._clm){
+      // 클라우디움 파일: 라벨 + 클릭=탐색기 폴더 열기 (다운로드/미리보기 없음)
+      h+=`<div class="ftg-item ftg-clm" data-id="${esc(f.id)}" onclick="techClmOpen('${esc(f._clmParentOid)}','${q(f.name)}')" title="클라우디움 자료 — 클릭하면 탐색기에서 폴더가 열립니다&#10;${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><span class="ftg-lbl clm">클라우디움</span></div>`;
+    } else {
+      h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}',${f.size||0})" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><span class="ftg-lbl sp">SP</span><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
+    }
   }
   h+=`</div>`;
   body.innerHTML=h;
