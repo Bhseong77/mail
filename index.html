@@ -662,6 +662,7 @@ body.embed-prnew{background:#fff}
 .ctxmenu{position:fixed;z-index:99999;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:5px;min-width:150px;display:none}
 .ctxmenu.on{display:block}
 .ctxmenu .ci{padding:8px 12px;font-size:12.5px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--t1)}
+.ctxmenu .ci.ci-disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 .ctxmenu .ci:hover{background:var(--pd)}
 .ctxmenu .ci.del:hover{background:#fee2e2;color:var(--r)}
 .ctxmenu .sep{height:1px;background:var(--border);margin:4px 0}
@@ -5068,6 +5069,17 @@ function clmDocAction(oid){
   });
 }
 
+// 클라우디움 폴더/파일 셸 삭제 (delete_shell 라우트 — 부모창 열고 InvokeVerb)
+// parentOid: 삭제 대상이 든 폴더 OID, names: 삭제할 이름(들)
+async function techClmDeleteShell(parentOid, names){
+  if(!parentOid || !names || (Array.isArray(names)&&!names.length)) return {ok:false,msg:'대상 없음'};
+  try{
+    const r=await clmApi('/api/cloudium/delete_shell',{method:'POST',
+      body:JSON.stringify({parentOID:parentOid, names:Array.isArray(names)?names:[names]})});
+    if(r&&r.ok){ _clmDocsCache={}; _clmPathCache={}; }
+    return r||{ok:false,msg:'응답 없음'};
+  }catch(e){ return {ok:false,msg:String(e)}; }
+}
 // 기술자료 탭: 클라우디움 파일 클릭 → 그 파일이 든 클라우디움 폴더를 탐색기로 열기
 function techClmOpen(folderOid, fileName){
   if(!folderOid){ toast('폴더 정보를 찾을 수 없습니다','warn'); return; }
@@ -6901,7 +6913,7 @@ async function ftgDownload(id,name){
   catch(e){ if(_j&&typeof _Jno==='function')_Jno(_j,e.message); toast('다운로드 실패: '+e.message,'bad'); }
 }
 async function ftgDownloadSel(p){ const m=_ftgSelMeta(p).filter(x=>!x.isFolder); if(!m.length){ toast('다운로드할 파일 없음','bad'); return; } for(const it of m){ await ftgDownload(it.id,it.name); await new Promise(r=>setTimeout(r,400)); } }
-async function ftgDeleteSel(p){ const m=_ftgSelMeta(p); if(!m.length){ toast('선택된 항목 없음','bad'); return; } if(!confirm(`${m.length}개 항목을 삭제할까요?`)) return; const _j=(typeof _J==='function')?_J(`삭제 ${m.length}개`):null; let ok=0,fail=0; for(const it of m){ try{ await spDeleteItem(it.id); ok++; }catch(e){ fail++; } } if(_j){ (fail?_Jno:_Jok)(_j, fail?`실패 ${fail}`:`완료 ${ok}`); } toast(`삭제 ${ok}${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok'); if(FTG_SEL[p])FTG_SEL[p].clear(); FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); ftGridRender(p,FT_SEL[p]||''); }
+async function ftgDeleteSel(p){ const m=_ftgSelMeta(p); if(!m.length){ toast('선택된 항목 없음','bad'); return; } if(!confirm(`${m.length}개 항목을 삭제할까요?`)) return; const _j=(typeof _J==='function')?_J(`삭제 ${m.length}개`):null; let ok=0,fail=0; const clmByParent={}; for(const it of m){ if(it._clm){ (clmByParent[it._clmParentOid]=clmByParent[it._clmParentOid]||[]).push(it.name); continue; } try{ await spDeleteItem(it.id); ok++; }catch(e){ fail++; } } for(const poid of Object.keys(clmByParent)){ try{ const r=await techClmDeleteShell(poid, clmByParent[poid]); if(r&&r.ok) ok+=clmByParent[poid].length; else fail+=clmByParent[poid].length; }catch(e){ fail+=clmByParent[poid].length; } } if(_j){ (fail?_Jno:_Jok)(_j, fail?`실패 ${fail}`:`완료 ${ok}`); } toast(`삭제 ${ok}${fail?` · 실패 ${fail}`:''}`, fail?'bad':'ok'); if(FTG_SEL[p])FTG_SEL[p].clear(); _techRefresh=true; FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); ftGridRender(p,FT_SEL[p]||''); }
 // ── 우클릭 메뉴 (탐색기식) ──
 function ftgCtx(e,p,id,name,isFolder,path){
   e.preventDefault(); e.stopPropagation();
@@ -7025,10 +7037,23 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   e.preventDefault(); e.stopPropagation();
   _ftCtxTarget={page:p,path,isFolder,itemId,name,size:size||0};
   const m=$('ftCtx');
+  const isClm = String(itemId||'').startsWith('CLM:');   // 클라우디움 파일
+  _ftCtxTarget._clm=isClm;
   // zip 파일일 때만 '압축 풀기' 표시, 파일일 때만 '다운로드' 표시
   const isZip = !isFolder && /\.zip$/i.test(name||'');
-  const uz=$('ftCtxUnzip'); if(uz) uz.style.display = isZip ? '' : 'none';
-  const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId) ? '' : 'none';
+  const uz=$('ftCtxUnzip'); if(uz) uz.style.display = (isZip && !isClm) ? '' : 'none';
+  const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId && !isClm) ? '' : 'none';
+  // 클라우디움 파일: SP 전용 작업은 흐릿하게(비활성). 링크복사만 클라우디움 URL.
+  m.querySelectorAll('.ci').forEach(ci=>{
+    ci.classList.remove('ci-disabled');
+    const txt=ci.textContent||'';
+    if(isClm){
+      // 클라우디움에서 막을 항목: 첨부메일/새폴더/업로드/이름변경/이동/삭제
+      if(/첨부해서|새 폴더|여기에 업로드|이름 변경|다른 폴더|삭제/.test(txt)){
+        ci.classList.add('ci-disabled');
+      }
+    }
+  });
   m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
   m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
   _ftCtxJustOpened=Date.now();
@@ -7073,6 +7098,39 @@ async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
   const p=t.page;
+  // 클라우디움 파일: SP 전용 작업 차단, 링크복사는 클라우디움 내부배포 URL
+  if(t._clm){
+    const clmOid=String(t.itemId||'').replace(/^CLM:/,'');
+    if(action==='link'){
+      try{
+        toast('클라우디움 내부배포 URL 생성 중…');
+        const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(clmOid)}`);
+        const j=await r.json();
+        const url=(j&&j.ok&&(j.url||j.shareUrl))|| (j&&j.url) || null;
+        if(!url){ toast('클라우디움 URL을 가져오지 못했습니다','bad'); return; }
+        try{ await navigator.clipboard.writeText(url); toast('🔗 클라우디움 내부배포 URL 복사됨 (Ctrl+V)','ok'); }
+        catch(_){ prompt('클라우디움 내부배포 URL:', url); }
+        try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}`); }catch(_){}
+      }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
+      return;
+    }
+    // 클라우디움 파일 삭제 → 셸 삭제 (휴지통行)
+    if(action==='delete'){
+      if(!confirm(`"${t.name}" 클라우디움에서 삭제할까요? (휴지통으로 이동)`)) return;
+      toast('클라우디움 삭제 중…');
+      const r=await techClmDeleteShell(t._clmParentOid, t.name);
+      if(r&&r.ok){ toast('클라우디움 삭제됨 (휴지통)','ok'); try{actLog(`🗑 클라우디움 삭제: ${t.name}`);}catch(_){}
+        _techRefresh=true; FT_CHILDREN={}; await renderFileTree(p); }
+      else toast('클라우디움 삭제 실패: '+((r&&r.msg)||''),'bad');
+      return;
+    }
+    if(action==='mail' || action==='download' || action==='unzip' ||
+       action==='newfolder' || action==='upload' || action==='rename' ||
+       action==='move'){
+      toast('클라우디움 자료입니다 — 이동/업로드는 클라우디움에서 직접 하세요','warn');
+      return;
+    }
+  }
   if(action==='newfolder'){ await ftNewFolder(p, t.path); }
   else if(action==='mail'){
     if(!t.itemId || t.isFolder){ toast('파일만 첨부할 수 있습니다','bad'); return; }
@@ -7112,9 +7170,26 @@ async function ftAct(action){
     catch(ex){ toast('실패: '+ex.message,'bad'); }
   }else if(action==='delete'){
     if(!t.itemId){ toast('루트는 삭제 불가','bad'); return; }
-    if(!confirm(`"${t.name}" 삭제할까요? (SharePoint 영구삭제)`)) return;
+    const isTechFolder=(p==='doc-tech' && t.isFolder);
+    const cfMsg=isTechFolder
+      ? `"${t.name}" 폴더를 삭제할까요?\n(SharePoint 영구삭제 + 클라우디움 같은 폴더도 휴지통으로)`
+      : `"${t.name}" 삭제할까요? (SharePoint 영구삭제)`;
+    if(!confirm(cfMsg)) return;
     try{
       await spDeleteItem(t.itemId); toast('삭제됨','ok'); actLog(`🗑 삭제: ${t.name}`);
+      // ★ 기술자료 폴더면 클라우디움 같은 폴더도 셸 삭제 (완전 동기)
+      if(isTechFolder){
+        try{
+          const parentPath=t.path||'';
+          let useParent = parentPath ? await techClmResolveOid(parentPath) : null;
+          if(!useParent && !parentPath) useParent='1PwNjUiWO2e';  // 루트 부모 = T프로젝트
+          if(useParent){
+            const r=await techClmDeleteShell(useParent, t.name);
+            if(r&&r.ok) toast('클라우디움 폴더도 삭제됨','ok');
+            else if(r) console.warn('클라우디움 폴더 삭제 실패',r.msg);
+          }
+        }catch(e){ console.warn('클라우디움 폴더 삭제 예외',e); }
+      }
       // 분석탭이면 분석 목록(AN_DATA)에서도 제거 → 트리에서 지우면 목록 행도 사라짐
       if(DOC_ANALYZE.includes(p) && AN_DATA[p]){
         let changed=false;
@@ -7141,14 +7216,21 @@ async function ftNewFolder(p,parentPath){
   const full=parentPath?`${DOC_MAP[p]}/${parentPath}/${clean}`:`${DOC_MAP[p]}/${clean}`;
   try{
     await spEnsureFolder(full);
-    // 04.프로젝트 바로 아래에 새 프로젝트 폴더를 만들면 표준 하위폴더 자동 생성
-    const PROJECT_SUBS=['01.설계','02.전장','03.제어','04.생산'];
-    if(p==='doc-tech' && (parentPath==='04.프로젝트' || (parentPath||'').endsWith('/04.프로젝트'))){
-      for(const sub of PROJECT_SUBS){ try{ await spEnsureFolder(`${full}/${sub}`); }catch(e){} }
-      toast('프로젝트 폴더 생성 + 표준 하위폴더(설계/전장/제어/생산) 자동 생성','ok'); actLog(`📁 프로젝트폴더 생성: ${clean} (+설계/전장/제어/생산)`);
-    } else {
-      toast('폴더 생성됨','ok'); actLog(`📁 폴더 생성: ${clean}`);
+    // ★ 기술자료 탭: 클라우디움에도 같은 폴더 생성 (양쪽 동기)
+    let clmMsg='';
+    if(p==='doc-tech'){
+      try{
+        const parentOid = parentPath ? await techClmResolveOid(parentPath) : null;
+        // parentPath 가 비면(루트) 생성 대상이 00.공통/02.프로젝트 자체라 클라우디움 매핑 없음 → SP만
+        if(parentOid){
+          const cr=await clmApi(`/api/cloudium/newfolder`,{method:'POST',body:JSON.stringify({parentOID:parentOid,name:clean})});
+          if(cr&&cr.ok){ clmMsg=' + 클라우디움'; _clmPathCache={}; }
+          else clmMsg=' (클라우디움 생성 실패: '+((cr&&cr.msg)||'')+')';
+        }
+      }catch(e){ clmMsg=' (클라우디움 생성 예외)'; console.warn('클라우디움 폴더생성',e); }
     }
+    toast('폴더 생성됨'+clmMsg, clmMsg.includes('실패')||clmMsg.includes('예외')?'warn':'ok');
+    actLog(`📁 폴더 생성: ${clean}${clmMsg}`);
     FT_CHILDREN={};
     if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
     FT_OPEN[ftKey(p, parentPath?`${parentPath}/${clean}`:clean)]=true;  // 만든 폴더 펼침
