@@ -171,7 +171,7 @@ body{display:flex;flex-direction:column;height:100vh}
 .mbox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .cbox{max-width:640px}
 /* Gmail식 우측하단 도킹 작성창 */
-#compose{position:fixed;inset:auto;right:24px;bottom:0;left:auto;top:auto;width:auto;height:auto;background:none;display:none;z-index:1200;padding:0;}
+#compose{position:fixed;inset:auto;right:24px;bottom:0;left:auto;top:auto;width:auto;height:auto;background:none;display:none;z-index:1000050;padding:0;}
 #compose.on{display:block;}
 #compose .cbox{width:480px;max-width:calc(100vw - 40px);max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 44px rgba(0,0,0,.32);border-radius:12px 12px 0 0;}
 #compose .mbox-h{cursor:pointer;padding:12px 16px;font-size:14px;}
@@ -273,6 +273,7 @@ body{display:flex;flex-direction:column;height:100vh}
 #tcFab:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 10px 28px rgba(79,70,229,.55)}
 body.tc-open #composeFab{display:none}   /* 메신저 열리면 메일 FAB 숨김(겹침 방지) */
 body.tc-open #tcFab{display:none}          /* 메신저 열리면 메신저 FAB도 숨김(패널이 대신) */
+body:has(#compose.on) #composeFab,body:has(#compose.on) #tcFab{display:none}  /* 메일쓰기 열리면 FAB 둘 다 숨김 */
 /* ── 모바일 하단 탭바 + 바텀시트 (PC 숨김) ── */
 .mob-nav{display:none}
 .mob-sheet{display:none}
@@ -1323,7 +1324,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v439</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v440</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
