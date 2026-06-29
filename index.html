@@ -1337,7 +1337,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v447</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v448</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5976,6 +5976,42 @@ async function tcGraph(path, opts){
   const r=await fetch(TC_GRAPH+path, {...opts, headers:{Authorization:"Bearer "+tok, "Content-Type":"application/json", ...(opts&&opts.headers||{})}});
   return r;
 }
+// 첨부용 본인 토큰 (OneDrive 쓰기 — Files.ReadWrite)
+async function tcFilesToken(){
+  const app=msalApp(); await app.initialize();
+  const acct=app.getAllAccounts()[0]; if(!acct) throw new Error("로그인 필요");
+  const scopes=["Files.ReadWrite","ChatMessage.Send","Chat.ReadWrite"];
+  try{ const r=await app.acquireTokenSilent({scopes,account:acct}); return r.accessToken; }
+  catch(e){
+    if(isMobileEnv()){ await app.acquireTokenRedirect({scopes,account:acct}); throw new Error("권한 재요청 중… 잠시 후 다시"); }
+    const r=await app.acquireTokenPopup({scopes}); return r.accessToken;
+  }
+}
+// 본인 OneDrive에 파일 올리고 T Project 채팅에 첨부 전송 (본인 명의)
+async function tcUploadFile(file, comment){
+  const tok=await tcFilesToken();
+  const H={Authorization:"Bearer "+tok};
+  // 1) 본인 OneDrive 업로드
+  const safe=encodeURIComponent(file.name||'file');
+  const up=await fetch(`${TC_GRAPH}/me/drive/root:/EnjetDashboard/${safe}:/content`,
+    {method:'PUT',headers:{...H,"Content-Type":"application/octet-stream"},body:file});
+  if(!(up.status===200||up.status===201)) throw new Error('업로드 실패 '+up.status);
+  const item=await up.json(); const itemId=item.id; let shareUrl=item.webUrl||'';
+  // 2) 조직 공유 링크
+  try{
+    const lk=await fetch(`${TC_GRAPH}/me/drive/items/${itemId}/createLink`,
+      {method:'POST',headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({type:'view',scope:'organization'})});
+    if(lk.status===200||lk.status===201){ const j=await lk.json(); shareUrl=(j.link&&j.link.webUrl)||shareUrl; }
+  }catch(_){}
+  // 3) 채팅에 첨부 메시지 (본인 명의)
+  const body=(comment?esc(comment).replace(/\n/g,'<br>')+'<br>':'')+`<attachment id="${itemId}"></attachment>`;
+  const payload={body:{contentType:'html',content:body},
+    attachments:[{id:itemId,contentType:'reference',contentUrl:shareUrl,name:file.name||'file'}]};
+  const r=await fetch(`${TC_GRAPH}/chats/${TC_CHAT_ID}/messages`,
+    {method:'POST',headers:{...H,"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  if(!(r.status===200||r.status===201)) throw new Error('첨부전송 실패 '+r.status);
+  return true;
+}
 let _tc={open:false, msgs:[], lastId:'', unread:0, pollTimer:null, attachQueue:[], lastSeen:'', replyTo:null};
 function tcToggle(){
   const p=document.getElementById('tcPanel'); if(!p) return;
@@ -6198,10 +6234,12 @@ async function tcSend(){
   if(!text && !_tc.attachQueue.length) return;
   inp.disabled=true;
   try{
-    // 첨부 먼저 업로드 (서버 경유 — 본인 OneDrive)
-    for(const f of _tc.attachQueue){
-      const fd=new FormData(); fd.append('file',f); if(text) fd.append('text','');
-      await fetch(`${SERVER}/api/teams/chat/upload`,{method:'POST',body:fd});
+    // 첨부 먼저 업로드 (로그인한 사람 본인 OneDrive + 본인 명의 전송)
+    if(_tc.attachQueue.length){
+      for(const f of _tc.attachQueue){
+        try{ await tcUploadFile(f, ''); }
+        catch(ex){ toast('첨부 실패('+f.name+'): '+ex.message,'warn'); }
+      }
     }
     _tc.attachQueue=[]; tcRenderAttach();
     // 텍스트 메시지 — 로그인한 사람 본인 토큰으로 직접 전송
