@@ -6602,6 +6602,7 @@ const TECH_CLM_ROOTS={  // SP 06.기술자료/<key> ↔ 클라우디움 OID
 };
 let _clmPathCache={};   // 'oid|폴더명' → 자식 폴더 oid (경로해석 캐시)
 let _clmDocsCache={};   // oid → 파일목록 (TTL)
+let _techRefresh=false; // 새로고침 시 1회 서버캐시 우회
 // SP 상대경로(path, 06.기술자료 기준)를 클라우디움 폴더 OID로 변환. 없으면 null.
 async function techClmResolveOid(path){
   // path 예: "02.프로젝트/BR26002/02.설계/MD"  또는 ""(루트)
@@ -6617,7 +6618,8 @@ async function techClmResolveOid(path){
     let next=_clmPathCache[ck];
     if(next===undefined){
       let kids=[];
-      try{ const d=await clmApi(`/api/cloudium/children?oid=${encodeURIComponent(oid)}`); kids=(d&&d.ok)?(d.items||[]):[]; }catch(e){ kids=[]; }
+      const rf=_techRefresh?'&refresh=1':'';
+      try{ const d=await clmApi(`/api/cloudium/children?oid=${encodeURIComponent(oid)}${rf}`); kids=(d&&d.ok)?(d.items||[]):[]; }catch(e){ kids=[]; }
       // 폴더명 정규화 매칭(공백/점 차이 흡수)
       const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
       const hit=kids.find(k=>k.isFolder&&norm(k.name)===norm(want));
@@ -6634,7 +6636,8 @@ async function techClmFiles(oid){
   if(!oid) return [];
   let docs=_clmDocsCache[oid];
   if(!docs){
-    try{ const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`); docs=(d&&d.ok)?(d.items||[]):[]; }catch(e){ docs=[]; }
+    const rf=_techRefresh?'&refresh=1':'';
+    try{ const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}${rf}`); docs=(d&&d.ok)?(d.items||[]):[]; }catch(e){ docs=[]; }
     _clmDocsCache[oid]=docs;
   }
   // 파일만(폴더는 SP 트리가 이미 그림) → SP아이템 형식 변환
@@ -8209,6 +8212,7 @@ ${text.slice(0,6000)}`;
 // 기존 트리 방식 (기술자료 탭)
 async function renderDocTree(p){
   const root=DOC_MAP[p]; const panel=$('panel-'+p);
+  if(p==='doc-tech'){ _clmDocsCache={}; _clmPathCache={}; _techRefresh=true; }  // 클라우디움 캐시도 갱신
   panel.innerHTML=`<div class="panel-bar"><h2>${DOC_TITLE[p]}</h2><div class="spacer"></div>
       <input class="doc-search" id="treeq-${p}" placeholder="🔍 파일 검색" oninput="treeSearch('${p}')">
       <button class="btn" onclick="renderDocPage('${p}')">↻ 새로고침</button></div>
@@ -8226,6 +8230,7 @@ async function renderDocTree(p){
   renderTabs(p);
   await renderFileTree(p);
   if(document.getElementById('ftBody-'+p)) ftGridRender(p, FT_SEL[p]||'');
+  _techRefresh=false;  // 새로고침 1회 적용 후 해제 (이후 펼침은 캐시)
 }
 let _ftPreviewPanel=null;
 // ── 파일 탭 시스템 ──
