@@ -274,7 +274,7 @@ body{display:flex;flex-direction:column;height:100vh}
 /* 메신저 패널 — 새메일(#compose)과 동일 구조: 우하단, 480px, 헤더클릭 접기 */
 #tcPanel{position:fixed;right:24px;bottom:0;z-index:1000049;display:none;}
 #tcPanel.on{display:block;}
-#tcPanel .tcbox{width:480px;max-width:calc(100vw - 40px);height:min(600px,84vh);display:flex;flex-direction:column;box-shadow:0 10px 44px rgba(0,0,0,.32);border-radius:12px 12px 0 0;overflow:hidden;background:#fff;}
+#tcPanel .tcbox{width:480px;max-width:calc(100vw - 40px);height:84vh;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 44px rgba(0,0,0,.32);border-radius:12px 12px 0 0;overflow:hidden;background:#fff;}
 #tcPanel.min .tcbox{height:auto !important;max-height:none !important;}
 #tcPanel.min .tc-collapse{display:none !important;}   /* 접으면 본문/입력 숨김 (인라인 우선) */
 /* 새메일과 메신저 동시 열림 → 메신저를 새메일 왼쪽으로 (안 겹침) */
@@ -1334,7 +1334,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v443</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v444</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6062,7 +6062,7 @@ function tcRender(){
     const reacts=Object.entries(m.reactions||{}).map(([k,v])=>`<span style="font-size:11px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0 5px;margin-right:2px">${REACT_EMOJI[k]||'·'}${v>1?v:''}</span>`).join('');
     // 호버 메뉴 버튼 (메시지 위 작은 ⋯)
     const menuBtn=`<span class="tc-menu-btn" onclick="tcMsgMenu(event,${idx})" style="cursor:pointer;font-size:13px;color:#94a3b8;padding:2px 5px;border-radius:6px;opacity:0;transition:opacity .1s">⋯</span>`;
-    const bubble=`<div class="tc-msg" data-idx="${idx}" style="max-width:80%;${mine?'align-self:flex-end':'align-self:flex-start'}" onmouseenter="this.querySelector('.tc-menu-btn').style.opacity=1" onmouseleave="this.querySelector('.tc-menu-btn').style.opacity=0">
+    const bubble=`<div class="tc-msg" data-idx="${idx}" oncontextmenu="event.preventDefault();tcMsgMenu(event,${idx})" style="max-width:80%;${mine?'align-self:flex-end':'align-self:flex-start'}" onmouseenter="this.querySelector('.tc-menu-btn').style.opacity=1" onmouseleave="this.querySelector('.tc-menu-btn').style.opacity=0">
       ${!mine?`<div style="font-size:10.5px;color:#64748b;margin-bottom:2px">${esc(m.from||'')}</div>`:''}
       <div style="display:flex;align-items:center;gap:2px;${mine?'flex-direction:row-reverse':''}">
         <div style="display:flex;align-items:flex-end;gap:4px;${mine?'flex-direction:row-reverse':''}">
@@ -6083,7 +6083,7 @@ function tcMsgMenu(ev, idx){
   const m=_tc.msgs[idx]; if(!m) return;
   const pop=document.createElement('div');
   pop.id='tcMenuPop';
-  pop.style.cssText='position:fixed;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);border:1px solid #e5e7eb;z-index:999999;font-size:13px;overflow:hidden;min-width:180px';
+  pop.style.cssText='position:fixed;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);border:1px solid #e5e7eb;z-index:1000099;font-size:13px;overflow:hidden;min-width:180px';
   const rx=ev.clientX, ry=ev.clientY;
   const REACTS=[['like','👍'],['heart','❤️'],['laugh','😆'],['surprised','😮'],['sad','😢'],['angry','😠']];
   let h=`<div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #f1f5f9">`+
