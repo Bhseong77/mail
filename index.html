@@ -7043,13 +7043,13 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   const isZip = !isFolder && /\.zip$/i.test(name||'');
   const uz=$('ftCtxUnzip'); if(uz) uz.style.display = (isZip && !isClm) ? '' : 'none';
   const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId && !isClm) ? '' : 'none';
-  // 클라우디움 파일: SP 전용 작업은 흐릿하게(비활성). 링크복사만 클라우디움 URL.
+  // 클라우디움 파일: SP 전용 작업은 흐릿하게(비활성). 삭제/링크복사는 활성(셸삭제/클라우디움URL).
   m.querySelectorAll('.ci').forEach(ci=>{
     ci.classList.remove('ci-disabled');
     const txt=ci.textContent||'';
     if(isClm){
-      // 클라우디움에서 막을 항목: 첨부메일/새폴더/업로드/이름변경/이동/삭제
-      if(/첨부해서|새 폴더|여기에 업로드|이름 변경|다른 폴더|삭제/.test(txt)){
+      // 클라우디움에서 막을 항목: 첨부메일/새폴더/업로드/이름변경/이동 (삭제는 셸로 가능 → 활성)
+      if(/첨부해서|새 폴더|여기에 업로드|이름 변경|다른 폴더/.test(txt)){
         ci.classList.add('ci-disabled');
       }
     }
@@ -7180,13 +7180,19 @@ async function ftAct(action){
       // ★ 기술자료 폴더면 클라우디움 같은 폴더도 셸 삭제 (완전 동기)
       if(isTechFolder){
         try{
-          const parentPath=t.path||'';
+          // t.path = 폴더 자신 경로(부모/자기이름). 부모경로 = 마지막 조각 제거
+          const selfPath = t.path||'';
+          const segs = selfPath.split('/').filter(Boolean);
+          const folderName = segs[segs.length-1] || t.name;  // 자기 이름
+          const parentPath = segs.slice(0,-1).join('/');      // 부모 경로
           let useParent = parentPath ? await techClmResolveOid(parentPath) : null;
-          if(!useParent && !parentPath) useParent='1PwNjUiWO2e';  // 루트 부모 = T프로젝트
+          if(!useParent && !parentPath) useParent='1PwNjUiWO2e';  // 루트(00.공통/02.프로젝트) 부모 = T프로젝트
           if(useParent){
-            const r=await techClmDeleteShell(useParent, t.name);
+            const r=await techClmDeleteShell(useParent, folderName);
             if(r&&r.ok) toast('클라우디움 폴더도 삭제됨','ok');
-            else if(r) console.warn('클라우디움 폴더 삭제 실패',r.msg);
+            else if(r) console.warn('클라우디움 폴더 삭제 실패',r.msg, 'parent=',useParent,'name=',folderName);
+          } else {
+            console.warn('클라우디움 부모 OID 못 찾음: parentPath=',parentPath);
           }
         }catch(e){ console.warn('클라우디움 폴더 삭제 예외',e); }
       }
