@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v427</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v428</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1957,6 +1957,7 @@ body.embed-prnew{background:#fff}
       <span id="clmSub" style="font-size:12px;color:var(--t3)"></span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <input id="clmSearch" placeholder="🔍 현재 폴더 검색" oninput="clmFilter()" style="padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px">
+        <button class="btn sm" onclick="clmPermSearchOpen()" title="사용자/부서별 권한 현황 조회">🔐 권한 검색</button>
         <button class="btn sm" onclick="clmNewFolder()" title="현재 폴더에 새 폴더 생성">📁＋ 새 폴더</button>
         <button class="btn sm" onclick="clmUploadHere()" title="현재 폴더에 파일 업로드">⬆ 업로드</button>
         <button class="btn sm" onclick="clmReload()">↻ 새로고침</button>
@@ -5431,6 +5432,112 @@ async function clmAclSave(){
     if(j&&j.ok){ toast('보안설정 저장됨','ok'); document.getElementById('clmAclOv')?.remove(); }
     else { toast('저장 실패: '+((j&&j.msg)||(j&&j.error)||''),'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
   }catch(e){ toast('저장 오류: '+e.message,'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
+}
+
+// ══════════ 클라우디움 권한 검색 (역방향: 대상→폴더) ══════════
+let _clmPS={owner:null, items:[], page:1, total:0, docs:false};
+function clmPermSearchOpen(){
+  document.getElementById('clmPSOv')?.remove();
+  const ov=document.createElement('div');
+  ov.id='clmPSOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <b style="font-size:15px">🔐 권한 검색 — 사용자/부서가 권한 가진 폴더 조회</b>
+        <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('clmPSOv').remove()">✕</span>
+      </div>
+      <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="clmPSKw" placeholder="이름 검색 (사용자·부서·그룹)" onkeydown="if(event.key==='Enter')clmPSFind()"
+                 style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <button class="btn primary sm" onclick="clmPSFind()">검색</button>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap" title="문서까지 포함">
+            <input type="checkbox" id="clmPSDocs" onchange="if(_clmPS.owner)clmPSLoad(1)">문서 포함</label>
+        </div>
+        <div id="clmPSTargets" style="margin-top:8px"></div>
+      </div>
+      <div id="clmPSResult" style="flex:1;overflow:auto;padding:10px 18px"></div>
+      <div id="clmPSPager" style="padding:10px 18px;border-top:1px solid #f3f4f6;display:none;align-items:center;gap:10px;justify-content:center"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('clmPSKw')?.focus(), 100);
+}
+
+async function clmPSFind(){
+  const kw=(document.getElementById('clmPSKw').value||'').trim();
+  const box=document.getElementById('clmPSTargets');
+  if(!kw){ box.innerHTML=''; return; }
+  box.innerHTML='<span style="font-size:12px;color:var(--t3)">검색 중…</span>';
+  try{
+    const d=await clmApi(`/api/cloudium/acl/search?keyword=${encodeURIComponent(kw)}&types=GR,PG,UR`);
+    const items=(d&&d.items)||[];
+    if(!items.length){ box.innerHTML='<span style="font-size:12px;color:var(--t3)">결과 없음</span>'; return; }
+    box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px">'+items.slice(0,20).map(x=>{
+      const t=x.objectType||''; const nm=x.name||''; const oid=x.OID||'';
+      const icon=t==='UR'?'👤':(t==='GR'?'🏢':'📁');
+      const path=x.fullPathName||x.groupFullPathName||'';
+      const _x=JSON.stringify({oid,type:t,name:nm,path}).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+      return `<button onclick='clmPSPick(${_x})' class="btn sm" style="font-size:12px" title="${esc(path)}">${icon} ${esc(nm)}</button>`;
+    }).join('')+'</div>';
+  }catch(e){ box.innerHTML=`<span style="font-size:12px;color:var(--r)">${esc(e.message)}</span>`; }
+}
+
+function clmPSPick(x){
+  _clmPS.owner=x;
+  document.getElementById('clmPSTargets').innerHTML=
+    `<div style="font-size:13px">선택: <b>${esc(x.name)}</b> <span style="color:var(--t3);font-size:11px">${esc(x.path||'')}</span> <span onclick="_clmPS.owner=null;document.getElementById('clmPSResult').innerHTML='';document.getElementById('clmPSPager').style.display='none'" style="cursor:pointer;color:var(--r);margin-left:6px">✕</span></div>`;
+  clmPSLoad(1);
+}
+
+async function clmPSLoad(page){
+  if(!_clmPS.owner) return;
+  _clmPS.page=page;
+  _clmPS.docs=document.getElementById('clmPSDocs')?.checked||false;
+  const res=document.getElementById('clmPSResult');
+  res.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">조회 중… (전체 폴더 검색이라 시간이 걸릴 수 있습니다)</div>';
+  try{
+    const q=`/api/cloudium/acl/by_owner?oid=${encodeURIComponent(_clmPS.owner.oid)}&type=${_clmPS.owner.type}&docs=${_clmPS.docs?1:0}&page=${page}&rowCount=200`;
+    const d=await clmApi(q);
+    if(!d||!d.ok){ res.innerHTML='<div style="color:var(--r);padding:20px">조회 실패</div>'; return; }
+    _clmPS.items=d.items||[]; _clmPS.total=d.total||0;
+    clmPSRender();
+  }catch(e){ res.innerHTML=`<div style="color:var(--r);padding:20px">${esc(e.message)}</div>`; }
+}
+
+function clmPSRender(){
+  const res=document.getElementById('clmPSResult');
+  const its=_clmPS.items;
+  if(!its.length){ res.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">권한이 설정된 폴더가 없습니다</div>'; document.getElementById('clmPSPager').style.display='none'; return; }
+  res.innerHTML=`<div style="font-size:12px;color:var(--t3);margin-bottom:8px">총 ${_clmPS.total}개 중 ${its.length}개 (페이지 ${_clmPS.page})</div>`+
+    `<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="border-bottom:2px solid var(--border);text-align:left">
+        <th style="padding:6px 4px">폴더</th><th style="padding:6px 4px;width:90px">폴더 권한</th>
+        <th style="padding:6px 4px;width:90px">파일 권한</th><th style="padding:6px 4px;width:60px">추가</th>
+        <th style="padding:6px 4px;width:50px">상속</th></tr></thead>
+      <tbody>`+its.map(it=>{
+        const d=clmPermDecode(it.permission);
+        const adds=[]; if(d.folderAdd)adds.push('폴더'); if(d.fileAdd)adds.push('파일');
+        // 경로에서 마지막 2~3단계만 (너무 길어서)
+        const segs=(it.path||'').split('>');
+        const shortPath=segs.length>3?'…> '+segs.slice(-3).join(' > '):it.path;
+        return `<tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:6px 4px" title="${esc(it.path||'')}">${it.objectType==='DO'?'📄':'📁'} ${esc(it.name||'')}<div style="font-size:10px;color:var(--t3)">${esc(shortPath)}</div></td>
+          <td style="padding:6px 4px">${clmPermLevelLabel(d.folder)}</td>
+          <td style="padding:6px 4px">${clmPermLevelLabel(d.file)}</td>
+          <td style="padding:6px 4px;font-size:11px">${adds.join(',')||'-'}</td>
+          <td style="padding:6px 4px">${it.inherit?'<span style="color:var(--t3)">상속</span>':'<b style="color:var(--ac)">직접</b>'}</td>
+        </tr>`;
+      }).join('')+`</tbody></table>`;
+  // 페이저 (200개씩이라 total>200이면)
+  const pager=document.getElementById('clmPSPager');
+  if(_clmPS.total>200){
+    const maxPage=Math.ceil(_clmPS.total/200);
+    pager.style.display='flex';
+    pager.innerHTML=`<button class="btn sm" ${_clmPS.page<=1?'disabled':''} onclick="clmPSLoad(${_clmPS.page-1})">← 이전</button>
+      <span style="font-size:12px">${_clmPS.page} / ${maxPage}</span>
+      <button class="btn sm" ${_clmPS.page>=maxPage?'disabled':''} onclick="clmPSLoad(${_clmPS.page+1})">다음 →</button>`;
+  } else pager.style.display='none';
 }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
