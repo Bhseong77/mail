@@ -7039,6 +7039,13 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   const m=$('ftCtx');
   const isClm = String(itemId||'').startsWith('CLM:');   // 클라우디움 파일
   _ftCtxTarget._clm=isClm;
+  // 클라우디움 파일: 부모 폴더 OID 를 FTG_META 에서 찾아 타겟에 저장 (삭제에 필요)
+  if(isClm){
+    try{
+      const meta=(FTG_META[p]||{})[itemId];
+      if(meta && meta._clmParentOid) _ftCtxTarget._clmParentOid=meta._clmParentOid;
+    }catch(_){}
+  }
   // zip 파일일 때만 '압축 풀기' 표시, 파일일 때만 '다운로드' 표시
   const isZip = !isFolder && /\.zip$/i.test(name||'');
   const uz=$('ftCtxUnzip'); if(uz) uz.style.display = (isZip && !isClm) ? '' : 'none';
