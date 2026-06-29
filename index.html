@@ -1318,7 +1318,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v428</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v430</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1958,6 +1958,8 @@ body.embed-prnew{background:#fff}
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <input id="clmSearch" placeholder="🔍 현재 폴더 검색" oninput="clmFilter()" style="padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px">
         <button class="btn sm" onclick="clmPermSearchOpen()" title="사용자/부서별 권한 현황 조회">🔐 권한 검색</button>
+        <button class="btn sm" onclick="clmBulkOpen()" title="사용자 이력 폴더에 권한 일괄 부여">📋 사용자별 권한설정</button>
+        <button class="btn sm" onclick="clmTimedOpen()" title="기간 한정 권한 관리 (시작·만료일)">⏱ 기간 권한</button>
         <button class="btn sm" onclick="clmNewFolder()" title="현재 폴더에 새 폴더 생성">📁＋ 새 폴더</button>
         <button class="btn sm" onclick="clmUploadHere()" title="현재 폴더에 파일 업로드">⬆ 업로드</button>
         <button class="btn sm" onclick="clmReload()">↻ 새로고침</button>
@@ -4760,11 +4762,12 @@ let CLM_TREE={};      // oid -> {item, children:[oid...]|null(미로드), expand
 let CLM_CUR=null;     // 선택된 폴더 oid
 let CLM_DOCS=[];      // 현재 폴더 문서목록(필터 원본)
 
-async function clmApi(path){
+async function clmApi(path, opts){
   try{
-    const r=await fetch(SERVER+path);
+    const init=opts?Object.assign({headers:{'Content-Type':'application/json'}},opts):undefined;
+    const r=await fetch(SERVER+path, init);
     const d=await r.json();
-    if(d && d.ok===false){ clmBanner(d.error||'요청 실패'); return d; }
+    if(d && d.ok===false){ clmBanner(d.error||d.msg||'요청 실패'); return d; }
     clmBanner('');
     return d;
   }catch(e){ clmBanner('서버 연결 실패: '+e.message); return null; }
@@ -5338,6 +5341,15 @@ function clmAclRender(){
         ${head}<span style="font-size:11.5px;color:var(--t3);padding:0 8px">${clmPermSummary(a.permission)} ${isSystem?'(시스템)':'(기기)'}</span></div>`;
     }
     const selStyle='height:28px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:0 4px';
+    const isNew=!!a.flagNew;
+    const dateRow = isNew ? `
+      <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+        <span style="font-size:10.5px;color:var(--t3);width:30px">기간</span>
+        <input type="date" value="${a._startDate||''}" onchange="clmAclSetDate(${i},'start',this.value)" title="시작일(비우면 즉시)" style="height:26px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 3px">
+        <span style="font-size:11px;color:var(--t3)">~</span>
+        <input type="date" value="${a._endDate||''}" onchange="clmAclSetDate(${i},'end',this.value)" title="만료일(비우면 영구)" style="height:26px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 3px">
+        ${(a._startDate||a._endDate)?'<span style="font-size:10px;color:var(--ac)" title="기간 한정 — 서버가 자동 관리">⏱</span>':''}
+      </div>` : '';
     return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px;border-bottom:1px solid #f3f4f6">
       ${head}
       <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
@@ -5353,6 +5365,7 @@ function clmAclRender(){
           <label style="font-size:11px;display:flex;align-items:center;gap:2px;cursor:pointer" title="파일 추가 권한">
             <input type="checkbox" ${d.fileAdd?'checked':''} onchange="clmAclSet(${i},'fileAdd',this.checked)">추가</label>
         </div>
+        ${dateRow}
       </div>
       <span onclick="clmAclRemove(${i})" style="cursor:pointer;color:var(--r);font-size:13px;padding-top:4px" title="권한 제거">✕</span>
     </div>`;
@@ -5369,6 +5382,11 @@ function clmAclSet(i, field, val){
   a.permission=clmPermEncode(d);
 }
 function clmAclSetPerm(i, v){ if(_clmAcl.aceList[i]) _clmAcl.aceList[i].permission=Number(v); } // 하위호환
+function clmAclSetDate(i, which, val){
+  const a=_clmAcl.aceList[i]; if(!a) return;
+  if(which==='start') a._startDate=val||''; else a._endDate=val||'';
+  clmAclRender();
+}
 function clmAclRemove(i){ _clmAcl.aceList.splice(i,1); clmAclRender(); }
 async function clmAclSearchGo(){
   const kw=(document.getElementById('clmAclSearch').value||'').trim();
@@ -5424,13 +5442,43 @@ async function clmAclSave(){
   const withSub=document.getElementById('clmAclSub')?.checked||false;
   const btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
   try{
+    // 기간 있는 신규 대상 분리 (timed_acl 경로) vs 나머지(즉시 updateAcl)
+    const timed=[], normal=[];
+    for(const a of _clmAcl.aceList){
+      if(a.flagNew && (a._startDate||a._endDate)) timed.push(a);
+      else normal.push(a);
+    }
+    // 1) 영구/기존 권한 → 기존대로 updateAcl (기간 대상 제외한 배열)
+    //    단, 미래시작(start>오늘) 대상은 아직 cloudium에 넣으면 안되니 normal에서도 빠짐(이미 timed로 감)
     const r=await fetch(`${SERVER}/api/cloudium/acl/save`,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({oid:_clmAcl.oid, type:_clmAcl.type, aceList:_clmAcl.aceList, inherit, withSubFolders:withSub})
+      body:JSON.stringify({oid:_clmAcl.oid, type:_clmAcl.type, aceList:normal, inherit, withSubFolders:withSub})
     });
     const j=await r.json();
-    if(j&&j.ok){ toast('보안설정 저장됨','ok'); document.getElementById('clmAclOv')?.remove(); }
-    else { toast('저장 실패: '+((j&&j.msg)||(j&&j.error)||''),'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
+    if(!(j&&j.ok)){ toast('저장 실패: '+((j&&j.msg)||(j&&j.error)||''),'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} return; }
+    // 2) 기간 한정 대상 → timed_acl/add
+    let timedOk=0, timedFail=0;
+    for(const a of timed){
+      try{
+        const tr=await fetch(`${SERVER}/api/cloudium/timed_acl/add`,{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            folder_oid:_clmAcl.oid, folder_name:_clmAcl.name,
+            target_oid:a.aclOwnerOID, target_type:a.targetObjectType, target_name:a.objectName,
+            target_account:(a.ownerObject&&a.ownerObject.account)||'',
+            target_grade:(a.ownerObject&&a.ownerObject.accessGrade)||'',
+            target_path:a.ownerFullPath||'',
+            permission:a.permission, start_date:a._startDate||'', end_date:a._endDate||''
+          })
+        });
+        const tj=await tr.json();
+        if(tj&&tj.ok) timedOk++; else timedFail++;
+      }catch(_){ timedFail++; }
+    }
+    let msg='보안설정 저장됨';
+    if(timed.length) msg+=` (기간권한 ${timedOk}건${timedFail?', 실패 '+timedFail:''})`;
+    toast(msg, timedFail?'warn':'ok');
+    document.getElementById('clmAclOv')?.remove();
   }catch(e){ toast('저장 오류: '+e.message,'warn'); if(btn){btn.disabled=false;btn.textContent='💾 저장';} }
 }
 
@@ -5538,6 +5586,275 @@ function clmPSRender(){
       <span style="font-size:12px">${_clmPS.page} / ${maxPage}</span>
       <button class="btn sm" ${_clmPS.page>=maxPage?'disabled':''} onclick="clmPSLoad(${_clmPS.page+1})">다음 →</button>`;
   } else pager.style.display='none';
+}
+
+// ══════════ 사용자별 권한설정 (이력 폴더 → 일괄 권한부여) ══════════
+let _clmBulk={histUser:null, folders:[], excluded:new Set(), target:null, perm:387, step:1, start:'', end:''};
+function clmBulkOpen(){
+  _clmBulk={histUser:null, folders:[], excluded:new Set(), target:null, perm:387, step:1, start:'', end:''};
+  document.getElementById('clmBulkOv')?.remove();
+  const ov=document.createElement('div');
+  ov.id='clmBulkOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:min(880px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <b style="font-size:15px">📋 사용자별 권한설정 — 이력 폴더에 권한 일괄 부여</b>
+        <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('clmBulkOv').remove()">✕</span>
+      </div>
+      <div id="clmBulkBody" style="flex:1;overflow:auto;padding:16px 18px"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  clmBulkRender();
+}
+
+function clmBulkRender(){
+  const b=document.getElementById('clmBulkBody'); if(!b) return;
+  // 단계 표시
+  const steps=['1. 이력 사용자','2. 폴더 확인','3. 권한 받을 대상','4. 부여'];
+  const stepBar=`<div style="display:flex;gap:6px;margin-bottom:16px;font-size:12px">`+
+    steps.map((s,i)=>`<span style="padding:4px 10px;border-radius:20px;${_clmBulk.step===i+1?'background:var(--ac);color:#fff':'background:#f3f4f6;color:var(--t3)'}">${s}</span>`).join('')+`</div>`;
+
+  // 1단계: 이력 사용자 선택
+  let html=stepBar;
+  html+=`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">① 이력을 조회할 사용자 (이 사람이 작업한 폴더들을 찾습니다)</div>`;
+  if(!_clmBulk.histUser){
+    html+=`<div style="display:flex;gap:8px">
+      <input id="clmBulkHistKw" placeholder="사용자 이름 검색" onkeydown="if(event.key==='Enter')clmBulkHistFind()" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <button class="btn primary sm" onclick="clmBulkHistFind()">검색</button></div>
+      <div id="clmBulkHistRes" style="margin-top:8px"></div>`;
+  } else {
+    html+=`<div style="font-size:13px">선택: <b>${esc(_clmBulk.histUser.name)}</b>
+      <span style="cursor:pointer;color:var(--r);margin-left:8px" onclick="_clmBulk.histUser=null;_clmBulk.folders=[];_clmBulk.step=1;clmBulkRender()">✕ 변경</span></div>`;
+  }
+  html+=`</div>`;
+
+  // 2단계: 폴더 목록 (이력 조회 결과)
+  if(_clmBulk.histUser){
+    html+=`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:600">② 작업한 폴더 목록</span>
+        ${_clmBulk.folders.length?`<span style="font-size:12px;color:var(--t3)">${_clmBulk.folders.length-_clmBulk.excluded.size}개 선택 / 총 ${_clmBulk.folders.length}개</span>`:''}
+      </div>`;
+    if(!_clmBulk.folders.length){
+      html+=`<button class="btn primary sm" onclick="clmBulkLoadFolders()">📂 이력에서 폴더 찾기 (시간 걸림)</button>`;
+    } else {
+      html+=`<div style="max-height:200px;overflow:auto;border:1px solid #f3f4f6;border-radius:8px">`+
+        _clmBulk.folders.map((f,i)=>{
+          const ex=_clmBulk.excluded.has(f.oid);
+          const segs=(f.path||'').split('>'); const sp=segs.length>3?'…> '+segs.slice(-3).join(' > '):f.path;
+          return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #f8f8f8;font-size:12px;cursor:pointer;${ex?'opacity:.4':''}">
+            <input type="checkbox" ${ex?'':'checked'} onchange="clmBulkToggleFolder('${f.oid}')">
+            <span style="flex:1">📁 ${esc(f.name||'(이름없음)')}<div style="font-size:10px;color:var(--t3)">${esc(sp||'')}</div></span></label>`;
+        }).join('')+`</div>`;
+    }
+    html+=`</div>`;
+  }
+
+  // 3단계: 권한 받을 대상
+  if(_clmBulk.folders.length && (_clmBulk.folders.length-_clmBulk.excluded.size)>0){
+    html+=`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">③ 권한을 받을 대상 (이 사람/부서에게 위 폴더 권한을 줍니다)</div>`;
+    if(!_clmBulk.target){
+      html+=`<div style="display:flex;gap:8px">
+        <input id="clmBulkTgtKw" placeholder="사용자·부서 검색" onkeydown="if(event.key==='Enter')clmBulkTgtFind()" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <button class="btn primary sm" onclick="clmBulkTgtFind()">검색</button></div>
+        <div id="clmBulkTgtRes" style="margin-top:8px"></div>`;
+    } else {
+      const d=clmPermDecode(_clmBulk.perm);
+      const lvlOpts=(sel)=>CLM_PERM_LEVELS.map(o=>`<option value="${o.v}" ${o.v===sel?'selected':''}>${o.label}</option>`).join('');
+      html+=`<div style="font-size:13px;margin-bottom:10px">선택: <b>${esc(_clmBulk.target.name)}</b>
+        <span style="cursor:pointer;color:var(--r);margin-left:8px" onclick="_clmBulk.target=null;clmBulkRender()">✕</span></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <label style="font-size:12px;display:flex;align-items:center;gap:6px">폴더 권한
+            <select onchange="clmBulkSetPerm('folder',this.value)" style="height:30px;border:1px solid var(--border);border-radius:6px;font-size:12px">${lvlOpts(d.folder)}</select></label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:6px">파일 권한
+            <select onchange="clmBulkSetPerm('file',this.value)" style="height:30px;border:1px solid var(--border);border-radius:6px;font-size:12px">${lvlOpts(d.file)}</select></label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" ${d.folderAdd?'checked':''} onchange="clmBulkSetPerm('folderAdd',this.checked)">폴더추가</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" ${d.fileAdd?'checked':''} onchange="clmBulkSetPerm('fileAdd',this.checked)">파일추가</label>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px">
+          <span style="color:var(--t3)">기간(선택):</span>
+          <input type="date" id="clmBulkStart" value="${_clmBulk.start||''}" onchange="_clmBulk.start=this.value" title="시작일(비우면 즉시)" style="height:28px;border:1px solid var(--border);border-radius:6px;font-size:12px;padding:0 4px">
+          <span>~</span>
+          <input type="date" id="clmBulkEnd" value="${_clmBulk.end||''}" onchange="_clmBulk.end=this.value" title="만료일(비우면 영구)" style="height:28px;border:1px solid var(--border);border-radius:6px;font-size:12px;padding:0 4px">
+          <span style="color:var(--t3);font-size:11px">비우면 영구 권한</span>
+        </div>`;
+      // 4단계 부여 버튼
+      const cnt=_clmBulk.folders.length-_clmBulk.excluded.size;
+      html+=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6">
+        <div style="font-size:12px;color:var(--r);margin-bottom:8px">⚠ <b>${cnt}개 폴더</b>에 <b>${esc(_clmBulk.target.name)}</b>의 권한을 부여합니다. 기존 권한은 유지되고 추가됩니다.</div>
+        <button class="btn primary" onclick="clmBulkGrant()" style="background:var(--r)">🔐 ${cnt}개 폴더에 권한 부여</button>
+      </div>`;
+    }
+    html+=`</div>`;
+  }
+
+  // 진행/결과 영역
+  html+=`<div id="clmBulkProgress"></div>`;
+  b.innerHTML=html;
+}
+
+async function clmBulkHistFind(){
+  const kw=(document.getElementById('clmBulkHistKw').value||'').trim();
+  const r=document.getElementById('clmBulkHistRes'); if(!kw){r.innerHTML='';return;}
+  r.innerHTML='<span style="font-size:12px;color:var(--t3)">검색 중…</span>';
+  try{
+    const d=await clmApi(`/api/cloudium/acl/search?keyword=${encodeURIComponent(kw)}&types=UR,GR,PG`);
+    const items=(d&&d.items)||[];
+    if(!items.length){r.innerHTML='<span style="font-size:12px;color:var(--t3)">결과 없음</span>';return;}
+    r.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px">'+items.slice(0,15).map(x=>{
+      const t=x.objectType||'',nm=x.name||'',oid=x.OID||'';
+      const _x=JSON.stringify({oid,type:t,name:nm}).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+      return `<button class="btn sm" style="font-size:12px" onclick='clmBulkHistPick(${_x})'>${t==='UR'?'👤':'🏢'} ${esc(nm)}</button>`;
+    }).join('')+'</div>';
+  }catch(e){r.innerHTML=`<span style="font-size:12px;color:var(--r)">${esc(e.message)}</span>`;}
+}
+function clmBulkHistPick(x){ _clmBulk.histUser=x; _clmBulk.folders=[]; _clmBulk.step=2; clmBulkRender(); }
+
+async function clmBulkLoadFolders(){
+  if(!_clmBulk.histUser) return;
+  const prog=document.getElementById('clmBulkProgress');
+  prog.innerHTML='<div style="padding:14px;text-align:center;color:var(--t3)">이력 조회 + 폴더 변환 중… (문서마다 폴더를 찾아서 시간이 걸립니다)</div>';
+  try{
+    // 사용자면 user, 부서면 그 부서 멤버 이력은 안되니 사용자만 지원 (UR)
+    if(_clmBulk.histUser.type!=='UR'){
+      prog.innerHTML='<div style="padding:14px;color:var(--r)">이력 조회는 개인 사용자만 가능합니다 (부서는 권한 받는 대상으로만 선택)</div>';
+      return;
+    }
+    const d=await clmApi(`/api/cloudium/history/folders?user=${encodeURIComponent(_clmBulk.histUser.oid)}&maxPages=5`);
+    if(!d||!d.ok){ prog.innerHTML='<div style="color:var(--r);padding:14px">조회 실패</div>'; return; }
+    _clmBulk.folders=d.folders||[]; _clmBulk.excluded=new Set(); _clmBulk.step=3;
+    prog.innerHTML='';
+    clmBulkRender();
+  }catch(e){ prog.innerHTML=`<div style="color:var(--r);padding:14px">${esc(e.message)}</div>`; }
+}
+function clmBulkToggleFolder(oid){
+  if(_clmBulk.excluded.has(oid)) _clmBulk.excluded.delete(oid); else _clmBulk.excluded.add(oid);
+  clmBulkRender();
+}
+async function clmBulkTgtFind(){
+  const kw=(document.getElementById('clmBulkTgtKw').value||'').trim();
+  const r=document.getElementById('clmBulkTgtRes'); if(!kw){r.innerHTML='';return;}
+  r.innerHTML='<span style="font-size:12px;color:var(--t3)">검색 중…</span>';
+  try{
+    const d=await clmApi(`/api/cloudium/acl/search?keyword=${encodeURIComponent(kw)}&types=GR,PG,UR`);
+    const items=(d&&d.items)||[];
+    if(!items.length){r.innerHTML='<span style="font-size:12px;color:var(--t3)">결과 없음</span>';return;}
+    r.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px">'+items.slice(0,15).map(x=>{
+      const t=x.objectType||'',nm=x.name||'',oid=x.OID||'';
+      const path=x.fullPathName||x.groupFullPathName||'',acc=x.account||'',ag=x.accessGrade||'';
+      const _x=JSON.stringify({oid,type:t,name:nm,path,account:acc,accessGrade:ag}).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+      return `<button class="btn sm" style="font-size:12px" onclick='clmBulkTgtPick(${_x})'>${t==='UR'?'👤':(t==='GR'?'🏢':'📁')} ${esc(nm)}</button>`;
+    }).join('')+'</div>';
+  }catch(e){r.innerHTML=`<span style="font-size:12px;color:var(--r)">${esc(e.message)}</span>`;}
+}
+function clmBulkTgtPick(x){ _clmBulk.target=x; _clmBulk.step=4; clmBulkRender(); }
+function clmBulkSetPerm(field,val){
+  const d=clmPermDecode(_clmBulk.perm);
+  if(field==='folder')d.folder=Number(val);
+  else if(field==='file')d.file=Number(val);
+  else if(field==='folderAdd')d.folderAdd=!!val;
+  else if(field==='fileAdd')d.fileAdd=!!val;
+  _clmBulk.perm=clmPermEncode(d);
+  clmBulkRender();
+}
+async function clmBulkGrant(){
+  const sel=_clmBulk.folders.filter(f=>!_clmBulk.excluded.has(f.oid));
+  const foids=sel.map(f=>f.oid);
+  if(!foids.length||!_clmBulk.target) return;
+  const period=(_clmBulk.start||_clmBulk.end)?`\n기간: ${_clmBulk.start||'즉시'} ~ ${_clmBulk.end||'영구'}`:'';
+  if(!confirm(`${foids.length}개 폴더에 ${_clmBulk.target.name}의 권한을 부여합니다.${period}\n기존 권한은 유지되고 추가됩니다.\n진행하시겠습니까?`)) return;
+  const prog=document.getElementById('clmBulkProgress');
+  prog.innerHTML=`<div style="padding:14px;text-align:center;color:var(--t3)">권한 부여 중… (${foids.length}개 폴더, 시간이 걸립니다)</div>`;
+  try{
+    const d=await clmApi(`/api/cloudium/acl/grant_bulk`, {
+      method:'POST', body:JSON.stringify({
+        folderOids:foids, target:_clmBulk.target, permission:_clmBulk.perm, inherit:true, withSub:false,
+        start_date:_clmBulk.start||'', end_date:_clmBulk.end||''
+      })
+    });
+    if(!d||!d.ok){ prog.innerHTML='<div style="color:var(--r);padding:14px">부여 실패</div>'; return; }
+    const fails=d.fail||[];
+    const timedNote=d.timed?' (기간 한정 — 만료시 자동 회수)':'';
+    prog.innerHTML=`<div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:#f0fdf4">
+      <div style="font-size:14px;font-weight:600;color:#15803d">✅ 완료: ${d.ok_count}/${d.total}개 폴더${timedNote}</div>
+      ${fails.length?`<div style="margin-top:8px;font-size:12px;color:var(--r)">실패 ${fails.length}개:<div style="max-height:120px;overflow:auto;margin-top:4px">${fails.map(f=>`<div>• ${esc(f.oid)}: ${esc(f.msg)}</div>`).join('')}</div></div>`:''}
+    </div>`;
+    toast(`${d.ok_count}개 폴더에 권한 부여됨`,'ok');
+  }catch(e){ prog.innerHTML=`<div style="color:var(--r):padding:14px">${esc(e.message)}</div>`; }
+}
+
+// ══════════ 기간 한정 권한 관리 (목록/취소) ══════════
+async function clmTimedOpen(){
+  document.getElementById('clmTimedOv')?.remove();
+  const ov=document.createElement('div');
+  ov.id='clmTimedOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <b style="font-size:15px">⏱ 기간 한정 권한 관리</b>
+        <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('clmTimedOv').remove()">✕</span>
+      </div>
+      <div style="padding:10px 18px;border-bottom:1px solid #f3f4f6;display:flex;gap:8px;align-items:center;font-size:12px">
+        <span style="color:var(--t3)">상태 필터:</span>
+        <select id="clmTimedFilter" onchange="clmTimedLoad()" style="height:28px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">전체</option><option value="active">활성(부여됨)</option>
+          <option value="pending">대기(시작 전)</option><option value="expired">만료됨</option>
+          <option value="removed">취소됨</option>
+        </select>
+        <button class="btn sm" onclick="clmTimedRun()" title="만료 체크를 수동 실행">▶ 지금 만료체크</button>
+        <span style="margin-left:auto;color:var(--t3);font-size:11px">매일 00:05 자동 체크</span>
+      </div>
+      <div id="clmTimedList" style="flex:1;overflow:auto;padding:10px 18px"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  clmTimedLoad();
+}
+async function clmTimedLoad(){
+  const box=document.getElementById('clmTimedList'); if(!box) return;
+  const st=document.getElementById('clmTimedFilter')?.value||'';
+  box.innerHTML='<div style="padding:14px;text-align:center;color:var(--t3)">불러오는 중…</div>';
+  try{
+    const d=await clmApi(`/api/cloudium/timed_acl/list${st?'?status='+st:''}`);
+    const its=(d&&d.items)||[];
+    if(!its.length){ box.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">등록된 기간 권한이 없습니다</div>'; return; }
+    const stLabel={active:'🟢 활성',pending:'🟡 대기',expired:'⚫ 만료',removed:'⚪ 취소'};
+    box.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:2px solid var(--border);text-align:left">
+        <th style="padding:6px 4px">상태</th><th style="padding:6px 4px">대상</th>
+        <th style="padding:6px 4px">폴더</th><th style="padding:6px 4px">권한</th>
+        <th style="padding:6px 4px">기간</th><th style="padding:6px 4px"></th></tr></thead>
+      <tbody>`+its.map(it=>{
+        const period=(it.start_date||'시작즉시')+' ~ '+(it.end_date||'영구');
+        const canCancel=(it.status==='active'||it.status==='pending');
+        return `<tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:6px 4px;white-space:nowrap">${stLabel[it.status]||it.status}</td>
+          <td style="padding:6px 4px">${esc(it.target_name||'')}</td>
+          <td style="padding:6px 4px" title="${esc(it.folder_oid)}">${esc(it.folder_name||it.folder_oid)}</td>
+          <td style="padding:6px 4px">${esc(clmPermSummary(it.permission))}</td>
+          <td style="padding:6px 4px;white-space:nowrap">${esc(period)}</td>
+          <td style="padding:6px 4px">${canCancel?`<span onclick="clmTimedCancel(${it.id})" style="cursor:pointer;color:var(--r)" title="취소(부여됐으면 회수)">✕ 취소</span>`:''}</td>
+        </tr>`;
+      }).join('')+`</tbody></table>`;
+  }catch(e){ box.innerHTML=`<div style="color:var(--r);padding:14px">${esc(e.message)}</div>`; }
+}
+async function clmTimedCancel(id){
+  if(!confirm('이 기간 권한을 취소합니다.\n이미 부여된 권한이면 cloudium에서 회수됩니다.\n진행할까요?')) return;
+  try{
+    const d=await clmApi(`/api/cloudium/timed_acl/cancel`,{method:'POST',body:JSON.stringify({id,revoke:true})});
+    if(d&&d.ok){ toast('취소됨','ok'); clmTimedLoad(); }
+    else toast('취소 실패: '+((d&&d.msg)||''),'warn');
+  }catch(e){ toast('오류: '+e.message,'warn'); }
+}
+async function clmTimedRun(){
+  toast('만료 체크 실행 중…','ok');
+  try{
+    const d=await clmApi(`/api/cloudium/timed_acl/run`,{method:'POST',body:'{}'});
+    if(d&&d.ok){ toast(`체크 완료: 부여 ${d.granted}, 회수 ${d.revoked}`,'ok'); clmTimedLoad(); }
+  }catch(e){ toast('오류: '+e.message,'warn'); }
 }
 function maToggleHidden(){ MA_SHOW_HIDDEN=!MA_SHOW_HIDDEN; maRender(); }
 function maRender(){
