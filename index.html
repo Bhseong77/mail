@@ -6723,9 +6723,18 @@ async function ftNodeHtml(p,path,depth){
     html+=`</div>`;
   }
   for(const f of files){
-    html+=`<div class="ft-row file" draggable="true"
-      ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"
-      onclick="ftFileClick(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span><button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button></div>`;
+    const isClm=!!f._clm;
+    const clmLbl=isClm?`<span class="ft-clmlbl">클라우디움</span>`:'';
+    const clmData=isClm?` data-ftclm="1" data-ftclmparent="${esc(f._clmParentOid||'')}"`:'';
+    // 클라우디움 파일: 클릭=탐색기 열기, SP파일: 미리보기
+    const clickH=isClm
+      ? `techClmOpen('${esc(f._clmParentOid||'')}','${esc(f.name).replace(/'/g,"\\'")}')`
+      : `ftFileClick(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')`;
+    const dblH=isClm?'' : `ondblclick="event.stopPropagation();ftPreviewModal('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')"`;
+    const btns=isClm?'' : `<button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button>`;
+    html+=`<div class="ft-row file${isClm?' ft-clm':''}" draggable="${isClm?'false':'true'}"
+      ${isClm?'':`ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"`}
+      onclick="${clickH}" ${dblH} oncontextmenu="ftMenu(event,'${p}','${esc(path).replace(/'/g,"\\'")}',false,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"${clmData}><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span>${clmLbl}${btns}</div>`;
   }
   html+='</div>';
   return html;
@@ -6812,6 +6821,8 @@ function _ftgStyle(){ if(document.getElementById('ftg-style')) return; const s=d
 .ftg-lbl{position:absolute;top:4px;right:4px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;line-height:1.4;pointer-events:none}
 .ftg-lbl.sp{background:#dbeafe;color:#1d4ed8}
 .ftg-lbl.clm{background:#ccfbf1;color:#0f766e}
+.ft-clmlbl{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:0 5px;border-radius:6px;background:#ccfbf1;color:#0f766e;line-height:1.5;vertical-align:middle;pointer-events:none}
+.ft-row.ft-clm .ft-name{color:#0f766e}
 .ftg-ic{font-size:34px;line-height:1;pointer-events:none}
 .ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden;pointer-events:none}
 .ftg-acts{position:absolute;top:3px;right:3px;display:none;gap:2px}
@@ -6853,8 +6864,8 @@ async function ftGridRender(p, path){
     FTG_META[p][f.id]={id:f.id,name:f.name,isFolder:false,path:path,size:f.size||0,_clm:!!f._clm,_clmParentOid:f._clmParentOid};
     _ftgOrder[p].push(f.id);
     if(f._clm){
-      // 클라우디움 파일: 라벨 + 클릭=탐색기 폴더 열기 (다운로드/미리보기 없음)
-      h+=`<div class="ftg-item ftg-clm" data-id="${esc(f.id)}" onclick="techClmOpen('${esc(f._clmParentOid)}','${q(f.name)}')" title="클라우디움 자료 — 클릭하면 탐색기에서 폴더가 열립니다&#10;${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><span class="ftg-lbl clm">클라우디움</span></div>`;
+      // 클라우디움 파일: 라벨 + 클릭=탐색기 폴더 열기 + 우클릭=메뉴(삭제/URL복사)
+      h+=`<div class="ftg-item ftg-clm" data-id="${esc(f.id)}" data-ftclmparent="${esc(f._clmParentOid||'')}" onclick="techClmOpen('${esc(f._clmParentOid)}','${q(f.name)}')" oncontextmenu="ftMenu(event,'${p}','${q(path)}',false,'${esc(f.id)}','${q(f.name)}',${f.size||0})" title="클라우디움 자료 — 클릭하면 탐색기에서 폴더가 열립니다&#10;${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><span class="ftg-lbl clm">클라우디움</span></div>`;
     } else {
       h+=`<div class="ftg-item" data-id="${esc(f.id)}" draggable="true" onclick="ftgClick(event,'${p}','${f.id}')" ondragstart="ftgDragStart(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}',${f.size||0})" ondblclick="ftPreviewModal('${p}','${f.id}','${q(f.name)}')" oncontextmenu="ftgCtx(event,'${p}','${f.id}','${q(f.name)}',false,'${q(path)}')" title="${esc(f.name)}"><div class="ftg-ic">${taIcon(f.name)}</div><div class="ftg-nm">${esc(f.name)}</div><span class="ftg-lbl sp">SP</span><div class="ftg-acts"><button onclick="event.stopPropagation();ftMailAttach('${f.id}','${q(f.name)}',${f.size||0})" title="메일 첨부">✉</button><button onclick="event.stopPropagation();ftgDownload('${f.id}','${q(f.name)}')" title="다운로드(컴퓨터로 저장)">⬇</button></div></div>`;
     }
@@ -7039,28 +7050,43 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   const m=$('ftCtx');
   const isClm = String(itemId||'').startsWith('CLM:');   // 클라우디움 파일
   _ftCtxTarget._clm=isClm;
-  // 클라우디움 파일: 부모 폴더 OID 를 FTG_META 에서 찾아 타겟에 저장 (삭제에 필요)
+  // 클라우디움 파일: 부모 폴더 OID 확보 (삭제에 필요)
   if(isClm){
-    try{
-      const meta=(FTG_META[p]||{})[itemId];
-      if(meta && meta._clmParentOid) _ftCtxTarget._clmParentOid=meta._clmParentOid;
-    }catch(_){}
+    let poid='';
+    // 1) 그리드: FTG_META
+    try{ const meta=(FTG_META[p]||{})[itemId]; if(meta&&meta._clmParentOid) poid=meta._clmParentOid; }catch(_){}
+    // 2) 트리: 우클릭한 행의 data-ftclmparent
+    if(!poid){
+      try{
+        const row=e.target.closest('[data-ftclmparent]');
+        if(row) poid=row.getAttribute('data-ftclmparent')||'';
+      }catch(_){}
+    }
+    // 3) itemId 자체가 CLM:oid 면 그 파일의 부모는 못 알지만, oid 는 파일 자신
+    _ftCtxTarget._clmParentOid=poid;
   }
   // zip 파일일 때만 '압축 풀기' 표시, 파일일 때만 '다운로드' 표시
   const isZip = !isFolder && /\.zip$/i.test(name||'');
   const uz=$('ftCtxUnzip'); if(uz) uz.style.display = (isZip && !isClm) ? '' : 'none';
   const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId && !isClm) ? '' : 'none';
-  // 클라우디움 파일: SP 전용 작업은 흐릿하게(비활성). 삭제/링크복사는 활성(셸삭제/클라우디움URL).
+  // 클라우디움 파일: SP 전용 작업은 숨김. 삭제/URL복사만 표시.
   m.querySelectorAll('.ci').forEach(ci=>{
     ci.classList.remove('ci-disabled');
+    ci.style.display='';
     const txt=ci.textContent||'';
     if(isClm){
-      // 클라우디움에서 막을 항목: 첨부메일/새폴더/업로드/이름변경/이동 (삭제는 셸로 가능 → 활성)
+      // 클라우디움에서 숨길 항목: 첨부메일/새폴더/업로드/이름변경/이동
       if(/첨부해서|새 폴더|여기에 업로드|이름 변경|다른 폴더/.test(txt)){
-        ci.classList.add('ci-disabled');
+        ci.style.display='none';
       }
+      // 링크복사 텍스트를 팀즈 공유용 URL 로
+      if(/링크 복사/.test(txt)) ci.textContent='🔗 URL 복사 (팀즈 공유)';
+    } else {
+      // SP 파일: 링크 텍스트 원복
+      if(/URL 복사 \(팀즈 공유\)/.test(txt)) ci.textContent='🔗 링크 복사 (내부)';
     }
   });
+  // 구분선도 클라우디움이면 정리 (연속 sep 방지는 생략 — 기능 우선)
   m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
   m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
   _ftCtxJustOpened=Date.now();
@@ -7105,20 +7131,22 @@ async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
   const p=t.page;
-  // 클라우디움 파일: SP 전용 작업 차단, 링크복사는 클라우디움 내부배포 URL
+  // 클라우디움 파일: SP 전용 작업 차단, 링크복사 = 그 파일이 든 폴더 여는 링크
   if(t._clm){
     const clmOid=String(t.itemId||'').replace(/^CLM:/,'');
     if(action==='link'){
       try{
-        toast('클라우디움 내부배포 URL 생성 중…');
-        const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(clmOid)}`);
+        // 폴더 여는 링크 — 부모 폴더 OID 사용 (없으면 파일 OID)
+        const linkOid = t._clmParentOid || clmOid;
+        toast('클라우디움 폴더 링크 생성 중…');
+        const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(linkOid)}`);
         const j=await r.json();
         const url=(j&&j.ok&&(j.url||j.shareUrl))|| (j&&j.url) || null;
-        if(!url){ toast('클라우디움 URL을 가져오지 못했습니다','bad'); return; }
-        try{ await navigator.clipboard.writeText(url); toast('🔗 클라우디움 내부배포 URL 복사됨 (Ctrl+V)','ok'); }
-        catch(_){ prompt('클라우디움 내부배포 URL:', url); }
-        try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}`); }catch(_){}
-      }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
+        if(!url){ toast('클라우디움 링크를 가져오지 못했습니다','bad'); return; }
+        try{ await navigator.clipboard.writeText(url); toast('🔗 폴더 링크 복사됨 — 팀즈에 붙여넣기 (Ctrl+V)','ok'); }
+        catch(_){ prompt('클라우디움 폴더 링크:', url); }
+        try{ actLog(`🔗 클라우디움 폴더 링크 복사: ${t.name}`); }catch(_){}
+      }catch(e){ toast('클라우디움 링크 실패: '+e.message,'bad'); }
       return;
     }
     // 클라우디움 파일 삭제 → 셸 삭제 (휴지통行)
