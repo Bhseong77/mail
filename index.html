@@ -7137,17 +7137,30 @@ async function ftAct(action){
     if(action==='link'){
       try{
         toast('내부 배포용 URL 생성 중… (탐색기 처리)');
-        // 파일이 든 폴더(부모)를 대상으로 URL 발급 → 받는 사람이 폴더 열람
-        // 부모폴더의 부모 OID 가 필요: _clmGrandParent 없으면 부모OID로 그 폴더 자체 처리 시도
         const parentOid=t._clmParentOid||'';
-        // 파일명으로 그 폴더 안에서 verb (파일 URL) — 폴더 열기 원하면 폴더에 걸어야 하나
-        // 우선 파일 기준 URL 발급 (열기 URL 이 폴더로 안내)
+        // 조부모 OID + 부모폴더명 계산 (폴더 열기 URL 용)
+        // t.path = 파일이 든 폴더 경로 (예: 02.프로젝트/BR26002)
+        let grandOid='', parentFolderName='';
+        try{
+          const segs=(t.path||'').split('/').filter(Boolean);
+          parentFolderName = segs[segs.length-1]||'';        // 부모폴더 이름 (BR26002)
+          const grandPath = segs.slice(0,-1).join('/');        // 조부모 경로 (02.프로젝트)
+          grandOid = grandPath ? (await techClmResolveOid(grandPath)) : '1PwNjUiWO2e';
+        }catch(_){}
         const r=await clmApi('/api/cloudium/share_url_shell',{method:'POST',
-          body:JSON.stringify({parentOID:parentOid, name:t.name})});
-        const url=(r&&r.ok&&r.openUrl)||null;
-        if(!url){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
-        try{ await navigator.clipboard.writeText(url); toast('🔗 내부 배포용 URL 복사됨 — 팀즈에 붙여넣기 (Ctrl+V)','ok'); }
-        catch(_){ prompt('내부 배포용 URL:', url); }
+          body:JSON.stringify({parentOID:parentOid, name:t.name,
+            parentName:parentFolderName, grandparentOID:grandOid, grandparentName:parentFolderName})});
+        if(!r||!r.ok){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
+        const baseName=(t.name||'').replace(/\.[^.]+$/,'');
+        const dl=r.downloadUrl||'', ed=r.editUrl||'', loc=r.explorerPath||'', fu=r.folderUrl||'';
+        let txt=`📄 ${baseName}`;
+        const parts=[];
+        if(dl) parts.push(`[다운로드](${dl})`);
+        if(ed) parts.push(`[수정](${ed})`);
+        if(parts.length) txt+=`  ${parts.join(' / ')}`;
+        if(loc){ txt+=`\n📂 위치: ${loc}`; if(fu) txt+=`  [폴더 열기](${fu})`; }
+        try{ await navigator.clipboard.writeText(txt); toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok'); }
+        catch(_){ prompt('팀즈용 링크:', txt); }
         try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}`); }catch(_){}
       }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
       return;
@@ -7183,13 +7196,45 @@ async function ftAct(action){
   else if(action==='link'){
     try{
       toast('내부 링크 생성 중…');
-      let url=null;
-      if(t.itemId){ url=await spOrgLink(t.itemId).catch(()=>null) || await spWebUrlById(t.itemId).catch(()=>null); }
-      else if(t.path!=null){ url=await spWebUrlByPath(t.path).catch(()=>null); }
-      if(!url){ toast('링크를 가져오지 못했습니다','bad'); return; }
-      try{ await navigator.clipboard.writeText(url); toast('🔗 내부 링크 복사됨 — 팀즈 채팅에 붙여넣기 (Ctrl+V)','ok'); }
-      catch(_){ prompt('아래 링크를 복사해 팀즈에 붙여넣으세요:', url); }
-      try{ actLog(`🔗 링크 복사(내부): ${t.name}`); }catch(_){}
+      // 클라우디움과 동일 포맷: 다운로드/수정 + 위치
+      let editUrl=null, dlUrl=null;
+      if(t.itemId){
+        editUrl=await spOrgLink(t.itemId).catch(()=>null) || await spWebUrlById(t.itemId).catch(()=>null);
+        dlUrl=await spDownloadUrl(t.itemId).catch(()=>null);
+      }else if(t.path!=null){
+        editUrl=await spWebUrlByPath(t.path).catch(()=>null);
+      }
+      if(!editUrl && !dlUrl){ toast('링크를 가져오지 못했습니다','bad'); return; }
+      const baseName=(t.name||'').replace(/\.[^.]+$/,'');
+      // 위치: SP 폴더 경로 (DOC_MAP 라벨 + t.path 부모)
+      let locTxt='';
+      try{
+        const tabLabel = DOC_MAP[p]||'';
+        const selfPath = t.path||'';
+        const segs = selfPath.split('/').filter(Boolean);
+        const parentSegs = t.isFolder ? segs.slice(0,-1) : segs;  // 파일이면 path가 폴더경로
+        const folderPath = parentSegs.join(' > ');
+        locTxt = `SharePoint > ${tabLabel}${folderPath?(' > '+folderPath):''}`;
+      }catch(_){}
+      let txt=`📄 ${baseName}`;
+      const parts=[];
+      if(dlUrl) parts.push(`[다운로드](${dlUrl})`);
+      if(editUrl) parts.push(`[수정](${editUrl})`);
+      if(parts.length) txt+=`  ${parts.join(' / ')}`;
+      if(locTxt){
+        txt+=`\n📂 위치: ${locTxt}`;
+        // SP 폴더 열기 URL (파일의 부모 폴더 경로)
+        try{
+          const segs=(t.path||'').split('/').filter(Boolean);
+          const parentSegs=t.isFolder?segs.slice(0,-1):segs;
+          const folderRel=`${DOC_MAP[p]}${parentSegs.length?('/'+parentSegs.join('/')):''}`;
+          const folderUrl=await spWebUrlByPath(folderRel).catch(()=>null);
+          if(folderUrl) txt+=`  [폴더 열기](${folderUrl})`;
+        }catch(_){}
+      }
+      try{ await navigator.clipboard.writeText(txt); toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok'); }
+      catch(_){ prompt('팀즈용 링크:', txt); }
+      try{ actLog(`🔗 링크 복사: ${t.name}`); }catch(_){}
     }catch(e){ toast('링크 생성 실패: '+e.message,'bad'); }
   }
   else if(action==='unzip'){
