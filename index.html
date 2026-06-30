@@ -13017,7 +13017,8 @@ function wpDetailHtml(projId, n, ind){
           <option>진행중</option><option>완료</option><option>대기</option><option>블로커</option>
         </select>
         <label style="font-size:11px;color:var(--t2);cursor:pointer">📷 사진<input type="file" accept="image/*" multiple onchange="wpCmtPickImg(event,'${n.id}')" style="display:none"></label>
-        <button class="btn sm" onclick="wpFileModal('${projId}','${n.id}')" title="폴더트리에서 가져오거나 새로 업로드">📎 파일첨부</button>
+        <button class="btn sm" onclick="wpFileModalClm('${projId}','${n.id}')" title="클라우디움에서 파일/폴더 첨부 (해당 프로젝트 폴더로 바로 진입)">📁 클라우디움 첨부</button>
+        <button class="btn sm" onclick="wpClmOpenUpload('${projId}','${n.id}')" title="클라우디움 해당 폴더 열기 (자료 직접 올리기)">🗄️ 폴더 열기</button>
         <button class="btn sm" onclick="wpPurOpen('${projId}','${n.id}')" title="발주·입고 자료 첨부 (금액 제외)">🛒 구매첨부</button>
         <button class="btn sm" onclick="wpMailOpen('${projId}','${n.id}')" title="받은·보낸 메일 첨부">✉ 메일첨부</button>
         <span style="flex:1"></span>
@@ -14038,36 +14039,56 @@ function wpFileModal(projId, id){
 // 클라우디움 탭으로 바로 여는 진입점 (작업 상세의 '📁 클라우디움' 버튼)
 // role(직무) → 클라우디움 프로젝트 하위 폴더 매핑
 const WP_ROLE_CLMFOLDER={'영업':'01.영업','설계':'02.설계','전장':'03.전장','제어':'04.제어'};
-// 새 업로드: 업무의 프로젝트+role 에 맞는 클라우디움 폴더를 탐색기로 열기
+// 업무 노드 → 클라우디움 상대경로 계산 (02.프로젝트/{projCode}/{role}[/공정자료])
+function wpClmTargetPath(projId, id){
+  const n=wpFind(projId,id);
+  const proj=wpFindProjectOf(id)||{id:projId};
+  const projCode=proj.id||projId;
+  const role=(n&&n.role)||'';
+  const sub=WP_ROLE_CLMFOLDER[role]||'';
+  let rel=`02.프로젝트/${projCode}`;
+  if(sub) rel+=`/${sub}`;
+  // 제어 + 업무명에 "공정" 포함 → DT(Data)/06.공정자료 까지
+  if(role==='제어' && /공정/.test((n&&n.name)||'')){
+    rel+='/DT(Data)/06.공정자료';
+  }
+  return {rel, projCode, role, sub, name:(n&&n.name)||''};
+}
+// 새 업로드: 업무의 프로젝트+role(+공정) 에 맞는 클라우디움 폴더를 탐색기로 열기
 async function wpClmOpenUpload(projId, id){
   try{
-    const n=wpFind(projId,id); if(!n){ toast('업무를 찾을 수 없음','bad'); return; }
-    // 프로젝트 코드(BR26002 등): projId 가 프로젝트면 그대로, 아니면 wpFindProjectOf
-    const proj=wpFindProjectOf(id)||{id:projId};
-    const projCode=proj.id||projId;
-    const role=n.role||'';
-    const sub=WP_ROLE_CLMFOLDER[role]||'';   // 분야 폴더 (없으면 프로젝트 루트)
-    // 클라우디움 경로: 02.프로젝트/{projCode}/{sub}
-    let relPath=`02.프로젝트/${projCode}`;
-    if(sub) relPath+=`/${sub}`;
-    toast(`클라우디움 폴더 여는 중… (${projCode}${sub?'/'+sub:''})`,'ok');
-    const oid=await techClmResolveOid(relPath);
-    if(!oid){
-      // 분야 폴더 못찾으면 프로젝트 루트라도
-      const oid2=await techClmResolveOid(`02.프로젝트/${projCode}`);
-      if(!oid2){ toast('클라우디움에서 프로젝트 폴더를 찾을 수 없습니다','warn'); return; }
-      clmAgentCall('openFolderByExplorer',{folderOID:oid2,clientType:'W'},()=>{});
-      return;
-    }
+    const t=wpClmTargetPath(projId, id);
+    if(!t.projCode){ toast('업무를 찾을 수 없음','bad'); return; }
+    toast(`클라우디움 폴더 여는 중… (${t.projCode}${t.sub?'/'+t.sub:''})`,'ok');
+    let oid=await techClmResolveOid(t.rel);
+    // 공정자료/role 하위 못찾으면 단계적 폴백
+    if(!oid && t.sub) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}/${t.sub}`);
+    if(!oid) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}`);
+    if(!oid){ toast('클라우디움에서 프로젝트 폴더를 찾을 수 없습니다','warn'); return; }
     clmAgentCall('openFolderByExplorer',{folderOID:oid,clientType:'W'},(data)=>{
       if(data&&data._neterr) toast('에이전트 연결 실패 — cloudium 앱 확인','warn');
     });
   }catch(e){ toast('폴더 열기 실패: '+e.message,'bad'); }
 }
-function wpFileModalClm(projId, id){
+async function wpFileModalClm(projId, id){
   wpFileModal(projId, id);
   const sel=document.getElementById('wpFm-root');
-  if(sel){ sel.value='clm'; wpFmRoot('clm'); }
+  if(sel){ sel.value='clm'; }
+  _wpFm.root='clm';
+  // 그 업무의 role(+공정) 폴더 OID 로 바로 진입 (없으면 02.프로젝트 루트)
+  try{
+    const t=wpClmTargetPath(projId, id);
+    let oid=await techClmResolveOid(t.rel);
+    if(!oid && t.sub) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}/${t.sub}`);
+    if(!oid) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}`);
+    if(oid){
+      if(!CLM_TREE[oid]) CLM_TREE[oid]={item:{oid,name:(t.sub||t.projCode),isFolder:true},children:null,expanded:true};
+      await wpClmBrowse(oid);
+      return;
+    }
+  }catch(_){}
+  // 폴백: 02.프로젝트 루트
+  wpFmRoot('clm');
 }
 function wpFmRoot(v){
   _wpFm.root=v; _wpFm.path=""; _wpFm.driveId="";
