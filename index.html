@@ -7208,12 +7208,26 @@ async function ftAct(action){
           body:JSON.stringify({parentOID:parentOid, name:t.name,
             parentName:parentFolderName, grandparentOID:grandOid, grandparentName:parentFolderName})});
         if(!r||!r.ok){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
-        // 서버 PC 클립보드에 HTML(이름링크 + 폴더열기)이 세팅됨 → 사용자가 Ctrl+V
-        if(r.clipboardSet){
-          toast('🔗 서버 PC 클립보드에 복사됨 — 팀즈에서 Ctrl+V (이름링크+폴더열기)','ok');
-        }else{
-          toast('URL 생성됨 — 클립보드 세팅 실패(서버 PC 확인)','warn');
+        // 서버가 만든 HTML(이름링크+폴더열기)을 사용자 브라우저 클립보드에 씀
+        const fragHtml=r.html||'';
+        let plain=`${t.name} : ${r.downloadUrl||''}`;
+        if(r.location) plain+=`\n위치 : ${r.location}`;
+        if(r.editUrl) plain+=`\n수정 : ${r.editUrl}`;
+        if(r.folderUrl) plain+=`\n폴더 열기 : ${r.folderUrl}`;
+        let copied=false;
+        if(fragHtml){
+          try{
+            const item=new ClipboardItem({
+              'text/html': new Blob([fragHtml],{type:'text/html'}),
+              'text/plain': new Blob([plain],{type:'text/plain'})
+            });
+            await navigator.clipboard.write([item]); copied=true;
+          }catch(e){ console.warn('HTML 클립보드 실패',e); }
         }
+        if(!copied){
+          try{ await navigator.clipboard.writeText(plain); copied=true; }catch(_){ prompt('팀즈용:', plain); }
+        }
+        if(copied) toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok');
         try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}${r.folderUrl?' (+폴더열기)':''}`); }catch(_){}
       }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
       return;
