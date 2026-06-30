@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v458</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v459</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8637,7 +8637,13 @@ async function anAnalyze(p, silent){
   }
   await walk(root,'');
   AN_DATA[p]=AN_DATA[p]||{};
-  const pending=files.filter(f=>!AN_DATA[p][f.id]);
+  // 미분석 = 기록 없음. 단, 고정양식(로컬파싱) 탭(세금계산서·발주서)은 회사명이 비면 재분석(옛 캐시/부분실패 보정).
+  const pending=files.filter(f=>{
+    const d=AN_DATA[p][f.id];
+    if(!d) return true;
+    if((p==='doc-tax'||p==='doc-order') && !String(d.company||'').trim()) return true;
+    return false;
+  });
   if(!pending.length){ if(!silent) toast('새로 분석할 문서 없음','ok'); anRender(p); return; }
   const _j=_J(`${DOC_TITLE[p].replace(/[^가-힣]/g,'')} 미분석 분석 ${pending.length}건`);
   if(!silent) toast(`${pending.length}개 분석 중… (시간 걸림)`);
