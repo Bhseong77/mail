@@ -901,6 +901,9 @@ body.embed-prnew{background:#fff}
 .ft-move{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.6}
 .ft-row.file:hover .ft-move{display:inline-block}
 .ft-move:hover{opacity:1}
+.ft-clmopen{display:none;margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.55}
+.ft-row:hover .ft-clmopen{display:inline-block}
+.ft-clmopen:hover{opacity:1}
 .pv-bar{padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border);font-size:13px}
 .ft-tabbar{display:none;gap:2px;background:var(--bg);border-bottom:1px solid var(--border);padding:5px 6px 0;overflow-x:auto;flex-shrink:0}
 .ft-tab{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;font-size:12.5px;max-width:200px;white-space:nowrap;color:var(--t2)}
@@ -5069,6 +5072,46 @@ function clmDocAction(oid){
   });
 }
 
+// 팀즈 공유용 HTML 박스 (클라우디움 형식 복제) 를 클립보드에 복사
+// {name, downloadUrl, editUrl, location, folderUrl}
+async function shareCopyHtmlBox(o){
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const nm=esc(o.name);
+  const dl=o.downloadUrl||o.editUrl||'';
+  const ed=o.editUrl||'';
+  const loc=esc(o.location||'');
+  const fu=o.folderUrl||'';
+  let html=`<table border="0" cellspacing="0" cellpadding="0" style="font-size:12px;font-family:돋움,Dotum,Arial,sans-serif;color:#9292a3;max-width:600px;min-width:340px;">`;
+  // 행1: 파일명 + 다운로드
+  html+=`<tr style="background-color:#ecfafa;height:28px;"><td style="font-weight:bold;padding:4px 0 4px 5px;border:1px solid #e7e7e7;border-bottom:none;" colspan="2">`;
+  html+= dl?`<a href="${dl}" style="color:#3ab4c2;font-size:12px;text-decoration:none;" target="_blank">${nm}</a>`:nm;
+  html+=`</td></tr>`;
+  // 행2: 위치 + 폴더열기
+  html+=`<tr style="background-color:#ecfafa;height:24px;"><td style="font-size:11px;line-height:22px;padding:0 0 0 5px;border-left:1px solid #e7e7e7;border-right:1px solid #e7e7e7;" colspan="2"><span style="color:#979797;font-size:11px;">${loc}</span>`;
+  if(fu) html+=`<a href="${fu}" style="color:#3ab4c2;font-size:11px;text-decoration:none;margin-left:8px;" target="_blank">[폴더 열기]</a>`;
+  html+=`</td></tr>`;
+  // 행3: 파일명(열기) + 수정
+  html+=`<tr style="height:28px;"><td style="padding:4px 5px;border-left:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;">`;
+  html+= ed?`<a href="${ed}" style="color:#6f6f6f;font-size:12px;text-decoration:none;" target="_blank">${nm}</a>`:nm;
+  html+=`</td><td style="padding:4px 5px;border-right:1px solid #e7e7e7;border-top:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;">`;
+  html+= ed?`<a href="${ed}" style="color:#3ab4c2;text-decoration:none;font-size:12px;" target="_blank">｜&nbsp;수정</a>`:'';
+  html+=`</td></tr></table>`;
+  // 평문 폴백
+  let plain=`${o.name||''} : ${dl}\n위치 : ${o.location||''}`;
+  if(ed) plain+=`\n수정 : ${ed}`;
+  if(fu) plain+=`\n폴더 열기 : ${fu}`;
+  // 브라우저 클립보드에 HTML+text 동시 쓰기
+  try{
+    const item=new ClipboardItem({
+      'text/html': new Blob([html],{type:'text/html'}),
+      'text/plain': new Blob([plain],{type:'text/plain'})
+    });
+    await navigator.clipboard.write([item]);
+  }catch(e){
+    // 폴백: 평문만
+    try{ await navigator.clipboard.writeText(plain); }catch(_){ prompt('팀즈용:', plain); }
+  }
+}
 // 클라우디움 폴더/파일 셸 삭제 (delete_shell 라우트 — 부모창 열고 InvokeVerb)
 // parentOid: 삭제 대상이 든 폴더 OID, names: 삭제할 이름(들)
 async function techClmDeleteShell(parentOid, names){
@@ -5079,6 +5122,17 @@ async function techClmDeleteShell(parentOid, names){
     if(r&&r.ok){ _clmDocsCache={}; _clmPathCache={}; }
     return r||{ok:false,msg:'응답 없음'};
   }catch(e){ return {ok:false,msg:String(e)}; }
+}
+// 기술자료 탭: SP 경로의 클라우디움 폴더를 탐색기로 열기 (트리 폴더 아이콘용)
+async function techClmOpenFolder(p, path){
+  try{
+    toast('클라우디움 폴더 여는 중…','ok');
+    const oid=await techClmResolveOid(path);
+    if(!oid){ toast('클라우디움에서 해당 폴더를 찾을 수 없습니다','warn'); return; }
+    clmAgentCall('openFolderByExplorer', { folderOID: oid, clientType:'W' }, (data)=>{
+      if(data&&data._neterr){ toast('에이전트에 연결할 수 없습니다 — cloudium 앱 실행 확인','warn'); }
+    });
+  }catch(e){ toast('폴더 열기 실패: '+e.message,'bad'); }
 }
 // 기술자료 탭: 클라우디움 파일 클릭 → 그 파일이 든 클라우디움 폴더를 탐색기로 열기
 function techClmOpen(folderOid, fileName){
@@ -6715,10 +6769,15 @@ async function ftNodeHtml(p,path,depth){
     const childPath=path?`${path}/${f.name}`:f.name;
     const open=FT_OPEN[ftKey(p,childPath)];
     const sel=FT_SEL[p]===childPath?'sel':'';
+    // 02.프로젝트 아래 모든 폴더 → 클라우디움 폴더열기 아이콘
+    const isProjTree = (p==='doc-tech') && (childPath==='02.프로젝트' || childPath.startsWith('02.프로젝트/'));
+    const clmBtn = isProjTree
+      ? `<button class="ft-clmopen" title="클라우디움에서 이 폴더 열기" onclick="event.stopPropagation();techClmOpenFolder('${p}','${esc(childPath).replace(/'/g,"\\'")}')">🗄️</button>`
+      : '';
     html+=`<div class="ft-node"><div class="ft-row ${sel}" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
       ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
-      onclick="ftToggle('${p}','${esc(childPath)}')" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span></div>`;
+      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',true,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',0)" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span>${clmBtn}</div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
@@ -7190,7 +7249,6 @@ async function ftAct(action){
   else if(action==='link'){
     try{
       toast('내부 링크 생성 중…');
-      // 클라우디움과 동일 포맷: 다운로드/수정 + 위치
       let editUrl=null, dlUrl=null;
       if(t.itemId){
         editUrl=await spOrgLink(t.itemId).catch(()=>null) || await spWebUrlById(t.itemId).catch(()=>null);
@@ -7199,35 +7257,21 @@ async function ftAct(action){
         editUrl=await spWebUrlByPath(t.path).catch(()=>null);
       }
       if(!editUrl && !dlUrl){ toast('링크를 가져오지 못했습니다','bad'); return; }
-      const baseName=(t.name||'').replace(/\.[^.]+$/,'');
-      // 위치: SP 폴더 경로 (DOC_MAP 라벨 + t.path 부모)
-      let locTxt='';
+      // 위치 + 폴더열기 URL
+      let locTxt='', folderUrl=null;
       try{
-        const tabLabel = DOC_MAP[p]||'';
-        const selfPath = t.path||'';
-        const segs = selfPath.split('/').filter(Boolean);
-        const parentSegs = t.isFolder ? segs.slice(0,-1) : segs;  // 파일이면 path가 폴더경로
-        const folderPath = parentSegs.join(' > ');
-        locTxt = `SharePoint > ${tabLabel}${folderPath?(' > '+folderPath):''}`;
+        const tabLabel=DOC_MAP[p]||'';
+        const segs=(t.path||'').split('/').filter(Boolean);
+        const parentSegs=t.isFolder?segs.slice(0,-1):segs;
+        const folderPath=parentSegs.join(' > ');
+        locTxt=`SharePoint > ${tabLabel}${folderPath?(' > '+folderPath):''}`;
+        const folderRel=`${DOC_MAP[p]}${parentSegs.length?('/'+parentSegs.join('/')):''}`;
+        folderUrl=await spWebUrlByPath(folderRel).catch(()=>null);
       }catch(_){}
-      let txt=`📄 ${baseName}`;
-      const parts=[];
-      if(dlUrl) parts.push(`[다운로드](${dlUrl})`);
-      if(editUrl) parts.push(`[수정](${editUrl})`);
-      if(parts.length) txt+=`  ${parts.join(' / ')}`;
-      if(locTxt){
-        txt+=`\n📂 위치: ${locTxt}`;
-        // SP 폴더 열기 URL (파일의 부모 폴더 경로)
-        try{
-          const segs=(t.path||'').split('/').filter(Boolean);
-          const parentSegs=t.isFolder?segs.slice(0,-1):segs;
-          const folderRel=`${DOC_MAP[p]}${parentSegs.length?('/'+parentSegs.join('/')):''}`;
-          const folderUrl=await spWebUrlByPath(folderRel).catch(()=>null);
-          if(folderUrl) txt+=`  [폴더 열기](${folderUrl})`;
-        }catch(_){}
-      }
-      try{ await navigator.clipboard.writeText(txt); toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok'); }
-      catch(_){ prompt('팀즈용 링크:', txt); }
+      // 클라우디움과 동일한 HTML 박스 (이름링크 + 위치+폴더열기 + 수정)
+      await shareCopyHtmlBox({name:t.name, downloadUrl:dlUrl, editUrl:editUrl,
+        location:locTxt, folderUrl:folderUrl});
+      toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok');
       try{ actLog(`🔗 링크 복사: ${t.name}`); }catch(_){}
     }catch(e){ toast('링크 생성 실패: '+e.message,'bad'); }
   }
