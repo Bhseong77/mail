@@ -7131,22 +7131,25 @@ async function ftAct(action){
   const t=_ftCtxTarget; if(!t) return;
   $('ftCtx').classList.remove('on');
   const p=t.page;
-  // 클라우디움 파일: SP 전용 작업 차단, 링크복사 = 그 파일이 든 폴더 여는 링크
+  // 클라우디움 파일: SP 전용 작업 차단, 링크복사 = 셸 verb로 내부배포 URL 획득
   if(t._clm){
     const clmOid=String(t.itemId||'').replace(/^CLM:/,'');
     if(action==='link'){
       try{
-        // 폴더 여는 링크 — 부모 폴더 OID 사용 (없으면 파일 OID)
-        const linkOid = t._clmParentOid || clmOid;
-        toast('클라우디움 폴더 링크 생성 중…');
-        const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(linkOid)}`);
-        const j=await r.json();
-        const url=(j&&j.ok&&(j.url||j.shareUrl))|| (j&&j.url) || null;
-        if(!url){ toast('클라우디움 링크를 가져오지 못했습니다','bad'); return; }
-        try{ await navigator.clipboard.writeText(url); toast('🔗 폴더 링크 복사됨 — 팀즈에 붙여넣기 (Ctrl+V)','ok'); }
-        catch(_){ prompt('클라우디움 폴더 링크:', url); }
-        try{ actLog(`🔗 클라우디움 폴더 링크 복사: ${t.name}`); }catch(_){}
-      }catch(e){ toast('클라우디움 링크 실패: '+e.message,'bad'); }
+        toast('내부 배포용 URL 생성 중… (탐색기 처리)');
+        // 파일이 든 폴더(부모)를 대상으로 URL 발급 → 받는 사람이 폴더 열람
+        // 부모폴더의 부모 OID 가 필요: _clmGrandParent 없으면 부모OID로 그 폴더 자체 처리 시도
+        const parentOid=t._clmParentOid||'';
+        // 파일명으로 그 폴더 안에서 verb (파일 URL) — 폴더 열기 원하면 폴더에 걸어야 하나
+        // 우선 파일 기준 URL 발급 (열기 URL 이 폴더로 안내)
+        const r=await clmApi('/api/cloudium/share_url_shell',{method:'POST',
+          body:JSON.stringify({parentOID:parentOid, name:t.name})});
+        const url=(r&&r.ok&&r.openUrl)||null;
+        if(!url){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
+        try{ await navigator.clipboard.writeText(url); toast('🔗 내부 배포용 URL 복사됨 — 팀즈에 붙여넣기 (Ctrl+V)','ok'); }
+        catch(_){ prompt('내부 배포용 URL:', url); }
+        try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}`); }catch(_){}
+      }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
       return;
     }
     // 클라우디움 파일 삭제 → 셸 삭제 (휴지통行)
