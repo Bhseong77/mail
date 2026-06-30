@@ -7949,9 +7949,11 @@ function anRender(p){
   let h=`<table class="an-tbl"><thead><tr>
     <th>회사명</th><th class="c">견적작성일</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">금액</th>
     <th class="c">납기</th><th class="c">대금지급</th><th class="c">보증기간</th><th>비고</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
+  let grandTotal=0; const num=v=>Number(String(v==null?'':v).replace(/[, ]/g,''))||0;
   for(const r of rows){
     const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
     const rowspan=items.length;
+    const fileTotal=items.reduce((a,b)=>a+num(b.amount),0); grandTotal+=fileTotal;
     items.forEach((it,ix)=>{
       h+=`<tr>`;
       if(ix===0){
@@ -7972,8 +7974,21 @@ function anRender(p){
       }
       h+=`</tr>`;
     });
+    if(items.length>1){
+      h+=`<tr style="background:#fafbfc;font-weight:600;font-size:11px;color:#475569">
+        <td colspan="3" style="border-top:1px solid #cbd5e1"></td>
+        <td class="r" style="border-top:1px solid #cbd5e1">소계 (${items.length}건)</td>
+        <td class="c" style="border-top:1px solid #cbd5e1"></td>
+        <td class="r" style="border-top:1px solid #cbd5e1"></td>
+        <td class="r" style="border-top:1px solid #cbd5e1;color:#0f4c81">${esc(fmtNum(fileTotal))}</td>
+        <td colspan="6" style="border-top:1px solid #cbd5e1"></td>
+      </tr>`;
+    }
   }
-  h+=`</tbody></table>`;
+  h+=`</tbody><tfoot><tr style="background:#f1f4f8;font-weight:700">
+    <td colspan="6" class="r">전체 합계 (${rows.length}개 파일)</td>
+    <td class="r" style="color:#0f4c81">${esc(fmtNum(grandTotal))}</td>
+    <td colspan="6"></td></tr></tfoot></table>`;
   wrap.innerHTML=h;
 }
 function anOrderItemsModal(p, fid){
