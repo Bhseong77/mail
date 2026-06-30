@@ -5072,45 +5072,57 @@ function clmDocAction(oid){
   });
 }
 
-// 팀즈 공유용 HTML 박스 (클라우디움 형식 복제) 를 클립보드에 복사
+// 팀즈 공유용 HTML 박스 1개의 HTML+평문 생성 → {html, plain}
 // {name, downloadUrl, editUrl, location, folderUrl}
-async function shareCopyHtmlBox(o){
+function buildShareBox(o){
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const nm=esc(o.name);
   const dl=o.downloadUrl||o.editUrl||'';
   const ed=o.editUrl||'';
   const loc=esc(o.location||'');
   const fu=o.folderUrl||'';
-  let html=`<table border="0" cellspacing="0" cellpadding="0" style="font-size:12px;font-family:돋움,Dotum,Arial,sans-serif;color:#9292a3;max-width:600px;min-width:340px;">`;
-  // 행1: 파일명 + 다운로드
+  let html=`<table border="0" cellspacing="0" cellpadding="0" style="font-size:12px;font-family:돋움,Dotum,Arial,sans-serif;color:#9292a3;max-width:600px;min-width:340px;margin-bottom:6px;">`;
   html+=`<tr style="background-color:#ecfafa;height:28px;"><td style="font-weight:bold;padding:4px 0 4px 5px;border:1px solid #e7e7e7;border-bottom:none;" colspan="2">`;
   html+= dl?`<a href="${dl}" style="color:#3ab4c2;font-size:12px;text-decoration:none;" target="_blank">${nm}</a>`:nm;
   html+=`</td></tr>`;
-  // 행2: 위치 + 폴더열기
   html+=`<tr style="background-color:#ecfafa;height:24px;"><td style="font-size:11px;line-height:22px;padding:0 0 0 5px;border-left:1px solid #e7e7e7;border-right:1px solid #e7e7e7;" colspan="2"><span style="color:#979797;font-size:11px;">${loc}</span>`;
   if(fu) html+=`<a href="${fu}" style="color:#3ab4c2;font-size:11px;text-decoration:none;margin-left:8px;" target="_blank">[폴더 열기]</a>`;
   html+=`</td></tr>`;
-  // 행3: 파일명(열기) + 수정
   html+=`<tr style="height:28px;"><td style="padding:4px 5px;border-left:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;">`;
   html+= ed?`<a href="${ed}" style="color:#6f6f6f;font-size:12px;text-decoration:none;" target="_blank">${nm}</a>`:nm;
   html+=`</td><td style="padding:4px 5px;border-right:1px solid #e7e7e7;border-top:1px solid #e7e7e7;border-bottom:1px solid #e7e7e7;">`;
   html+= ed?`<a href="${ed}" style="color:#3ab4c2;text-decoration:none;font-size:12px;" target="_blank">｜&nbsp;수정</a>`:'';
   html+=`</td></tr></table>`;
-  // 평문 폴백
-  let plain=`${o.name||''} : ${dl}\n위치 : ${o.location||''}`;
+  let plain=`${o.name||''} : ${dl}`;
+  if(o.location) plain+=`\n위치 : ${o.location}`;
   if(ed) plain+=`\n수정 : ${ed}`;
   if(fu) plain+=`\n폴더 열기 : ${fu}`;
-  // 브라우저 클립보드에 HTML+text 동시 쓰기
+  return {html, plain};
+}
+// HTML+평문을 브라우저 클립보드에 쓰기 (어느 PC든 그 PC 클립보드)
+async function copyHtmlToClipboard(html, plain){
   try{
     const item=new ClipboardItem({
       'text/html': new Blob([html],{type:'text/html'}),
-      'text/plain': new Blob([plain],{type:'text/plain'})
+      'text/plain': new Blob([plain||''],{type:'text/plain'})
     });
-    await navigator.clipboard.write([item]);
+    await navigator.clipboard.write([item]); return true;
   }catch(e){
-    // 폴백: 평문만
-    try{ await navigator.clipboard.writeText(plain); }catch(_){ prompt('팀즈용:', plain); }
+    try{ await navigator.clipboard.writeText(plain||''); return true; }
+    catch(_){ try{ prompt('복사 (Ctrl+C):', plain||''); }catch(__){} return false; }
   }
+}
+// 단일 박스 복사
+async function shareCopyHtmlBox(o){
+  const b=buildShareBox(o);
+  return await copyHtmlToClipboard(b.html, b.plain);
+}
+// 여러 박스 복사 (배열)
+async function shareCopyHtmlBoxes(arr){
+  const boxes=(arr||[]).map(buildShareBox);
+  const html=boxes.map(b=>b.html).join('');
+  const plain=boxes.map(b=>b.plain).join('\n\n');
+  return await copyHtmlToClipboard(html, plain);
 }
 // 클라우디움 폴더/파일 셸 삭제 (delete_shell 라우트 — 부모창 열고 InvokeVerb)
 // parentOid: 삭제 대상이 든 폴더 OID, names: 삭제할 이름(들)
@@ -6628,7 +6640,7 @@ function maBatchMove(){
     open:it=>taOpen((TA_DATA.items||[]).indexOf(it)),
     rename:it=>taRename((TA_DATA.items||[]).indexOf(it)),
     batchMove:()=>taBatchMove(),
-    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((TA_DATA&&TA_DATA.items)||[]).find(x=>x.id===id); return it&&(it.webUrl||it.contentUrl||''); }),
+    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((TA_DATA&&TA_DATA.items)||[]).find(x=>x.id===id); return it?{name:it.name||'첨부', url:(it.webUrl||it.contentUrl||'')}:null; }),
     delMany:ids=>{ ids.forEach(id=>{ if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id); }); _taSel.clear(); taSaveHidden().then(taLoad); }
   };};
   window.expCfgMail=function(){ return {
@@ -6637,13 +6649,14 @@ function maBatchMove(){
     open:it=>maOpen((MA_DATA.items||[]).indexOf(it)),
     rename:it=>maRename((MA_DATA.items||[]).indexOf(it)),
     batchMove:()=>maBatchMove(),
-    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((MA_DATA&&MA_DATA.items)||[]).find(x=>x.id===id); return it?maDlUrl(it):''; }),
+    copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((MA_DATA&&MA_DATA.items)||[]).find(x=>x.id===id); return it?{name:it.name||'첨부', url:maDlUrl(it)}:null; }),
     delMany:ids=>{ ids.forEach(id=>{ if(!MA_HIDDEN.includes(id)) MA_HIDDEN.push(id); }); _maSel.clear(); maSaveHidden().then(maLoad); }
   };};
-  window.expCopyLinks=function(ids,getter){
-    const urls=ids.map(getter).filter(Boolean);
-    if(!urls.length){ toast('복사할 링크가 없습니다','bad'); return; }
-    navigator.clipboard.writeText(urls.join('\n')).then(()=>toast(`링크 ${urls.length}개 복사됨`,'ok')).catch(()=>toast('클립보드 복사 실패','bad'));
+  window.expCopyLinks=async function(ids,getter){
+    const boxes=ids.map(getter).filter(x=>x&&x.url).map(x=>({name:x.name, editUrl:x.url}));
+    if(!boxes.length){ toast('복사할 링크가 없습니다','bad'); return; }
+    await shareCopyHtmlBoxes(boxes);
+    toast(`링크 ${boxes.length}개 복사됨 — 팀즈에 붙여넣기`,'ok');
   };
 })();
 
@@ -6771,13 +6784,16 @@ async function ftNodeHtml(p,path,depth){
     const sel=FT_SEL[p]===childPath?'sel':'';
     // 02.프로젝트 아래 모든 폴더 → 클라우디움 폴더열기 아이콘
     const isProjTree = (p==='doc-tech') && (childPath==='02.프로젝트' || childPath.startsWith('02.프로젝트/'));
+    // 02.프로젝트 바로 아래(BR26002/BP26009 등) → 클라우디움 전용 라벨
+    const isProjRoot = (p==='doc-tech') && /^02\.프로젝트\/[^/]+$/.test(childPath);
+    const clmLbl = isProjRoot ? `<span class="ft-clmlbl">클라우디움</span>` : '';
     const clmBtn = isProjTree
       ? `<button class="ft-clmopen" title="클라우디움에서 이 폴더 열기" onclick="event.stopPropagation();techClmOpenFolder('${p}','${esc(childPath).replace(/'/g,"\\'")}')">🗄️</button>`
       : '';
-    html+=`<div class="ft-node"><div class="ft-row ${sel}" draggable="true"
+    html+=`<div class="ft-node"><div class="ft-row ${sel}${isProjRoot?' ft-clm':''}" draggable="true"
       ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
       ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
-      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',true,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',0)" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span>${clmBtn}</div>`;
+      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',true,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',0)" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span>${clmLbl}${clmBtn}</div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
@@ -6976,7 +6992,15 @@ async function ftgPaste(p){
   FT_CHILDREN={}; DOC_INDEX_AT=0;
   setTimeout(()=>{ renderFileTree(p); ftGridRender(p, FT_SEL[p]||''); }, isCopy?1400:250);
 }
-async function ftgTeamsLink(p,id,name){ try{ const u=await spWebUrlById(id); if(!u) throw new Error('링크를 찾을 수 없음'); await navigator.clipboard.writeText(u); toast('🔗 링크 복사됨: '+name,'ok'); }catch(e){ try{ const u=await spWebUrlById(id); prompt('아래 링크를 복사하세요 (Ctrl+C):', u||''); }catch(_){} toast('클립보드 복사 실패 — 수동 복사하세요','bad'); } }
+async function ftgTeamsLink(p,id,name){
+  try{
+    const editUrl=await spOrgLink(id).catch(()=>null) || await spWebUrlById(id).catch(()=>null);
+    const dlUrl=await spDownloadUrl(id).catch(()=>null);
+    if(!editUrl && !dlUrl) throw new Error('링크를 찾을 수 없음');
+    await shareCopyHtmlBox({name, downloadUrl:dlUrl, editUrl});
+    toast('🔗 링크 복사됨: '+name,'ok');
+  }catch(e){ toast('링크 복사 실패: '+(e.message||e),'bad'); }
+}
 async function ftgDownload(id,name){
   const _j=(typeof _J==='function')?_J('다운로드 '+name):null;
   try{ const blob=await spFetchBlob(id); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); if(_j&&typeof _Jok==='function')_Jok(_j,'완료'); toast('⬇ 다운로드 시작: '+name,'ok'); }
@@ -7031,6 +7055,7 @@ function ftgGridDrop(e,p,path,el){
   el.classList.remove('ft-drop-hover');
   if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
     e.preventDefault(); e.stopPropagation();
+    if(ftIsClmOnlyPath(p,path)){ toast('클라우디움 전용 폴더 — 🗄️ 아이콘으로 열어 직접 올리세요','warn'); return; }
     _ftUploadCtx={page:p,dir:path||''};
     Promise.resolve(ftUploadFiles(e.dataTransfer.files)).then(()=>{ FT_CHILDREN={}; DOC_INDEX_AT=0; renderFileTree(p); ftGridRender(p,FT_SEL[p]||''); });
     return;
@@ -7087,11 +7112,15 @@ async function ftBatchLink(p){
   const items=ftSelItems(p); if(!items.length){ toast('선택된 파일 없음','bad'); return; }
   toast('링크 가져오는 중…');
   try{
-    const t=await graphToken(); const d=await spDrive(); const urls=[];
-    for(const it of items){ try{ const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${it.itemId}?$select=webUrl`,{headers:{Authorization:"Bearer "+t}}); if(r.ok){ const j=await r.json(); if(j.webUrl) urls.push(j.webUrl); } }catch(_){} }
-    if(!urls.length){ toast('링크 없음','bad'); return; }
-    await navigator.clipboard.writeText(urls.join('\n'));
-    toast(`링크 ${urls.length}개 복사됨`,'ok');
+    const boxes=[];
+    for(const it of items){
+      const editUrl=await spOrgLink(it.itemId).catch(()=>null) || await spWebUrlById(it.itemId).catch(()=>null);
+      const dlUrl=await spDownloadUrl(it.itemId).catch(()=>null);
+      if(editUrl||dlUrl) boxes.push({name:it.name, downloadUrl:dlUrl, editUrl});
+    }
+    if(!boxes.length){ toast('링크 없음','bad'); return; }
+    await shareCopyHtmlBoxes(boxes);
+    toast(`링크 ${boxes.length}개 복사됨 — 팀즈에 붙여넣기`,'ok');
   }catch(e){ toast('링크 복사 실패: '+(e.message||e),'bad'); }
 }
 // 트리: Ctrl+A 전체선택 / Esc 해제 (문서 탭 화면일 때만)
@@ -7194,6 +7223,7 @@ async function ftAct(action){
   if(t._clm){
     const clmOid=String(t.itemId||'').replace(/^CLM:/,'');
     if(action==='link'){
+      const _jl=_J(`URL 복사: ${t.name}`);
       try{
         toast('내부 배포용 URL 생성 중… (탐색기 처리, 몇 초 걸립니다)');
         const parentOid=t._clmParentOid||'';
@@ -7207,7 +7237,7 @@ async function ftAct(action){
         const r=await clmApi('/api/cloudium/share_url_shell',{method:'POST',
           body:JSON.stringify({parentOID:parentOid, name:t.name,
             parentName:parentFolderName, grandparentOID:grandOid, grandparentName:parentFolderName})});
-        if(!r||!r.ok){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
+        if(!r||!r.ok){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); _Jno(_jl,(r&&r.msg)||'실패'); return; }
         // 서버가 만든 HTML(이름링크+폴더열기)을 사용자 브라우저 클립보드에 씀
         const fragHtml=r.html||'';
         let plain=`${t.name} : ${r.downloadUrl||''}`;
@@ -7228,18 +7258,20 @@ async function ftAct(action){
           try{ await navigator.clipboard.writeText(plain); copied=true; }catch(_){ prompt('팀즈용:', plain); }
         }
         if(copied) toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok');
+        _Jok(_jl, copied?'클립보드 복사됨':'생성됨');
         try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}${r.folderUrl?' (+폴더열기)':''}`); }catch(_){}
-      }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
+      }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); _Jno(_jl,e.message); }
       return;
     }
     // 클라우디움 파일 삭제 → 셸 삭제 (휴지통行)
     if(action==='delete'){
       if(!confirm(`"${t.name}" 클라우디움에서 삭제할까요? (휴지통으로 이동)`)) return;
+      const _jc=_J(`클라우디움 삭제: ${t.name}`);
       toast('클라우디움 삭제 중…');
       const r=await techClmDeleteShell(t._clmParentOid, t.name);
-      if(r&&r.ok){ toast('클라우디움 삭제됨 (휴지통)','ok'); try{actLog(`🗑 클라우디움 삭제: ${t.name}`);}catch(_){}
+      if(r&&r.ok){ toast('클라우디움 삭제됨 (휴지통)','ok'); _Jok(_jc,'휴지통 이동'); try{actLog(`🗑 클라우디움 삭제: ${t.name}`);}catch(_){}
         _techRefresh=true; FT_CHILDREN={}; await renderFileTree(p); }
-      else toast('클라우디움 삭제 실패: '+((r&&r.msg)||''),'bad');
+      else { toast('클라우디움 삭제 실패: '+((r&&r.msg)||''),'bad'); _Jno(_jc,(r&&r.msg)||'실패'); }
       return;
     }
     if(action==='mail' || action==='download' || action==='unzip' ||
@@ -7310,6 +7342,7 @@ async function ftAct(action){
       ? `"${t.name}" 폴더를 삭제할까요?\n(SharePoint 영구삭제 + 클라우디움 같은 폴더도 휴지통으로)`
       : `"${t.name}" 삭제할까요? (SharePoint 영구삭제)`;
     if(!confirm(cfMsg)) return;
+    const _jd=_J(`삭제: ${t.name}`);
     try{
       await spDeleteItem(t.itemId); toast('삭제됨','ok'); actLog(`🗑 삭제: ${t.name}`);
       // ★ 기술자료 폴더면 클라우디움 같은 폴더도 셸 삭제 (완전 동기)
@@ -7331,6 +7364,7 @@ async function ftAct(action){
           }
         }catch(e){ console.warn('클라우디움 폴더 삭제 예외',e); }
       }
+      _Jok(_jd, isTechFolder?'SP+클라우디움 삭제':'삭제 완료');
       // 분석탭이면 분석 목록(AN_DATA)에서도 제거 → 트리에서 지우면 목록 행도 사라짐
       if(DOC_ANALYZE.includes(p) && AN_DATA[p]){
         let changed=false;
@@ -7347,7 +7381,7 @@ async function ftAct(action){
       }
       FT_CHILDREN={}; renderFileTree(p);
     }
-    catch(ex){ toast('실패: '+ex.message,'bad'); }
+    catch(ex){ toast('실패: '+ex.message,'bad'); _Jno(_jd, ex.message); }
   }
 }
 async function ftNewFolder(p,parentPath){
@@ -7355,6 +7389,7 @@ async function ftNewFolder(p,parentPath){
   if(!name) return;
   const clean=name.trim().replace(/[\\/:*?"<>|]/g,'_');
   const full=parentPath?`${DOC_MAP[p]}/${parentPath}/${clean}`:`${DOC_MAP[p]}/${clean}`;
+  const _jf=_J(`폴더 생성: ${clean}`);
   try{
     await spEnsureFolder(full);
     // ★ 기술자료 탭: 클라우디움에도 같은 폴더 생성 (양쪽 동기)
@@ -7371,18 +7406,32 @@ async function ftNewFolder(p,parentPath){
       }catch(e){ clmMsg=' (클라우디움 생성 예외)'; console.warn('클라우디움 폴더생성',e); }
     }
     toast('폴더 생성됨'+clmMsg, clmMsg.includes('실패')||clmMsg.includes('예외')?'warn':'ok');
+    _Jok(_jf, '생성됨'+clmMsg);
     actLog(`📁 폴더 생성: ${clean}${clmMsg}`);
     FT_CHILDREN={};
     if(parentPath) FT_OPEN[ftKey(p,parentPath)]=true;
     FT_OPEN[ftKey(p, parentPath?`${parentPath}/${clean}`:clean)]=true;  // 만든 폴더 펼침
     await renderFileTree(p);
-  }catch(ex){ toast('폴더 생성 실패: '+ex.message,'bad'); }
+  }catch(ex){ toast('폴더 생성 실패: '+ex.message,'bad'); _Jno(_jf, ex.message); }
 }
 let _ftUploadCtx=null;
-function ftUploadTo(p,dir){ _ftUploadCtx={page:p,dir:dir||''}; $('ftUpload').value=''; $('ftUpload').click(); }
+// 클라우디움 전용 경로(02.프로젝트 하위)인지 — SP 업로드 차단용
+function ftIsClmOnlyPath(p, dir){
+  if(p!=='doc-tech') return false;
+  const d=dir||'';
+  return d==='02.프로젝트' || d.startsWith('02.프로젝트/');
+}
+function ftUploadTo(p,dir){
+  if(ftIsClmOnlyPath(p,dir)){
+    toast('이 폴더는 클라우디움 전용입니다 — 🗄️ 아이콘으로 폴더를 열어 직접 올리세요','warn');
+    return;
+  }
+  _ftUploadCtx={page:p,dir:dir||''}; $('ftUpload').value=''; $('ftUpload').click();
+}
 async function ftUploadFiles(files){
   if(!files||!files.length||!_ftUploadCtx) return;
   const {page,dir}=_ftUploadCtx;
+  if(ftIsClmOnlyPath(page,dir)){ toast('클라우디움 전용 폴더 — SP 업로드 불가','warn'); return; }
   const root=DOC_MAP[page];
   if(!dir){ if(!confirm('루트에 바로 업로드합니다. (먼저 업체 폴더를 선택하는 걸 권장) 계속할까요?')) return; }
   const base = dir ? `${root}/${dir}` : root;
@@ -9776,7 +9825,8 @@ async function mailAttSpLink(uid, idx, name){
     const res=await spPutFile(path, blob, blob.type||'application/octet-stream');
     const url=(res&&res.webUrl)||await spWebUrlByPath(path);
     if(!url) throw new Error('링크 생성 실패');
-    await _clip(url,'🔗 SharePoint 링크 복사됨: '+safe);
+    await shareCopyHtmlBox({name:safe, editUrl:url, location:`SharePoint > 00.메일첨부 > ${day}`});
+    if(typeof toast==='function') toast('🔗 SharePoint 링크 복사됨: '+safe,'ok');
     if(_j&&typeof _Jok==='function') _Jok(_j, safe);
   }catch(e){ if(_j&&typeof _Jno==='function') _Jno(_j, e.message); if(typeof toast==='function') toast('실패: '+e.message,'bad'); }
 }
@@ -9785,7 +9835,7 @@ async function mailAllAttSpLinks(){
   const d=CUR_BODY||{}; const m=CUR_MAIL||{}; const atts=(d.attachments||[]);
   if(!atts.length){ if(typeof toast==='function') toast('첨부가 없습니다','bad'); return; }
   const _j=(typeof _J==='function')?_J(`첨부 ${atts.length}건 SP 링크`):null;
-  const day=new Date().toISOString().slice(0,10); const urls=[];
+  const day=new Date().toISOString().slice(0,10); const boxes=[];
   try{
     if(typeof toast==='function') toast(`첨부 ${atts.length}건 SharePoint에 올리는 중…`,'ok');
     for(const a of atts){
@@ -9796,11 +9846,12 @@ async function mailAllAttSpLinks(){
       const path=`00.메일첨부/${day}/${safe}`;
       const res=await spPutFile(path, blob, blob.type||'application/octet-stream');
       const url=(res&&res.webUrl)||await spWebUrlByPath(path);
-      if(url) urls.push(url);
+      if(url) boxes.push({name:safe, editUrl:url, location:`SharePoint > 00.메일첨부 > ${day}`});
     }
-    if(!urls.length) throw new Error('업로드된 링크 없음');
-    await _clip(urls.join('\n'), `🔗 첨부 ${urls.length}건 링크 복사됨 — Teams에 붙여넣기`);
-    if(_j&&typeof _Jok==='function') _Jok(_j, `${urls.length}건`);
+    if(!boxes.length) throw new Error('업로드된 링크 없음');
+    await shareCopyHtmlBoxes(boxes);
+    if(typeof toast==='function') toast(`🔗 첨부 ${boxes.length}건 링크 복사됨 — Teams에 붙여넣기`,'ok');
+    if(_j&&typeof _Jok==='function') _Jok(_j, `${boxes.length}건`);
   }catch(e){ if(_j&&typeof _Jno==='function') _Jno(_j, e.message); if(typeof toast==='function') toast('실패: '+e.message,'bad'); }
 }
 async function mailAttGet(uid,idx,name,saveAs){
