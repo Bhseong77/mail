@@ -12999,7 +12999,7 @@ function wpDetailHtml(projId, n, ind){
     ${editPanel}
     <div class="wp-sec">📎 첨부파일</div>
     <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">${files}</div>
-    ${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="wpAttachMode('${n.id}','upload')">⬆ 새 업로드</button><button class="btn sm" onclick="wpAttachMode('${n.id}','existing')">📂 기존 자료</button><button class="btn sm" onclick="wpFileModalClm('${projId}','${n.id}')" title="클라우디움 문서중앙화에서 폴더/파일 첨부 (열기 전용)">📁 클라우디움</button></div>`:""}
+    ${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="wpClmOpenUpload('${projId}','${n.id}')" title="클라우디움 해당 폴더를 탐색기로 열어 직접 올리기">⬆ 새 업로드(클라우디움)</button><button class="btn sm" onclick="wpFileModalClm('${projId}','${n.id}')" title="클라우디움에서 폴더/파일 첨부">📁 클라우디움 첨부</button></div>`:""}
     ${attachPanel}
     ${purLinkHtml}
     <div class="wp-sec">🕘 수정 이력</div>
@@ -13314,6 +13314,10 @@ async function wpAddComment(projId,id,btnEl){
   if(status){ if(n.status!==status){ ch.push(`상태 → ${status} (보고)`); } n.status=status; }
   if(status==="완료"){ n.prog=100; }
   else if(status==="진행중"){ if((n.prog||0)>=100||(n.prog||0)===0) n.prog=Math.max(n.prog||0,1); }
+  // ★ status 미선택이어도, 보고 등록하면 대기(prog0·완료아님)였던 작업은 자동 진행중
+  if(!status && (n.prog||0)===0 && n.status!=="완료"){
+    n.prog=1; if(n.status!=="진행중"){ n.status="진행중"; ch.push("자동 진행중 (보고 등록)"); }
+  }
   if(status==="블로커" && txt){ if(n.blocker!==txt){ n.blocker=txt; n.blocker_en=""; ch.push("블로커 등록(보고)"); } }
   else if(status && status!=="블로커" && n.blocker){ n.blocker=""; ch.push("블로커 해제(보고)"); }
   if((n.prog||0)>=100){ if(!n.done_date) n.done_date=wpDateToYmd(wpToday()); } else { n.done_date=""; }
@@ -13741,6 +13745,8 @@ function wpPurAttach(){
     }
   });
   document.getElementById("wpPurOv")?.remove();
+  // 구매 첨부 시 대기 작업이면 자동 진행중
+  if(added){ try{ const pid=(wpFindProjectOf(id)||{}).id; const n=pid?wpFind(pid,id):null; if(wpAutoActive(n,"구매자료 첨부")){ wpSaveProject(pid); } }catch(_){} }
   const box=document.getElementById("wp-cmt-pur-"+id); if(box) box.innerHTML=wpPurPreviewHtml(id);
   toast(added?`${added}건 첨부됨 — 보고 등록을 누르세요`:"이미 첨부된 항목입니다", added?"ok":"bad");
 }
@@ -13930,6 +13936,7 @@ function wpMailAttach(){
   const box=document.getElementById("wp-cmt-mail-"+id); if(box) box.innerHTML=wpMailPreviewHtml(id);
   document.getElementById("wpMailOv")?.remove();
   toast(added?`메일 ${added}건 첨부됨 — 보고 등록을 누르세요`:"이미 첨부된 메일입니다", added?"ok":"bad");
+  if(added){ try{ const pid=(wpFindProjectOf(id)||{}).id; const n=pid?wpFind(pid,id):null; if(wpAutoActive(n,"메일 첨부")){ wpSaveProject(pid); } }catch(_){} }
 }
 // ── 업무보고 행 우클릭 메뉴 (보고내용 복사 / 첨부자료만 복사) ──
 function wpCmtMenu(e, projId, nodeId, ci){
@@ -14029,6 +14036,34 @@ function wpFileModal(projId, id){
   wpFmBrowse("");
 }
 // 클라우디움 탭으로 바로 여는 진입점 (작업 상세의 '📁 클라우디움' 버튼)
+// role(직무) → 클라우디움 프로젝트 하위 폴더 매핑
+const WP_ROLE_CLMFOLDER={'영업':'01.영업','설계':'02.설계','전장':'03.전장','제어':'04.제어'};
+// 새 업로드: 업무의 프로젝트+role 에 맞는 클라우디움 폴더를 탐색기로 열기
+async function wpClmOpenUpload(projId, id){
+  try{
+    const n=wpFind(projId,id); if(!n){ toast('업무를 찾을 수 없음','bad'); return; }
+    // 프로젝트 코드(BR26002 등): projId 가 프로젝트면 그대로, 아니면 wpFindProjectOf
+    const proj=wpFindProjectOf(id)||{id:projId};
+    const projCode=proj.id||projId;
+    const role=n.role||'';
+    const sub=WP_ROLE_CLMFOLDER[role]||'';   // 분야 폴더 (없으면 프로젝트 루트)
+    // 클라우디움 경로: 02.프로젝트/{projCode}/{sub}
+    let relPath=`02.프로젝트/${projCode}`;
+    if(sub) relPath+=`/${sub}`;
+    toast(`클라우디움 폴더 여는 중… (${projCode}${sub?'/'+sub:''})`,'ok');
+    const oid=await techClmResolveOid(relPath);
+    if(!oid){
+      // 분야 폴더 못찾으면 프로젝트 루트라도
+      const oid2=await techClmResolveOid(`02.프로젝트/${projCode}`);
+      if(!oid2){ toast('클라우디움에서 프로젝트 폴더를 찾을 수 없습니다','warn'); return; }
+      clmAgentCall('openFolderByExplorer',{folderOID:oid2,clientType:'W'},()=>{});
+      return;
+    }
+    clmAgentCall('openFolderByExplorer',{folderOID:oid,clientType:'W'},(data)=>{
+      if(data&&data._neterr) toast('에이전트 연결 실패 — cloudium 앱 확인','warn');
+    });
+  }catch(e){ toast('폴더 열기 실패: '+e.message,'bad'); }
+}
 function wpFileModalClm(projId, id){
   wpFileModal(projId, id);
   const sel=document.getElementById('wpFm-root');
@@ -14063,10 +14098,22 @@ async function wpFmBrowse(path){
     h+="</div>"; list.innerHTML=h;
   }catch(e){ list.innerHTML=`<div style="padding:18px;color:var(--r);font-size:12px">${esc(e.message)}</div>`; }
 }
+// 자동 진행중: 대기(prog0·완료아님) 작업에 첨부/구매가 붙으면 진행중으로
+function wpAutoActive(n, reason){
+  if(!n) return false;
+  if((n.prog||0)===0 && n.status!=="완료"){
+    n.prog=1; n.status="진행중";
+    try{ wpLog(n, `자동 진행중 (${reason||"첨부"})`); }catch(_){}
+    return true;
+  }
+  return false;
+}
 function wpFmPick(f){
   const id=_wpFm.id; const buf=(_wpRepFileBuf[id]=_wpRepFileBuf[id]||[]);
   if(buf.some(x=>x.itemId===f.itemId)){ toast("이미 첨부됨","bad"); return; }
   buf.push(f);
+  // 첨부 시 대기 작업이면 자동 진행중
+  try{ const pid=(wpFindProjectOf(id)||{}).id||(_wpFm&&_wpFm.projId); const n=pid?wpFind(pid,id):null; if(wpAutoActive(n,"자료 첨부")){ wpSaveProject(pid); } }catch(_){}
   const box=document.getElementById("wp-cmt-file-"+id); if(box) box.innerHTML=wpRepFilePreviewHtml(id);
   toast(`첨부됨: ${f.name} — 보고 등록을 누르세요`,"ok");
 }
@@ -14108,8 +14155,8 @@ async function wpFmUpload(files){
 //  · 폴더 선택: 그 폴더를 탐색기로 엶.  파일 선택: 그 파일의 부모 폴더를 엶(다운로드 불필요).
 //  · 작업 노드 n.files 에 {name, kind:'cloudium', oid, parentOid, isFolder} 로 영구 저장.
 //  · ★접근 제한: '101.T프로젝트' 폴더(=WP_CLM_ROOT)만 루트. 전사 폴더 전체 접근 불가.
-const WP_CLM_ROOT='1PwNjUiWO2e';        // 101.T프로젝트 폴더 OID (이 아래만 첨부 가능)
-const WP_CLM_ROOT_NAME='101.T프로젝트';
+const WP_CLM_ROOT='1PyHtl_TbAJ';        // 02.프로젝트 폴더 OID (프로젝트 폴더만 첨부 가능)
+const WP_CLM_ROOT_NAME='02.프로젝트';
 let _wpClm={open:false, oid:WP_CLM_ROOT, loaded:false};
 // 에이전트 호출을 iframe src 로 — 응답 안 받는 네비게이션이라 github.io(public)에서도 PNA 통과.
 function wpClmAgentIframe(cmd, params){
@@ -14175,13 +14222,15 @@ async function wpClmBrowse(oid){
     {
       const meta=JSON.stringify({name:nm, kind:'cloudium', oid, parentOid:oid, isFolder:true}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
       h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9;background:#f0f9ff">
-        <span style="flex:1;display:flex;gap:8px;align-items:center"><span>📌</span><span style="flex:1">이 폴더 「${esc(nm)}」 첨부</span></span>
+        <span style="flex:1;display:flex;gap:8px;align-items:center"><span>📌</span><span style="flex:1">이 폴더 「${esc(nm)}」</span></span>
+        ${isRoot?'':`<span style="font-size:13px;cursor:pointer;color:#64748b" title="이 폴더를 탐색기로 열기 (자료 직접 올리기)" onclick="wpClmOpenFolderOid('${oid}')">🗄️</span>`}
         <span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})'>+ 폴더 첨부</span></div>`;
     }
     folders.forEach(f=>{
       const meta=JSON.stringify({name:f.name, kind:'cloudium', oid:f.oid, parentOid:f.oid, isFolder:true}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
       h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9">
         <span style="cursor:pointer;flex:1;display:flex;gap:8px;align-items:center" onclick="wpClmBrowse('${f.oid}')"><span>📂</span><span>${esc(f.name)}</span></span>
+        <span style="font-size:13px;cursor:pointer;color:#64748b" title="이 폴더를 탐색기로 열기 (자료 직접 올리기)" onclick="event.stopPropagation();wpClmOpenFolderOid('${f.oid}')">🗄️</span>
         <span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})' title="이 폴더를 작업에 첨부">+ 첨부</span></div>`;
     });
     docs.forEach(f=>{
@@ -14194,6 +14243,14 @@ async function wpClmBrowse(oid){
     if(!folders.length && !docs.length) h+='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px">폴더가 비어 있음</div>';
     h+='</div>'; list.innerHTML=h;
   }catch(e){ list.innerHTML=`<div style="padding:18px;color:var(--r);font-size:12px">${esc(e.message)}</div>`; }
+}
+// 클라우디움 OID 로 폴더를 탐색기로 열기 (첨부 모달에서 직접 올리기용)
+function wpClmOpenFolderOid(oid){
+  if(!oid) return;
+  toast('클라우디움 폴더 여는 중…','ok');
+  clmAgentCall('openFolderByExplorer',{folderOID:oid,clientType:'W'},(data)=>{
+    if(data&&data._neterr) toast('에이전트 연결 실패 — cloudium 앱 확인','warn');
+  });
 }
 // cloudium 항목을 작업 n.files 에 추가 (영구)
 function wpClmPick(f){
