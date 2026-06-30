@@ -14051,6 +14051,20 @@ function wpFileModal(projId, id, skipBrowse){
 // 클라우디움 탭으로 바로 여는 진입점 (작업 상세의 '📁 클라우디움' 버튼)
 // role(직무) → 클라우디움 프로젝트 하위 폴더 매핑
 const WP_ROLE_CLMFOLDER={'영업':'01.영업','설계':'02.설계','전장':'03.전장','제어':'04.제어'};
+// 업무 노드의 조상(부모 그룹) 이름들 + 자기 이름을 모음 (공정 키워드 검사용)
+function wpNamesChain(projId, id){
+  const proj=WP_LOADED_PROJ.find(x=>x.id===projId) || (wpFindProjectOf(id));
+  if(!proj) return [];
+  let chain=null;
+  (function w(ns, trail){
+    for(const n of (ns||[])){
+      const t=trail.concat([n.name||'']);
+      if(n.id===id){ chain=t; return; }
+      if(n.children){ w(n.children, t); if(chain) return; }
+    }
+  })(proj.children, []);
+  return chain||[];
+}
 // 업무 노드 → 클라우디움 상대경로 계산 (02.프로젝트/{projCode}/{role}[/공정자료])
 function wpClmTargetPath(projId, id){
   const n=wpFind(projId,id);
@@ -14060,8 +14074,10 @@ function wpClmTargetPath(projId, id){
   const sub=WP_ROLE_CLMFOLDER[role]||'';
   let rel=`02.프로젝트/${projCode}`;
   if(sub) rel+=`/${sub}`;
-  // 제어 + 업무명에 "공정" 포함 → DT(Data)/06.공정자료 까지
-  if(role==='제어' && /공정/.test((n&&n.name)||'')){
+  // 제어 + (업무명 또는 상위 폴더명 중 하나라도 "공정" 포함) → DT(Data)/06.공정자료 까지
+  const chain=wpNamesChain(projId, id);
+  const hasGongjeong = chain.some(nm=>/공정/.test(nm||'')) || /공정/.test((n&&n.name)||'');
+  if(role==='제어' && hasGongjeong){
     rel+='/DT(Data)/06.공정자료';
   }
   return {rel, projCode, role, sub, name:(n&&n.name)||''};
