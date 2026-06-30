@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v456</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v458</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -1771,39 +1771,27 @@ body.embed-prnew{background:#fff}
             </div>
           </div>
 
-          <!-- 입고정산처리 조회 목록 (프로젝트구매입고정산처리) -->
+          <!-- STEP 1: 발주조회 (프로젝트구매발주조회) -->
           <div class="acc-card">
             <div class="acc-card-header">
-              <div class="acc-card-title">📥 입고 내역 (프로젝트구매입고정산처리)</div>
-              <div class="acc-card-subtitle">관리자설정 프로젝트 · 입고일 기준 조회</div>
+              <div class="acc-card-title">STEP 1. 발주조회 (프로젝트구매발주조회)</div>
+              <div class="acc-card-subtitle">영림원 발주 목록 · 행 더블클릭 → 아래 STEP 2 납품품목 조회로 이어집니다</div>
             </div>
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-              <label style="font-size:13px;color:#475569;">입고일</label>
-              <input type="date" id="rcp-from" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
-              <span style="color:#9ca3af;">~</span>
-              <input type="date" id="rcp-to" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
-              <button class="acc-period-btn today" onclick="rcpLoad()">🔍 조회</button>
-              <button class="acc-period-btn" onclick="rcpSyncNow()" id="rcp-sync" title="영림원에서 최신 입고를 끌어옵니다" style="background:#7c3aed;color:#fff;">⚡ 지금 동기화</button>
-              <select id="rcp-f-proj" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">프로젝트 전체</option></select>
-              <select id="rcp-f-cust" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">거래처 전체</option></select>
-              <select id="rcp-f-cls" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">분류 전체</option></select>
-              <input id="rcp-f-q" oninput="rcpRender()" placeholder="🔍 품명·품번·입고번호" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:200px;">
-              <span id="rcp-cnt" style="font-size:12px;color:#9ca3af;margin-left:auto;"></span>
+              <button class="acc-period-btn today" onclick="dvpoLoad(false)">🔍 발주조회 불러오기</button>
+              <button class="acc-period-btn" onclick="dvpoLoad(true)" title="영림원에서 즉시 재조회 (~20초)" style="background:#7c3aed;color:#fff;">↻ 새로고침</button>
+              <input type="text" id="dvpo-search" placeholder="🔍 발주번호/거래처/프로젝트/품명" oninput="dvpoRender()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;width:280px;">
+              <span id="dvpo-info" style="color:#6b7280;font-size:13px;margin-left:auto;"></span>
             </div>
-            <div style="overflow-x:auto;">
-              <table class="acc-table" style="width:100%;font-size:13px;">
-                <thead><tr>
-                  <th>프로젝트번호</th><th>입고일</th><th>입고번호</th><th>구매거래처</th><th>품목분류</th><th>대표품목</th><th>수량</th><th style="text-align:right;">금액계</th>
-                </tr></thead>
-                <tbody id="rcp-tbody"><tr><td colspan="8" style="padding:18px;text-align:center;color:#9ca3af;">[🔍 조회]를 눌러 입고 내역을 불러오세요 (기본 최근 한 달)</td></tr></tbody>
-              </table>
+            <div id="dvpo-list" style="max-height:360px;overflow:auto;">
+              <div style="text-align:center;color:#9ca3af;padding:32px;">[🔍 발주조회 불러오기]를 눌러주세요</div>
             </div>
           </div>
 
-          <!-- STEP 1: 납품품목 조회 (프로젝트구매납품품목조회) -->
+          <!-- STEP 2: 납품품목 조회 (프로젝트구매납품품목조회) -->
           <div class="acc-card">
             <div class="acc-card-header">
-              <div class="acc-card-title">STEP 1. 납품품목 조회 (프로젝트구매납품품목조회)</div>
+              <div class="acc-card-title">STEP 2. 납품품목 조회 (프로젝트구매납품품목조회)</div>
               <div class="acc-card-subtitle">프로젝트 + 기간 조회 → 납품번호 행 선택 → 원재료/연구비로 납품확인</div>
             </div>
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
@@ -1869,6 +1857,35 @@ body.embed-prnew{background:#fff}
               <button id="dvnew-save-btn" onclick="dvnewSave()" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(90deg,#0f4c81,#00b4d8);color:#fff;font-weight:700;cursor:pointer;">✅ 영림원에 납품 등록</button>
             </div>
             <div id="dvnew-save-result" style="margin-top:12px;"></div>
+          </div>
+
+          <!-- STEP 3: 입고 내역 (프로젝트구매입고정산처리) -->
+          <div class="acc-card">
+            <div class="acc-card-header">
+              <div class="acc-card-title">STEP 3. 입고 내역 (프로젝트구매입고정산처리)</div>
+              <div class="acc-card-subtitle">관리자설정 프로젝트 · 입고일 기준 조회</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <label style="font-size:13px;color:#475569;">입고일</label>
+              <input type="date" id="rcp-from" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <span style="color:#9ca3af;">~</span>
+              <input type="date" id="rcp-to" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+              <button class="acc-period-btn today" onclick="rcpLoad()">🔍 조회</button>
+              <button class="acc-period-btn" onclick="rcpSyncNow()" id="rcp-sync" title="영림원에서 최신 입고를 끌어옵니다" style="background:#7c3aed;color:#fff;">⚡ 지금 동기화</button>
+              <select id="rcp-f-proj" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">프로젝트 전체</option></select>
+              <select id="rcp-f-cust" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">거래처 전체</option></select>
+              <select id="rcp-f-cls" onchange="rcpRender()" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;"><option value="">분류 전체</option></select>
+              <input id="rcp-f-q" oninput="rcpRender()" placeholder="🔍 품명·품번·입고번호" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;width:200px;">
+              <span id="rcp-cnt" style="font-size:12px;color:#9ca3af;margin-left:auto;"></span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="acc-table" style="width:100%;font-size:13px;">
+                <thead><tr>
+                  <th>프로젝트번호</th><th>입고일</th><th>입고번호</th><th>구매거래처</th><th>품목분류</th><th>대표품목</th><th>수량</th><th style="text-align:right;">금액계</th>
+                </tr></thead>
+                <tbody id="rcp-tbody"><tr><td colspan="8" style="padding:18px;text-align:center;color:#9ca3af;">[🔍 조회]를 눌러 입고 내역을 불러오세요 (기본 최근 한 달)</td></tr></tbody>
+              </table>
+            </div>
           </div>
 
           <!-- 납품담당자 검색 팝업 -->
@@ -14284,8 +14301,9 @@ function wpFileModal(projId, id, skipBrowse){
         <option value="clm">📁 클라우디움(문서중앙화)</option>
       </select>
       <span style="flex:1"></span>
+      <button class="btn sm" id="wpFm-refresh" onclick="wpFmRefresh()" style="display:none" title="현재 폴더 다시 조회 (캐시 무시)">↻ 재조회</button>
       <button class="btn sm" id="wpFm-newf" onclick="wpFmNewFolder()">＋ 새 폴더</button>
-      <button class="btn primary sm" onclick="document.getElementById('wpFm-up').click()">⬆ 여기에 업로드</button>
+      <button class="btn primary sm" id="wpFm-upbtn" onclick="wpFmUploadBtn()">⬆ 여기에 업로드</button>
       <input type="file" id="wpFm-up" multiple style="display:none" onchange="wpFmUpload(this.files)">
     </div>
     <div id="wpFm-crumb" style="padding:7px 16px;font-size:11.5px;color:var(--t3);border-bottom:1px solid #f6f7f9"></div>
@@ -14354,6 +14372,7 @@ async function wpFileModalClm(projId, id){
   const sel=document.getElementById('wpFm-root');
   if(sel){ sel.value='clm'; }
   _wpFm.root='clm';
+  wpFmBtnState('clm');
   // 그 업무의 role(+공정) 폴더 OID 로 바로 진입 (없으면 02.프로젝트 루트)
   try{
     const t=wpClmTargetPath(projId, id);
@@ -14374,10 +14393,15 @@ async function wpFileModalClm(projId, id){
 }
 function wpFmRoot(v){
   _wpFm.root=v; _wpFm.path=""; _wpFm.driveId="";
-  const nf=document.getElementById("wpFm-newf"); if(nf) nf.style.display=(v==="sp")?"":"none";
-  const upBtn=document.querySelector('#wpFmOv [onclick*="wpFm-up"]'); if(upBtn) upBtn.style.display=(v==="clm")?"none":"";
+  wpFmBtnState(v);
   if(v==="clm"){ wpFmCloudium(); return; }
   wpFmBrowse("");
+}
+// 모달 툴바 버튼 상태 (sp/chan/clm)
+function wpFmBtnState(v){
+  const nf=document.getElementById("wpFm-newf"); if(nf) nf.style.display=(v==="chan")?"none":"";   // sp·clm 새폴더 가능
+  const rf=document.getElementById("wpFm-refresh"); if(rf) rf.style.display=(v==="clm")?"":"none";  // 재조회는 clm만
+  const ub=document.getElementById("wpFm-upbtn"); if(ub) ub.textContent=(v==="clm")?"⬆ 업로드(탐색기)":"⬆ 여기에 업로드";
 }
 async function wpFmBrowse(path){
   _wpFm.path=path;
@@ -14421,11 +14445,38 @@ function wpFmPick(f){
   toast(`첨부됨: ${f.name} — 보고 등록을 누르세요`,"ok");
 }
 async function wpFmNewFolder(){
+  if(_wpFm.root==="clm"){
+    const parent=_wpFm.clmOid; if(!parent){ toast("폴더 위치를 찾을 수 없음","bad"); return; }
+    const name=(prompt("새 클라우디움 폴더 이름:")||"").trim(); if(!name) return;
+    try{
+      const j=await _clmPost('/api/cloudium/newfolder',{parentOID:parent,name});
+      if(j&&j.ok){ toast("클라우디움 폴더 생성됨","ok"); await wpClmBrowse(parent, true); }
+      else toast("폴더 생성 실패: "+((j&&(j.msg||j.error))||""),"bad");
+    }catch(e){ toast("폴더 생성 실패: "+e.message,"bad"); }
+    return;
+  }
   if(_wpFm.root!=="sp"){ toast("채널에서는 새 폴더 미지원","bad"); return; }
   const name=(prompt("새 폴더 이름:")||"").trim(); if(!name) return;
   const full=_wpFm.path?`${_wpFm.path}/${name}`:name;
   try{ await spEnsureFolder(full); toast("폴더 생성됨","ok"); wpFmBrowse(_wpFm.path); }
   catch(e){ toast("폴더 생성 실패: "+e.message,"bad"); }
+}
+// 업로드 버튼: clm=탐색기 열기(직접 업로드) / sp·chan=파일 선택
+function wpFmUploadBtn(){
+  if(_wpFm.root==="clm"){
+    if(!_wpFm.clmOid){ toast("폴더를 먼저 선택하세요","bad"); return; }
+    wpClmOpenFolderOid(_wpFm.clmOid);
+    return;
+  }
+  const up=document.getElementById("wpFm-up"); if(up) up.click();
+}
+// 클라우디움 현재 폴더 재조회 (캐시 무시)
+async function wpFmRefresh(){
+  if(_wpFm.root!=="clm") return;
+  const oid=_wpFm.clmOid||WP_CLM_ROOT;
+  if(typeof CLM_TREE!=="undefined" && CLM_TREE[oid]) CLM_TREE[oid].children=null;
+  toast("클라우디움 폴더 재조회…","ok");
+  await wpClmBrowse(oid, true);
 }
 async function wpFmRename(itemId, curName){
   const nn=(prompt("새 이름:", curName)||"").trim(); if(!nn || nn===curName) return;
@@ -14491,8 +14542,7 @@ function wpClmOpenFile(f){
 // wpFileModal 안에서 cloudium 모드로 전환
 async function wpFmCloudium(){
   _wpFm.root='clm';
-  const nf=document.getElementById('wpFm-newf'); if(nf) nf.style.display='none';
-  const up=document.querySelector('#wpFmOv [onclick*="wpFm-up"]'); if(up) up.style.display='none';
+  wpFmBtnState('clm');
   // ★ 101.T프로젝트 폴더부터 로드 (전사 폴더 접근 차단)
   if(!CLM_TREE[WP_CLM_ROOT]){
     CLM_TREE[WP_CLM_ROOT]={item:{oid:WP_CLM_ROOT,name:WP_CLM_ROOT_NAME,isFolder:true},children:null,expanded:true};
@@ -14500,7 +14550,7 @@ async function wpFmCloudium(){
   await wpClmBrowse(WP_CLM_ROOT);
 }
 // cloudium 폴더 브라우징 (모달 리스트 영역에 폴더+문서 표시) — WP_CLM_ROOT(101.T프로젝트) 하위만
-async function wpClmBrowse(oid){
+async function wpClmBrowse(oid, force){
   _wpFm.clmOid=oid;
   const list=document.getElementById('wpFm-list'), crumb=document.getElementById('wpFm-crumb');
   if(!list) return;
@@ -14510,7 +14560,7 @@ async function wpClmBrowse(oid){
   const nm=(node&&node.item&&node.item.name)||WP_CLM_ROOT_NAME;
   if(crumb) crumb.innerHTML=`📁 클라우디움 · <span style="color:var(--p);cursor:pointer" onclick="wpClmBrowse('${WP_CLM_ROOT}')">${esc(WP_CLM_ROOT_NAME)}</span>${isRoot?'':` / ${esc(nm)}`}`;
   try{
-    const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`);
+    const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}${force?'&refresh=1':''}`);
     if(!d||!d.ok){ list.innerHTML=`<div style="padding:18px;color:var(--r);font-size:12px">목록을 불러오지 못했습니다 ${d&&d.error?'· '+esc(d.error):''}</div>`; return; }
     const items=d.items||[];
     items.filter(x=>x.isFolder).forEach(k=>{ if(!CLM_TREE[k.oid]) CLM_TREE[k.oid]={item:k,children:null,expanded:false}; });
@@ -16152,6 +16202,141 @@ async function bgSave(label, url, payload, onDone){
 // ════════════════════════════════════════════════════════
 let dvnewDrafts = [];
 let dvnewSelected = null;
+// ── STEP 1: 발주조회 (프로젝트구매발주조회) — /api/erp/order-list 재사용, 더블클릭 → STEP 2 납품품목조회 ──
+let _dvpoRows=[];
+async function dvpoLoad(refresh){
+  const list=document.getElementById('dvpo-list'); if(!list) return;
+  list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:32px;">⏳ 발주조회 중…'+(refresh?' (영림원 재조회 ~20초)':'')+'</div>';
+  const _j=(typeof _J==='function')?_J('발주조회'+(refresh?' (새로고침)':'')):null;
+  try{
+    const r=await fetch(`${SERVER}/api/erp/order-list${refresh?'?refresh=1':''}`);
+    const j=await r.json();
+    _dvpoRows=(j&&j.rows)||[];
+    if(_j&&typeof _Jok==='function') _Jok(_j, `${_dvpoRows.length}건`);
+    const info=document.getElementById('dvpo-info'); if(info) info.textContent=`총 ${_dvpoRows.length}건`+(j&&j.error?' (조회실패—캐시)':'');
+    dvpoRender();
+  }catch(e){
+    if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
+    list.innerHTML=`<div style="padding:16px;background:#fee2e2;border-radius:8px;color:#991b1b;">❌ 조회 실패: ${esc(e.message)}<br><small>서버(${SERVER}) 연결 확인</small></div>`;
+  }
+}
+function dvpoRender(){
+  const list=document.getElementById('dvpo-list'); if(!list) return;
+  const kw=((document.getElementById('dvpo-search')||{}).value||'').trim().toLowerCase();
+  let rows=_dvpoRows.slice();
+  // 관리자권한 등록 프로젝트만 (항상)
+  if(typeof pInProj==='function'){ try{ rows=rows.filter(r=>pInProj({pjt_no:r.pjt_no, project_code:r.pjt_no})); }catch(e){} }
+  if(kw) rows=rows.filter(r=>[r.po_no,r.cust_name,r.pjt_no,r.pjt_name,r.item_name,r.item_no].some(v=>String(v||'').toLowerCase().includes(kw)));
+  rows.sort((a,b)=>String(b.po_no||'').localeCompare(String(a.po_no||'')));
+  if(!rows.length){ list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:24px;">발주 없음 (관리자 등록 프로젝트 기준)</div>'; return; }
+  let h=`<table class="acc-table" style="width:100%;font-size:12.5px;"><thead><tr style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+    <th style="text-align:left;">발주번호</th><th>발주일</th><th style="text-align:left;">거래처</th><th>프로젝트</th>
+    <th style="text-align:left;">대표품목</th><th class="r">수량</th><th>상태</th></tr></thead><tbody>`;
+  rows.slice(0,300).forEach(r=>{
+    const st=String(r.status||'').trim();
+    const stColor=/완료/.test(st)?'#16a34a':(/작성/.test(st)?'#7c3aed':(/취소|반려|중단/.test(st)?'#dc2626':'#2563eb'));
+    h+=`<tr style="cursor:pointer;border-top:1px solid #eef2f7;" ondblclick="dvpoOpenDelivery('${esc(String(r.po_no||'')).replace(/'/g,'')}')" title="더블클릭 → 납품입력(생성) → 원재료/연구비 납품확인">
+      <td style="text-align:left;font-family:monospace;color:#0f4c81;font-weight:700;">${esc(r.po_no||'-')}</td>
+      <td>${esc(r.po_date||'-')}</td>
+      <td style="text-align:left;">${esc(r.cust_name||'-')}</td>
+      <td>${esc(r.pjt_no||'-')}</td>
+      <td style="text-align:left;">${esc(r.item_name||'-')}<div style="font-size:10.5px;color:#94a3b8;font-family:monospace;">${esc(r.item_no||'')}</div></td>
+      <td class="r">${(Number(r.qty)||0).toLocaleString()}</td>
+      <td style="color:${stColor};font-weight:700;">${esc(st||'-')}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  list.innerHTML=h;
+}
+// 발주 더블클릭 → 납품입력 모달 (납품일/수량/부서/담당자) → 원재료/연구비 저장
+function dvpoOpenDelivery(poNo){
+  const row=_dvpoRows.find(r=>String(r.po_no)===String(poNo)); if(!row){ if(typeof toast==='function') toast('발주를 찾을 수 없음','bad'); return; }
+  let ov=document.getElementById('dvpoDelvOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='dvpoDelvOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:1000090;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;';
+  const today=new Date().toISOString().slice(0,10);
+  ov.innerHTML=`<div style="width:min(560px,94vw);background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f4c81;color:#fff">
+      <b>🚚 납품입력 — 발주 ${esc(row.po_no)}</b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('dvpoDelvOv').remove()">✕</span></div>
+    <div style="padding:16px 18px;">
+      <div style="font-size:12.5px;color:#475569;margin-bottom:14px;line-height:1.7;">
+        거래처 <b>${esc(row.cust_name||'-')}</b> · 프로젝트 <b>${esc(row.pjt_no||'-')}</b><br>
+        대표품목 <b>${esc(row.item_name||'-')}</b> · 발주수량 <b>${(Number(row.qty)||0).toLocaleString()}</b> · 상태 <b>${esc(row.status||'-')}</b></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:3px;">납품일자</label>
+          <input type="date" id="dvpo-delv-date" value="${today}" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;"></div>
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:3px;">납품수량</label>
+          <input type="number" id="dvpo-delv-qty" value="${Number(row.qty)||0}" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;text-align:right;"></div>
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:3px;">납품부서</label>
+          <input type="text" id="dvpo-delv-dept" value="경영전략본부" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;"></div>
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:3px;">납품담당자</label>
+          <input type="text" id="dvpo-delv-emp" value="${esc(row.emp_name||'성백훈')}" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;"></div>
+      </div>
+      <div style="font-size:11.5px;color:#94a3b8;margin-bottom:14px;">납품 생성(save_delivery) 후 선택한 분류로 납품확인까지 자동 진행됩니다. 작업큐에서 진행상황 확인.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('dvpoDelvOv').remove()" style="padding:9px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;">취소</button>
+        <button onclick="dvpoDeliver('${esc(String(row.po_no||'')).replace(/'/g,'')}','raw')" style="padding:9px 18px;border:none;border-radius:8px;background:#0f766e;color:#fff;font-weight:700;cursor:pointer;">📦 원재료로 저장</button>
+        <button onclick="dvpoDeliver('${esc(String(row.po_no||'')).replace(/'/g,'')}','research')" style="padding:9px 18px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;cursor:pointer;">🧪 연구비로 저장</button>
+      </div>
+    </div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+// 납품 생성(save_delivery) → 분류별 납품확인(원재료=동기 / 연구비=비동기 잡 폴링)
+async function dvpoDeliver(poNo, direction){
+  const row=_dvpoRows.find(r=>String(r.po_no)===String(poNo))||{};
+  const proj=row.pjt_no||'';
+  const delvDate=((document.getElementById('dvpo-delv-date')||{}).value||'').replace(/-/g,'');
+  const qty=parseFloat((document.getElementById('dvpo-delv-qty')||{}).value)||Number(row.qty)||0;
+  const dept=(document.getElementById('dvpo-delv-dept')||{}).value||'경영전략본부';
+  const emp=(document.getElementById('dvpo-delv-emp')||{}).value||'';
+  const dirKo=direction==='research'?'연구비':'원재료';
+  if(!confirm(`발주 ${poNo}\n납품 생성 후 [${dirKo}]로 납품확인까지 진행할까요?`)) return;
+  const ov=document.getElementById('dvpoDelvOv'); if(ov) ov.remove();
+  const _j=(typeof _J==='function')?_J(`납품+${dirKo}: ${poNo}`):null;
+  if(typeof toast==='function') toast(`납품 생성 중… ${poNo} (영림원, ~30초)`,'ok');
+  try{
+    // 1) 납품 생성
+    const sr=await fetch(`${SERVER}/api/erp/save_delivery`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({po_no:poNo, delv_date:delvDate, dept_seq:3, dept_name:dept, emp_seq:49, emp_name:emp, remark:'', items:[{qty}]})});
+    const sd=await sr.json();
+    if(!sd.success){ throw new Error(sd.message||sd.error||'납품 생성 실패'); }
+    const delvNo=sd.delv_no||'';
+    if(_j&&typeof _jobUpdate==='function') _jobUpdate(_j,'running',`납품 ${delvNo} 생성 → ${dirKo} 확인 중`);
+    if(typeof toast==='function') toast(`납품 ${delvNo} 생성됨 → ${dirKo} 납품확인 중…`,'ok');
+    // 2) 분류별 납품확인
+    if(direction==='research'){
+      const rr=await fetch(`${SERVER}/api/erp/delivery-confirm-research`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({delv_no:delvNo, project:proj, items:null, direction:'research'})});
+      const rj=await rr.json();
+      if(!rj.job_id){ throw new Error(rj.error||rj.message||'연구비 확인 시작 실패'); }
+      const t0=Date.now(), maxMs=20*60*1000;
+      while(Date.now()-t0<maxMs){
+        await new Promise(res=>setTimeout(res,4000));
+        let s; try{ const sr2=await fetch(`${SERVER}/api/erp/delivery-confirm-research/status/${rj.job_id}`); s=await sr2.json(); }catch(e){ continue; }
+        if(s.message && _j && typeof _jobUpdate==='function') _jobUpdate(_j,'running',s.message);
+        if(s.status==='done'||s.status==='fail'){
+          const res=s.result||{};
+          if(s.status==='done' && res.success){ if(_j&&typeof _Jok==='function') _Jok(_j,`${delvNo} · 연구비 ${res.converted||0}/${res.rows||0}`); if(typeof toast==='function') toast(`✅ 납품+연구비 완료 — ${delvNo}`,'ok'); }
+          else { const em=res.message||res.error||s.message||'실패'; if(_j&&typeof _Jno==='function') _Jno(_j,em); if(typeof toast==='function') toast(`❌ ${em}`,'bad'); }
+          break;
+        }
+      }
+    }else{
+      const rr=await fetch(`${SERVER}/api/erp/delivery-confirm-raw`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({delv_no:delvNo, project:proj})});
+      const rj=await rr.json();
+      if(rj.success){ if(_j&&typeof _Jok==='function') _Jok(_j,`${delvNo} · 원재료`); if(typeof toast==='function') toast(`✅ 납품+원재료 완료 — ${rj.delv_no||delvNo}`,'ok'); }
+      else { const em=rj.message||rj.error||'실패'; if(_j&&typeof _Jno==='function') _Jno(_j,em); if(typeof toast==='function') toast(`❌ ${em}`,'bad'); }
+    }
+    // STEP 2/3 갱신 + 발주조회 새로고침
+    if(typeof dvnewLoadItems==='function') setTimeout(dvnewLoadItems,600);
+    if(typeof dvpoLoad==='function') setTimeout(()=>dvpoLoad(false),800);
+  }catch(e){
+    if(_j&&typeof _Jno==='function') _Jno(_j, e.message);
+    if(typeof toast==='function') toast('오류: '+e.message,'bad');
+  }
+}
 // ── 납품품목 조회 (프로젝트구매납품품목조회) ──
 let _dvnewItems = [];      // 서버 조회 결과 (행 단위)
 let _dvnewSelDelv = null;  // 선택된 납품번호
