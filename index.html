@@ -12907,6 +12907,17 @@ function wpMoveNode(projId, dragId, targetId, pos){
 function wpDetailHtml(projId, n, ind){
   const canEdit = wpIsPM() || (n.owner_email && n.owner_email===wpMeEmail()) || !n.owner_email;
   const files=(n.files||[]).map((f,i)=>{
+    // 클라우디움 폴더 연결 — 그 폴더의 현재 파일을 실시간 조회해 펼침
+    if(f.kind==='clmfolderlink'){
+      const phId=`wp-clmlink-${n.id}-${i}`;
+      // 렌더 후 비동기로 채움 (wpLoadClmLinkFiles)
+      setTimeout(()=>{ try{ wpLoadClmLinkFiles(projId, n.id, i, f.oid); }catch(_){} }, 30);
+      return `<div class="wp-fchip" style="background:#fef9e7;border-color:#fde68a">
+        <span>🔗</span><span style="flex:1">${esc(f.name)} <span style="font-size:10px;color:#92660b">(연결된 폴더)</span></span>
+        <span onclick='wpClmOpenFolder("${esc(f.oid)}")' style="cursor:pointer;color:var(--p);font-size:11px" title="탐색기에서 폴더 열기">📂 열기</span>
+        ${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)" title="연결 해제">✕</span>`:""}
+        </div><div id="${phId}" style="margin:2px 0 4px 18px;display:flex;flex-direction:column;gap:3px"><span style="font-size:11px;color:var(--t3)">불러오는 중…</span></div>`;
+    }
     // 클라우디움 첨부 — 다운로드 아니라 "열기"(폴더/파일). github.io 에서도 PNA 통과(iframe).
     if(f.kind==='cloudium'){
       const _cm=JSON.stringify(f).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
@@ -12999,7 +13010,7 @@ function wpDetailHtml(projId, n, ind){
     ${editPanel}
     <div class="wp-sec">📎 첨부파일</div>
     <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">${files}</div>
-    ${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="wpClmOpenUpload('${projId}','${n.id}')" title="클라우디움 해당 폴더를 탐색기로 열어 직접 올리기">⬆ 새 업로드(클라우디움)</button><button class="btn sm" onclick="wpFileModalClm('${projId}','${n.id}')" title="클라우디움에서 폴더/파일 첨부">📁 클라우디움 첨부</button></div>`:""}
+    ${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="wpClmOpenUpload('${projId}','${n.id}')" title="클라우디움 해당 폴더를 탐색기로 열어 직접 올리기">⬆ 새 업로드(클라우디움)</button><button class="btn sm" onclick="wpFileModalClm('${projId}','${n.id}')" title="클라우디움에서 폴더/파일 첨부">📁 클라우디움 첨부</button><button class="btn sm" onclick="wpClmLinkFolder('${projId}','${n.id}')" title="폴더를 연결하면 그 폴더의 파일이 항상 최신으로 표시됩니다">🔗 폴더 연결</button></div>`:""}
     ${attachPanel}
     ${purLinkHtml}
     <div class="wp-sec">🕘 수정 이력</div>
@@ -14007,6 +14018,7 @@ function wpRepFileRemove(id, idx){
 }
 
 let _wpFm={projId:"",id:"",root:"sp",path:"",driveId:""};
+let _wpFmLinkMode=false;   // 폴더 연결 모드 (wpClmBrowse 에 '연결' 버튼 표시)
 function wpFileModal(projId, id){
   _wpFm={projId, id, root:"sp", path:"", driveId:""};
   document.getElementById("wpFmOv")?.remove();
@@ -14071,6 +14083,7 @@ async function wpClmOpenUpload(projId, id){
   }catch(e){ toast('폴더 열기 실패: '+e.message,'bad'); }
 }
 async function wpFileModalClm(projId, id){
+  _wpFmLinkMode=false;   // 일반 첨부 진입 (wpClmLinkFolder 가 이후 다시 켬)
   wpFileModal(projId, id);
   const sel=document.getElementById('wpFm-root');
   if(sel){ sel.value='clm'; }
@@ -14242,17 +14255,19 @@ async function wpClmBrowse(oid){
     // 현재 폴더 자체를 첨부
     {
       const meta=JSON.stringify({name:nm, kind:'cloudium', oid, parentOid:oid, isFolder:true}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+      const linkBtn=_wpFmLinkMode?`<span style="font-size:11px;color:#b45309;cursor:pointer;font-weight:600" onclick='wpClmLinkPick("${oid}","${esc(nm).replace(/'/g,"\\'")}")' title="이 폴더를 연결 (파일 항상 최신 표시)">🔗 이 폴더 연결</span>`:'';
       h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9;background:#f0f9ff">
         <span style="flex:1;display:flex;gap:8px;align-items:center"><span>📌</span><span style="flex:1">이 폴더 「${esc(nm)}」</span></span>
         ${isRoot?'':`<span style="font-size:13px;cursor:pointer;color:#64748b" title="이 폴더를 탐색기로 열기 (자료 직접 올리기)" onclick="wpClmOpenFolderOid('${oid}')">🗄️</span>`}
-        <span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})'>+ 폴더 첨부</span></div>`;
+        ${linkBtn||`<span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})'>+ 폴더 첨부</span>`}</div>`;
     }
     folders.forEach(f=>{
       const meta=JSON.stringify({name:f.name, kind:'cloudium', oid:f.oid, parentOid:f.oid, isFolder:true}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+      const linkBtn=_wpFmLinkMode?`<span style="font-size:11px;color:#b45309;cursor:pointer;font-weight:600" onclick='wpClmLinkPick("${f.oid}","${esc(f.name).replace(/'/g,"\\'")}")' title="이 폴더를 연결">🔗 연결</span>`:`<span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})' title="이 폴더를 작업에 첨부">+ 첨부</span>`;
       h+=`<div class="wpfm-row" style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f6f7f9">
         <span style="cursor:pointer;flex:1;display:flex;gap:8px;align-items:center" onclick="wpClmBrowse('${f.oid}')"><span>📂</span><span>${esc(f.name)}</span></span>
         <span style="font-size:13px;cursor:pointer;color:#64748b" title="이 폴더를 탐색기로 열기 (자료 직접 올리기)" onclick="event.stopPropagation();wpClmOpenFolderOid('${f.oid}')">🗄️</span>
-        <span style="font-size:11px;color:var(--p);cursor:pointer" onclick='wpClmPick(${meta})' title="이 폴더를 작업에 첨부">+ 첨부</span></div>`;
+        ${linkBtn}</div>`;
     });
     docs.forEach(f=>{
       const meta=JSON.stringify({name:f.name, kind:'cloudium', oid:f.oid, parentOid:oid, isFolder:false,
@@ -14272,6 +14287,43 @@ function wpClmOpenFolderOid(oid){
   clmAgentCall('openFolderByExplorer',{folderOID:oid,clientType:'W'},(data)=>{
     if(data&&data._neterr) toast('에이전트 연결 실패 — cloudium 앱 확인','warn');
   });
+}
+// 폴더 연결: 클라우디움 첨부 모달을 '연결' 모드로 열기 (폴더 선택 → n.files 에 clmfolderlink 저장)
+async function wpClmLinkFolder(projId, id){
+  await wpFileModalClm(projId, id);   // 같은 진입(그 업무 폴더로), 단 연결 모드
+  _wpFmLinkMode=true;                  // 모달 띄운 뒤 연결 모드 on → 다시 그림
+  try{ if(_wpFm.clmOid) await wpClmBrowse(_wpFm.clmOid); }catch(_){}
+}
+// 폴더를 업무에 연결 (clmfolderlink) — 그 폴더 파일이 항상 최신 표시
+function wpClmLinkPick(oid, name){
+  const {projId, id}=_wpFm;
+  const n=wpFind(projId, id); if(!n){ toast('작업을 찾을 수 없습니다','bad'); return; }
+  n.files=n.files||[];
+  if(n.files.some(x=>x.kind==='clmfolderlink' && x.oid===oid)){ toast('이미 연결된 폴더','bad'); return; }
+  n.files.push({kind:'clmfolderlink', oid, name});
+  wpLog(n, `폴더 연결: ${name}`);
+  wpAutoActive(n, '폴더 연결');
+  wpSaveProject(projId);
+  document.getElementById('wpFmOv')?.remove();
+  _wpFmLinkMode=false;
+  wpRender();
+  toast(`폴더 연결됨: ${name} — 이 폴더의 파일이 항상 최신으로 표시됩니다`,'ok');
+}
+// 연결된 폴더의 현재 파일을 실시간 조회해 첨부 목록 플레이스홀더에 채움
+async function wpLoadClmLinkFiles(projId, id, idx, oid){
+  const ph=document.getElementById(`wp-clmlink-${id}-${idx}`); if(!ph) return;
+  try{
+    const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`);
+    if(!d||!d.ok){ ph.innerHTML=`<span style="font-size:11px;color:var(--r)">목록 조회 실패</span>`; return; }
+    const docs=(d.items||[]).filter(x=>!x.isFolder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+    if(!docs.length){ ph.innerHTML=`<span style="font-size:11px;color:var(--t3)">(폴더에 파일 없음)</span>`; return; }
+    ph.innerHTML=docs.map(f=>{
+      const _cm=JSON.stringify({name:f.name,kind:'cloudium',oid:f.oid,parentOid:oid,isFolder:false,fileOID:f.fileOID||'',storageFileID:f.storageFileID||'',fileName:f.fileName||f.name||'',fdcs:f.fdcs||''}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+      return `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2)">
+        <span>📄</span><span style="flex:1">${esc(f.name)}</span>
+        <span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--p);font-size:11px" title="파일 열기">열기</span></div>`;
+    }).join('');
+  }catch(e){ ph.innerHTML=`<span style="font-size:11px;color:var(--r)">${esc(e.message)}</span>`; }
 }
 // cloudium 항목을 작업 n.files 에 추가 (영구)
 function wpClmPick(f){
