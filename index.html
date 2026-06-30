@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v465</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v466</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -2600,15 +2600,23 @@ async function doLogin(){
     if(isMobileEnv()){
       await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
     }else{
-      const r=await app.loginPopup({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
-      await _checkAcct(r.account);
+      try{
+        const r=await app.loginPopup({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+        await _checkAcct(r.account);
+      }catch(pe){
+        // 팝업 차단/실패(예: 앱 웹뷰) → redirect 로 폴백
+        await app.loginRedirect({scopes:["User.Read","Sites.ReadWrite.All","Files.ReadWrite.All"],prompt:"select_account"});
+      }
     }
   }catch(e){ err.textContent="로그인 실패: "+(e.message||e); btn.disabled=false; }
 }
 
+function isTauriEnv(){
+  try{ return !!(window.__TAURI_INTERNALS__ || window.__TAURI__ || window.isTauri) || /Tauri|EnjetTauri/i.test(navigator.userAgent||''); }catch(_){ return false; }
+}
 function isMobileEnv(){
   const ua=navigator.userAgent||'';
-  return /Android|iPhone|iPad|iPod|Mobile|wv/i.test(ua) || window.innerWidth<700;
+  return isTauriEnv() || /Android|iPhone|iPad|iPod|Mobile|wv/i.test(ua) || window.innerWidth<700;
 }
 
 async function tryAutoLogin(){
@@ -18954,7 +18962,7 @@ async function loadTicMembers(){
   const scopes=["GroupMember.Read.All"];
   let token;
   try{ const r=await app.acquireTokenSilent({scopes,account:acct}); token=r.accessToken; }
-  catch(e){ const r=await app.acquireTokenPopup({scopes}); token=r.accessToken; }
+  catch(e){ if(isMobileEnv()){ await app.acquireTokenRedirect({scopes,account:acct}); throw new Error("권한 재요청 중…"); } const r=await app.acquireTokenPopup({scopes}); token=r.accessToken; }
   const out=[];
   let url=`https://graph.microsoft.com/v1.0/groups/${TIC_GROUP_ID}/members?$select=id,displayName,mail,userPrincipalName&$top=100`;
   while(url){
