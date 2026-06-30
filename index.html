@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v459</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v460</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4360,7 +4360,7 @@ function taRender(){
       const note=(it.note||'').trim();
       const mv=TA_MOVED[it.id];
       const movedBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
-      return `<tr class="exp-row" data-aid="${esc(it.id)}" style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}">
+      return `<tr class="exp-row" data-aid="${esc(it.id)}" oncontextmenu="atMenu(event,'ta',${realIdx},'${esc(it.id)}')" style="${hidden?'opacity:.5':''}${_taSel.has(it.id)?'background:var(--pd)':''}">
         <td style="text-align:center"><input type="checkbox" ${_taSel.has(it.id)?'checked':''} onclick="taToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(taName(it))}${movedBadge}${note?`<div class="ta-note">💬 ${esc(note)}</div>`:''}</td>
@@ -4672,10 +4672,11 @@ function atSearchInput(){
   if($('maSearch')) $('maSearch').value=v;
   if($('taSearch')) $('taSearch').value=v;
   if(v){ atUnifiedSearch(v); }
-  else { // 검색 비우면 통합뷰 끄고 현재 탭 복귀
-    const u=$('atUnified'); if(u) u.style.display='none';
+  else { // 검색 비우면 통합뷰 완전 제거 + 현재 탭 원상복귀 + 재렌더
+    const u=$('atUnified'); if(u) u.remove();
     const isTeams=AT_MODE==='teams';
-    $('maList').style.display=isTeams?'none':''; $('taList').style.display=isTeams?'':'none';
+    if($('maList')) $('maList').style.display=isTeams?'none':'';
+    if($('taList')) $('taList').style.display=isTeams?'':'none';
     if(isTeams) taRender(); else maRender();
   }
 }
@@ -4693,7 +4694,7 @@ function atUnifiedSearch(q){
     const hay=((it.name||'')+' '+(it.subject||'')+' '+(it.fromName||'')+' '+(it.toName||'')).toLowerCase();
     if(!hay.includes(ql)) return;
     const realIdx=(MA_DATA.items||[]).indexOf(it);
-    rows.push({src:it.folder==='sent'?'보낸편지함':'받은편지함', srcColor:it.folder==='sent'?'#a16207':'#1d4ed8',
+    rows.push({kind:'ma', idx:realIdx, id:it.id, src:it.folder==='sent'?'보낸편지함':'받은편지함', srcColor:it.folder==='sent'?'#a16207':'#1d4ed8',
       icon:taIcon(it.name), name:maName(it), sub:it.subject||'', person:it.folder==='sent'?(it.toName||'?'):(it.fromName||'?'),
       when:it.created, moved:MA_MOVED[it.id]||'', open:`maOpen(${realIdx})`, move:`maMove(${realIdx})`});
   });
@@ -4703,7 +4704,7 @@ function atUnifiedSearch(q){
     const hay=((it.name||'')+' '+(it.from||it.author||'')+' '+(it.channel||'')).toLowerCase();
     if(!hay.includes(ql)) return;
     const realIdx=(TA_DATA.items||[]).indexOf(it);
-    rows.push({src:'팀즈채팅방', srcColor:'#7c3aed', icon:taIcon(it.name), name:it.name||'(이름없음)', sub:it.channel||it.from||'',
+    rows.push({kind:'ta', idx:realIdx, id:it.id, src:'팀즈채팅방', srcColor:'#7c3aed', icon:taIcon(it.name), name:it.name||'(이름없음)', sub:it.channel||it.from||'',
       person:it.from||it.author||'?', when:it.created||it.date, moved:TA_MOVED&&TA_MOVED[it.id]||'',
       open:`taOpen(${realIdx})`, move:`taMove(${realIdx})`});
   });
@@ -4712,7 +4713,7 @@ function atUnifiedSearch(q){
   box.innerHTML=`<div style="font-size:12px;color:var(--t3);margin-bottom:8px">🔍 통합검색 "${esc(q)}" — ${rows.length}건 (받은·보낸·팀즈)</div>
   <table class="ta-table"><thead><tr><th style="width:42px"></th><th>파일명 / 제목</th><th style="width:96px">위치</th><th style="width:110px">보낸/작성</th><th style="width:120px">일시</th><th style="width:160px">작업</th></tr></thead><tbody>
   ${rows.map(r=>{ const dt=r.when?new Date(r.when).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
-    return `<tr>
+    return `<tr oncontextmenu="atMenu(event,'${r.kind}',${r.idx},'${esc(String(r.id||''))}')">
       <td style="text-align:center;font-size:18px">${r.icon}</td>
       <td class="ta-name">${esc(r.name)}${r.moved?`<span class="ta-moved">✅ ${esc(r.moved)} 이동완료</span>`:''}${r.sub?`<div class="ta-note">✉ ${esc(r.sub)}</div>`:''}</td>
       <td><span style="font-size:11px;font-weight:600;color:${r.srcColor};background:${r.srcColor}1a;padding:2px 7px;border-radius:99px">${r.src}</span></td>
@@ -4720,6 +4721,7 @@ function atUnifiedSearch(q){
       <td style="color:var(--t3);font-size:12px">${dt}</td>
       <td><div style="display:flex;gap:5px;flex-wrap:wrap">
         <button class="btn sm" onclick="${r.open}" title="열기">👁</button>
+        <button class="btn sm" onclick="atMenu(event,'${r.kind}',${r.idx},'${esc(String(r.id||''))}');atAct('download')" title="다운로드">⬇</button>
         <button class="btn sm ${r.moved?'':'primary'}" onclick="${r.move}">${r.moved?'📁 다시 이동':'📁 이동'}</button>
       </div></td>
     </tr>`; }).join('')}</tbody></table>`;
@@ -4770,7 +4772,7 @@ function atTrashRender(){
       const openFn=r.kind==='ma'?`maOpen(${r.idx})`:`taOpen(${r.idx})`;
       const restoreFn=r.kind==='ma'?`maUnhide('${esc(r.id)}')`:`taUnhide('${esc(r.id)}')`;
       const delFn=r.kind==='ma'?`maDelete(${r.idx})`:`taDelete(${r.idx})`;
-      return `<tr>
+      return `<tr oncontextmenu="atMenu(event,'${r.kind}',${r.idx},'${esc(String(r.id||''))}')">
         <td style="text-align:center;font-size:18px">${r.icon}</td>
         <td class="ta-name">${esc(r.name)}${r.sub?`<div class="ta-note">✉ ${esc(r.sub)}</div>`:''}</td>
         <td><span style="font-size:11px;font-weight:600;color:${r.srcColor};background:${r.srcColor}1a;padding:2px 7px;border-radius:99px">${r.src}</span></td>
@@ -6457,7 +6459,7 @@ function maRender(){
       const mv=MA_MOVED[it.id];
       const mvBadge=mv?`<span class="ta-moved">✅ ${esc(mv)} 이동완료</span>`:'';
       const person=MA_FOLDER==='inbox'?(it.fromName||'?'):(it.toName||'?');
-      return `<tr class="exp-row" data-aid="${esc(it.id)}" style="${hidden?'opacity:.5':''}${_maSel.has(it.id)?'background:var(--pd)':''}">
+      return `<tr class="exp-row" data-aid="${esc(it.id)}" oncontextmenu="atMenu(event,'ma',${realIdx},'${esc(it.id)}')" style="${hidden?'opacity:.5':''}${_maSel.has(it.id)?'background:var(--pd)':''}">
         <td style="text-align:center"><input type="checkbox" ${_maSel.has(it.id)?'checked':''} onclick="maToggleSel('${esc(it.id)}',this.checked)"></td>
         <td style="text-align:center;font-size:18px">${taIcon(it.name)}</td>
         <td class="ta-name">${esc(maName(it))}${mvBadge}${it.subject?`<div class="ta-note">✉ ${esc(it.subject)}</div>`:''}</td>
