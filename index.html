@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v448</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v454</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8055,19 +8055,24 @@ async function anCatChange(p,fid,sel){
   }
   await anField(p,fid,'category',v);
 }
-function anPreview(p,fid){
+async function anPreview(p,fid){
   const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
-  if(canPreview(d.fileName)){ previewInModal({name:d.fileName, itemId:fid}); }
+  if(canPreview(d.fileName)){
+    const _j=_J(`미리보기: ${(d.fileName||'').slice(0,24)}`);
+    try{ await previewInModal({name:d.fileName, itemId:fid}); _Jok(_j,'열림'); }
+    catch(e){ _Jno(_j, e.message||'실패'); }
+  }
   else if(d.url) window.open(d.url,'_blank');
 }
 async function anDownload(p,fid){
   const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d) return;
+  const _j=_J(`다운로드: ${(d.fileName||'').slice(0,24)}`);
   try{
     const url=await spDownloadUrl(fid);
-    if(url){ window.open(url,'_blank'); }
-    else if(d.url){ window.open(d.url,'_blank'); }
-    else toast('다운로드 링크 없음','bad');
-  }catch(e){ if(d.url) window.open(d.url,'_blank'); else toast('다운로드 실패: '+e.message,'bad'); }
+    if(url){ window.open(url,'_blank'); _Jok(_j,'완료'); }
+    else if(d.url){ window.open(d.url,'_blank'); _Jok(_j,'완료'); }
+    else { _Jno(_j,'링크 없음'); toast('다운로드 링크 없음','bad'); }
+  }catch(e){ if(d.url){ window.open(d.url,'_blank'); _Jok(_j,'완료'); } else { _Jno(_j,e.message); toast('다운로드 실패: '+e.message,'bad'); } }
 }
 async function anMemo(p,fid,val){ return anField(p,fid,'memo',val); }
 async function anField(p,fid,key,val){
@@ -8079,20 +8084,22 @@ async function anField(p,fid,key,val){
 // 수동 업로드 (현재 선택된 고객사 폴더로, 없으면 _미분류)
 async function anUpload(p,files){
   if(!files||!files.length) return;
+  const _j=_J(`업로드: ${files.length}건`);
   const root=DOC_MAP[p];
   const cust=(AN_FILTER[p]?.customer)||'_미분류';
   const date=new Date().toISOString().slice(0,10);
   toast(`${files.length}개 업로드 중…`);
-  let ok=0;
+  let ok=0, fail=0;
   for(const f of files){
     try{
       const path=`${root}/${cust}/${f.name}`;
       const buf=await f.arrayBuffer();
       await spUploadFile(path, new Blob([buf]), f.type||'application/octet-stream');
       ok++;
-    }catch(e){ console.warn('업로드 실패',f.name,e.message); }
+    }catch(e){ fail++; console.warn('업로드 실패',f.name,e.message); }
   }
-  toast(`${ok}개 업로드 완료 · [✨ 미분석 분석]으로 분석`,'ok');
+  if(fail) _Jno(_j, `${ok}건 완료 · ${fail}건 실패`); else _Jok(_j, `${ok}건 완료`);
+  toast(`${ok}개 업로드 완료${fail?` · 실패 ${fail}`:''} · [✨ 미분석 분석]으로 분석`,'ok');
   renderDocPage(p);
 }
 let _anCtx=null;
@@ -8152,8 +8159,26 @@ async function extractTextBrowser(f){
     if(!window.XLSX) throw new Error("SheetJS 미로드");
     const buf=await blob.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
+    // 다중 시트(옛 견적이 탭으로 쌓인 양식) 대응 → 첫 시트가 옛 템플릿이면 엉뚱하게 분석됨.
+    // 견적No/견적일이 가장 최근인 시트(=현재 견적)를 우선 선택.
+    const sheets=wb.SheetNames.map(sn=>{
+      const csv=XLSX.utils.sheet_to_csv(wb.Sheets[sn]||{});
+      const flat=csv.replace(/\s+/g,' ');
+      let key='';
+      let m=flat.match(/견\s*적\s*N[o0]\s*[:：]?\s*((?:20)\d{6})/i);
+      if(!m){ const d=flat.match(/((?:20)\d{2})\s*[년.\-/ ]\s*(\d{1,2})\s*[월.\-/ ]\s*(\d{1,2})/); if(d) m=[d[0], `${d[1]}${String(d[2]).padStart(2,'0')}${String(d[3]).padStart(2,'0')}`]; }
+      if(m) key=m[1];
+      const looksQuote=/견적|품\s*명|품\s*번|단\s*가|합계금액/.test(flat);
+      const len=csv.replace(/[\s,]/g,'').length;
+      return {sn, csv, key, len, looksQuote};
+    }).filter(s=>s.len>0);
+    let primary=null;
+    const dated=sheets.filter(s=>s.looksQuote && s.key);
+    if(dated.length){ dated.sort((a,b)=> b.key.localeCompare(a.key) || (b.sn==='견적서'?1:0)-(a.sn==='견적서'?1:0)); primary=dated[0]; }
+    if(!primary){ const qs=sheets.filter(s=>s.looksQuote); if(qs.length){ qs.sort((a,b)=>b.len-a.len); primary=qs[0]; } }
+    if(!primary && sheets.length){ sheets.sort((a,b)=>b.len-a.len); primary=sheets[0]; }
     let text='';
-    wb.SheetNames.slice(0,3).forEach(sn=>{ text+=`[시트:${sn}]\n`+XLSX.utils.sheet_to_csv(wb.Sheets[sn]).slice(0,3000)+'\n'; });
+    if(primary) text+=`[시트:${primary.sn}]\n`+primary.csv.slice(0,6000)+'\n';
     return text.slice(0,8000);
   }
   return '';
@@ -8455,14 +8480,16 @@ ${text.slice(0,6000)}`;
 }
 async function anReanalyze(p,fid){
   const d=AN_DATA[p]&&AN_DATA[p][fid]; if(!d){ toast('데이터 없음','bad'); return; }
+  const _j=_J(`재분석: ${(d.fileName||'').slice(0,24)}`);
   toast(`"${(d.fileName||'').slice(0,20)}" 재분석 중…`);
   try{
     const f={id:fid, name:d.fileName, url:d.url, webUrl:d.url, customer:d.customer, folder:d.folder, date:d.date};
     await _analyzeOne(p,f);
     await spPutJson(`${DOC_MAP[p]}/_analysis.json`, AN_DATA[p]);
     anRender(p);
+    _Jok(_j,'완료');
     toast('재분석 완료','ok');
-  }catch(e){ toast('재분석 실패: '+e.message,'bad'); }
+  }catch(e){ _Jno(_j, e.message); toast('재분석 실패: '+e.message,'bad'); }
 }
 function _vendorPrompt(f, text){
   return `다음은 거래처 관련 문서(사업자등록증 / 통장사본 등)에서 추출한 텍스트다. 라벨과 값이 줄바꿈·공백·표로 흩어져 있어도 반드시 연결해서 찾아라. 아래 항목을 JSON으로만 답하라(설명·마크다운 없이).
