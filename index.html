@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v455</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v456</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -14578,21 +14578,59 @@ function wpClmLinkPick(oid, name){
   wpRender();
   toast(`폴더 연결됨: ${name} — 이 폴더의 파일이 항상 최신으로 표시됩니다`,'ok');
 }
-// 연결된 폴더의 현재 파일을 실시간 조회해 첨부 목록 플레이스홀더에 채움
+// 연결된 폴더의 현재 파일을 실시간 조회 (하위폴더까지 재귀, 폴더트리 그대로 + 접기/펼치기)
+let _wpClmSeq=0;
 async function wpLoadClmLinkFiles(projId, id, idx, oid){
   const ph=document.getElementById(`wp-clmlink-${id}-${idx}`); if(!ph) return;
+  ph.innerHTML=`<span style="font-size:11px;color:var(--t3)">📂 폴더 불러오는 중…</span>`;
   try{
-    const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`);
-    if(!d||!d.ok){ ph.innerHTML=`<span style="font-size:11px;color:var(--r)">목록 조회 실패</span>`; return; }
-    const docs=(d.items||[]).filter(x=>!x.isFolder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
-    if(!docs.length){ ph.innerHTML=`<span style="font-size:11px;color:var(--t3)">(폴더에 파일 없음)</span>`; return; }
-    ph.innerHTML=docs.map(f=>{
-      const _cm=JSON.stringify({name:f.name,kind:'cloudium',oid:f.oid,parentOid:oid,isFolder:false,fileOID:f.fileOID||'',storageFileID:f.storageFileID||'',fileName:f.fileName||f.name||'',fdcs:f.fdcs||''}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-      return `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2)">
-        <span>📄</span><span style="flex:1">${esc(f.name)}</span>
-        <span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--p);font-size:11px" title="파일 열기">열기</span></div>`;
-    }).join('');
+    const tree=await _wpClmTree(oid, 0);
+    if(!tree.folders.length && !tree.files.length){ ph.innerHTML=`<span style="font-size:11px;color:var(--t3)">(폴더에 파일 없음)</span>`; return; }
+    ph.innerHTML=_wpClmTreeHtml(tree, oid);
   }catch(e){ ph.innerHTML=`<span style="font-size:11px;color:var(--r)">${esc(e.message)}</span>`; }
+}
+// 재귀 트리 수집: {folders:[{name,oid,sub}], files:[원본 항목]} (깊이 제한 6)
+async function _wpClmTree(oid, depth){
+  const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`);
+  if(!d||!d.ok) throw new Error('목록 조회 실패');
+  const items=d.items||[];
+  const folders=items.filter(x=>x.isFolder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  const files=items.filter(x=>!x.isFolder).sort((a,b)=>String(a.name).localeCompare(b.name,'ko'));
+  const out={folders:[], files};
+  for(const f of folders){
+    let sub={folders:[],files:[]};
+    if(depth<6){ try{ sub=await _wpClmTree(f.oid, depth+1); }catch(_){} }
+    out.folders.push({name:f.name, oid:f.oid, sub});
+  }
+  return out;
+}
+// 트리 HTML (폴더 접기/펼치기, 기본 펼침)
+function _wpClmTreeHtml(node, parentOid){
+  let h='';
+  for(const fol of node.folders){
+    const fid='clmt_'+(_wpClmSeq++);
+    const empty=!fol.sub.folders.length && !fol.sub.files.length;
+    const inner=empty?`<span style="font-size:11px;color:var(--t3)">(비어있음)</span>`:_wpClmTreeHtml(fol.sub, fol.oid);
+    h+=`<div style="margin:1px 0">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer;user-select:none" onclick="_wpClmToggle('${fid}',this)">
+        <span class="clm-caret" style="display:inline-block;width:11px;text-align:center;color:var(--t3)">▾</span>
+        <span>📁</span><span style="flex:1;font-weight:600">${esc(fol.name)}</span></div>
+      <div id="${fid}" style="margin-left:13px;border-left:1px solid #eef0f3;padding-left:7px">${inner}</div>
+    </div>`;
+  }
+  for(const f of node.files){
+    const _cm=JSON.stringify({name:f.name,kind:'cloudium',oid:f.oid,parentOid,isFolder:false,fileOID:f.fileOID||'',storageFileID:f.storageFileID||'',fileName:f.fileName||f.name||'',fdcs:f.fdcs||''}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+    h+=`<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2);margin:1px 0">
+      <span style="width:11px"></span><span>📄</span><span style="flex:1">${esc(f.name)}</span>
+      <span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--p);font-size:11px" title="파일 열기">열기</span></div>`;
+  }
+  return h;
+}
+function _wpClmToggle(fid, el){
+  const box=document.getElementById(fid); if(!box) return;
+  const hide=box.style.display!=='none';
+  box.style.display=hide?'none':'';
+  const car=el.querySelector('.clm-caret'); if(car) car.textContent=hide?'▸':'▾';
 }
 // cloudium 항목을 작업 n.files 에 추가 (영구)
 function wpClmPick(f){
