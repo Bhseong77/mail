@@ -14019,7 +14019,7 @@ function wpRepFileRemove(id, idx){
 
 let _wpFm={projId:"",id:"",root:"sp",path:"",driveId:""};
 let _wpFmLinkMode=false;   // 폴더 연결 모드 (wpClmBrowse 에 '연결' 버튼 표시)
-function wpFileModal(projId, id){
+function wpFileModal(projId, id, skipBrowse){
   _wpFm={projId, id, root:"sp", path:"", driveId:""};
   document.getElementById("wpFmOv")?.remove();
   const ov=document.createElement("div"); ov.id="wpFmOv";
@@ -14046,7 +14046,7 @@ function wpFileModal(projId, id){
     </div></div>`;
   ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
   document.body.appendChild(ov);
-  wpFmBrowse("");
+  if(!skipBrowse) wpFmBrowse("");
 }
 // 클라우디움 탭으로 바로 여는 진입점 (작업 상세의 '📁 클라우디움' 버튼)
 // role(직무) → 클라우디움 프로젝트 하위 폴더 매핑
@@ -14084,22 +14084,25 @@ async function wpClmOpenUpload(projId, id){
 }
 async function wpFileModalClm(projId, id){
   _wpFmLinkMode=false;   // 일반 첨부 진입 (wpClmLinkFolder 가 이후 다시 켬)
-  wpFileModal(projId, id);
+  wpFileModal(projId, id, true);   // skipBrowse: SP 루트 안 그림 (바로 클라우디움 진입)
   const sel=document.getElementById('wpFm-root');
   if(sel){ sel.value='clm'; }
   _wpFm.root='clm';
   // 그 업무의 role(+공정) 폴더 OID 로 바로 진입 (없으면 02.프로젝트 루트)
   try{
     const t=wpClmTargetPath(projId, id);
+    console.log('[wpClmTargetPath]', JSON.stringify(t));
     let oid=await techClmResolveOid(t.rel);
-    if(!oid && t.sub) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}/${t.sub}`);
-    if(!oid) oid=await techClmResolveOid(`02.프로젝트/${t.projCode}`);
+    console.log('[resolveOid rel]', t.rel, '→', oid);
+    if(!oid && t.sub){ oid=await techClmResolveOid(`02.프로젝트/${t.projCode}/${t.sub}`); console.log('[resolveOid sub]', `02.프로젝트/${t.projCode}/${t.sub}`, '→', oid); }
+    if(!oid){ oid=await techClmResolveOid(`02.프로젝트/${t.projCode}`); console.log('[resolveOid proj]', `02.프로젝트/${t.projCode}`, '→', oid); }
     if(oid){
       if(!CLM_TREE[oid]) CLM_TREE[oid]={item:{oid,name:(t.sub||t.projCode),isFolder:true},children:null,expanded:true};
       await wpClmBrowse(oid);
       return;
     }
-  }catch(_){}
+    console.warn('[wpFileModalClm] OID 못찾음 → 02.프로젝트 루트 폴백');
+  }catch(e){ console.error('[wpFileModalClm] 예외', e); }
   // 폴백: 02.프로젝트 루트
   wpFmRoot('clm');
 }
