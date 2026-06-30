@@ -7136,32 +7136,26 @@ async function ftAct(action){
     const clmOid=String(t.itemId||'').replace(/^CLM:/,'');
     if(action==='link'){
       try{
-        toast('내부 배포용 URL 생성 중… (탐색기 처리)');
+        toast('내부 배포용 URL 생성 중… (탐색기 처리, 몇 초 걸립니다)');
         const parentOid=t._clmParentOid||'';
-        // 조부모 OID + 부모폴더명 계산 (폴더 열기 URL 용)
-        // t.path = 파일이 든 폴더 경로 (예: 02.프로젝트/BR26002)
         let grandOid='', parentFolderName='';
         try{
           const segs=(t.path||'').split('/').filter(Boolean);
-          parentFolderName = segs[segs.length-1]||'';        // 부모폴더 이름 (BR26002)
-          const grandPath = segs.slice(0,-1).join('/');        // 조부모 경로 (02.프로젝트)
+          parentFolderName = segs[segs.length-1]||'';
+          const grandPath = segs.slice(0,-1).join('/');
           grandOid = grandPath ? (await techClmResolveOid(grandPath)) : '1PwNjUiWO2e';
         }catch(_){}
         const r=await clmApi('/api/cloudium/share_url_shell',{method:'POST',
           body:JSON.stringify({parentOID:parentOid, name:t.name,
             parentName:parentFolderName, grandparentOID:grandOid, grandparentName:parentFolderName})});
         if(!r||!r.ok){ toast('URL 생성 실패: '+((r&&r.msg)||''),'bad'); return; }
-        const baseName=(t.name||'').replace(/\.[^.]+$/,'');
-        const dl=r.downloadUrl||'', ed=r.editUrl||'', loc=r.explorerPath||'', fu=r.folderUrl||'';
-        let txt=`📄 ${baseName}`;
-        const parts=[];
-        if(dl) parts.push(`[다운로드](${dl})`);
-        if(ed) parts.push(`[수정](${ed})`);
-        if(parts.length) txt+=`  ${parts.join(' / ')}`;
-        if(loc){ txt+=`\n📂 위치: ${loc}`; if(fu) txt+=`  [폴더 열기](${fu})`; }
-        try{ await navigator.clipboard.writeText(txt); toast('🔗 팀즈용 링크 복사됨 — 붙여넣기 (Ctrl+V)','ok'); }
-        catch(_){ prompt('팀즈용 링크:', txt); }
-        try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}`); }catch(_){}
+        // 서버 PC 클립보드에 HTML(이름링크 + 폴더열기)이 세팅됨 → 사용자가 Ctrl+V
+        if(r.clipboardSet){
+          toast('🔗 서버 PC 클립보드에 복사됨 — 팀즈에서 Ctrl+V (이름링크+폴더열기)','ok');
+        }else{
+          toast('URL 생성됨 — 클립보드 세팅 실패(서버 PC 확인)','warn');
+        }
+        try{ actLog(`🔗 클라우디움 URL 복사: ${t.name}${r.folderUrl?' (+폴더열기)':''}`); }catch(_){}
       }catch(e){ toast('클라우디움 URL 실패: '+e.message,'bad'); }
       return;
     }
