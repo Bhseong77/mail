@@ -1341,7 +1341,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v461</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v465</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -6133,14 +6133,103 @@ async function tcUploadFile(file, comment){
   const body=(comment?esc(comment).replace(/\n/g,'<br>')+'<br>':'')+`<attachment id="${itemId}"></attachment>`;
   const payload={body:{contentType:'html',content:body},
     attachments:[{id:itemId,contentType:'reference',contentUrl:shareUrl,name:file.name||'file'}]};
-  const r=await fetch(`${TC_GRAPH}/chats/${TC_CHAT_ID}/messages`,
+  const r=await fetch(`${TC_GRAPH}/chats/${tcChatId()}/messages`,
     {method:'POST',headers:{...H,"Content-Type":"application/json"},body:JSON.stringify(payload)});
   if(!(r.status===200||r.status===201)) throw new Error('첨부전송 실패 '+r.status);
   return true;
 }
 let _tc={open:false, msgs:[], lastId:'', unread:0, pollTimer:null, attachQueue:[], lastSeen:'', replyTo:null};
+_tc.activeChat={id:TC_CHAT_ID, name:'T Project', proxy:true};
+function tcChatId(){ return (_tc.activeChat&&_tc.activeChat.id)||TC_CHAT_ID; }
+function tcIsProxy(){ return !!(_tc.activeChat&&_tc.activeChat.proxy); }
+// ── PiP 인식 헬퍼 (안 띄웠을 땐 메인 document와 동일) ──
+function _tcWin(){ return _tc.pipWin||window; }
+function _tcDoc(){ return (_tc.pipWin&&_tc.pipWin.document)||document; }
+function _tcEl(id){ return _tcDoc().getElementById(id)||document.getElementById(id); }
+// ── 채팅 목록 드롭다운 (본인 토큰으로 /me/chats) ──
+function tcChatListToggle(ev){
+  if(ev) ev.stopPropagation();
+  const box=_tcEl('tcChatList'); if(!box) return;
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML='<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">불러오는 중…</div>';
+  tcLoadChatList();
+  setTimeout(()=>_tcDoc().addEventListener('click',_tcCloseChatList),10);
+}
+function _tcCloseChatList(e){ const b=_tcEl('tcChatList'); if(b&&!b.contains(e.target)){ b.style.display='none'; _tcDoc().removeEventListener('click',_tcCloseChatList); } }
+async function tcLoadChatList(){
+  const box=_tcEl('tcChatList'); if(!box) return;
+  let chats=[];
+  try{
+    const r=await tcGraph('/me/chats?$top=30&$expand=members&$orderby=lastMessagePreview/createdDateTime desc');
+    if(r.ok){ const j=await r.json(); chats=j.value||[]; }
+    else { const r2=await tcGraph('/me/chats?$top=30&$expand=members'); if(r2.ok){ chats=(await r2.json()).value||[]; } }
+  }catch(_){}
+  const myId=await myAadId().catch(()=>'');
+  const nameOf=(c)=>{
+    if(c.topic) return c.topic;
+    const others=(c.members||[]).filter(m=>(m.userId||m.id)!==myId).map(m=>m.displayName||'').filter(Boolean);
+    if(others.length) return others.slice(0,3).join(', ')+(others.length>3?` 외 ${others.length-3}`:'');
+    return c.chatType==='oneOnOne'?'1:1 채팅':'그룹 채팅';
+  };
+  const items=[{id:TC_CHAT_ID, name:'T Project', proxy:true, pin:true}]
+    .concat(chats.filter(c=>c.id!==TC_CHAT_ID).map(c=>({id:c.id, name:nameOf(c), proxy:false, type:c.chatType})));
+  box.innerHTML=items.map(it=>{
+    const active=(it.id===tcChatId());
+    return `<div onclick="tcSwitchChat('${esc(it.id)}','${esc((it.name||'').replace(/'/g,''))}',${it.proxy?'true':'false'})" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:13px;${active?'background:#eef2ff;':''}" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='${active?'#eef2ff':''}'">
+      <span style="width:26px;height:26px;border-radius:8px;background:${it.pin?'#4f46e5':'#e0e7ff'};color:${it.pin?'#fff':'#4f46e5'};font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:700">${it.pin?'📌':esc((it.name||'?').slice(0,2))}</span>
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name||'채팅')}</span>
+      ${active?'<span style="color:#4f46e5;font-size:12px">●</span>':''}</div>`;
+  }).join('');
+}
+function tcSwitchChat(id, name, proxy){
+  _tc.activeChat={id, name:name||'채팅', proxy:!!proxy};
+  const t=_tcEl('tcTitleText'); if(t) t.textContent=name||'채팅';
+  const box=_tcEl('tcChatList'); if(box) box.style.display='none';
+  _tc.msgs=[]; _tc.lastId=''; _tc.unread=0; _tcUpdateBadge();
+  const cnt=_tcEl('tcMemCnt'); if(cnt) cnt.textContent='';
+  if(proxy) tcLoadMembers();
+  tcLoad(true);
+}
+// ── 본인 토큰으로 임의 채팅 읽기 (비-프록시) ──
+function tcNormalizeGraphMsg(g, myId){
+  const u=(g.from&&g.from.user)||{};
+  const reactions={};
+  (g.reactions||[]).forEach(x=>{ const k=x.reactionType||'like'; reactions[k]=(reactions[k]||0)+1; });
+  let reply=null;
+  (g.attachments||[]).forEach(a=>{ if(a.contentType==='messageReference'&&a.content){ try{ const c=JSON.parse(a.content); reply={id:c.messageId||a.id, sender:(c.messageSender&&c.messageSender.user&&c.messageSender.user.displayName)||'', preview:(c.messagePreview||'').replace(/<[^>]+>/g,'')}; }catch(_){} } });
+  const atts=(g.attachments||[]).filter(a=>a.contentType==='reference'||(a.name&&a.contentType!=='messageReference')).map(a=>({contentType:'reference',name:a.name||'파일',contentUrl:a.contentUrl||'#'}));
+  return { id:g.id, created:g.createdDateTime, from:u.displayName||'', fromId:u.id||'', fromTenant:u.tenantId||'',
+    mine:!!(myId&&u.id===myId), content:(g.body&&g.body.content)||'', deleted:!!g.deletedDateTime,
+    edited:!!(g.lastModifiedDateTime&&g.lastModifiedDateTime!==g.createdDateTime), reactions, reply, attachments:atts, webUrl:g.webUrl||'' };
+}
+async function tcLoadGraph(scroll){
+  const body=_tcEl('tcBody'); if(!body) return;
+  try{
+    const r=await tcGraph(`/chats/${tcChatId()}/messages?$top=30`);
+    if(!r.ok){ body.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:12px;padding:20px">불러오기 실패: ${r.status}</div>`; return; }
+    const j=await r.json();
+    let arr=(j.value||[]).filter(g=>!g.messageType||g.messageType==='message');
+    arr.sort((a,b)=>(a.createdDateTime||'').localeCompare(b.createdDateTime||''));
+    const myId=await myAadId().catch(()=>'');
+    _tc.msgs=arr.map(g=>tcNormalizeGraphMsg(g,myId));
+    if(_tc.msgs.length) _tc.lastId=_tc.msgs[_tc.msgs.length-1].id;
+    tcRender(); tcHydrateImages();
+    if(scroll) setTimeout(()=>{ body.scrollTop=body.scrollHeight; }, 60);
+  }catch(e){ body.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:12px;padding:20px">${esc(e.message)}</div>`; }
+}
+// Graph hosted 이미지(토큰 필요) → blob 로 치환
+async function tcHydrateImages(){
+  const body=_tcEl('tcBody'); if(!body) return;
+  const imgs=[...body.querySelectorAll('img')].filter(im=>/graph\.microsoft\.com|hostedContents/.test(im.getAttribute('src')||'')&&!im.dataset.tcHy);
+  if(!imgs.length) return;
+  let tok; try{ tok=await chatToken(); }catch(_){ return; }
+  for(const im of imgs){ im.dataset.tcHy='1';
+    try{ const rr=await fetch(im.getAttribute('src'),{headers:{Authorization:'Bearer '+tok}}); if(rr.ok){ const b=await rr.blob(); im.src=URL.createObjectURL(b); } }catch(_){}
+  }
+}
 function tcToggle(){
-  const p=document.getElementById('tcPanel'); if(!p) return;
+  const p=_tcEl('tcPanel'); if(!p) return;
   if(p.classList.contains('on')){ tcClose(); return; }
   _tc.open=true;
   p.classList.add('on'); p.classList.remove('min');
@@ -6148,28 +6237,105 @@ function tcToggle(){
   tcLoad(true);
   if(!_tc.pollTimer) _tc.pollTimer=setInterval(tcPoll, 8000);  // 8초 폴링
   tcLoadMembers();
-  setTimeout(()=>document.getElementById('tcInput')?.focus(),100);
+  setTimeout(()=>_tcEl('tcInput')?.focus(),100);
 }
 function tcMinToggle(ev){
   if(ev) ev.stopPropagation();
-  const p=document.getElementById('tcPanel'); if(!p) return;
+  if(_tc._dragMoved){ _tc._dragMoved=false; return; }   // 드래그였으면 토글 무시
+  const p=_tcEl('tcPanel'); if(!p) return;
   p.classList.toggle('min');
   // 펼칠 때 맨 아래로 스크롤
-  if(!p.classList.contains('min')){ const b=document.getElementById('tcBody'); if(b) setTimeout(()=>{b.scrollTop=b.scrollHeight;},50); }
+  if(!p.classList.contains('min')){ const b=_tcEl('tcBody'); if(b) setTimeout(()=>{b.scrollTop=b.scrollHeight;},50); }
+}
+function tcReload(){ tcLoad(true); }
+// ─버튼 2단계: 전체 → 메신저 바(min) → 숨김(FAB로 재오픈)
+function tcMinStep(ev){
+  if(ev) ev.stopPropagation();
+  const p=_tcEl('tcPanel'); if(!p) return;
+  if(!p.classList.contains('min')){ p.classList.add('min'); }   // 1) 전체 → 메신저 바
+  else { tcClose(); }                                           // 2) 바 → 완전 숨김
+}
+// ── 패널 드래그 이동 (헤더 잡고 이동) ──
+function tcDragStart(ev){
+  const p=_tcEl('tcPanel'); if(!p) return;
+  const pt=ev.touches?ev.touches[0]:ev;
+  const box=p.querySelector('.tcbox'); if(!box) return; const r=box.getBoundingClientRect();
+  _tc._drag={sx:pt.clientX, sy:pt.clientY, ox:r.left, oy:r.top, w:r.width, moved:false};
+  const mv=(e)=>{
+    const q=e.touches?e.touches[0]:e;
+    const dx=q.clientX-_tc._drag.sx, dy=q.clientY-_tc._drag.sy;
+    if(!_tc._drag.moved && Math.abs(dx)+Math.abs(dy)<5) return;
+    _tc._drag.moved=true;
+    let nx=_tc._drag.ox+dx, ny=_tc._drag.oy+dy;
+    nx=Math.max(4, Math.min(nx, window.innerWidth-_tc._drag.w-4));
+    ny=Math.max(4, Math.min(ny, window.innerHeight-44));   // 헤더는 항상 보이게
+    p.style.left=nx+'px'; p.style.top=ny+'px'; p.style.right='auto'; p.style.bottom='auto';
+    if(e.cancelable) e.preventDefault();
+  };
+  const up=()=>{
+    document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up);
+    document.removeEventListener('touchmove',mv); document.removeEventListener('touchend',up);
+    if(_tc._drag&&_tc._drag.moved) _tc._dragMoved=true;   // 클릭 토글 무시
+    _tc._drag=null;
+  };
+  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  document.addEventListener('touchmove',mv,{passive:false}); document.addEventListener('touchend',up);
 }
 function tcClose(){
+  if(_tc.pipWin){ tcPopBack(); }
   const p=document.getElementById('tcPanel'); if(!p) return;
   _tc.open=false;
   p.classList.remove('on'); p.classList.remove('min');
 }
+// ── Document Picture-in-Picture: 메신저를 진짜 떠다니는 OS 창으로 ──
+const TC_FNS=['tcMinToggle','tcMinStep','tcClose','tcReload','tcDragStart','tcChatListToggle','tcSwitchChat','tcSend','tcInputKey','tcAutoGrow','tcMentionDetect','tcPickFiles','tcEmojiToggle','tcInsertEmoji','tcMentionPick','tcMsgMenu','tcReact','tcReply','tcCopyLink','tcEdit','tcDelete','tcCancelReply','tcRemoveAttach','tcPopout','tcPopBack'];
+async function tcPopout(){
+  if(!('documentPictureInPicture' in window)){ toast('이 브라우저는 PiP 미지원 (Chrome/Edge 설치형 PWA 필요)','warn'); return; }
+  if(_tc.pipWin){ try{ _tc.pipWin.focus(); }catch(_){} return; }
+  const tcbox=document.querySelector('#tcPanel .tcbox'); if(!tcbox){ toast('메신저를 먼저 열어주세요','warn'); return; }
+  let pip;
+  try{ pip=await documentPictureInPicture.requestWindow({width:420,height:660}); }
+  catch(e){ toast('PiP 열기 실패: '+e.message,'warn'); return; }
+  _tc.pipWin=pip;
+  // 스타일 복사
+  [...document.styleSheets].forEach(ss=>{
+    try{ const css=[...ss.cssRules].map(r=>r.cssText).join(''); const st=pip.document.createElement('style'); st.textContent=css; pip.document.head.appendChild(st); }
+    catch(_){ if(ss.href){ const l=pip.document.createElement('link'); l.rel='stylesheet'; l.href=ss.href; pip.document.head.appendChild(l); } }
+  });
+  pip.document.body.style.cssText='margin:0;overflow:hidden';
+  pip.document.title='T Project 메신저';
+  // inline 핸들러가 PiP 창에서 동작하도록 함수 브리지
+  TC_FNS.forEach(fn=>{ try{ pip[fn]=window[fn]; }catch(_){} });
+  try{ pip.toast=window.toast; pip.esc=window.esc; pip.SERVER=window.SERVER; }catch(_){}
+  // tcbox 를 PiP 로 이동 (자리표시 주석)
+  _tc._pipPlaceholder=document.createComment('tcbox-pip');
+  tcbox.parentNode.insertBefore(_tc._pipPlaceholder, tcbox);
+  tcbox.dataset.pip='1';
+  tcbox.style.width='100%'; tcbox.style.maxWidth='100%'; tcbox.style.height='100vh'; tcbox.style.maxHeight='100vh'; tcbox.style.borderRadius='0'; tcbox.style.boxShadow='none';
+  pip.document.body.appendChild(tcbox);
+  tcRender(); tcHydrateImages();
+  setTimeout(()=>{ const b=_tcEl('tcBody'); if(b) b.scrollTop=b.scrollHeight; const i=_tcEl('tcInput'); i&&i.focus(); },80);
+  pip.addEventListener('pagehide', tcPopBack);
+}
+function tcPopBack(){
+  const pip=_tc.pipWin; if(!pip) return;
+  let tcbox; try{ tcbox=pip.document.querySelector('.tcbox'); }catch(_){}
+  if(tcbox){ tcbox.style.width=''; tcbox.style.maxWidth=''; tcbox.style.height=''; tcbox.style.maxHeight=''; tcbox.style.borderRadius=''; tcbox.style.boxShadow=''; delete tcbox.dataset.pip; }
+  if(tcbox && _tc._pipPlaceholder && _tc._pipPlaceholder.parentNode){ _tc._pipPlaceholder.parentNode.replaceChild(tcbox, _tc._pipPlaceholder); }
+  _tc._pipPlaceholder=null;
+  const w=_tc.pipWin; _tc.pipWin=null;
+  try{ w.close(); }catch(_){}
+  tcRender(); tcHydrateImages();
+}
 async function tcLoadMembers(){
   try{
     const r=await fetch(`${SERVER}/api/teams/chat/members`); const d=await r.json();
-    if(d&&d.ok){ const el=document.getElementById('tcMemCnt'); if(el) el.textContent=`· ${d.members.length}명`; _tc.members=d.members; }
+    if(d&&d.ok){ const el=_tcEl('tcMemCnt'); if(el) el.textContent=`· ${d.members.length}명`; _tc.members=d.members; }
   }catch(_){}
 }
 async function tcLoad(scroll){
-  const body=document.getElementById('tcBody'); if(!body) return;
+  const body=_tcEl('tcBody'); if(!body) return;
+  if(!tcIsProxy()){ return tcLoadGraph(scroll); }
   try{
     const r=await fetch(`${SERVER}/api/teams/chat/messages?top=30`); const d=await r.json();
     if(!d||!d.ok){ body.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:12px;padding:20px">불러오기 실패: ${esc((d&&d.msg)||'')}</div>`; return; }
@@ -6185,6 +6351,29 @@ async function tcLoad(scroll){
   }catch(e){ body.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:12px;padding:20px">${esc(e.message)}</div>`; }
 }
 async function tcPoll(){
+  // 비-프록시 채팅: Graph 증분 폴링
+  if(!tcIsProxy()){
+    try{
+      const r=await tcGraph(`/chats/${tcChatId()}/messages?$top=15`);
+      if(!r.ok) return; const j=await r.json();
+      let arr=(j.value||[]).filter(g=>!g.messageType||g.messageType==='message');
+      arr.sort((a,b)=>(a.createdDateTime||'').localeCompare(b.createdDateTime||''));
+      const myId=await myAadId().catch(()=>'');
+      const norm=arr.map(g=>tcNormalizeGraphMsg(g,myId));
+      const fresh=norm.filter(m=>!_tc.msgs.some(x=>x.id===m.id));
+      if(fresh.length){
+        _tc.msgs=_tc.msgs.concat(fresh);
+        const body=_tcEl('tcBody'); const p=_tcEl('tcPanel');
+        const visible=p&&p.classList.contains('on')&&!p.classList.contains('min');
+        const atBottom=body&&(body.scrollHeight-body.scrollTop-body.clientHeight<60);
+        tcRender(); tcHydrateImages();
+        if(visible&&atBottom){ setTimeout(()=>{body.scrollTop=body.scrollHeight;},50); }
+        const notMine=fresh.filter(m=>!m.mine);
+        if(notMine.length&&(!visible||!atBottom)){ _tc.unread+=notMine.length; _tcUpdateBadge(); }
+      }
+    }catch(_){}
+    return;
+  }
   // 새 메시지 확인 (마지막 created 이후)
   try{
     const since=_tc.msgs.length?_tc.msgs[_tc.msgs.length-1].created:'';
@@ -6194,8 +6383,8 @@ async function tcPoll(){
     const fresh=(d.messages||[]).filter(m=>!_tc.msgs.some(x=>x.id===m.id));
     if(fresh.length){
       _tc.msgs=_tc.msgs.concat(fresh);
-      const body=document.getElementById('tcBody');
-      const p=document.getElementById('tcPanel');
+      const body=_tcEl('tcBody');
+      const p=_tcEl('tcPanel');
       const visible=p&&p.classList.contains('on')&&!p.classList.contains('min');
       const atBottom=body && (body.scrollHeight-body.scrollTop-body.clientHeight<60);
       tcRender();
@@ -6210,13 +6399,13 @@ async function tcPoll(){
 }
 function _tcUpdateBadge(){
   const show=_tc.unread>0; const txt=_tc.unread>99?'99+':String(_tc.unread);
-  const b=document.getElementById('tcBadge');
+  const b=_tcEl('tcBadge');
   if(b){ if(show){ b.textContent=txt; b.style.display='block'; } else b.style.display='none'; }
-  const fb=document.getElementById('tcFabBadge');
+  const fb=_tcEl('tcFabBadge');
   if(fb){ if(show){ fb.textContent=txt; fb.style.display='block'; } else fb.style.display='none'; }
 }
 function tcRender(){
-  const body=document.getElementById('tcBody'); if(!body) return;
+  const body=_tcEl('tcBody'); if(!body) return;
   if(!_tc.msgs.length){ body.innerHTML='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px">메시지가 없습니다</div>'; return; }
   let lastDate='';
   const REACT_EMOJI={like:'👍',heart:'❤️',laugh:'😆',surprised:'😮',sad:'😢',angry:'😠'};
@@ -6265,7 +6454,7 @@ function tcRender(){
 // 메시지 호버 메뉴 (Teams 스타일)
 function tcMsgMenu(ev, idx){
   ev.stopPropagation();
-  document.getElementById('tcMenuPop')?.remove();
+  _tcEl('tcMenuPop')?.remove();
   const m=_tc.msgs[idx]; if(!m) return;
   const pop=document.createElement('div');
   pop.id='tcMenuPop';
@@ -6282,21 +6471,21 @@ function tcMsgMenu(ev, idx){
     h+=item('🗑','삭제',`tcDelete(${idx})`,true);
   }
   pop.innerHTML=h;
-  document.body.appendChild(pop);
+  _tcDoc().body.appendChild(pop);
   // 위치 (화면 밖 안 나가게)
   const pw=pop.offsetWidth, ph=pop.offsetHeight;
-  pop.style.left=Math.min(rx, window.innerWidth-pw-10)+'px';
-  pop.style.top=Math.max(10, Math.min(ry, window.innerHeight-ph-10))+'px';
-  setTimeout(()=>document.addEventListener('click',_tcCloseMenu),10);
+  pop.style.left=Math.min(rx, _tcWin().innerWidth-pw-10)+'px';
+  pop.style.top=Math.max(10, Math.min(ry, _tcWin().innerHeight-ph-10))+'px';
+  setTimeout(()=>_tcDoc().addEventListener('click',_tcCloseMenu),10);
 }
-function _tcCloseMenu(){ document.getElementById('tcMenuPop')?.remove(); document.removeEventListener('click',_tcCloseMenu); }
+function _tcCloseMenu(){ _tcEl('tcMenuPop')?.remove(); _tcDoc().removeEventListener('click',_tcCloseMenu); }
 async function tcReact(idx,reaction){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
   const has=m.reactions&&m.reactions[reaction];
   try{
     const action=has?'unsetReaction':'setReaction';
-    await tcGraph(`/chats/${TC_CHAT_ID}/messages/${m.id}/${action}`,{method:'POST',body:JSON.stringify({reactionType:reaction})});
+    await tcGraph(`/chats/${tcChatId()}/messages/${m.id}/${action}`,{method:'POST',body:JSON.stringify({reactionType:reaction})});
     setTimeout(()=>tcLoad(false),600);
   }catch(e){ toast('반응 실패: '+e.message,'warn'); }
 }
@@ -6306,11 +6495,11 @@ function tcReply(idx){
   const preview=(m.content||'').replace(/<[^>]+>/g,'').trim().slice(0,80) || (m.attachments&&m.attachments.length?'📎 첨부':'');
   _tc.replyTo={id:m.id, preview, senderName:m.from, senderId:m.fromId, senderTenant:m.fromTenant};
   tcRenderReplyBar();
-  document.getElementById('tcInput')?.focus();
+  _tcEl('tcInput')?.focus();
 }
 function tcRenderReplyBar(){
-  let bar=document.getElementById('tcReplyBar');
-  const drop=document.getElementById('tcDrop');
+  let bar=_tcEl('tcReplyBar');
+  const drop=_tcEl('tcDrop');
   if(!_tc.replyTo){ if(bar) bar.remove(); return; }
   if(!bar){
     bar=document.createElement('div'); bar.id='tcReplyBar';
@@ -6324,7 +6513,7 @@ function tcCancelReply(){ _tc.replyTo=null; tcRenderReplyBar(); }
 function tcCopyLink(idx){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
-  const url=m.webUrl||`https://teams.microsoft.com/l/message/${TC_CHAT_ID}/${m.id}`;
+  const url=m.webUrl||`https://teams.microsoft.com/l/message/${tcChatId()}/${m.id}`;
   navigator.clipboard.writeText(url).then(()=>toast('링크 복사됨','ok'));
 }
 async function tcEdit(idx){
@@ -6335,7 +6524,7 @@ async function tcEdit(idx){
   if(nv==null||nv.trim()===cur) return;
   try{
     const content=esc(nv.trim()).replace(/\n/g,'<br>');
-    const r=await tcGraph(`/chats/${TC_CHAT_ID}/messages/${m.id}`,{method:'PATCH',body:JSON.stringify({body:{contentType:'html',content}})});
+    const r=await tcGraph(`/chats/${tcChatId()}/messages/${m.id}`,{method:'PATCH',body:JSON.stringify({body:{contentType:'html',content}})});
     if(r.status===200||r.status===204){ toast('편집됨','ok'); tcLoad(false); }
     else toast('편집 실패: '+r.status,'warn');
   }catch(e){ toast('오류: '+e.message,'warn'); }
@@ -6345,18 +6534,82 @@ async function tcDelete(idx){
   const m=_tc.msgs[idx]; if(!m||!m.mine) return;
   if(!confirm('이 메시지를 삭제할까요?')) return;
   try{
-    const r=await tcGraph(`/me/chats/${TC_CHAT_ID}/messages/${m.id}/softDelete`,{method:'POST'});
+    const r=await tcGraph(`/me/chats/${tcChatId()}/messages/${m.id}/softDelete`,{method:'POST'});
     if(r.status===200||r.status===204){ toast('삭제됨','ok'); tcLoad(false); }
     else toast('삭제 실패: '+r.status,'warn');
   }catch(e){ toast('오류: '+e.message,'warn'); }
 }
-function tcReload(){ tcLoad(true); }
+// ── 이모지 피커 ──
+const TC_EMOJIS=['😀','😁','😂','🤣','😊','😍','😘','😎','🤔','😅','😢','😭','😡','👍','👎','👏','🙏','🙌','💪','🎉','🔥','✨','💯','✅','❌','⭐','❤️','💜','💙','💚','📌','📎','📞','📅','🚀','💡','⚠️','👀','🙇','🤝'];
+function tcEmojiToggle(ev){
+  if(ev) ev.stopPropagation();
+  const pop=_tcEl('tcEmojiPop'); if(!pop) return;
+  if(pop.style.display==='block'){ pop.style.display='none'; return; }
+  _tcEl('tcMentionPop').style.display='none';
+  pop.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:2px">`+TC_EMOJIS.map(e=>`<span onclick="tcInsertEmoji('${e}')" style="cursor:pointer;font-size:20px;padding:3px;border-radius:6px" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background=''">${e}</span>`).join('')+`</div>`;
+  pop.style.display='block';
+  setTimeout(()=>_tcDoc().addEventListener('click',_tcCloseEmoji),10);
+}
+function _tcCloseEmoji(e){ const pop=_tcEl('tcEmojiPop'); if(pop&&!pop.contains(e.target)){ pop.style.display='none'; _tcDoc().removeEventListener('click',_tcCloseEmoji); } }
+function tcInsertEmoji(e){
+  const inp=_tcEl('tcInput'); if(!inp) return;
+  const s=inp.selectionStart||inp.value.length, en=inp.selectionEnd||inp.value.length;
+  inp.value=inp.value.slice(0,s)+e+inp.value.slice(en);
+  const pos=s+e.length; inp.setSelectionRange(pos,pos);
+  _tcEl('tcEmojiPop').style.display='none';
+  tcAutoGrow(inp); inp.focus();
+}
+// ── @멘션 자동완성 ──
+function _tcMemId(m){ return m&&(m.id||m.userId||m.aadObjectId||m.aadId||m.userIdentityId||'')||''; }
+function _tcMemName(m){ return m&&(m.name||m.displayName||m.email||'')||''; }
+function tcMentionDetect(inp){
+  const pop=_tcEl('tcMentionPop'); if(!pop) return;
+  const pos=inp.selectionStart||0;
+  const left=inp.value.slice(0,pos);
+  const m=left.match(/(^|\s)@([^\s@]*)$/);   // 직전 단어가 @로 시작
+  if(!m || !(_tc.members&&_tc.members.length)){ pop.style.display='none'; return; }
+  const q=m[2].toLowerCase();
+  const hits=_tc.members.filter(x=>_tcMemName(x).toLowerCase().includes(q)).slice(0,8);
+  if(!hits.length){ pop.style.display='none'; return; }
+  _tc._mentionStart=pos-m[2].length-1;  // '@' 위치
+  pop.innerHTML=hits.map((x,i)=>{ const nm=_tcMemName(x);
+    return `<div onclick="tcMentionPick(${_tc.members.indexOf(x)})" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:13px" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background=''">
+      <span style="width:24px;height:24px;border-radius:50%;background:#e0e7ff;color:#4f46e5;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700">${esc(nm.slice(0,2))}</span>
+      <span>${esc(nm)}</span></div>`; }).join('');
+  pop.style.display='block';
+}
+function tcMentionPick(memIdx){
+  const inp=_tcEl('tcInput'); const m=_tc.members&&_tc.members[memIdx]; if(!inp||!m) return;
+  const nm=_tcMemName(m);
+  const start=_tc._mentionStart!=null?_tc._mentionStart:inp.value.length;
+  const after=inp.value.slice(inp.selectionStart||inp.value.length);
+  inp.value=inp.value.slice(0,start)+'@'+nm+' '+after;
+  const pos=start+nm.length+2; inp.setSelectionRange(pos,pos);
+  _tc.pendingMentions=_tc.pendingMentions||[];
+  if(!_tc.pendingMentions.some(x=>x.name===nm)) _tc.pendingMentions.push({name:nm, id:_tcMemId(m)});
+  _tcEl('tcMentionPop').style.display='none';
+  tcAutoGrow(inp); inp.focus();
+}
+// 본문에 남아있는 @이름 → Teams <at> + mentions 배열로 변환
+function tcBuildMentions(text){
+  let content=esc(text).replace(/\n/g,'<br>');
+  const mentions=[];
+  (_tc.pendingMentions||[]).forEach(pm=>{
+    if(!pm.id) return;                         // id 없으면 일반 텍스트(@이름)로 둠
+    const tag='@'+pm.name;
+    if(content.indexOf(esc(tag))<0) return;
+    const idx=mentions.length;
+    content=content.split(esc(tag)).join(`<at id="${idx}">${esc(pm.name)}</at>`);
+    mentions.push({id:idx, mentionText:pm.name, mentioned:{user:{displayName:pm.name, id:pm.id, userIdentityType:'aadUser'}}});
+  });
+  return {content, mentions};
+}
 function tcAutoGrow(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; }
 function tcInputKey(e){
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); tcSend(); }
 }
 async function tcSend(){
-  const inp=document.getElementById('tcInput'); const text=(inp.value||'').trim();
+  const inp=_tcEl('tcInput'); const text=(inp.value||'').trim();
   if(!text && !_tc.attachQueue.length) return;
   inp.disabled=true;
   try{
@@ -6370,8 +6623,10 @@ async function tcSend(){
     _tc.attachQueue=[]; tcRenderAttach();
     // 텍스트 메시지 — 로그인한 사람 본인 토큰으로 직접 전송
     if(text){
-      const content=esc(text).replace(/\n/g,'<br>');
+      const mb=tcBuildMentions(text);
+      let content=mb.content;
       const payload={body:{contentType:'html',content}};
+      if(mb.mentions.length) payload.mentions=mb.mentions;
       // 인용답장 (Teams messageReference)
       if(_tc.replyTo && _tc.replyTo.id){
         const rid=String(_tc.replyTo.id);
@@ -6384,11 +6639,12 @@ async function tcSend(){
         payload.attachments=[{id:rid,contentType:'messageReference',content:ref}];
         payload.body.content=`<attachment id="${rid}"></attachment>`+content;
       }
-      const r=await tcGraph(`/chats/${TC_CHAT_ID}/messages`,{method:'POST',body:JSON.stringify(payload)});
+      const r=await tcGraph(`/chats/${tcChatId()}/messages`,{method:'POST',body:JSON.stringify(payload)});
       if(!(r.status===200||r.status===201)){
         const et=await r.text();
         toast('전송 실패: '+r.status,'warn'); console.warn('tcSend',et); inp.disabled=false; return;
       }
+      _tc.pendingMentions=[];
     }
     _tc.replyTo=null; tcRenderReplyBar();
     inp.value=''; tcAutoGrow(inp);
@@ -6401,7 +6657,7 @@ function tcPickFiles(files){
   tcRenderAttach();
 }
 function tcRenderAttach(){
-  const box=document.getElementById('tcAttach'); if(!box) return;
+  const box=_tcEl('tcAttach'); if(!box) return;
   if(!_tc.attachQueue.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='flex';
   box.innerHTML=_tc.attachQueue.map((f,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;color:#4f46e5;padding:3px 8px;border-radius:8px;font-size:11px">📎 ${esc(f.name)} <span onclick="tcRemoveAttach(${i})" style="cursor:pointer;color:#ef4444">✕</span></span>`).join('');
@@ -6410,8 +6666,8 @@ function tcRemoveAttach(i){ _tc.attachQueue.splice(i,1); tcRenderAttach(); }
 // 드래그 첨부
 (function tcInitDrop(){
   document.addEventListener('DOMContentLoaded',()=>{
-    const panel=document.getElementById('tcPanel'); if(!panel) return;
-    const drop=document.getElementById('tcDrop')||panel;
+    const panel=_tcEl('tcPanel'); if(!panel) return;
+    const drop=_tcEl('tcDrop')||panel;
     ['dragover','dragenter'].forEach(ev=>panel.addEventListener(ev,e=>{e.preventDefault();panel.style.outline='2px dashed #4f46e5';}));
     ['dragleave','drop'].forEach(ev=>panel.addEventListener(ev,e=>{e.preventDefault();panel.style.outline='';}));
     panel.addEventListener('drop',e=>{ if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){ tcPickFiles(e.dataTransfer.files); } });
@@ -22976,23 +23232,31 @@ async function prnewDoProposalSave(reqNo, cust, perItem){
 <!-- ══════ T Project 메신저 패널 (새메일과 동일 구조) ══════ -->
 <div id="tcPanel">
   <div class="tcbox">
-    <div onclick="tcMinToggle(event)" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:8px"><b style="font-size:14px">💬 T Project</b><span id="tcMemCnt" style="font-size:11px;opacity:.85"></span></div>
-      <div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()">
+    <div id="tcHeader" onclick="tcMinToggle(event)" onmousedown="tcDragStart(event)" ontouchstart="tcDragStart(event)" style="position:relative;cursor:move;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;flex-shrink:0;user-select:none">
+      <div style="display:flex;align-items:center;gap:6px" onmousedown="event.stopPropagation()">
+        <span id="tcTitle" onclick="event.stopPropagation();tcChatListToggle(event)" style="cursor:pointer;display:flex;align-items:center;gap:4px" title="채팅 전환"><b style="font-size:14px">💬 <span id="tcTitleText">T Project</span></b><span style="font-size:10px;opacity:.85">▾</span></span>
+        <span id="tcMemCnt" style="font-size:11px;opacity:.85"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
         <span onclick="tcReload()" style="cursor:pointer;font-size:14px" title="새로고침">↻</span>
-        <button onclick="tcMinToggle(event)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px" title="접기/펼치기">─</button>
+        <span onclick="tcPopout()" style="cursor:pointer;font-size:15px" title="별도 창으로 띄우기 (PiP)">⧉</span>
+        <button onclick="tcMinStep(event)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px" title="최소화 (한번:메신저바 · 두번:숨김)">─</button>
         <button onclick="tcClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px" title="닫기">✕</button>
       </div>
+      <div id="tcChatList" style="display:none;position:absolute;top:100%;left:10px;width:260px;max-height:320px;overflow:auto;background:#fff;color:#1e293b;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.22);z-index:40;margin-top:4px"></div>
     </div>
     <div class="tc-collapse" style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div id="tcBody" style="flex:1;overflow-y:auto;padding:10px 12px;background:#f8fafc;display:flex;flex-direction:column;gap:8px">
         <div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px">불러오는 중…</div>
       </div>
-      <div id="tcDrop" style="flex-shrink:0;border-top:1px solid #e5e7eb;padding:8px 10px;background:#fff">
+      <div id="tcDrop" style="flex-shrink:0;border-top:1px solid #e5e7eb;padding:8px 10px;background:#fff;position:relative">
         <div id="tcAttach" style="display:none;flex-wrap:wrap;gap:4px;margin-bottom:6px"></div>
+        <div id="tcMentionPop" style="display:none;position:absolute;bottom:100%;left:10px;right:10px;max-height:180px;overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 -6px 24px rgba(0,0,0,.15);z-index:30;margin-bottom:4px"></div>
+        <div id="tcEmojiPop" style="display:none;position:absolute;bottom:100%;left:10px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 -6px 24px rgba(0,0,0,.15);z-index:30;margin-bottom:4px;padding:6px;width:236px"></div>
         <div style="display:flex;gap:6px;align-items:flex-end">
           <label style="cursor:pointer;font-size:18px;padding:4px" title="파일 첨부">📎<input type="file" id="tcFile" multiple style="display:none" onchange="tcPickFiles(this.files)"></label>
-          <textarea id="tcInput" placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈)" rows="1" style="flex:1;resize:none;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit;max-height:100px" onkeydown="tcInputKey(event)" oninput="tcAutoGrow(this)"></textarea>
+          <span onclick="tcEmojiToggle(event)" style="cursor:pointer;font-size:18px;padding:4px" title="이모지">😊</span>
+          <textarea id="tcInput" placeholder="메시지 입력 (Enter 전송, @로 멘션)" rows="1" style="flex:1;resize:none;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-size:13px;font-family:inherit;max-height:100px" onkeydown="tcInputKey(event)" oninput="tcAutoGrow(this);tcMentionDetect(this)"></textarea>
           <button onclick="tcSend()" style="background:#4f46e5;color:#fff;border:none;border-radius:10px;width:38px;height:38px;font-size:16px;cursor:pointer" title="전송">➤</button>
         </div>
         <div id="tcDropHint" style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:center">파일을 여기로 드래그하거나 📎 클릭 · 링크는 그냥 붙여넣기</div>
