@@ -1373,8 +1373,8 @@ body.embed-prnew{background:#fff}
 .tcal-wk-ev:hover{ background:#bfdbfe; }
 
 /* 모달 */
-.tcal-modal-ov{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:9999; align-items:center; justify-content:center; }
-.tcal-modal-box{ background:var(--card); border-radius:14px; padding:20px 22px; width:420px; max-width:92vw; max-height:88vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.25); }
+.tcal-modal-ov{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.65); backdrop-filter:blur(2px); z-index:99999; align-items:center; justify-content:center; }
+.tcal-modal-box{ background:#ffffff; border:1px solid #e5e7eb; border-radius:16px; padding:22px 24px; width:440px; max-width:92vw; max-height:88vh; overflow:auto; box-shadow:0 24px 64px rgba(0,0,0,.45); }
 .tcal-modal-h{ font-size:16px; font-weight:700; margin-bottom:14px; }
 .tcal-form{ display:flex; flex-direction:column; gap:4px; }
 .tcal-form label{ font-size:12px; color:var(--t2); margin-top:8px; }
@@ -10982,7 +10982,7 @@ async function tcalLoad(){
     }
     const url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/calendarView`
       +`?startDateTime=${_tcalToGraph(from)}&endDateTime=${_tcalToGraph(to)}`
-      +`&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer&$orderby=start/dateTime&$top=200`;
+      +`&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,attendees&$orderby=start/dateTime&$top=200`;
     const r=await fetch(url,{headers:{Authorization:"Bearer "+t,Prefer:'outlook.timezone="Korea Standard Time"'}});
     if(!r.ok){ throw new Error('Graph '+r.status+': '+(await r.text()).slice(0,200)); }
     const j=await r.json();
@@ -10991,7 +10991,7 @@ async function tcalLoad(){
       start:_tcalFromGraph(ev.start&&ev.start.dateTime),
       end:_tcalFromGraph(ev.end&&ev.end.dateTime),
       allDay:!!ev.isAllDay, location:(ev.location&&ev.location.displayName)||'',
-      preview:ev.bodyPreview||'', organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||''
+      preview:ev.bodyPreview||'', organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||'', attendees:((ev.attendees||[]).map(a=>a.emailAddress&&a.emailAddress.address).filter(Boolean))
     }));
     if(status) status.textContent='';
     tcalRender();
@@ -11036,7 +11036,7 @@ function tcalRenderMonth(){
       const inMonth=day.getMonth()===_tcalCursor.getMonth();
       const isToday=_tcalSameDay(day,today);
       const evs=_tcalEventsOn(day);
-      h+=`<div class="tcal-cell ${inMonth?'':'oth'} ${isToday?'today':''}" ondblclick="tcalNewOn('${_tcalYmd(day)}')">`;
+      h+=`<div class="tcal-cell ${inMonth?'':'oth'} ${isToday?'today':''}" onclick="tcalNewOn('${_tcalYmd(day)}')">`;
       h+=`<div class="tcal-daynum ${dnum===0?'sun':''} ${dnum===6?'sat':''}">${day.getDate()}</div>`;
       const shown=evs.slice(0,3);
       for(const ev of shown){
@@ -11087,7 +11087,7 @@ function tcalRenderWeek(){
     for(let i=0;i<7;i++){
       const day=_tcalAddDays(start,i);
       const cellDate=new Date(day.getFullYear(),day.getMonth(),day.getDate(),hr);
-      h+=`<div class="tcal-wk-cell" ondblclick="tcalNewAt('${_tcalYmd(day)}',${hr})">`;
+      h+=`<div class="tcal-wk-cell" onclick="tcalNewAt('${_tcalYmd(day)}',${hr})">`;
       // 이 시간대에 시작하는 이벤트
       const evs=_tcalEventsOn(day).filter(e=>!e.allDay && e.start.getHours()===hr);
       for(const ev of evs){
@@ -11162,6 +11162,7 @@ function _tcalShowForm(ev){
   h+=`<div id="tcf-stimewrap"><label>시작 시간</label><input id="tcf-stime" type="time" value="${stVal}"></div></div>`;
   h+=`<div class="tcf-row"><div><label>종료 날짜</label><input id="tcf-edate" type="date" value="${edDateVal}"></div>`;
   h+=`<div id="tcf-etimewrap"><label>종료 시간</label><input id="tcf-etime" type="time" value="${etVal}"></div></div>`;
+  h+=`<label>참석자 (이메일, 쉼표로 여러 명)</label><input id="tcf-att" type="text" value="${esc((ev.attendees||[]).join(', '))}" placeholder="hong@enjet.co.kr, kim@enjet.co.kr">`;
   h+=`<label>장소</label><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)">`;
   h+=`<label>메모</label><textarea id="tcf-body" rows="3" placeholder="(선택)">${esc(ev.preview||'')}</textarea>`;
   h+=`<div id="tcf-err" class="tcf-err"></div>`;
@@ -11206,7 +11207,8 @@ async function tcalSave(){
     end:{ dateTime:_tcalToGraph(allDay?_tcalAddDays(new Date(ey,em-1,ed,0,0),1):endDt), timeZone:'Korea Standard Time' },
     isAllDay:allDay,
     location:{ displayName:($('tcf-loc').value||'').trim() },
-    body:{ contentType:'text', content:($('tcf-body').value||'').trim() }
+    body:{ contentType:'text', content:($('tcf-body').value||'').trim() },
+    attendees:(($('tcf-att').value||'').split(',').map(x=>x.trim()).filter(Boolean)).map(em=>({emailAddress:{address:em,name:em},type:'required'}))
   };
   try{
     const t=await calToken();
