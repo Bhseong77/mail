@@ -1350,6 +1350,10 @@ body.embed-prnew{background:#fff}
 .tcal-ev{ font-size:11px; background:#dbeafe; color:#1e40af; border-radius:4px; padding:1px 5px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
 .tcal-ev:hover{ background:#bfdbfe; }
 .tcal-ev.allday{ background:#c7f0d8; color:#166534; }
+.tcal-ev.span-start{ border-top-right-radius:0; border-bottom-right-radius:0; margin-right:-4px; }
+.tcal-ev.span-mid{ border-radius:0; margin-left:-4px; margin-right:-4px; background:#bfdbfe; }
+.tcal-ev.span-end{ border-top-left-radius:0; border-bottom-left-radius:0; margin-left:-4px; }
+.tcal-ev.span-mid.allday,.tcal-ev.span-end.allday,.tcal-ev.span-start.allday{ background:#a7e3bf; }
 .tcal-ev-t{ font-weight:600; opacity:.75; }
 .tcal-more{ font-size:10px; color:var(--t3); padding:1px 5px; cursor:pointer; }
 .tcal-more:hover{ color:#2563eb; }
@@ -11034,10 +11038,47 @@ function tcalRender(){
 }
 
 function _tcalEventsOn(day){
-  return _tcalEvents.filter(ev=>ev.start && _tcalSameDay(ev.start,day))
-    .sort((a,b)=>a.start-b.start);
+  const d0=new Date(day.getFullYear(),day.getMonth(),day.getDate(),0,0,0);
+  const d1=new Date(day.getFullYear(),day.getMonth(),day.getDate(),23,59,59);
+  return _tcalEvents.filter(ev=>{
+    if(!ev.start) return false;
+    const es=ev.start;
+    // 종료: 없으면 시작과 같은 날로. 종일이면 종료는 exclusive(다음날 0시)라 하루 빼서 비교
+    let ee=ev.end||ev.start;
+    if(ev.allDay && ev.end){ ee=_tcalAddDays(ev.end,-1); ee=new Date(ee.getFullYear(),ee.getMonth(),ee.getDate(),23,59,59); }
+    return es<=d1 && ee>=d0;   // 이 날과 이벤트 기간이 겹치면 표시
+  }).sort((a,b)=>a.start-b.start);
+}
+// 이 날이 이벤트의 시작/중간/끝 중 어디인지 (여러날 표시용)
+function _tcalSpanPos(ev, day){
+  const isStart=_tcalSameDay(ev.start, day);
+  let endDay=ev.end||ev.start;
+  if(ev.allDay && ev.end) endDay=_tcalAddDays(ev.end,-1);
+  const isEnd=_tcalSameDay(endDay, day);
+  const multi=!_tcalSameDay(ev.start, endDay);
+  if(!multi) return 'single';
+  if(isStart) return 'start';
+  if(isEnd) return 'end';
+  return 'mid';
 }
 function _tcalHm(d){ return d? String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0') : ''; }
+// 호버 툴팁 텍스트 (제목/기간/장소/참석자/메모)
+function _tcalTip(ev){
+  const lines=[ev.subject||'(제목 없음)'];
+  if(ev.allDay){
+    let endTxt='';
+    if(ev.end){ const e=_tcalAddDays(ev.end,-1); endTxt = _tcalSameDay(ev.start,e)?'':(' ~ '+_tcalYmd(e)); }
+    lines.push('📅 '+_tcalYmd(ev.start)+endTxt+' (종일)');
+  }else{
+    const sameDay=ev.end&&_tcalSameDay(ev.start,ev.end);
+    if(sameDay) lines.push('🕐 '+_tcalYmd(ev.start)+' '+_tcalHm(ev.start)+' ~ '+_tcalHm(ev.end));
+    else lines.push('🕐 '+_tcalYmd(ev.start)+' '+_tcalHm(ev.start)+' ~ '+(ev.end?_tcalYmd(ev.end)+' '+_tcalHm(ev.end):''));
+  }
+  if(ev.location) lines.push('📍 '+ev.location);
+  if(ev.attendees&&ev.attendees.length) lines.push('👥 '+ev.attendees.map(e=>_tcalMemName(e)).join(', '));
+  if(ev.preview) lines.push('📝 '+ev.preview.slice(0,100)+(ev.preview.length>100?'…':''));
+  return lines.join('\\n');
+}
 
 // ── 월간 뷰 ──
 function tcalRenderMonth(){
@@ -11059,8 +11100,13 @@ function tcalRenderMonth(){
       h+=`<div class="tcal-daynum ${dnum===0?'sun':''} ${dnum===6?'sat':''}">${day.getDate()}</div>`;
       const shown=evs.slice(0,3);
       for(const ev of shown){
-        h+=`<div class="tcal-ev" title="${esc(ev.subject)}" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
-          +`${ev.allDay?'':'<span class=\"tcal-ev-t\">'+_tcalHm(ev.start)+'</span> '}${esc(ev.subject)}</div>`;
+        const pos=_tcalSpanPos(ev,day);
+        const spanCls=pos==='single'?'':(' span-'+pos);
+        const showText = pos==='single'||pos==='start';
+        const arrowL = (pos==='mid'||pos==='end')?'\u25C0 ':'';
+        const arrowR = (pos==='mid'||pos==='start')?' \u25B6':'';
+        h+=`<div class="tcal-ev${spanCls} ${ev.allDay?'allday':''}" title="${esc(_tcalTip(ev))}" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
+          +`${arrowL}${(showText&&!ev.allDay)?'<span class=\"tcal-ev-t\">'+_tcalHm(ev.start)+'</span> ':''}${showText?esc(ev.subject):'&nbsp;'}${arrowR}</div>`;
       }
       if(evs.length>shown.length) h+=`<div class="tcal-more" onclick="event.stopPropagation();tcalDayList('${_tcalYmd(day)}')">+${evs.length-shown.length}개 더</div>`;
       h+='</div>';
