@@ -10505,7 +10505,7 @@ function renderBody(m,d){
   // 첨부 표시 (접기/펼치기 — 기본 접힘, 본문 먼저 보이게)
   let attHtml='';
   if(totalAtt){
-    const normal=atts.map(a=>{const nm=esc(a.name).replace(/'/g,"\\'");return `<span class="att" title="좌클릭: 다운로드 · 우클릭: 저장/다른이름/SP링크"><span onclick="mailAttGet('${m.uid}',${a.idx},'${nm}',false)" oncontextmenu="mailAttCtx(event,'${m.uid}',${a.idx},'${nm}');return false;">📎 ${esc(a.name)}</span></span>`;}).join('');
+    const normal=atts.map(a=>{const nm=esc(a.name).replace(/'/g,"\\'");return `<span class="att" title="좌클릭: 미리보기 · 우클릭: 다운로드/다른이름/SP링크"><span onclick="mailAttPreview('${m.uid}',${a.idx},'${nm}')" oncontextmenu="mailAttCtx(event,'${m.uid}',${a.idx},'${nm}');return false;">📎 ${esc(a.name)}</span></span>`;}).join('');
     const big=large.map(a=>`<span class="att" onclick="window.open('${esc(a.url)}','_blank')">🔗 ${esc(a.name)} <span class="badge-lg">대용량</span></span>`).join('');
     attHtml=`<div class="rd-att-box">
       <div class="rd-att-toggle" onclick="this.parentNode.classList.toggle('open')">
@@ -10687,6 +10687,54 @@ async function mailAllAttSpLinks(){
     if(typeof toast==='function') toast(`🔗 첨부 ${boxes.length}건 링크 복사됨 — Teams에 붙여넣기`,'ok');
     if(_j&&typeof _Jok==='function') _Jok(_j, `${boxes.length}건`);
   }catch(e){ if(_j&&typeof _Jno==='function') _Jno(_j, e.message); if(typeof toast==='function') toast('실패: '+e.message,'bad'); }
+}
+// 첨부 미리보기 모달 (PDF·이미지 인라인 + 다운로드 버튼)
+async function mailAttPreview(uid, idx, name){
+  name=name||'file';
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  const canPreview = ['pdf','png','jpg','jpeg','gif','webp','bmp','svg'].includes(ext);
+  const isImg = ['png','jpg','jpeg','gif','webp','bmp','svg'].includes(ext);
+  // 모달 껍데기
+  let ov=document.getElementById('mailAttOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='mailAttOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(3px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.4);width:min(920px,94vw);height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+      <span style="font-size:16px">📎</span>
+      <b style="font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</b>
+      <button id="mailAttDl" style="padding:8px 16px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-size:13px;cursor:pointer">⬇ 다운로드</button>
+      <button onclick="document.getElementById('mailAttOv').remove()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:#64748b">✕</button>
+    </div>
+    <div id="mailAttBody" style="flex:1;overflow:auto;background:#f8fafc;display:flex;align-items:center;justify-content:center">
+      <div style="color:#94a3b8;font-size:14px">불러오는 중…</div>
+    </div>
+  </div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  document.getElementById('mailAttDl').onclick=()=>mailAttGet(uid,idx,name,false);
+
+  if(!canPreview){
+    document.getElementById('mailAttBody').innerHTML=`<div style="text-align:center;color:#64748b;padding:40px"><div style="font-size:44px;margin-bottom:12px">📄</div><div style="font-size:14px;font-weight:600;margin-bottom:6px">${esc(name)}</div><div style="font-size:13px">이 형식은 미리보기를 지원하지 않습니다.<br>위 [⬇ 다운로드] 버튼으로 저장하세요.</div></div>`;
+    return;
+  }
+  // blob 가져와서 미리보기
+  try{
+    const url=`${SERVER}/api/mail/attachment?folder=${FOLDER}&uid=${encodeURIComponent(uid)}&idx=${idx}`;
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('불러오기 실패 '+r.status);
+    const blob=await r.blob();
+    const burl=URL.createObjectURL(blob);
+    const body=document.getElementById('mailAttBody'); if(!body) return;
+    if(isImg){
+      body.innerHTML=`<img src="${burl}" style="max-width:100%;max-height:100%;object-fit:contain;display:block">`;
+    }else{
+      body.style.alignItems='stretch';
+      body.innerHTML=`<iframe src="${burl}" style="width:100%;height:100%;border:none"></iframe>`;
+    }
+  }catch(e){
+    const body=document.getElementById('mailAttBody');
+    if(body) body.innerHTML=`<div style="text-align:center;color:#dc2626;padding:40px"><div style="font-size:40px;margin-bottom:12px">⚠️</div><div style="font-size:14px">미리보기 실패: ${esc(e.message)}</div><div style="font-size:13px;color:#64748b;margin-top:8px">[⬇ 다운로드]로 저장해 주세요.</div></div>`;
+  }
 }
 async function mailAttGet(uid,idx,name,saveAs){
   name=name||'file';
