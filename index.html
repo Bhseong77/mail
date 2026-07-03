@@ -1444,6 +1444,18 @@ body.embed-prnew{background:#fff}
 .tcal-legend .in{ background:#93c5fd; } .tcal-legend .out{ background:#fdba74; }
 .tch-lbl{ font-size:10px; padding:1px 7px; border-radius:99px; font-weight:600; }
 .tch-lbl.in{ background:#dbeafe; color:#1e40af; } .tch-lbl.out{ background:#ffedd5; color:#9a3412; }
+/* 메일 첨부 */
+.tcf-memo-lbl{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+.tcf-mail-btn{ padding:3px 10px; border:1px solid #93c5fd; background:#eff6ff; color:#2563eb; border-radius:6px; font-size:11px; cursor:pointer; }
+.tcf-mail-btn:hover{ background:#dbeafe; }
+.tcal-mailcard{ display:inline-block; background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid #3b82f6; border-radius:6px; padding:6px 10px; margin:3px 0; cursor:pointer; font-size:13px; max-width:100%; }
+.tcal-mailcard:hover{ background:#eff6ff; }
+.tcal-mailpop-box,.tcal-mailview-box{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:20px 22px; width:460px; max-width:92vw; max-height:88vh; overflow:auto; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.tcal-mail-list{ max-height:360px; overflow:auto; margin-top:6px; }
+.tcal-mail-item{ padding:9px 6px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+.tcal-mail-item:hover{ background:#f8fafc; }
+.tcal-mail-subj{ font-size:13px; font-weight:500; color:var(--t1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tcal-mail-meta{ font-size:11px; color:var(--t3); margin-top:2px; }
 
 
 </style>
@@ -11293,7 +11305,8 @@ function _tcalShowForm(ev){
   h+=`<div id="tcf-att-chips" class="tcal-att-chips"></div>`;
   h+=`<button type="button" class="tcal-att-add" onclick="tcalPickAttendees()">＋ 참석자 선택 (TIC 멤버)</button>`;
   h+=`<label>장소</label><div class="tcf-loc-row"><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)"><button type="button" class="tcf-map-btn" onclick="tcalPickLocation()" title="구글맵에서 검색">🗺️ 지도</button></div>`;
-  h+=`<label>메모</label><div id="tcf-body" class="tcf-memo" contenteditable="true" data-ph="메모 입력 (이미지 붙여넣기 가능)"></div>`;
+  h+=`<div class="tcf-memo-lbl"><label>메모</label><button type="button" class="tcf-mail-btn" onclick="tcalAttachMail()">📧 메일 첨부</button></div>`;
+  h+=`<div id="tcf-body" class="tcf-memo" contenteditable="true" data-ph="메모 입력 (이미지 붙여넣기 · 메일 첨부 가능)"></div>`;
   h+=`<div id="tcf-err" class="tcf-err"></div>`;
   h+=`</div>`;
   h+=`<div class="tcf-actions">`;
@@ -11609,6 +11622,93 @@ async function tcalDmAttendees(id){
     toast(msg.join(' '), r.failed&&r.failed.length?'warn':'ok');
   }catch(e){ toast('전송 실패: '+(e.message||e),'bad'); }
 }
+
+// ── 일정에 메일 첨부 (대시보드 메일함에서 선택) ──
+let _tcalMailCache=null;
+async function tcalAttachMail(){
+  let pop=$('tcalMailPop');
+  if(!pop){ pop=document.createElement('div'); pop.id='tcalMailPop'; pop.className='tcal-attpop-ov';
+    pop.onclick=(e)=>{ if(e.target===pop) pop.style.display='none'; };
+    document.body.appendChild(pop); }
+  pop.style.display='flex';
+  pop.innerHTML='<div class="tcal-mailpop-box"><div class="tcal-modal-h">메일 첨부</div><div style="padding:20px;text-align:center;color:var(--t3)">메일함 불러오는 중…</div></div>';
+  try{
+    // 현재 로드된 MAILS 우선, 없으면 서버 조회
+    let mails = (typeof MAILS!=='undefined'&&MAILS&&MAILS.length)?MAILS:_tcalMailCache;
+    if(!mails){
+      const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=200`);
+      const d=await r.json();
+      mails=(d&&d.mails)||[];
+    }
+    _tcalMailCache=mails;
+    _tcalRenderMailPop('');
+  }catch(e){
+    pop.querySelector('.tcal-mailpop-box').innerHTML=`<div class="tcal-modal-h">메일 첨부</div>
+      <div style="padding:20px;color:#dc2626;font-size:13px">메일함을 불러오지 못했습니다.<br>${esc(String(e.message||e))}</div>
+      <div style="text-align:right"><button class="btn sm" onclick="document.getElementById('tcalMailPop').style.display='none'">닫기</button></div>`;
+  }
+}
+function _tcalMailFrom(m){ const f=(m.from&&m.from[0])?m.from[0]:null; return f?(f.name||f.email||''):''; }
+function _tcalRenderMailPop(filter){
+  const pop=$('tcalMailPop'); if(!pop) return;
+  const ft=(filter||'').toLowerCase();
+  const mails=(_tcalMailCache||[]).filter(m=>!ft || (m.subject||'').toLowerCase().includes(ft) || _tcalMailFrom(m).toLowerCase().includes(ft)).slice(0,100);
+  let h='<div class="tcal-mailpop-box">';
+  h+='<div class="tcal-modal-h">메일 첨부 <span style="color:var(--t3);font-size:12px">클릭하면 일정 메모에 추가</span></div>';
+  h+='<input type="text" class="tcal-att-search" placeholder="🔍 제목·발신자 검색" oninput="_tcalRenderMailPop(this.value)" value="'+esc(filter||'')+'">';
+  h+='<div class="tcal-mail-list">';
+  for(const m of mails){
+    h+=`<div class="tcal-mail-item" onclick="tcalPickMail('${esc(String(m.uid))}')">
+      <div class="tcal-mail-subj">${esc(m.subject||'(제목 없음)')}</div>
+      <div class="tcal-mail-meta">${esc(_tcalMailFrom(m))} · ${esc(m.date||'')}</div></div>`;
+  }
+  if(!mails.length) h+='<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px">메일 없음</div>';
+  h+='</div><div style="text-align:right;margin-top:10px"><button class="btn sm" onclick="var p=document.getElementById(\'tcalMailPop\');if(p)p.style.display=\'none\'">닫기</button></div>';
+  h+='</div>';
+  pop.innerHTML=h;
+}
+// 메일 선택 → 메모에 첨부 카드(링크) 삽입
+function tcalPickMail(uid){
+  const m=(_tcalMailCache||[]).find(x=>String(x.uid)===String(uid)); if(!m) return;
+  const memo=$('tcf-body'); if(!memo) return;
+  const subj=(m.subject||'(제목 없음)').replace(/"/g,'&quot;');
+  const from=_tcalMailFrom(m).replace(/"/g,'&quot;');
+  // 첨부 카드: data 속성에 folder/uid. 클릭은 위임으로 처리(뷰 시)
+  const card=`<div class="tcal-mailcard" data-mailuid="${esc(String(uid))}" data-mailfolder="inbox" contenteditable="false">📧 <b>${esc(m.subject||'(제목 없음)')}</b><br><span style="color:#64748b;font-size:12px">${esc(from)} · ${esc(m.date||'')}</span></div><br>`;
+  // 커서 위치에 삽입
+  memo.focus();
+  document.execCommand('insertHTML', false, card);
+  const pop=$('tcalMailPop'); if(pop) pop.style.display='none';
+  toast('메일 첨부됨','ok');
+}
+
+// ── 첨부된 메일 카드 클릭 → 본문 모달 ──
+async function tcalOpenMail(folder, uid){
+  let ov=$('tcalMailView');
+  if(!ov){ ov=document.createElement('div'); ov.id='tcalMailView'; ov.className='tcal-modal-ov';
+    ov.style.zIndex='100002';
+    ov.onclick=(e)=>{ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov); }
+  ov.style.display='flex';
+  const m=((_tcalMailCache||[]).find(x=>String(x.uid)===String(uid)))||{};
+  ov.innerHTML=`<div class="tcal-mailview-box"><div class="tcal-modal-h">${esc(m.subject||'메일')}</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:10px">${esc(_tcalMailFrom(m))} · ${esc(m.date||'')}</div>
+    <div id="tcalMailBody" style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.6"><div class="spin"></div>불러오는 중…</div>
+    <div style="text-align:right;margin-top:12px"><button class="btn sm" onclick="document.getElementById('tcalMailView').style.display='none'">닫기</button></div></div>`;
+  try{
+    const r=await fetch(`${SERVER}/api/mail/body?folder=${encodeURIComponent(folder||'inbox')}&uid=${encodeURIComponent(uid)}`);
+    const d=await r.json();
+    const bodyEl=$('tcalMailBody');
+    if(d&&d.ok){ bodyEl.innerHTML = d.html || (d.text?('<pre style="white-space:pre-wrap;font-family:inherit">'+esc(d.text)+'</pre>'):'(내용 없음)'); }
+    else bodyEl.innerHTML='<div style="color:#dc2626">본문 조회 실패: '+esc((d&&d.error)||'')+'</div>';
+  }catch(e){ const b=$('tcalMailBody'); if(b) b.innerHTML='<div style="color:#dc2626">로드 실패: '+esc(e.message||e)+'</div>'; }
+}
+// 메모 안 메일카드 클릭 위임 (읽기용 — 폼 메모, 호버카드 등)
+document.addEventListener('click', function(e){
+  const card=e.target&&e.target.closest?e.target.closest('.tcal-mailcard'):null;
+  if(card){ e.preventDefault(); e.stopPropagation();
+    tcalOpenMail(card.getAttribute('data-mailfolder')||'inbox', card.getAttribute('data-mailuid')); }
+}, true);
 
 function _tcalShowModal(html){
   let ov=$('tcalModal');
