@@ -1456,6 +1456,11 @@ body.embed-prnew{background:#fff}
 .tcal-mail-item:hover{ background:#f8fafc; }
 .tcal-mail-subj{ font-size:13px; font-weight:500; color:var(--t1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tcal-mail-meta{ font-size:11px; color:var(--t3); margin-top:2px; }
+.tcal-mailfolder-seg{ display:flex; gap:6px; margin-bottom:8px; }
+.tcal-mailfolder-seg button{ flex:1; padding:7px; border:1px solid var(--border); background:var(--card); border-radius:8px; font-size:12px; cursor:pointer; }
+.tcal-mailfolder-seg button.on{ background:#2563eb; color:#fff; border-color:#2563eb; }
+.tcal-mail-item mark{ background:#fef08a; color:inherit; padding:0 1px; border-radius:2px; }
+.tcal-mailview-box{ width:640px; }
 
 
 </style>
@@ -11389,8 +11394,8 @@ async function tcalSave(){
             attendees:attEmails, webLink:saved.webLink||'' };
           const owners=await _tcalResolveAttendees(attEmails);
           if(!owners.length){ toast('참석자를 TIC 멤버에서 못 찾음','bad'); return; }
-          const html=_tcalSummaryText(evObj).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
-          const rr=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br>'+html);
+          const html=_tcalSummaryHtml(evObj);
+          const rr=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br><br>'+html);
           const m=[`✅ ${rr.sent.length}명 전송`];
           if(rr.skipped&&rr.skipped.length) m.push(`(본인 제외 ${rr.skipped.length})`);
           if(rr.failed&&rr.failed.length) m.push(`❌ ${rr.failed.length}`);
@@ -11555,6 +11560,26 @@ function _tcalSummaryText(ev){
   if(ev.webLink) L.push('🔗 '+ev.webLink);
   return L.join('\\n');
 }
+// HTML 요약 (Teams DM용) — 제목에 하이퍼링크, 긴 URL 숨김
+function _tcalSummaryHtml(ev){
+  const E=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const L=[];
+  const title=E(ev.subject||'(제목 없음)')+(ev.label?(' <b>['+E(ev.label)+']</b>'):'');
+  // 제목에 링크 걸기 (webLink 있으면)
+  L.push('📅 '+(ev.webLink?`<a href="${E(ev.webLink)}">${title}</a>`:title));
+  if(ev.allDay){
+    let et=''; if(ev.end){ const ed=_tcalAddDays(ev.end,-1); et=_tcalSameDay(ev.start,ed)?'':(' ~ '+_tcalYmd(ed)); }
+    L.push('🕐 '+_tcalYmd(ev.start)+et+' (종일)');
+  }else{
+    const sameDay=ev.end&&_tcalSameDay(ev.start,ev.end);
+    L.push('🕐 '+_tcalYmd(ev.start)+' '+_tcalHm(ev.start)+(sameDay?(' ~ '+_tcalHm(ev.end)):(ev.end?(' ~ '+_tcalYmd(ev.end)+' '+_tcalHm(ev.end)):'')));
+  }
+  if(ev.location) L.push('📍 '+E(ev.location));
+  if(ev.attendees&&ev.attendees.length) L.push('👥 '+E(ev.attendees.map(e=>_tcalMemName(e)).join(', ')));
+  if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+E(t.slice(0,120))+(t.length>120?'…':'')); }
+  if(ev.webLink) L.push('🔗 <a href="'+E(ev.webLink)+'">일정 열기</a>');
+  return L.join('<br>');
+}
 
 // ── 이벤트 우클릭 메뉴 ──
 function tcalEvMenu(e, id){
@@ -11614,8 +11639,8 @@ async function tcalDmAttendees(id){
   try{
     const owners=await _tcalResolveAttendees(ev.attendees);
     if(!owners.length){ toast('참석자를 TIC 멤버에서 못 찾음','bad'); return; }
-    const html=_tcalSummaryText(ev).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
-    const r=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br>'+html);
+    const html=_tcalSummaryHtml(ev);
+    const r=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br><br>'+html);
     const msg=[`✅ ${r.sent.length}명 전송`];
     if(r.skipped&&r.skipped.length) msg.push(`(본인 제외 ${r.skipped.length})`);
     if(r.failed&&r.failed.length) msg.push(`❌ 실패 ${r.failed.length}`);
@@ -11625,48 +11650,77 @@ async function tcalDmAttendees(id){
 
 // ── 일정에 메일 첨부 (대시보드 메일함에서 선택) ──
 let _tcalMailCache=null;
+let _tcalMailFolder='inbox';
 async function tcalAttachMail(){
   let pop=$('tcalMailPop');
   if(!pop){ pop=document.createElement('div'); pop.id='tcalMailPop'; pop.className='tcal-attpop-ov';
     pop.onclick=(e)=>{ if(e.target===pop) pop.style.display='none'; };
     document.body.appendChild(pop); }
   pop.style.display='flex';
-  pop.innerHTML='<div class="tcal-mailpop-box"><div class="tcal-modal-h">메일 첨부</div><div style="padding:20px;text-align:center;color:var(--t3)">메일함 불러오는 중…</div></div>';
+  // 고정 UI (검색창/폴더/목록 컨테이너) — 목록만 갱신
+  pop.innerHTML=`<div class="tcal-mailpop-box">
+    <div class="tcal-modal-h">📧 메일 첨부 <span style="color:var(--t3);font-size:12px;font-weight:400">클릭하면 일정 메모에 추가</span></div>
+    <div class="tcal-mailfolder-seg">
+      <button class="on" data-f="inbox" onclick="tcalMailFolder('inbox')">📥 받은편지함</button>
+      <button data-f="sent" onclick="tcalMailFolder('sent')">📤 보낸편지함</button>
+    </div>
+    <input type="text" id="tcalMailSearch" class="tcal-att-search" placeholder="🔍 제목·발신자·내용 검색" oninput="_tcalRenderMailList()">
+    <div id="tcalMailCnt" style="font-size:11px;color:var(--t3);margin:2px 0 6px"></div>
+    <div id="tcalMailList" class="tcal-mail-list"><div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div></div>
+    <div style="text-align:right;margin-top:10px"><button class="btn sm" onclick="var p=document.getElementById('tcalMailPop');if(p)p.style.display='none'">닫기</button></div>
+  </div>`;
+  await _tcalLoadMailFolder('inbox');
+  setTimeout(()=>{ const si=$('tcalMailSearch'); if(si) si.focus(); }, 60);
+}
+function tcalMailFolder(f){
+  _tcalMailFolder=f;
+  const pop=$('tcalMailPop'); if(pop) pop.querySelectorAll('.tcal-mailfolder-seg button').forEach(b=>b.classList.toggle('on', b.dataset.f===f));
+  _tcalLoadMailFolder(f);
+}
+let _tcalMailCacheByFolder={};
+async function _tcalLoadMailFolder(f){
+  const list=$('tcalMailList'); if(list) list.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">불러오는 중…</div>';
   try{
-    // 현재 로드된 MAILS 우선, 없으면 서버 조회
-    let mails = (typeof MAILS!=='undefined'&&MAILS&&MAILS.length)?MAILS:_tcalMailCache;
-    if(!mails){
-      const r=await fetch(`${SERVER}/api/mail/list?folder=inbox&limit=200`);
-      const d=await r.json();
-      mails=(d&&d.mails)||[];
+    if(!_tcalMailCacheByFolder[f]){
+      // inbox 는 현재 화면 MAILS 재사용 가능
+      if(f==='inbox' && typeof MAILS!=='undefined' && MAILS && MAILS.length){ _tcalMailCacheByFolder[f]=MAILS; }
+      else {
+        const r=await fetch(`${SERVER}/api/mail/list?folder=${encodeURIComponent(f)}&limit=200`);
+        const d=await r.json();
+        _tcalMailCacheByFolder[f]=(d&&d.mails)||[];
+      }
     }
-    _tcalMailCache=mails;
-    _tcalRenderMailPop('');
+    _tcalMailCache=_tcalMailCacheByFolder[f];
+    _tcalRenderMailList();
   }catch(e){
-    pop.querySelector('.tcal-mailpop-box').innerHTML=`<div class="tcal-modal-h">메일 첨부</div>
-      <div style="padding:20px;color:#dc2626;font-size:13px">메일함을 불러오지 못했습니다.<br>${esc(String(e.message||e))}</div>
-      <div style="text-align:right"><button class="btn sm" onclick="document.getElementById('tcalMailPop').style.display='none'">닫기</button></div>`;
+    if(list) list.innerHTML='<div style="padding:20px;color:#dc2626;font-size:13px">불러오기 실패: '+esc(String(e.message||e))+'</div>';
   }
 }
 function _tcalMailFrom(m){ const f=(m.from&&m.from[0])?m.from[0]:null; return f?(f.name||f.email||''):''; }
-function _tcalRenderMailPop(filter){
-  const pop=$('tcalMailPop'); if(!pop) return;
-  const ft=(filter||'').toLowerCase();
-  const mails=(_tcalMailCache||[]).filter(m=>!ft || (m.subject||'').toLowerCase().includes(ft) || _tcalMailFrom(m).toLowerCase().includes(ft)).slice(0,100);
-  let h='<div class="tcal-mailpop-box">';
-  h+='<div class="tcal-modal-h">메일 첨부 <span style="color:var(--t3);font-size:12px">클릭하면 일정 메모에 추가</span></div>';
-  h+='<input type="text" class="tcal-att-search" placeholder="🔍 제목·발신자 검색" oninput="_tcalRenderMailPop(this.value)" value="'+esc(filter||'')+'">';
-  h+='<div class="tcal-mail-list">';
-  for(const m of mails){
-    h+=`<div class="tcal-mail-item" onclick="tcalPickMail('${esc(String(m.uid))}')">
-      <div class="tcal-mail-subj">${esc(m.subject||'(제목 없음)')}</div>
-      <div class="tcal-mail-meta">${esc(_tcalMailFrom(m))} · ${esc(m.date||'')}</div></div>`;
-  }
-  if(!mails.length) h+='<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px">메일 없음</div>';
-  h+='</div><div style="text-align:right;margin-top:10px"><button class="btn sm" onclick="var p=document.getElementById(\'tcalMailPop\');if(p)p.style.display=\'none\'">닫기</button></div>';
-  h+='</div>';
-  pop.innerHTML=h;
+function _tcalMailHi(text, ft){
+  const t=String(text||''); if(!ft) return esc(t);
+  const i=t.toLowerCase().indexOf(ft); if(i<0) return esc(t);
+  return esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+ft.length))+'</mark>'+esc(t.slice(i+ft.length));
 }
+function _tcalRenderMailList(){
+  const list=$('tcalMailList'); if(!list) return;
+  const si=$('tcalMailSearch'); const ft=((si&&si.value)||'').trim().toLowerCase();
+  let mails=(_tcalMailCache||[]).filter(m=>{
+    if(!ft) return true;
+    return (m.subject||'').toLowerCase().includes(ft)
+      || _tcalMailFrom(m).toLowerCase().includes(ft)
+      || _tcalMailEmail(m).toLowerCase().includes(ft)
+      || (m.date||'').toLowerCase().includes(ft);
+  });
+  const total=mails.length;
+  mails=mails.slice(0,150);
+  const cnt=$('tcalMailCnt'); if(cnt) cnt.textContent = ft?`검색 결과 ${total}건`:`총 ${(_tcalMailCache||[]).length}건`;
+  if(!mails.length){ list.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">'+(ft?'검색 결과 없음':'메일 없음')+'</div>'; return; }
+  list.innerHTML=mails.map(m=>`<div class="tcal-mail-item" onclick="tcalPickMail('${esc(String(m.uid))}')">
+      <div class="tcal-mail-subj">${_tcalMailHi(m.subject||'(제목 없음)', ft)}</div>
+      <div class="tcal-mail-meta"><b>${_tcalMailHi(_tcalMailFrom(m), ft)}</b> · ${esc(m.date||'')}</div></div>`).join('');
+}
+function _tcalMailEmail(m){ const f=(m.from&&m.from[0])?m.from[0]:null; return f?(f.email||''):''; }
 // 메일 선택 → 메모에 첨부 카드(링크) 삽입
 function tcalPickMail(uid){
   const m=(_tcalMailCache||[]).find(x=>String(x.uid)===String(uid)); if(!m) return;
