@@ -8934,25 +8934,70 @@ async function _analyzeOne(p, f){
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
+  // ── doc-tax + 로컬파싱 실패 = 카드영수증 가능성 → 카드/세금계산서 판별 프롬프트로 교체 ──
+  let _taxPrompt = prompt;
+  if(p==='doc-tax'){
+    _taxPrompt=`다음은 매입 증빙(전자세금계산서 또는 신용카드 매출전표/카드영수증)이다. 이미지일 수 있으니 화면에 보이는 값을 그대로 읽어라. 문서 종류를 판별하고 JSON으로만 답하라(설명·마크다운 없이).
+
+[문서종류]
+- "card": 신용카드 매출전표·카드영수증·통합 카드 영수증. "승인번호","카드종류","일시불","할부","결제금액","결제일시","거래일시","가맹점","매출전표","KSNET","토스","네이버" 등이 보이면 card.
+- "tax": 전자세금계산서. "세금계산서","공급받는자","공급자","작성일자" 등이 보이면 tax.
+
+[card일 때 — 형식이 KSNET/토스/네이버 3가지가 섞여 있으니 주의]
+· company(회사명): **실제 판매처**. 우선순위 = 판매자상호 > 상점명 > 이용상점 > 판매자정보 상호. "가맹점명"이 네이버파이낸셜/토스페이먼츠/케이에스넷/KSNET 등 결제대행사면 회사명이 아니다(판매자상호를 써라). 결제대행사만 있으면 그때만 가맹점명.
+· quoteDate: 결제일시/거래일시/결제일자의 **날짜만** YYYY-MM-DD.
+· item(품목): 제품명/상품명/구매상품. "외 N건"도 그대로.
+· amount(공급가액): "과세" 또는 "공급가액" 금액(부가세 제외). 숫자만.
+· vat(부가세): "부가세","부가세액". 숫자만. 면세면 0.
+· qty=1, price=공급가액(수량 1 가정).
+
+{"docType":"card 또는 tax",
+ "company":"회사명",
+ "quoteDate":"YYYY-MM-DD",
+ "category":"기타",
+ "items":[{"item":"품목","qty":1,"price":공급가액숫자,"amount":공급가액숫자,"vat":부가세숫자}]}
+
+[tax일 때] company=공급자 상호, quoteDate=작성일자, items에 품목별 item/qty/price/amount(공급가액)/vat(부가세). 회사명은 엔젯(구매자)이 아니라 공급자.
+없는 값은 빈 문자열/0. category는 "기타".
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+  }
   const textClean=(text||'').replace(/\s/g,'');
   const isScanned = textClean.length < 40;   // 텍스트 거의 없음 = 스캔/이미지 PDF
+  const _usePrompt = (p==='doc-tax') ? _taxPrompt : prompt;
   let info=null;
   // 스캔 PDF는 Copilot에 보내면 테넌트(SharePoint)의 비슷한 문서로 grounding해 엉뚱한 데이터를 답하므로 건너뜀
   if(!isScanned){
-    try{ const txt=await callCopilot(prompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
+    try{ const txt=await callCopilot(_usePrompt); let t=txt.replace(/```json|```/g,'').trim(); const s=t.indexOf('{'),e=t.lastIndexOf('}'); if(s>=0&&e>s)t=t.slice(s,e+1); info=JSON.parse(t); }catch(_){ info=null; }
   }
   // 스캔이거나 텍스트분석 실패 → 실제 파일 이미지를 비전(gpt-4o)으로 직접 읽기 (0° → 90/180/270 회전 재시도)
   if(isScanned || _anEmptyInfo(info)){
     try{
-      let vi=await _anViaVision(f, prompt, [0]);
-      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, prompt, [90,180,270]);
+      let vi=await _anViaVision(f, _usePrompt, [0]);
+      if(_anEmptyInfo(vi)) vi=await _anViaVision(f, _usePrompt, [90,180,270]);
       if(!_anEmptyInfo(vi)) info=vi;
-    }catch(ex){ console.warn("거래명세서 비전 분석 실패",f.name,ex.message); }
+    }catch(ex){ console.warn("비전 분석 실패",f.name,ex.message); }
   }
   const prev=AN_DATA[p][f.id]||{};
   const _isEnjet=s=>/엔젯|enjet/i.test(String(s||""));
+  const _isCard = p==='doc-tax' && info && info.docType==='card';
   // 회사명(발행처)에서 엔젯 제외: company→customer→prev 순으로 엔젯 아닌 첫 값
   let _company=[ (info&&info.company), f.customer, prev.company ].find(x=>x && !_isEnjet(x)) || "";
+  if(_isCard){
+    // ── 카드영수증: 결제일=작성일, 승인번호=법인카드결제, VAT는 영수증 값 ──
+    AN_DATA[p][f.id]={
+      company:_company,
+      quoteDate: (info&&info.quoteDate) || pafQuoteDate(text) || prev.quoteDate || '',
+      approvalNo: '법인카드결제',
+      category:(info&&info.category)||prev.category||'기타',
+      items:(info&&info.items&&info.items.length?info.items:prev.items)||[],
+      delivery:'', payment:'', warranty:'', negoAmount:'',
+      docType:'card',
+      memo:prev.memo||'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
+    };
+    return info;
+  }
   AN_DATA[p][f.id]={
     company:_company,
     quoteDate: pafQuoteDate(text) || (info&&info.quoteDate) || prev.quoteDate || '',
@@ -8963,6 +9008,7 @@ ${text.slice(0,6000)}`;
     payment:(info&&info.payment)||'',
     warranty:(info&&info.warranty)||'',
     negoAmount:(info&&info.negoAmount)||prev.negoAmount||'',
+    docType:(info&&info.docType)||prev.docType||'',
     memo:prev.memo||'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
   };
   return info;
@@ -9193,27 +9239,33 @@ async function anAnalyze(p, silent){
 ${text.slice(0,6000)}`;
       // ── 세금계산서 탭: 세금계산서 vs 카드영수증 자동 판별 ──
       if(p==='doc-tax'){
-        prompt=`다음은 매입 증빙 문서(세금계산서 또는 신용카드 영수증)에서 추출한 텍스트다. 먼저 문서 종류를 판별하고, 아래 JSON으로만 답하라(설명·마크다운 없이).
+        prompt=`다음은 매입 증빙 문서(세금계산서 또는 신용카드 영수증/매출전표)에서 추출한 텍스트다. 문서 종류를 판별하고 아래 JSON으로만 답하라(설명·마크다운 없이).
 
-먼저 docType 을 판별:
-- "card": 신용카드 매출전표/영수증/카드영수증. "승인번호","카드","신용","일시불","할부","가맹점","네이버페이","결제","IC신용","체크카드" 등이 보이면 card.
-- "tax": 전자세금계산서. "세금계산서","공급받는자","공급자","작성일자","전자세금" 등이 보이면 tax.
+[문서종류 판별]
+- "card": 신용카드 매출전표 / 카드영수증 / 통합 카드 영수증 / 신용·체크카드 매출전표. "승인번호","카드종류","일시불","할부","결제금액","결제일시","거래일시","가맹점","매출전표" 등이 보이면 card.
+- "tax": 전자세금계산서. "세금계산서","공급받는자","공급자","작성일자" 등이 보이면 tax.
+
+[card(카드영수증)일 때 추출 규칙 — 영수증 형식이 3가지가 섞여 있으니 아래를 잘 보라]
+· 회사명(company): **실제 판매처**. 우선순위: 판매자상호 > 상점명 > 이용상점 > 판매자정보의 상호. "가맹점명"이 네이버파이낸셜/토스페이먼츠/케이에스넷/KSNET 등 결제대행사면 그건 회사명이 아니다(판매자상호를 써라). 결제대행사만 있고 판매처가 없으면 가맹점명을 쓴다.
+· 작성일(quoteDate): 결제일시/거래일시/결제일자의 **날짜만** YYYY-MM-DD.
+· 품목(item): 제품명/상품명/구매상품. "외 N건"이 붙어도 그대로 전체 문자열.
+· 공급가액(amount): "과세","공급가액" 금액(부가세 제외). 숫자만.
+· 부가세(vat): "부가세","부가세액" 금액. 숫자만. 면세(0)면 0.
+· 합계(total): "결제금액","합계","승인금액". 숫자만.
+· 단가(price): 수량이 1이면 공급가액과 동일, 모르면 공급가액.
+· 수량(qty): 명시 없으면 1.
 
 {"docType":"card 또는 tax",
- "company":"공급자/가맹점 회사명",
- "quoteDate":"작성일/결제일시(YYYY-MM-DD)",
- "approvalNo":"승인번호(카드영수증이면 승인번호, 없으면 빈 문자열)",
- "category":"분류",
- "items":[{"item":"품목/상품명","qty":"수량","price":"단가(숫자만)","amount":"공급가액(숫자만)","vat":"부가세/VAT(숫자만, 명시 안되면 빈 문자열)"}]}
+ "company":"회사명(위 규칙)",
+ "quoteDate":"YYYY-MM-DD",
+ "category":"기타",
+ "items":[{"item":"품목/상품명","qty":"수량(숫자)","price":"단가(숫자)","amount":"공급가액(숫자)","vat":"부가세(숫자)"}]}
 
-- docType: 위 기준으로 "card" 또는 "tax".
-- quoteDate: 세금계산서면 작성일자, 카드영수증이면 결제(승인) 일시의 날짜만. YYYY-MM-DD.
-- approvalNo: 카드영수증의 승인번호(숫자). 세금계산서면 승인번호/전자세금계산서 승인번호. 없으면 빈 문자열.
-- company: 세금계산서는 공급자 상호, 카드영수증은 가맹점(판매처) 상호.
-- category(분류): [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나. 어려우면 "기타".
-- items: 구매 상품/품목별로. price=단가, amount=공급가액(부가세 제외 금액), vat=부가세. 영수증에 공급가액/부가세가 나뉘어 있으면 그대로, 합계만 있으면 amount에 넣고 vat는 빈 문자열.
-- 회사명·가맹점은 엔젯(구매자)이 아니라 판매처 기준.
-- 없는 값은 빈 문자열.
+[tax(세금계산서)일 때]
+- company=공급자 상호, quoteDate=작성일자, items에 품목별 item/qty/price/amount(공급가액)/vat(부가세). 승인번호는 신경쓰지 말 것.
+- 회사명은 엔젯(구매자)이 아니라 공급자.
+
+없는 값은 빈 문자열. category는 판단 어려우면 "기타".
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
@@ -9239,7 +9291,7 @@ ${text.slice(0,6000)}`;
           warranty:(info&&info.warranty)||'',
           negoAmount:(info&&info.negoAmount)||'',
           docType:(info&&info.docType)||'',
-          approvalNo:(info&&info.approvalNo)|| (_isCard ? '법인카드결제' : ''),
+          approvalNo:(_isCard ? '법인카드결제' : ((info&&info.approvalNo)||'')),
           memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
         };
       }
