@@ -1527,10 +1527,6 @@ body.embed-prnew{background:#fff}
   </div>
   <button id="nav-doc-tech" onclick="showPage('doc-tech')">📚 기술자료</button>
   <div class="nav-group">
-    <button class="navgrp-btn" id="navgrp-project" onclick="navToggle(event,'project')">📁 프로젝트 <span class="navgrp-caret">▾</span></button>
-    <div class="nav-dropdown" id="navdd-project"></div>
-  </div>
-  <div class="nav-group">
     <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-schedule"></div>
   </div>
@@ -19926,8 +19922,8 @@ const PERM_TABS = [
   {id:'doc-tech',    label:'📚 기술자료'},
   {id:'attach',      label:'📎 첨부파일'},
   {id:'schedule',    label:'📅 통합일정'},
+  {id:'ticcal',      label:'📆 팀 캘린더'},
   {id:'workplan',    label:'📋 업무일정'},
-  {id:'spec',        label:'🏭 설비제작사양서'},
   {id:'purchase',    label:'🛒 구매'},
   {id:'corpcard',    label:'💳 법인카드'},
 ];
