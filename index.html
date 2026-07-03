@@ -1407,6 +1407,21 @@ body.embed-prnew{background:#fff}
 .tcal-att-item:hover{ background:#f8fafc; }
 .tcal-att-name{ font-weight:500; }
 .tcal-att-mail{ color:var(--t3); font-size:11px; margin-left:auto; }
+.tcf-memo{ border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:13px; min-height:110px; max-height:280px; overflow:auto; background:var(--bg); color:var(--t1); line-height:1.6; }
+.tcf-memo:empty:before{ content:attr(data-ph); color:var(--t3); }
+.tcf-memo:focus{ outline:2px solid #93c5fd; outline-offset:-1px; }
+.tcf-memo img{ max-width:100%; border-radius:6px; }
+.tcf-loc-row{ display:flex; gap:6px; }
+.tcf-loc-row input{ flex:1; }
+.tcf-map-btn{ padding:0 12px; border:1px solid var(--border); background:#eff6ff; color:#2563eb; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap; }
+.tcf-map-btn:hover{ background:#dbeafe; }
+.tcal-hovercard{ display:none; position:fixed; z-index:100001; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.28); padding:12px 14px; width:290px; max-width:90vw; font-size:12.5px; pointer-events:none; }
+.tch-title{ font-weight:700; font-size:14px; margin-bottom:8px; color:var(--t1); }
+.tch-row{ display:flex; gap:7px; margin:4px 0; color:var(--t2); line-height:1.5; }
+.tch-row span:first-child{ flex-shrink:0; }
+.tch-badge{ background:#c7f0d8; color:#166534; font-size:10px; padding:1px 6px; border-radius:99px; margin-left:4px; }
+.tch-memo{ margin-top:8px; padding-top:8px; border-top:1px solid #f1f5f9; color:var(--t2); font-size:12px; line-height:1.5; max-height:80px; overflow:hidden; }
+.tch-hint{ margin-top:8px; font-size:10.5px; color:var(--t3); text-align:right; }
 
 
 </style>
@@ -11105,7 +11120,7 @@ function tcalRenderMonth(){
         const showText = pos==='single'||pos==='start';
         const arrowL = (pos==='mid'||pos==='end')?'\u25C0 ':'';
         const arrowR = (pos==='mid'||pos==='start')?' \u25B6':'';
-        h+=`<div class="tcal-ev${spanCls} ${ev.allDay?'allday':''}" title="${esc(_tcalTip(ev))}" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
+        h+=`<div class="tcal-ev${spanCls} ${ev.allDay?'allday':''}" onmouseenter="tcalHoverShow(event,'${ev.id}')" onmouseleave="tcalHoverHide()" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
           +`${arrowL}${(showText&&!ev.allDay)?'<span class=\"tcal-ev-t\">'+_tcalHm(ev.start)+'</span> ':''}${showText?esc(ev.subject):'&nbsp;'}${arrowR}</div>`;
       }
       if(evs.length>shown.length) h+=`<div class="tcal-more" onclick="event.stopPropagation();tcalDayList('${_tcalYmd(day)}')">+${evs.length-shown.length}개 더</div>`;
@@ -11194,9 +11209,15 @@ function tcalDayList(ymd){
 }
 
 // ── 이벤트 상세/수정 열기 ──
-function tcalOpen(id){
+async function tcalOpen(id){
   const ev=_tcalEvents.find(e=>e.id===id); if(!ev) return;
   _tcalEditId=id;
+  // 전체 본문(HTML) 가져오기 (메모 이미지 포함) — 실패해도 미리보기로
+  try{
+    const t=await calToken();
+    const r=await fetch(`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/events/${id}?$select=body,location,attendees`,{headers:{Authorization:"Bearer "+t}});
+    if(r.ok){ const j=await r.json(); ev.bodyHtml=(j.body&&j.body.content)||''; }
+  }catch(_){}
   _tcalShowForm(ev);
 }
 // 새 이벤트 (특정 날, 기본 09:00~10:00)
@@ -11231,8 +11252,8 @@ function _tcalShowForm(ev){
   h+=`<label>참석자</label>`;
   h+=`<div id="tcf-att-chips" class="tcal-att-chips"></div>`;
   h+=`<button type="button" class="tcal-att-add" onclick="tcalPickAttendees()">＋ 참석자 선택 (TIC 멤버)</button>`;
-  h+=`<label>장소</label><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)">`;
-  h+=`<label>메모</label><textarea id="tcf-body" rows="3" placeholder="(선택)">${esc(ev.preview||'')}</textarea>`;
+  h+=`<label>장소</label><div class="tcf-loc-row"><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)"><button type="button" class="tcf-map-btn" onclick="tcalPickLocation()" title="구글맵에서 검색">🗺️ 지도</button></div>`;
+  h+=`<label>메모</label><div id="tcf-body" class="tcf-memo" contenteditable="true" data-ph="메모 입력 (이미지 붙여넣기 가능)"></div>`;
   h+=`<div id="tcf-err" class="tcf-err"></div>`;
   h+=`</div>`;
   h+=`<div class="tcf-actions">`;
@@ -11244,6 +11265,12 @@ function _tcalShowForm(ev){
   _tcalShowModal(h);
   tcalToggleAllDay();
   _tcalRenderAttChips();
+  // 메모 내용 주입 + 이미지 붙여넣기 바인딩
+  const memo=$('tcf-body');
+  if(memo){
+    memo.innerHTML = ev.bodyHtml || (ev.preview? esc(ev.preview).replace(/\n/g,'<br>') : '');
+    _tcalBindMemoPaste(memo);
+  }
 }
 function tcalToggleAllDay(){
   const all=$('tcf-allday')?.checked;
@@ -11276,7 +11303,7 @@ async function tcalSave(){
     end:{ dateTime:_tcalToGraph(allDay?_tcalAddDays(new Date(ey,em-1,ed,0,0),1):endDt), timeZone:'Korea Standard Time' },
     isAllDay:allDay,
     location:{ displayName:($('tcf-loc').value||'').trim() },
-    body:{ contentType:'text', content:($('tcf-body').value||'').trim() },
+    body:{ contentType:'html', content:(($('tcf-body')&&$('tcf-body').innerHTML)||'').trim() },
     attendees:(_tcalSelAtt||[]).map(em=>({emailAddress:{address:em,name:(_tcalMemName(em)||em)},type:'required'}))
   };
   try{
@@ -11366,6 +11393,66 @@ function tcalToggleAllAtt(ft){
   if(allSel){ const emails=mems.map(m=>m.email); _tcalSelAtt=_tcalSelAtt.filter(x=>!emails.includes(x)); }
   else { for(const m of mems){ if(!_tcalSelAtt.includes(m.email)) _tcalSelAtt.push(m.email); } }
   _tcalRenderAttPop(ft);
+}
+
+// ── 메모 이미지 붙여넣기 (클립보드) ──
+function _tcalBindMemoPaste(el){
+  if(el._pasteBound) return; el._pasteBound=true;
+  el.addEventListener('paste', async (e)=>{
+    const items=(e.clipboardData||{}).items||[];
+    for(const it of items){
+      if(it.type && it.type.indexOf('image')===0){
+        e.preventDefault();
+        const file=it.getAsFile(); if(!file) continue;
+        const rd=new FileReader();
+        rd.onload=()=>{ document.execCommand('insertHTML', false, `<img src="${rd.result}" style="max-width:100%;border-radius:6px;margin:4px 0">`); };
+        rd.readAsDataURL(file);
+        return;
+      }
+    }
+  });
+}
+
+// ── 커스텀 호버 카드 (풍부한 정보) ──
+let _tcalHoverTimer=null;
+function tcalHoverShow(e, id){
+  const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  clearTimeout(_tcalHoverTimer);
+  let card=$('tcalHoverCard');
+  if(!card){ card=document.createElement('div'); card.id='tcalHoverCard'; card.className='tcal-hovercard'; document.body.appendChild(card); }
+  let h=`<div class="tch-title">${esc(ev.subject||'(제목 없음)')}</div>`;
+  // 기간
+  if(ev.allDay){
+    let et=''; if(ev.end){ const ed=_tcalAddDays(ev.end,-1); et=_tcalSameDay(ev.start,ed)?'':(' ~ '+_tcalYmd(ed)); }
+    h+=`<div class="tch-row"><span>📅</span> ${_tcalYmd(ev.start)}${et} <span class="tch-badge">종일</span></div>`;
+  }else{
+    const sameDay=ev.end&&_tcalSameDay(ev.start,ev.end);
+    h+=`<div class="tch-row"><span>🕐</span> ${_tcalYmd(ev.start)} ${_tcalHm(ev.start)}${sameDay?(' ~ '+_tcalHm(ev.end)):(ev.end?(' ~ '+_tcalYmd(ev.end)+' '+_tcalHm(ev.end)):'')}</div>`;
+  }
+  if(ev.location) h+=`<div class="tch-row"><span>📍</span> ${esc(ev.location)}</div>`;
+  if(ev.attendees&&ev.attendees.length) h+=`<div class="tch-row"><span>👥</span> ${esc(ev.attendees.map(em=>_tcalMemName(em)).join(', '))}</div>`;
+  if(ev.preview) h+=`<div class="tch-memo">${esc(ev.preview).slice(0,160)}${ev.preview.length>160?'…':''}</div>`;
+  h+=`<div class="tch-hint">클릭하면 수정</div>`;
+  card.innerHTML=h;
+  card.style.display='block';
+  // 위치 (셀 근처)
+  const r=e.currentTarget.getBoundingClientRect();
+  let x=r.left, y=r.bottom+6;
+  card.style.left='0px'; card.style.top='0px';
+  const cw=card.offsetWidth||280, chh=card.offsetHeight||120;
+  if(x+cw>window.innerWidth-10) x=window.innerWidth-cw-10;
+  if(y+chh>window.innerHeight-10) y=r.top-chh-6;
+  card.style.left=Math.max(8,x)+'px'; card.style.top=Math.max(8,y)+'px';
+}
+function tcalHoverHide(){ _tcalHoverTimer=setTimeout(()=>{ const c=$('tcalHoverCard'); if(c) c.style.display='none'; },80); }
+
+// ── 장소 구글맵 조회 (검색 팝업) ──
+async function tcalPickLocation(){
+  const q=($('tcf-loc').value||'').trim();
+  if(!q){ toast('먼저 장소명을 입력하세요','bad'); return; }
+  // 구글맵 검색 URL (외부 브라우저) — 대시보드가 새창링크를 브라우저로 열어줌
+  const url='https://www.google.com/maps/search/'+encodeURIComponent(q);
+  window.open(url,'_blank');
 }
 
 function _tcalShowModal(html){
