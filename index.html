@@ -11032,7 +11032,7 @@ async function tcalLoad(){
     }
     const url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/calendarView`
       +`?startDateTime=${_tcalToGraph(from)}&endDateTime=${_tcalToGraph(to)}`
-      +`&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,attendees&$orderby=start/dateTime&$top=200`;
+      +`&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,attendees,webLink&$orderby=start/dateTime&$top=200`;
     const r=await fetch(url,{headers:{Authorization:"Bearer "+t,Prefer:'outlook.timezone="Korea Standard Time"'}});
     if(!r.ok){ throw new Error('Graph '+r.status+': '+(await r.text()).slice(0,200)); }
     const j=await r.json();
@@ -11041,7 +11041,7 @@ async function tcalLoad(){
       start:_tcalFromGraph(ev.start&&ev.start.dateTime),
       end:_tcalFromGraph(ev.end&&ev.end.dateTime),
       allDay:!!ev.isAllDay, location:(ev.location&&ev.location.displayName)||'',
-      preview:ev.bodyPreview||'', organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||'', attendees:((ev.attendees||[]).map(a=>a.emailAddress&&a.emailAddress.address).filter(Boolean))
+      preview:ev.bodyPreview||'', organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||'', attendees:((ev.attendees||[]).map(a=>a.emailAddress&&a.emailAddress.address).filter(Boolean)), webLink:ev.webLink||''
     }));
     if(status) status.textContent='';
     tcalRender();
@@ -11132,7 +11132,7 @@ function tcalRenderMonth(){
         const showText = pos==='single'||pos==='start';
         const arrowL = (pos==='mid'||pos==='end')?'\u25C0 ':'';
         const arrowR = (pos==='mid'||pos==='start')?' \u25B6':'';
-        h+=`<div class="tcal-ev${spanCls} ${ev.allDay?'allday':''}" onmouseenter="tcalHoverShow(event,'${ev.id}')" onmouseleave="tcalHoverHide()" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
+        h+=`<div class="tcal-ev${spanCls} ${ev.allDay?'allday':''}" onmouseenter="tcalHoverShow(event,'${ev.id}')" onmouseleave="tcalHoverHide()" oncontextmenu="tcalEvMenu(event,'${ev.id}')" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
           +`${arrowL}${(showText&&!ev.allDay)?'<span class=\"tcal-ev-t\">'+_tcalHm(ev.start)+'</span> ':''}${showText?esc(ev.subject):'&nbsp;'}${arrowR}</div>`;
       }
       if(evs.length>shown.length) h+=`<div class="tcal-more" onclick="event.stopPropagation();tcalDayList('${_tcalYmd(day)}')">+${evs.length-shown.length}개 더</div>`;
@@ -11183,7 +11183,7 @@ function tcalRenderWeek(){
       // 이 시간대에 시작하는 이벤트
       const evs=_tcalEventsOn(day).filter(e=>!e.allDay && e.start.getHours()===hr);
       for(const ev of evs){
-        h+=`<div class="tcal-wk-ev" onclick="event.stopPropagation();tcalOpen('${ev.id}')" title="${esc(ev.subject)}">`
+        h+=`<div class="tcal-wk-ev" onclick="event.stopPropagation();tcalOpen('${ev.id}')" oncontextmenu="tcalEvMenu(event,'${ev.id}')" title="${esc(ev.subject)}">`
           +`<b>${_tcalHm(ev.start)}</b> ${esc(ev.subject)}</div>`;
       }
       h+='</div>';
@@ -11325,9 +11325,32 @@ async function tcalSave(){
     else{ url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/events`; method='POST'; }
     const r=await fetch(url,{method,headers:{Authorization:"Bearer "+t,'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok) throw new Error('Graph '+r.status+': '+(await r.text()).slice(0,200));
+    const saved=await r.json().catch(()=>null);
+    const wasNew=!_tcalEditId;
+    const attEmails=(_tcalSelAtt||[]).slice();
     tcalCloseModal();
     toast(_tcalEditId?'일정 수정됨':'일정 추가됨','ok');
     tcalLoad();
+    // 새 일정 + 참석자 있으면 → 개인챗 요약 전송 확인
+    if(wasNew && attEmails.length && saved){
+      setTimeout(async ()=>{
+        if(!confirm(`참석자 ${attEmails.length}명에게 일정 요약을 개인챗(Teams)으로 보낼까요?`)) return;
+        try{
+          const evObj={ subject:saved.subject, start:_tcalFromGraph(saved.start&&saved.start.dateTime),
+            end:_tcalFromGraph(saved.end&&saved.end.dateTime), allDay:!!saved.isAllDay,
+            location:(saved.location&&saved.location.displayName)||'', preview:'',
+            attendees:attEmails, webLink:saved.webLink||'' };
+          const owners=await _tcalResolveAttendees(attEmails);
+          if(!owners.length){ toast('참석자를 TIC 멤버에서 못 찾음','bad'); return; }
+          const html=_tcalSummaryText(evObj).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
+          const rr=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br>'+html);
+          const m=[`✅ ${rr.sent.length}명 전송`];
+          if(rr.skipped&&rr.skipped.length) m.push(`(본인 제외 ${rr.skipped.length})`);
+          if(rr.failed&&rr.failed.length) m.push(`❌ ${rr.failed.length}`);
+          toast(m.join(' '), rr.failed&&rr.failed.length?'warn':'ok');
+        }catch(err){ toast('개인챗 전송 실패: '+(err.message||err),'bad'); }
+      }, 300);
+    }
   }catch(e){ if(err) err.textContent='실패: '+(e.message||e); }
 }
 
@@ -11465,6 +11488,91 @@ async function tcalPickLocation(){
   // 구글맵 검색 URL (외부 브라우저) — 대시보드가 새창링크를 브라우저로 열어줌
   const url='https://www.google.com/maps/search/'+encodeURIComponent(q);
   window.open(url,'_blank');
+}
+
+// ── 일정 요약 텍스트 (Teams/메일/DM 공용) ──
+function _tcalSummaryText(ev){
+  const L=[];
+  L.push('📅 '+(ev.subject||'(제목 없음)'));
+  if(ev.allDay){
+    let et=''; if(ev.end){ const ed=_tcalAddDays(ev.end,-1); et=_tcalSameDay(ev.start,ed)?'':(' ~ '+_tcalYmd(ed)); }
+    L.push('🕐 '+_tcalYmd(ev.start)+et+' (종일)');
+  }else{
+    const sameDay=ev.end&&_tcalSameDay(ev.start,ev.end);
+    L.push('🕐 '+_tcalYmd(ev.start)+' '+_tcalHm(ev.start)+(sameDay?(' ~ '+_tcalHm(ev.end)):(ev.end?(' ~ '+_tcalYmd(ev.end)+' '+_tcalHm(ev.end)):'')));
+  }
+  if(ev.location) L.push('📍 '+ev.location);
+  if(ev.attendees&&ev.attendees.length) L.push('👥 '+ev.attendees.map(e=>_tcalMemName(e)).join(', '));
+  if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+t.slice(0,120)+(t.length>120?'…':'')); }
+  if(ev.webLink) L.push('🔗 '+ev.webLink);
+  return L.join('\\n');
+}
+
+// ── 이벤트 우클릭 메뉴 ──
+function tcalEvMenu(e, id){
+  e.preventDefault(); e.stopPropagation();
+  tcalHoverHide();
+  document.getElementById('tcalEvCtx')?.remove();
+  const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  const items=[
+    ['🔗','링크 복사 (Teams/메일 붙여넣기)',`tcalCopyLink('${id}')`],
+    ['📋','일정 요약 복사',`tcalCopySummary('${id}')`],
+    ['💬','참석자에게 개인챗 전송',`tcalDmAttendees('${id}')`],
+    ['✏️','수정',`tcalOpen('${id}')`],
+  ];
+  const m=document.createElement('div'); m.id='tcalEvCtx'; m.className='wp-ctx';
+  m.innerHTML=items.map(it=>`<div class="wp-ctx-item" onclick="document.getElementById('tcalEvCtx').remove();${it[2]}"><span style="width:20px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join('');
+  document.body.appendChild(m);
+  if(typeof _ctxPlace==='function') _ctxPlace(m, e.clientX, e.clientY);
+  else { m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px'; }
+  const close=()=>{ m.remove(); document.removeEventListener('click',close); };
+  setTimeout(()=>document.addEventListener('click',close),50);
+}
+
+// ── 링크만 복사 ──
+async function tcalCopyLink(id){
+  const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  const link=ev.webLink||'';
+  if(!link){ toast('이 일정에 링크가 없습니다','bad'); return; }
+  try{ await navigator.clipboard.writeText(link); toast('🔗 일정 링크 복사됨','ok'); }
+  catch(_){ prompt('링크를 복사하세요 (Ctrl+C):', link); }
+}
+// ── 요약 전체 복사 ──
+async function tcalCopySummary(id){
+  const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  const txt=_tcalSummaryText(ev);
+  try{ await navigator.clipboard.writeText(txt); toast('📋 일정 요약 복사됨 (Teams/메일에 붙여넣기)','ok'); }
+  catch(_){ prompt('요약을 복사하세요 (Ctrl+C):', txt); }
+}
+
+// ── 참석자 이메일 → AAD id 조회 (DM 전송용) ──
+async function _tcalResolveAttendees(emails){
+  if(!emails||!emails.length) return [];
+  // TIC 멤버 캐시 우선
+  if(!_tcalMembers){ try{ _tcalMembers=await loadTicMembers(); }catch(_){ _tcalMembers=[]; } }
+  const out=[];
+  for(const em of emails){
+    const m=(_tcalMembers||[]).find(x=>x.email===String(em).toLowerCase());
+    if(m&&m.id) out.push({id:m.id, name:m.name||em});
+  }
+  return out;
+}
+
+// ── 참석자 개인챗으로 일정 요약 전송 ──
+async function tcalDmAttendees(id){
+  const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  if(!ev.attendees||!ev.attendees.length){ toast('참석자가 없습니다','bad'); return; }
+  toast('참석자 개인챗 전송 중…','');
+  try{
+    const owners=await _tcalResolveAttendees(ev.attendees);
+    if(!owners.length){ toast('참석자를 TIC 멤버에서 못 찾음','bad'); return; }
+    const html=_tcalSummaryText(ev).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
+    const r=await sendDmAsMe(owners, '📅 <b>새 일정 안내</b><br>'+html);
+    const msg=[`✅ ${r.sent.length}명 전송`];
+    if(r.skipped&&r.skipped.length) msg.push(`(본인 제외 ${r.skipped.length})`);
+    if(r.failed&&r.failed.length) msg.push(`❌ 실패 ${r.failed.length}`);
+    toast(msg.join(' '), r.failed&&r.failed.length?'warn':'ok');
+  }catch(e){ toast('전송 실패: '+(e.message||e),'bad'); }
 }
 
 function _tcalShowModal(html){
