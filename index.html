@@ -1387,6 +1387,22 @@ body.embed-prnew{background:#fff}
 .tcal-daylist-row{ display:flex; gap:10px; padding:8px 6px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; }
 .tcal-daylist-row:hover{ background:var(--hover); }
 .tcal-daylist-time{ color:var(--t2); min-width:90px; font-variant-numeric:tabular-nums; }
+.tcal-att-chips{ display:flex; flex-wrap:wrap; gap:6px; min-height:24px; padding:4px 0; }
+.tcal-att-empty{ font-size:12px; color:var(--t3); }
+.tcal-att-chip{ display:inline-flex; align-items:center; gap:5px; background:#dbeafe; color:#1e40af; font-size:12px; padding:3px 8px; border-radius:99px; }
+.tcal-att-chip .x{ cursor:pointer; opacity:.6; font-size:11px; }
+.tcal-att-chip .x:hover{ opacity:1; }
+.tcal-att-add{ margin-top:4px; padding:7px 12px; border:1px dashed #93c5fd; background:#eff6ff; color:#2563eb; border-radius:8px; font-size:12px; cursor:pointer; width:100%; }
+.tcal-att-add:hover{ background:#dbeafe; }
+.tcal-attpop-ov{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:100000; align-items:center; justify-content:center; }
+.tcal-attpop-box{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:20px 22px; width:400px; max-width:92vw; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.tcal-att-search{ width:100%; border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13px; margin-bottom:8px; }
+.tcal-att-all{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; padding:6px 4px; border-bottom:1px solid var(--border); cursor:pointer; }
+.tcal-att-list{ max-height:300px; overflow:auto; margin:4px 0; }
+.tcal-att-item{ display:flex; align-items:center; gap:8px; padding:7px 4px; cursor:pointer; font-size:13px; border-bottom:1px solid #f1f5f9; }
+.tcal-att-item:hover{ background:#f8fafc; }
+.tcal-att-name{ font-weight:500; }
+.tcal-att-mail{ color:var(--t3); font-size:11px; margin-left:auto; }
 
 
 </style>
@@ -1458,7 +1474,7 @@ body.embed-prnew{background:#fff}
     <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-schedule"></div>
   </div>
-  <button id="nav-ticcal" onclick="showPage('ticcal')">📆 TIC 일정</button>
+  <button id="nav-ticcal" onclick="showPage('ticcal')">📆 팀 캘린더</button>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
@@ -10928,6 +10944,9 @@ let _tcalCursor = new Date();     // 현재 보고 있는 기준 날짜
 let _tcalEvents = [];             // 캐시된 이벤트
 let _tcalLoading = false;
 let _tcalEditId = null;           // 수정 중인 이벤트 id (null=신규)
+let _tcalSelAtt = [];             // 현재 폼에서 선택된 참석자 이메일
+let _tcalMembers = null;          // TIC 멤버 캐시 [{id,email,name}]
+function _tcalMemName(email){ const m=(_tcalMembers||[]).find(x=>x.email===String(email).toLowerCase()); return m?m.name:email; }
 
 // ── 캘린더용 토큰 (그룹 캘린더 읽기/쓰기 권한 증분 요청) ──
 async function calToken(){
@@ -11162,7 +11181,10 @@ function _tcalShowForm(ev){
   h+=`<div id="tcf-stimewrap"><label>시작 시간</label><input id="tcf-stime" type="time" value="${stVal}"></div></div>`;
   h+=`<div class="tcf-row"><div><label>종료 날짜</label><input id="tcf-edate" type="date" value="${edDateVal}"></div>`;
   h+=`<div id="tcf-etimewrap"><label>종료 시간</label><input id="tcf-etime" type="time" value="${etVal}"></div></div>`;
-  h+=`<label>참석자 (이메일, 쉼표로 여러 명)</label><input id="tcf-att" type="text" value="${esc((ev.attendees||[]).join(', '))}" placeholder="hong@enjet.co.kr, kim@enjet.co.kr">`;
+  _tcalSelAtt = (ev.attendees||[]).slice();  // 선택된 참석자 이메일 배열
+  h+=`<label>참석자</label>`;
+  h+=`<div id="tcf-att-chips" class="tcal-att-chips"></div>`;
+  h+=`<button type="button" class="tcal-att-add" onclick="tcalPickAttendees()">＋ 참석자 선택 (TIC 멤버)</button>`;
   h+=`<label>장소</label><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)">`;
   h+=`<label>메모</label><textarea id="tcf-body" rows="3" placeholder="(선택)">${esc(ev.preview||'')}</textarea>`;
   h+=`<div id="tcf-err" class="tcf-err"></div>`;
@@ -11175,6 +11197,7 @@ function _tcalShowForm(ev){
   h+=`</div>`;
   _tcalShowModal(h);
   tcalToggleAllDay();
+  _tcalRenderAttChips();
 }
 function tcalToggleAllDay(){
   const all=$('tcf-allday')?.checked;
@@ -11208,7 +11231,7 @@ async function tcalSave(){
     isAllDay:allDay,
     location:{ displayName:($('tcf-loc').value||'').trim() },
     body:{ contentType:'text', content:($('tcf-body').value||'').trim() },
-    attendees:(($('tcf-att').value||'').split(',').map(x=>x.trim()).filter(Boolean)).map(em=>({emailAddress:{address:em,name:em},type:'required'}))
+    attendees:(_tcalSelAtt||[]).map(em=>({emailAddress:{address:em,name:(_tcalMemName(em)||em)},type:'required'}))
   };
   try{
     const t=await calToken();
@@ -11238,6 +11261,67 @@ async function tcalDelete(){
 }
 
 // ── 모달 헬퍼 ──
+// ── 참석자 칩 렌더 ──
+function _tcalRenderAttChips(){
+  const box=$('tcf-att-chips'); if(!box) return;
+  if(!_tcalSelAtt.length){ box.innerHTML='<span class="tcal-att-empty">선택된 참석자 없음</span>'; return; }
+  box.innerHTML=_tcalSelAtt.map(em=>`<span class="tcal-att-chip">${esc(_tcalMemName(em))}<span class="x" onclick="tcalRemoveAtt('${esc(em)}')">✕</span></span>`).join('');
+}
+function tcalRemoveAtt(em){ _tcalSelAtt=_tcalSelAtt.filter(x=>x!==em); _tcalRenderAttChips(); }
+
+// ── 참석자 선택 팝업 (TIC 멤버 체크박스 + 전체선택) ──
+async function tcalPickAttendees(){
+  let pop=$('tcalAttPop');
+  if(!pop){ pop=document.createElement('div'); pop.id='tcalAttPop'; pop.className='tcal-attpop-ov';
+    pop.onclick=(e)=>{ if(e.target===pop) pop.style.display='none'; };
+    document.body.appendChild(pop); }
+  pop.style.display='flex';
+  pop.innerHTML='<div class="tcal-attpop-box"><div class="tcal-modal-h">참석자 선택</div><div style="padding:20px;text-align:center;color:var(--t3)">멤버 불러오는 중…</div></div>';
+  try{
+    if(!_tcalMembers){ _tcalMembers=await loadTicMembers(); }
+    _tcalRenderAttPop();
+  }catch(e){
+    pop.querySelector('.tcal-attpop-box').innerHTML=`<div class="tcal-modal-h">참석자 선택</div>
+      <div style="padding:20px;color:#dc2626;font-size:13px">멤버를 불러오지 못했습니다.<br>${esc(String(e.message||e))}</div>
+      <div style="text-align:right"><button class="btn sm" onclick="document.getElementById('tcalAttPop').style.display='none'">닫기</button></div>`;
+  }
+}
+function _tcalRenderAttPop(filter){
+  const pop=$('tcalAttPop'); if(!pop) return;
+  const ft=(filter||'').toLowerCase();
+  const mems=(_tcalMembers||[]).filter(m=>!ft || m.name.toLowerCase().includes(ft) || m.email.includes(ft));
+  const allSel = mems.length>0 && mems.every(m=>_tcalSelAtt.includes(m.email));
+  let h='<div class="tcal-attpop-box">';
+  h+='<div class="tcal-modal-h">참석자 선택 <span style="color:var(--t3);font-size:12px">'+(_tcalMembers||[]).length+'명</span></div>';
+  h+='<input type="text" class="tcal-att-search" placeholder="🔍 이름·이메일 검색" oninput="_tcalRenderAttPop(this.value)" value="'+esc(filter||'')+'">';
+  h+='<label class="tcal-att-all"><input type="checkbox" '+(allSel?'checked':'')+' onchange="tcalToggleAllAtt('+JSON.stringify(ft).replace(/"/g,'&quot;')+')"> 전체 선택</label>';
+  h+='<div class="tcal-att-list">';
+  for(const m of mems){
+    const on=_tcalSelAtt.includes(m.email);
+    h+=`<label class="tcal-att-item"><input type="checkbox" ${on?'checked':''} onchange="tcalToggleAtt('${esc(m.email)}')">
+      <span class="tcal-att-name">${esc(m.name)}</span><span class="tcal-att-mail">${esc(m.email)}</span></label>`;
+  }
+  if(!mems.length) h+='<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px">검색 결과 없음</div>';
+  h+='</div>';
+  h+='<div class="tcf-actions"><div style="flex:1;font-size:12px;color:var(--t2)">선택: '+_tcalSelAtt.length+'명</div>'
+    +'<button class="btn sm primary" onclick="document.getElementById(\'tcalAttPop\').style.display=\'none\';_tcalRenderAttChips()">완료</button></div>';
+  h+='</div>';
+  pop.innerHTML=h;
+  const inp=pop.querySelector('.tcal-att-search'); if(inp && filter){ inp.focus(); inp.setSelectionRange(inp.value.length,inp.value.length); }
+}
+function tcalToggleAtt(em){
+  if(_tcalSelAtt.includes(em)) _tcalSelAtt=_tcalSelAtt.filter(x=>x!==em);
+  else _tcalSelAtt.push(em);
+}
+function tcalToggleAllAtt(ft){
+  ft=(ft||'').toLowerCase();
+  const mems=(_tcalMembers||[]).filter(m=>!ft || m.name.toLowerCase().includes(ft) || m.email.includes(ft));
+  const allSel=mems.length>0 && mems.every(m=>_tcalSelAtt.includes(m.email));
+  if(allSel){ const emails=mems.map(m=>m.email); _tcalSelAtt=_tcalSelAtt.filter(x=>!emails.includes(x)); }
+  else { for(const m of mems){ if(!_tcalSelAtt.includes(m.email)) _tcalSelAtt.push(m.email); } }
+  _tcalRenderAttPop(ft);
+}
+
 function _tcalShowModal(html){
   let ov=$('tcalModal');
   if(!ov){ ov=document.createElement('div'); ov.id='tcalModal'; ov.className='tcal-modal-ov';
