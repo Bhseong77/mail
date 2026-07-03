@@ -20786,6 +20786,7 @@ function poadvInit(){
         .poadv-tbl input{width:100%;border:none;padding:6px 5px;font-size:12.5px;font-family:inherit;background:transparent;box-sizing:border-box;}
         .poadv-tbl input:focus{outline:2px solid #93c5fd;border-radius:4px;background:#fff;}
         .poadv-tbl input.miss, .poadv-tbl select.miss{background:#fef2f2;}
+        #prnew-tbody input.miss{background:#fef2f2 !important;border:1.5px solid #ef4444 !important;box-shadow:0 0 0 2px rgba(239,68,68,.15);}
         .poadv-tbl .num{text-align:right;}
         .poadv-list-tbl td{padding:7px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;}
         .poadv-list-tbl th{padding:8px 9px;}
@@ -22871,6 +22872,7 @@ function prnewReRequest(i){
 
 function prnewRowInput(i, field, el){
   prnewRows[i][field]=el.value;
+  if(el.value && el.value.trim()) el.classList.remove("miss");   // 입력하면 빨간 표시 해제
   if(field==="기본소요량"||field==="제작대수"){
     // 표 전체 재생성 금지(스크롤·포커스 튐) — 총량 셀만 제자리 갱신
     const tot = prnewNum(prnewRows[i]["기본소요량"])*prnewNum(prnewRows[i]["제작대수"]);
@@ -23668,15 +23670,25 @@ function prnewValidate(){
   let rowErr=0;
   document.querySelectorAll("#prnew-tbody input").forEach(el=>el.classList.remove("miss"));
   const need=["BOM레벨","품명","품번","기본소요량","제작대수"];
+  let firstMiss=null;
   prnewRows.forEach((r,i)=>{
     if(r._existing) return;  // 기존 행은 검증 안 함
     if(!(r["BOM레벨"]||r["품명"]||r["품번"])) return;  // 완전 빈 행 skip
     need.forEach(f=>{
       const bad=(f==="기본소요량"||f==="제작대수")? !(prnewNum(r[f])>0) : !String(r[f]||"").trim();
-      if(bad){ rowErr++; }
+      if(bad){
+        rowErr++;
+        // 해당 셀 빨간 표시
+        const cell=document.querySelector(`#prnew-tbody input[data-r="${i}"][data-f="${f}"]`);
+        if(cell){ cell.classList.add("miss"); if(!firstMiss) firstMiss=cell; }
+      }
     });
   });
-  if(rowErr) errs.push(`신규 품목 필수입력 ${rowErr}칸`);
+  if(rowErr){
+    errs.push(`빨간 칸 ${rowErr}개 입력 필요 (BOM·품명·품번·소요량·대수)`);
+    // 첫 빈 칸으로 스크롤 + 포커스
+    if(firstMiss){ try{ firstMiss.scrollIntoView({behavior:"smooth",block:"center",inline:"center"}); setTimeout(()=>firstMiss.focus(),300); }catch(_){} }
+  }
   return {ok:errs.length===0, errs, pjt, rows:newRows};
 }
 
