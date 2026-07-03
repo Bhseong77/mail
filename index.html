@@ -8024,10 +8024,20 @@ function pafTarget(d){
   const item=pafItemClean((d&&d.items&&d.items[0]&&d.items[0].item)||'');
   const ext=(((d&&d.fileName)||'').split('.').pop()||'').toLowerCase();
   const reasons=[];
-  if(!vendor) reasons.push('거래처 못읽음');
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) reasons.push('작성일 없음');
-  const month=date.slice(0,7);
   const okDate=/^\d{4}-\d{2}-\d{2}$/.test(date);
+  const month=date.slice(0,7);
+  // ── 카드영수증: 카드영수증/YYYY/YYYY-M월 (거래처 무관, 월까지만) ──
+  if(d && d.docType==='card'){
+    if(!okDate) reasons.push('결제일 없음');
+    const yr=date.slice(0,4);
+    const mo=parseInt(date.slice(5,7),10);   // 6월 (0 제거)
+    const relDir = okDate ? `카드영수증/${yr}/${yr}-${mo}월` : '';
+    const stem=pafSanitize([date, vendor, item].filter(Boolean).join('_'))||(((d&&d.fileName)||'file').replace(/\.[^.]+$/,''));
+    const newName=stem+(ext?'.'+ext:'');
+    return {vendor:'카드영수증', date, month, item, ext, relDir, newName, low:reasons.length>0, reasons, isCard:true};
+  }
+  if(!vendor) reasons.push('거래처 못읽음');
+  if(!okDate) reasons.push('작성일 없음');
   const relDir=(vendor&&okDate)?`${vendor}/${month}/${date}`:'';
   const stem=pafSanitize([date,vendor,item].filter(Boolean).join('_'))||(((d&&d.fileName)||'file').replace(/\.[^.]+$/,''));
   const newName=stem+(ext?'.'+ext:'');
@@ -8065,11 +8075,13 @@ async function pafPlan(p){
     if(!d){ review.push({id, name:f.name, relDir:f.relDir, reasons:['미분석']}); continue; }
     const t=pafTarget(d);
     if(t.low){ review.push({id, name:f.name, relDir:f.relDir, reasons:t.reasons}); continue; }
-    const ex=vf[pafVendorKey(t.vendor)];
     let vendor=t.vendor, relDir=t.relDir;
-    if(ex && ex!==vendor){ vendor=ex; relDir=`${ex}/${t.month}/${t.date}`; }
+    if(!t.isCard){
+      const ex=vf[pafVendorKey(t.vendor)];
+      if(ex && ex!==vendor){ vendor=ex; relDir=`${ex}/${t.month}/${t.date}`; }
+    }
     if(f.relDir===relDir && f.name===t.newName){ done.push({id, name:f.name}); continue; }
-    ready.push({id, name:f.name, from:f.relDir, to:relDir, newName:t.newName, vendor, newVendor:!ex});
+    ready.push({id, name:f.name, from:f.relDir, to:relDir, newName:t.newName, vendor, newVendor:!t.isCard&&!vf[pafVendorKey(t.vendor)]});
   }
   return {ready, review, done};
 }
@@ -8334,7 +8346,9 @@ function anRender(p){
       let rSupply=0;
       items.forEach((it,ix)=>{
         const supply=Number(String(it.amount==null?'':it.amount).replace(/[, ]/g,''))||0;
-        const vat=Math.round(supply*0.1);
+        // 카드영수증 등 VAT가 명시되면 그 값, 아니면 공급가액×0.1
+        const _vExplicit = it.vat!=null && String(it.vat).trim()!=='' ? Number(String(it.vat).replace(/[, ]/g,'')) : null;
+        const vat = (_vExplicit!=null && !isNaN(_vExplicit)) ? _vExplicit : Math.round(supply*0.1);
         sumSupply+=supply; sumVat+=vat; sumTot+=supply+vat;
         rSupply+=supply;
         h+=`<tr>`;
@@ -9177,6 +9191,33 @@ async function anAnalyze(p, silent){
 [파일명] ${f.name}
 [내용]
 ${text.slice(0,6000)}`;
+      // ── 세금계산서 탭: 세금계산서 vs 카드영수증 자동 판별 ──
+      if(p==='doc-tax'){
+        prompt=`다음은 매입 증빙 문서(세금계산서 또는 신용카드 영수증)에서 추출한 텍스트다. 먼저 문서 종류를 판별하고, 아래 JSON으로만 답하라(설명·마크다운 없이).
+
+먼저 docType 을 판별:
+- "card": 신용카드 매출전표/영수증/카드영수증. "승인번호","카드","신용","일시불","할부","가맹점","네이버페이","결제","IC신용","체크카드" 등이 보이면 card.
+- "tax": 전자세금계산서. "세금계산서","공급받는자","공급자","작성일자","전자세금" 등이 보이면 tax.
+
+{"docType":"card 또는 tax",
+ "company":"공급자/가맹점 회사명",
+ "quoteDate":"작성일/결제일시(YYYY-MM-DD)",
+ "approvalNo":"승인번호(카드영수증이면 승인번호, 없으면 빈 문자열)",
+ "category":"분류",
+ "items":[{"item":"품목/상품명","qty":"수량","price":"단가(숫자만)","amount":"공급가액(숫자만)","vat":"부가세/VAT(숫자만, 명시 안되면 빈 문자열)"}]}
+
+- docType: 위 기준으로 "card" 또는 "tax".
+- quoteDate: 세금계산서면 작성일자, 카드영수증이면 결제(승인) 일시의 날짜만. YYYY-MM-DD.
+- approvalNo: 카드영수증의 승인번호(숫자). 세금계산서면 승인번호/전자세금계산서 승인번호. 없으면 빈 문자열.
+- company: 세금계산서는 공급자 상호, 카드영수증은 가맹점(판매처) 상호.
+- category(분류): [가공, 로봇, 비전, 스테이지, 물류, 소모품, 기타] 중 하나. 어려우면 "기타".
+- items: 구매 상품/품목별로. price=단가, amount=공급가액(부가세 제외 금액), vat=부가세. 영수증에 공급가액/부가세가 나뉘어 있으면 그대로, 합계만 있으면 amount에 넣고 vat는 빈 문자열.
+- 회사명·가맹점은 엔젯(구매자)이 아니라 판매처 기준.
+- 없는 값은 빈 문자열.
+[파일명] ${f.name}
+[내용]
+${text.slice(0,6000)}`;
+      }
       if(p==='doc-vendor'){
         prompt=_vendorPrompt(f, text);
       }
@@ -9187,15 +9228,18 @@ ${text.slice(0,6000)}`;
       }else{
         const _isEnjet=s=>/엔젯|enjet/i.test(String(s||""));
         const _company=[ (info&&info.company), f.customer ].find(x=>x && !_isEnjet(x)) || "";
+        const _isCard = info && info.docType==='card';
         AN_DATA[p][f.id]={
           company:_company,
-          quoteDate: pafQuoteDate(text) || (info&&info.quoteDate) || '',
+          quoteDate: _isCard ? ((info&&info.quoteDate)||pafQuoteDate(text)||'') : (pafQuoteDate(text) || (info&&info.quoteDate) || ''),
           category:(info&&info.category)||'',
           items:(info&&info.items)||[],
           delivery:(info&&info.delivery)||'',
           payment:(info&&info.payment)||'',
           warranty:(info&&info.warranty)||'',
           negoAmount:(info&&info.negoAmount)||'',
+          docType:(info&&info.docType)||'',
+          approvalNo:(info&&info.approvalNo)|| (_isCard ? '법인카드결제' : ''),
           memo:'', fileName:f.name, url:f.webUrl||f.url, customer:f.customer, folder:f.folder, date:f.date
         };
       }
