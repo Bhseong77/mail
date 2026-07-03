@@ -13110,8 +13110,29 @@ async function wpLoad(){
   // 캐시로 full 들어온 프로젝트는 pr-links/cascade 비차단 보강
   const anyFull=WP_LOADED_PROJ.some(p=>p && !p._stub && !p._loading);
   if(anyFull){ wpLoadPrLinks().then(()=>wpRender()).catch(()=>{}); }
-  // 첫 페인트 후 백그라운드로 각 프로젝트 plan 미리 로드 → 폴더 펼침이 즉시
-  setTimeout(()=>{ const ids=(WP_LOADED_PROJ||[]).filter(p=>p && p._stub && !p._loadingFull).map(p=>p.id); console.log("[prefetch] 백그라운드 로드 시작:",ids); ids.forEach(id=>wpEnsureProject(id)); }, 120);
+  // 첫 페인트 후 백그라운드로 각 프로젝트 plan 로드 → 폴더 펼침 즉시 + 캐시 최신화
+  // (캐시로 full 들어온 것도 포함 — 다른 PC 변경이 반영되도록 항상 SharePoint 재확인)
+  setTimeout(()=>{
+    const ids=(WP_LOADED_PROJ||[]).filter(p=>p && !p._loadingFull).map(p=>p.id);
+    console.log("[prefetch] 백그라운드 최신화:",ids);
+    ids.forEach(id=>wpRefreshFromServer(id));
+  }, 120);
+}
+// 서버(SharePoint) 최신으로 강제 갱신 — 캐시가 옛날이어도 최신 반영
+async function wpRefreshFromServer(code){
+  const idx=wpProjects().indexOf(code); if(idx<0) return;
+  try{
+    const data=await wpReadPlan(code);
+    if(data && data.project){
+      const proj=data.project; proj.id=code;
+      // 캐시와 다르면(다른 PC 변경) 갱신 + 재렌더
+      const prev=WP_LOADED_PROJ[idx];
+      const changed = !prev || JSON.stringify(prev.children||[]) !== JSON.stringify(proj.children||[]);
+      wpCacheSet(code, proj);
+      WP_LOADED_PROJ[idx]=proj;
+      if(changed){ wpSeedOpen(); wpRender(); }
+    }
+  }catch(_){}
 }
 // 프로젝트 full 로드 보장 (스텁이면 plan.json 로드). 폴더 펼칠 때 호출.
 async function wpEnsureProject(code){
