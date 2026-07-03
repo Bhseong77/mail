@@ -5537,8 +5537,7 @@ async function clmBatchShare(){
     const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(items[0].oid)}`);
     const j=await r.json();
     if(j&&j.ok&&j.url){
-      try{ await navigator.clipboard.writeText(j.url); toast('🔗 링크 복사됨 (Teams/메일에 붙여넣기)','ok'); }
-      catch(e){ prompt('아래 링크를 복사하세요 (Ctrl+C):', j.url); }
+      await _clipLink(`📄 ${items[0].name||'파일'}`, j.url, '🔗 링크 복사됨 (Teams/메일에 붙여넣기)');
     } else toast('링크 생성 실패','warn');
   }catch(e){ toast('링크 생성 오류','warn'); }
 }
@@ -10516,6 +10515,13 @@ async function _clip(text, okMsg){
   try{ await navigator.clipboard.writeText(text); if(typeof toast==='function') toast(okMsg||'복사됨','ok'); }
   catch(_){ try{ prompt('복사하세요 (Ctrl+C):', text); }catch(__){} }
 }
+// 제목(label)에 하이퍼링크를 걸어 복사 — URL 숨김(채팅창 깔끔). 평문 폴백엔 URL 포함.
+async function _clipLink(label, url, okMsg){
+  const html=`<a href="${esc(url)}">${esc(label)}</a>`;
+  const plain=`${label}\n${url}`;
+  const ok=await copyHtmlToClipboard(html, plain);
+  if(typeof toast==='function') toast(ok?(okMsg||'링크 복사됨'):'복사 실패','ok');
+}
 // 메일행 우클릭
 function mailRowCtx(ev, uid){
   const m=(MAILS||[]).find(x=>String(x.uid)===String(uid))||{};
@@ -10530,8 +10536,8 @@ function mailRowCtx(ev, uid){
     {icon:'📥',label:'받는사람 복사',fn:()=>_clip(toS,'받는사람 복사됨')},
     {icon:'✉',label:'제목 복사',fn:()=>_clip(m.subject||'','제목 복사됨')},
     null,
-    {icon:'🔗',label:'메일 링크 복사',fn:()=>_clip(link,'메일 링크 복사됨 — Teams에 붙여넣기')},
-    {icon:'📨',label:'채팅방에 전달(복사)',fn:()=>_clip(`✉ ${m.subject||''}\n보낸사람: ${fromS}\n${link}`,'전달용 내용 복사됨 — Teams 채팅에 붙여넣기(Ctrl+V)')},
+    {icon:'🔗',label:'메일 링크 복사',fn:()=>_clipLink(`✉ ${m.subject||'(제목 없음)'}`, link, '메일 링크 복사됨 — Teams에 붙여넣기')},
+    {icon:'📨',label:'채팅방에 전달(복사)',fn:()=>_clipLink(`✉ ${m.subject||'(제목 없음)'} · 보낸사람: ${fromS}`, link, '전달용 링크 복사됨 — Teams 채팅에 붙여넣기(Ctrl+V)')},
   ]);
 }
 // 첨부 우클릭
@@ -14230,11 +14236,12 @@ function wpCtxClose(){ document.getElementById("wp-ctx")?.remove(); }
 async function wpCopyLink(projId, id){
   const n=wpFind(projId,id);
   const url=`${location.origin}${location.pathname}?page=workplan&proj=${encodeURIComponent(projId)}&task=${encodeURIComponent(id)}&week=${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}`;
-  const text=`📋 [${projId}] ${n.name} (${n.owner||"미지정"}${n.role?"·"+n.role:""}, ${n.prog||0}%)\n${url}`;
-  try{ await navigator.clipboard.writeText(text); toast("링크 복사됨 · Teams에 붙여넣기","ok"); }
-  catch(_){ // 폴백
-    const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("링크 복사됨","ok");}catch(__){toast("복사 실패 — 수동 복사: "+url,"bad");} ta.remove();
-  }
+  const label=`📋 [${projId}] ${n.name} (${n.owner||"미지정"}${n.role?"·"+n.role:""}, ${n.prog||0}%)`;
+  // 제목에 하이퍼링크 → URL 숨김 (채팅창 깔끔). 평문 폴백엔 URL 포함.
+  const html=`<a href="${esc(url)}">${esc(label)}</a>`;
+  const plain=`${label}\n${url}`;
+  const ok=await copyHtmlToClipboard(html, plain);
+  toast(ok?"링크 복사됨 · Teams에 붙여넣기":"복사 실패 — 수동 복사: "+url, ok?"ok":"bad");
 }
 function wpCopyNode(projId, id){ const n=wpFind(projId,id); WP_CLIP=JSON.parse(JSON.stringify(n)); toast(`복사됨: ${n.name} (붙여넣기 가능)`,"ok"); }
 function wpReId(node, projId){ // 붙여넣을 때 새 id 부여(자손 포함)
