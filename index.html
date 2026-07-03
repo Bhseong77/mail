@@ -4741,6 +4741,22 @@ function ftMoveFile(p,itemId,name){
   _openMoveModal();
 }
 // 우클릭 메뉴 (폴더/파일) — 다른 문서함으로 이동
+function _ctxPlace(menu, x, y){
+  // 메뉴를 먼저 보이게 해서 실제 크기 측정 후 화면 안에 배치
+  menu.style.left='0px'; menu.style.top='0px'; menu.style.visibility='hidden';
+  const prevDisp=menu.style.display; if(getComputedStyle(menu).display==='none') menu.style.display='block';
+  const mw=menu.offsetWidth||200, mh=menu.offsetHeight||200;
+  const vw=window.innerWidth, vh=window.innerHeight, pad=8;
+  let L=x, T=y;
+  if(L+mw>vw-pad) L=Math.max(pad, x-mw);       // 오른쪽 넘치면 왼쪽으로
+  if(L+mw>vw-pad) L=vw-mw-pad;
+  if(T+mh>vh-pad) T=Math.max(pad, y-mh);       // 아래 넘치면 위로 (클릭점 기준)
+  if(T+mh>vh-pad) T=vh-mh-pad;                  // 그래도 넘치면 화면 하단에 맞춤
+  if(T<pad) T=pad;
+  if(L<pad) L=pad;
+  menu.style.left=L+'px'; menu.style.top=T+'px';
+  menu.style.visibility=''; if(prevDisp!==undefined && prevDisp!=='') menu.style.display=prevDisp;
+}
 function ftCtxMenu(e,p,itemId,name,isFolder,path){
   e.preventDefault(); e.stopPropagation();
   document.getElementById("ft-ctx")?.remove();
@@ -4752,8 +4768,7 @@ function ftCtxMenu(e,p,itemId,name,isFolder,path){
   const menu=document.createElement("div"); menu.id="ft-ctx"; menu.className="wp-ctx";
   menu.innerHTML=items.map(it=>`<div class="wp-ctx-item" onclick="document.getElementById('ft-ctx').remove();${it[2]}"><span style="width:18px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join("");
   document.body.appendChild(menu);
-  const vw=window.innerWidth,vh=window.innerHeight,mw=230,mh=items.length*34+8;
-  menu.style.left=Math.min(e.clientX,vw-mw-8)+"px"; menu.style.top=Math.min(e.clientY,vh-mh-8)+"px";
+  _ctxPlace(menu, e.clientX, e.clientY);
   const close=()=>{ menu.remove(); document.removeEventListener("click",close); };
   setTimeout(()=>document.addEventListener("click",close),50);
 }
@@ -6912,9 +6927,8 @@ function atMenu(e, kind, idx, id){
   e.preventDefault(); e.stopPropagation();
   _atCtxTarget={kind, idx, id};
   const m=$('atCtx'); if(!m) return;
-  m.style.left=Math.min(e.clientX, window.innerWidth-210)+'px';
-  m.style.top=Math.min(e.clientY, window.innerHeight-200)+'px';
   m.classList.add('on');
+  _ctxPlace(m, e.clientX, e.clientY);
 }
 document.addEventListener('click',()=>{ const m=$('atCtx'); if(m) m.classList.remove('on'); });
 async function atAct(action){
@@ -7065,8 +7079,7 @@ function maBatchMove(){
     const m=document.createElement('div'); m.id='exp-ctx'; m.className='wp-ctx';
     m.innerHTML=items.map((it,i)=>`<div class="wp-ctx-item" data-i="${i}"><span style="width:20px;display:inline-block">${it[0]}</span>${it[1]}</div>`).join('');
     document.body.appendChild(m);
-    const vw=innerWidth,vh=innerHeight,mw=250,mh=items.length*34+8;
-    m.style.left=Math.min(x,vw-mw-8)+'px'; m.style.top=Math.min(y,vh-mh-8)+'px';
+    _ctxPlace(m, x, y);
     m.querySelectorAll('.wp-ctx-item').forEach(el=>{ el.onclick=()=>{ const f=items[+el.dataset.i][2]; m.remove(); f(); }; });
     const close=()=>{ m.remove(); document.removeEventListener('click',close); };
     setTimeout(()=>document.addEventListener('click',close),50);
@@ -7613,10 +7626,9 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
     }
   });
   // 구분선도 클라우디움이면 정리 (연속 sep 방지는 생략 — 기능 우선)
-  m.style.left=Math.min(e.clientX,window.innerWidth-170)+'px';
-  m.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
   _ftCtxJustOpened=Date.now();
   m.classList.add('on');
+  _ctxPlace(m, e.clientX, e.clientY);
 }
 document.addEventListener('click',()=>{ if(Date.now()-_ftCtxJustOpened<350) return; $('ftCtx')?.classList.remove('on'); });
 // 파일트리 우클릭(위임·캡처): 행의 data-* 로 메뉴 표시 — 이름에 특수문자 있어도 안전
