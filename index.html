@@ -1423,14 +1423,16 @@ body.embed-prnew{background:#fff}
 .tch-memo{ margin-top:8px; padding-top:8px; border-top:1px solid #f1f5f9; color:var(--t2); font-size:12px; line-height:1.5; max-height:80px; overflow:hidden; }
 .tch-hint{ margin-top:8px; font-size:10.5px; color:var(--t3); text-align:right; }
 /* 내부/외부 라벨 색 */
-.tcal-ev.lbl-in{ background:#dbeafe; color:#1e40af; }
+.tcal-ev.lbl-in{ background:#dbeafe; color:#1e40af; border-left:3px solid #2563eb; }
 .tcal-ev.lbl-in:hover{ background:#bfdbfe; }
-.tcal-ev.lbl-out{ background:#ffedd5; color:#9a3412; }
-.tcal-ev.lbl-out:hover{ background:#fed7aa; }
-.tcal-ev.span-mid.lbl-in{ background:#bfdbfe; }
-.tcal-ev.span-mid.lbl-out{ background:#fed7aa; }
-.tcal-wk-ev.lbl-in{ background:#dbeafe; color:#1e40af; }
-.tcal-wk-ev.lbl-out{ background:#ffedd5; color:#9a3412; }
+.tcal-ev.lbl-out{ background:#fef3c7; color:#92400e; border-left:3px solid #f59e0b; }
+.tcal-ev.lbl-out:hover{ background:#fde68a; }
+.tcal-ev.span-mid.lbl-in{ background:#bfdbfe; border-left:0; }
+.tcal-ev.span-mid.lbl-out{ background:#fde68a; border-left:0; }
+.tcal-ev.span-start.lbl-in,.tcal-ev.span-end.lbl-in{ background:#bfdbfe; }
+.tcal-ev.span-start.lbl-out,.tcal-ev.span-end.lbl-out{ background:#fde68a; }
+.tcal-wk-ev.lbl-in{ background:#dbeafe; color:#1e40af; border-left:3px solid #2563eb; }
+.tcal-wk-ev.lbl-out{ background:#fef3c7; color:#92400e; border-left:3px solid #f59e0b; }
 /* 폼 내부/외부 세그먼트 */
 .tcf-label-seg{ display:flex; gap:8px; margin-top:2px; }
 .tcf-lbl{ flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:13px; cursor:pointer; }
@@ -11015,6 +11017,12 @@ let _tcalCursor = new Date();     // 현재 보고 있는 기준 날짜
 let _tcalEvents = [];             // 캐시된 이벤트
 let _tcalLoading = false;
 let _tcalEditId = null;           // 수정 중인 이벤트 id (null=신규)
+let _tcalDeepLinkEv = null;       // 딥링크로 열 이벤트 id
+// 대시보드 팀 캘린더 딥링크 URL (일정 지정)
+function _tcalDashUrl(evId){
+  const base=location.origin+location.pathname;
+  return base+'?tab=ticcal'+(evId?('&ev='+encodeURIComponent(evId)):'');
+}
 let _tcalSelAtt = [];             // 현재 폼에서 선택된 참석자 이메일
 let _tcalMembers = null;          // TIC 멤버 캐시 [{id,email,name}]
 function _tcalMemName(email){ const m=(_tcalMembers||[]).find(x=>x.email===String(email).toLowerCase()); return m?m.name:email; }
@@ -11085,6 +11093,12 @@ async function tcalLoad(){
     }));
     if(status) status.textContent='';
     tcalRender();
+    // 딥링크 이벤트 자동 열기
+    if(_tcalDeepLinkEv){
+      const _id=_tcalDeepLinkEv; _tcalDeepLinkEv=null;
+      const _ev=_tcalEvents.find(x=>x.id===_id);
+      if(_ev) setTimeout(()=>tcalOpen(_id), 200);
+    }
   }catch(e){
     if(status) status.textContent='';
     const grid=$('tcalGrid');
@@ -11557,7 +11571,7 @@ function _tcalSummaryText(ev){
   if(ev.location) L.push('📍 '+ev.location);
   if(ev.attendees&&ev.attendees.length) L.push('👥 '+ev.attendees.map(e=>_tcalMemName(e)).join(', '));
   if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+t.slice(0,120)+(t.length>120?'…':'')); }
-  if(ev.webLink) L.push('🔗 '+ev.webLink);
+  const _du=ev.id?_tcalDashUrl(ev.id):(ev.webLink||''); if(_du) L.push('🔗 '+_du);
   return L.join('\\n');
 }
 // HTML 요약 (Teams DM용) — 제목에 하이퍼링크, 긴 URL 숨김
@@ -11566,7 +11580,7 @@ function _tcalSummaryHtml(ev){
   const L=[];
   const title=E(ev.subject||'(제목 없음)')+(ev.label?(' <b>['+E(ev.label)+']</b>'):'');
   // 제목에 링크 걸기 (webLink 있으면)
-  L.push('📅 '+(ev.webLink?`<a href="${E(ev.webLink)}">${title}</a>`:title));
+  const _durl=ev.id?_tcalDashUrl(ev.id):(ev.webLink||''); L.push('📅 '+(_durl?`<a href="${E(_durl)}">${title}</a>`:title));
   if(ev.allDay){
     let et=''; if(ev.end){ const ed=_tcalAddDays(ev.end,-1); et=_tcalSameDay(ev.start,ed)?'':(' ~ '+_tcalYmd(ed)); }
     L.push('🕐 '+_tcalYmd(ev.start)+et+' (종일)');
@@ -11577,7 +11591,7 @@ function _tcalSummaryHtml(ev){
   if(ev.location) L.push('📍 '+E(ev.location));
   if(ev.attendees&&ev.attendees.length) L.push('👥 '+E(ev.attendees.map(e=>_tcalMemName(e)).join(', ')));
   if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+E(t.slice(0,120))+(t.length>120?'…':'')); }
-  if(ev.webLink) L.push('🔗 <a href="'+E(ev.webLink)+'">일정 열기</a>');
+  if(_durl) L.push('🔗 <a href="'+E(_durl)+'">대시보드에서 열기</a>');
   return L.join('<br>');
 }
 
@@ -11605,17 +11619,34 @@ function tcalEvMenu(e, id){
 // ── 링크만 복사 ──
 async function tcalCopyLink(id){
   const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
-  const link=ev.webLink||'';
-  if(!link){ toast('이 일정에 링크가 없습니다','bad'); return; }
-  try{ await navigator.clipboard.writeText(link); toast('🔗 일정 링크 복사됨','ok'); }
-  catch(_){ prompt('링크를 복사하세요 (Ctrl+C):', link); }
+  const url=_tcalDashUrl(id);
+  const label=(ev.subject||'일정');
+  // 하이퍼링크(제목)로 복사 — HTML+텍스트 둘 다 (Teams/메일에 붙이면 제목만 보이고 클릭되게)
+  try{
+    const html=`<a href="${url.replace(/&/g,'&amp;')}">📅 ${label.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</a>`;
+    if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html],{type:'text/html'}),
+        'text/plain': new Blob([label+' '+url],{type:'text/plain'})
+      })]);
+    } else { await navigator.clipboard.writeText(label+' '+url); }
+    toast('🔗 일정 링크 복사됨 (제목 클릭 → 대시보드)','ok');
+  }catch(_){ prompt('링크를 복사하세요 (Ctrl+C):', label+' '+url); }
 }
 // ── 요약 전체 복사 ──
 async function tcalCopySummary(id){
   const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
-  const txt=_tcalSummaryText(ev);
-  try{ await navigator.clipboard.writeText(txt); toast('📋 일정 요약 복사됨 (Teams/메일에 붙여넣기)','ok'); }
-  catch(_){ prompt('요약을 복사하세요 (Ctrl+C):', txt); }
+  const html=_tcalSummaryHtml(ev);      // 제목=하이퍼링크, URL 숨김
+  const txt=_tcalSummaryText(ev);       // 텍스트 폴백
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html],{type:'text/html'}),
+        'text/plain': new Blob([txt],{type:'text/plain'})
+      })]);
+    } else { await navigator.clipboard.writeText(txt); }
+    toast('📋 일정 요약 복사됨 (제목 클릭 → 대시보드)','ok');
+  }catch(_){ prompt('요약을 복사하세요 (Ctrl+C):', txt); }
 }
 
 // ── 참석자 이메일 → AAD id 조회 (DM 전송용) ──
@@ -12835,7 +12866,7 @@ function startApp(){
       if(_q.get('embed')==='1') document.body.classList.add('embed-prnew');
       setTimeout(()=>{ try{ showPage('purchase'); pShowPage('pr_new'); const pj=(_q.get('pjt')||'').trim().toUpperCase(); if(pj) prnewDeepLink(pj); }catch(e){} }, 120);
     } else if(_tab && _tab!=='mail' && _tab!=='workplan'){
-      setTimeout(()=>{ try{ showPage(_tab); }catch(e){} }, 60);
+      setTimeout(()=>{ try{ showPage(_tab); if(_tab==='ticcal'){ const _ev=_q.get('ev'); if(_ev) _tcalDeepLinkEv=_ev; } }catch(e){} }, 60);
     }
   }catch(e){}
   resolveServerEndpoint().finally(()=>{ checkHealth(); loadList(); preloadContacts(); pBadgeAttach(); });
