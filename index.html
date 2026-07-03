@@ -1319,6 +1319,76 @@ body.embed-prnew{background:#fff}
 @keyframes jobqspin { 100% { transform: rotate(360deg); } }
 .jobq-spin { display:inline-block; animation: jobqspin 1s linear infinite; }
 
+/* ===== TIC 캘린더 스타일 ===== */
+/* ══════════ TIC 캘린더 ══════════ */
+#page-ticcal{ padding:0; }
+.tcal-wrap{ display:flex; flex-direction:column; height:100%; }
+.tcal-toolbar{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.tcal-title{ font-size:18px; font-weight:700; min-width:150px; }
+.tcal-nav-btn{ width:32px; height:32px; border:1px solid var(--border); background:var(--card); border-radius:8px; cursor:pointer; font-size:15px; }
+.tcal-nav-btn:hover{ background:var(--hover); }
+.tcal-seg{ display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.tcal-seg button{ padding:6px 14px; border:0; background:var(--card); cursor:pointer; font-size:13px; }
+.tcal-seg button.on{ background:#2563eb; color:#fff; }
+.tcal-today-btn{ padding:6px 12px; border:1px solid var(--border); background:var(--card); border-radius:8px; cursor:pointer; font-size:13px; }
+.tcal-today-btn:hover{ background:var(--hover); }
+.tcal-add-btn{ padding:6px 14px; border:0; background:#2563eb; color:#fff; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.tcal-grid-area{ flex:1; overflow:auto; padding:12px 16px; }
+
+/* 월간 */
+.tcal-month{ display:flex; flex-direction:column; }
+.tcal-dow-row{ display:grid; grid-template-columns:repeat(7,1fr); }
+.tcal-dow{ text-align:center; padding:6px 0; font-size:12px; font-weight:600; color:var(--t2); }
+.tcal-dow.sun{ color:#dc2626; } .tcal-dow.sat{ color:#2563eb; }
+.tcal-week-row{ display:grid; grid-template-columns:repeat(7,1fr); }
+.tcal-cell{ min-height:96px; border:1px solid var(--border); margin:-1px 0 0 -1px; padding:3px 4px; cursor:pointer; overflow:hidden; }
+.tcal-cell:hover{ background:var(--hover); }
+.tcal-cell.oth{ background:var(--bg2); color:var(--t3); }
+.tcal-cell.today{ background:#eff6ff; }
+.tcal-daynum{ font-size:12px; font-weight:600; padding:1px 3px; }
+.tcal-daynum.sun{ color:#dc2626; } .tcal-daynum.sat{ color:#2563eb; }
+.tcal-ev{ font-size:11px; background:#dbeafe; color:#1e40af; border-radius:4px; padding:1px 5px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+.tcal-ev:hover{ background:#bfdbfe; }
+.tcal-ev.allday{ background:#c7f0d8; color:#166534; }
+.tcal-ev-t{ font-weight:600; opacity:.75; }
+.tcal-more{ font-size:10px; color:var(--t3); padding:1px 5px; cursor:pointer; }
+.tcal-more:hover{ color:#2563eb; }
+
+/* 주간 */
+.tcal-week{ display:flex; flex-direction:column; }
+.tcal-wk-head{ display:grid; grid-template-columns:56px repeat(7,1fr); position:sticky; top:0; background:var(--card); z-index:2; }
+.tcal-wk-timecol{ font-size:11px; color:var(--t3); text-align:center; padding:4px 2px; }
+.tcal-wk-daycol{ text-align:center; padding:6px 2px; border-left:1px solid var(--border); }
+.tcal-wk-daycol.today{ background:#eff6ff; }
+.tcal-wk-daycol.sun .tcal-wk-dow{ color:#dc2626; } .tcal-wk-daycol.sat .tcal-wk-dow{ color:#2563eb; }
+.tcal-wk-dow{ font-size:12px; font-weight:600; }
+.tcal-wk-date{ font-size:16px; font-weight:700; }
+.tcal-wk-allday{ display:grid; grid-template-columns:56px repeat(7,1fr); border-bottom:2px solid var(--border); }
+.tcal-wk-adcell{ min-height:24px; border-left:1px solid var(--border); padding:2px; }
+.tcal-wk-body{ max-height:560px; overflow-y:auto; }
+.tcal-wk-hrow{ display:grid; grid-template-columns:56px repeat(7,1fr); }
+.tcal-wk-cell{ min-height:44px; border-left:1px solid var(--border); border-top:1px solid var(--border); padding:1px; cursor:pointer; }
+.tcal-wk-cell:hover{ background:var(--hover); }
+.tcal-wk-ev{ font-size:11px; background:#dbeafe; color:#1e40af; border-radius:4px; padding:2px 5px; margin-bottom:1px; cursor:pointer; overflow:hidden; }
+.tcal-wk-ev:hover{ background:#bfdbfe; }
+
+/* 모달 */
+.tcal-modal-ov{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:9999; align-items:center; justify-content:center; }
+.tcal-modal-box{ background:var(--card); border-radius:14px; padding:20px 22px; width:420px; max-width:92vw; max-height:88vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.25); }
+.tcal-modal-h{ font-size:16px; font-weight:700; margin-bottom:14px; }
+.tcal-form{ display:flex; flex-direction:column; gap:4px; }
+.tcal-form label{ font-size:12px; color:var(--t2); margin-top:8px; }
+.tcal-form input[type=text],.tcal-form input[type=date],.tcal-form input[type=time],.tcal-form textarea{
+  border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13px; background:var(--bg); color:var(--t1); font-family:inherit; }
+.tcal-form .tcf-check{ display:flex; align-items:center; gap:6px; margin-top:10px; font-size:13px; color:var(--t1); }
+.tcf-row{ display:flex; gap:10px; } .tcf-row>div{ flex:1; display:flex; flex-direction:column; }
+.tcf-err{ color:#dc2626; font-size:12px; min-height:16px; margin-top:6px; }
+.tcf-actions{ display:flex; align-items:center; gap:8px; margin-top:16px; }
+.tcal-daylist-row{ display:flex; gap:10px; padding:8px 6px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; }
+.tcal-daylist-row:hover{ background:var(--hover); }
+.tcal-daylist-time{ color:var(--t2); min-width:90px; font-variant-numeric:tabular-nums; }
+
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1388,6 +1458,7 @@ body.embed-prnew{background:#fff}
     <button class="navgrp-btn" id="navgrp-schedule" onclick="navToggle(event,'schedule')">📅 통합일정 <span class="navgrp-caret">▾</span></button>
     <div class="nav-dropdown" id="navdd-schedule"></div>
   </div>
+  <button id="nav-ticcal" onclick="showPage('ticcal')">📆 TIC 일정</button>
   <button id="nav-attach" onclick="showPage('attach')">📎 첨부파일<span class="nav-cnt" id="atNavCnt" style="display:none">0</span></button>
   <button id="nav-purchase" onclick="showPage('purchase')">🛒 구매</button>
   <button id="nav-corpcard" onclick="showPage('corpcard')">💳 법인카드</button>
@@ -1989,6 +2060,25 @@ body.embed-prnew{background:#fff}
 </div>
 
 <div class="page" id="page-corpcard"><div class="panel" id="panel-corpcard"></div></div>
+<!-- TIC 캘린더 페이지 -->
+<div class="page" id="page-ticcal">
+  <div class="tcal-wrap">
+    <div class="tcal-toolbar">
+      <button class="tcal-nav-btn" onclick="tcalPrev()">‹</button>
+      <button class="tcal-nav-btn" onclick="tcalNext()">›</button>
+      <button class="tcal-today-btn" onclick="tcalToday()">오늘</button>
+      <div class="tcal-title" id="tcalTitle">—</div>
+      <div style="flex:1"></div>
+      <span id="tcalStatus" style="font-size:12px;color:var(--t3)"></span>
+      <div class="tcal-seg">
+        <button id="tcalBtnMonth" class="on" onclick="tcalSetView('month')">월</button>
+        <button id="tcalBtnWeek" onclick="tcalSetView('week')">주</button>
+      </div>
+      <button class="tcal-add-btn" onclick="tcalNewOn(_tcalYmd(new Date()))">＋ 새 일정</button>
+    </div>
+    <div class="tcal-grid-area"><div id="tcalGrid"></div></div>
+  </div>
+</div>
 
 <!-- 클라우디움 (사이버다임 문서중앙화) 페이지 -->
 <div class="page" id="page-cloudium">
@@ -3017,6 +3107,7 @@ function showPage(p){
   if(p==='contacts'){ loadContacts(); loadAnConfig().then(()=>{ if(curPage==='contacts'&&typeof renderContacts==='function'&&CONTACTS&&CONTACTS.length) renderContacts(); }); }
   else if(p.startsWith('doc-')){ renderDocPage(p); if(DOC_ANALYZE.includes(p)){ loadAnConfig().then(()=>{ if(curPage===p && AN_DATA[p]) anRender(p); }); } }
   else if(p==='schedule'){ schInit(); }
+  else if(p==='ticcal'){ ticcalInit(); }
   else if(p==='spec'){ specInit(); }
   else if(p==='tattach'){ taLoad(); }
   else if(p==='mattach'){ maLoad(); }
@@ -10825,6 +10916,343 @@ function schParseWb(wb){
   });
   return sheets;
 }
+
+
+// ===== TIC 캘린더 모듈 =====
+// ════════════════════════════════════════════════════════════
+//  TIC 그룹 캘린더 (Teams 채널 캘린더 = TIC 팀 그룹 캘린더)
+//  월간/주간 뷰 + 이벤트 추가·수정·삭제 (Graph /groups/{id}/events)
+// ════════════════════════════════════════════════════════════
+let _tcalView = 'month';          // 'month' | 'week'
+let _tcalCursor = new Date();     // 현재 보고 있는 기준 날짜
+let _tcalEvents = [];             // 캐시된 이벤트
+let _tcalLoading = false;
+let _tcalEditId = null;           // 수정 중인 이벤트 id (null=신규)
+
+// ── 캘린더용 토큰 (그룹 캘린더 읽기/쓰기 권한 증분 요청) ──
+async function calToken(){
+  const app=msalApp(); await app.initialize();
+  const acct=app.getAllAccounts()[0]; if(!acct) throw new Error("로그인 필요");
+  const scopes=["Group.Read.All","Calendars.ReadWrite"];
+  try{ const r=await app.acquireTokenSilent({scopes,account:acct}); return r.accessToken; }
+  catch(e){
+    if(isMobileEnv()){ await app.acquireTokenRedirect({scopes,account:acct}); throw new Error("캘린더 권한 재요청 중… 잠시 후 다시 시도하세요"); }
+    const r=await app.acquireTokenPopup({scopes}); return r.accessToken;
+  }
+}
+
+// ── 날짜 유틸 ──
+function _tcalYmd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _tcalSameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function _tcalStartOfWeek(d){ const x=new Date(d); x.setDate(x.getDate()-x.getDay()); x.setHours(0,0,0,0); return x; }  // 일요일 시작
+function _tcalAddDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function _tcalMonthName(d){ return d.getFullYear()+'년 '+(d.getMonth()+1)+'월'; }
+
+// 로컬 Date → Graph dateTime(로컬 표기, 타임존 별도)
+function _tcalToGraph(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+    +'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':00';
+}
+// Graph 이벤트 dateTime(문자열) → 로컬 Date
+function _tcalFromGraph(dt){
+  if(!dt) return null;
+  // "2026-07-03T09:00:00.0000000" 형태 (타임존은 event.start.timeZone)
+  const s=String(dt).replace(/\.\d+$/,'').replace('Z','');
+  const m=s.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) return new Date(dt);
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+}
+
+// ── 이벤트 로드 (현재 뷰 범위) ──
+async function tcalLoad(){
+  if(_tcalLoading) return;
+  _tcalLoading=true;
+  const status=$('tcalStatus'); if(status) status.textContent='불러오는 중…';
+  try{
+    const t=await calToken();
+    // 범위: 뷰에 맞춰 넉넉히 (월=앞뒤 6주, 주=그 주)
+    let from,to;
+    if(_tcalView==='month'){
+      const first=new Date(_tcalCursor.getFullYear(),_tcalCursor.getMonth(),1);
+      from=_tcalStartOfWeek(first);
+      to=_tcalAddDays(from,42);
+    }else{
+      from=_tcalStartOfWeek(_tcalCursor);
+      to=_tcalAddDays(from,7);
+    }
+    const url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/calendarView`
+      +`?startDateTime=${_tcalToGraph(from)}&endDateTime=${_tcalToGraph(to)}`
+      +`&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer&$orderby=start/dateTime&$top=200`;
+    const r=await fetch(url,{headers:{Authorization:"Bearer "+t,Prefer:'outlook.timezone="Korea Standard Time"'}});
+    if(!r.ok){ throw new Error('Graph '+r.status+': '+(await r.text()).slice(0,200)); }
+    const j=await r.json();
+    _tcalEvents=(j.value||[]).map(ev=>({
+      id:ev.id, subject:ev.subject||'(제목 없음)',
+      start:_tcalFromGraph(ev.start&&ev.start.dateTime),
+      end:_tcalFromGraph(ev.end&&ev.end.dateTime),
+      allDay:!!ev.isAllDay, location:(ev.location&&ev.location.displayName)||'',
+      preview:ev.bodyPreview||'', organizer:(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||''
+    }));
+    if(status) status.textContent='';
+    tcalRender();
+  }catch(e){
+    if(status) status.textContent='';
+    const grid=$('tcalGrid');
+    if(grid) grid.innerHTML=`<div style="padding:40px;text-align:center;color:var(--t3)">
+      캘린더를 불러오지 못했습니다.<br><span style="font-size:12px">${esc(String(e.message||e))}</span><br>
+      <button class="btn sm" style="margin-top:10px" onclick="tcalLoad()">다시 시도</button></div>`;
+  }finally{ _tcalLoading=false; }
+}
+
+// ── 렌더 진입 ──
+function tcalRender(){
+  const title=$('tcalTitle');
+  if(title) title.textContent = _tcalView==='month' ? _tcalMonthName(_tcalCursor)
+    : (_tcalYmd(_tcalStartOfWeek(_tcalCursor))+' ~ '+_tcalYmd(_tcalAddDays(_tcalStartOfWeek(_tcalCursor),6)));
+  $('tcalBtnMonth')?.classList.toggle('on',_tcalView==='month');
+  $('tcalBtnWeek')?.classList.toggle('on',_tcalView==='week');
+  if(_tcalView==='month') tcalRenderMonth(); else tcalRenderWeek();
+}
+
+function _tcalEventsOn(day){
+  return _tcalEvents.filter(ev=>ev.start && _tcalSameDay(ev.start,day))
+    .sort((a,b)=>a.start-b.start);
+}
+function _tcalHm(d){ return d? String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0') : ''; }
+
+// ── 월간 뷰 ──
+function tcalRenderMonth(){
+  const grid=$('tcalGrid'); if(!grid) return;
+  const first=new Date(_tcalCursor.getFullYear(),_tcalCursor.getMonth(),1);
+  const start=_tcalStartOfWeek(first);
+  const today=new Date();
+  const dows=['일','월','화','수','목','금','토'];
+  let h='<div class="tcal-month">';
+  h+='<div class="tcal-dow-row">'+dows.map((d,i)=>`<div class="tcal-dow ${i===0?'sun':''} ${i===6?'sat':''}">${d}</div>`).join('')+'</div>';
+  for(let w=0;w<6;w++){
+    h+='<div class="tcal-week-row">';
+    for(let dnum=0;dnum<7;dnum++){
+      const day=_tcalAddDays(start,w*7+dnum);
+      const inMonth=day.getMonth()===_tcalCursor.getMonth();
+      const isToday=_tcalSameDay(day,today);
+      const evs=_tcalEventsOn(day);
+      h+=`<div class="tcal-cell ${inMonth?'':'oth'} ${isToday?'today':''}" ondblclick="tcalNewOn('${_tcalYmd(day)}')">`;
+      h+=`<div class="tcal-daynum ${dnum===0?'sun':''} ${dnum===6?'sat':''}">${day.getDate()}</div>`;
+      const shown=evs.slice(0,3);
+      for(const ev of shown){
+        h+=`<div class="tcal-ev" title="${esc(ev.subject)}" onclick="event.stopPropagation();tcalOpen('${ev.id}')">`
+          +`${ev.allDay?'':'<span class=\"tcal-ev-t\">'+_tcalHm(ev.start)+'</span> '}${esc(ev.subject)}</div>`;
+      }
+      if(evs.length>shown.length) h+=`<div class="tcal-more" onclick="event.stopPropagation();tcalDayList('${_tcalYmd(day)}')">+${evs.length-shown.length}개 더</div>`;
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  grid.innerHTML=h;
+}
+
+// ── 주간 뷰 (시간대별) ──
+function tcalRenderWeek(){
+  const grid=$('tcalGrid'); if(!grid) return;
+  const start=_tcalStartOfWeek(_tcalCursor);
+  const today=new Date();
+  const dows=['일','월','화','수','목','금','토'];
+  let h='<div class="tcal-week">';
+  // 헤더(요일+날짜)
+  h+='<div class="tcal-wk-head"><div class="tcal-wk-timecol"></div>';
+  for(let i=0;i<7;i++){
+    const day=_tcalAddDays(start,i);
+    const isToday=_tcalSameDay(day,today);
+    h+=`<div class="tcal-wk-daycol ${isToday?'today':''} ${i===0?'sun':''} ${i===6?'sat':''}">
+      <div class="tcal-wk-dow">${dows[i]}</div><div class="tcal-wk-date">${day.getMonth()+1}/${day.getDate()}</div></div>`;
+  }
+  h+='</div>';
+  // 종일 이벤트 줄
+  let hasAllDay=false;
+  let ad='<div class="tcal-wk-allday"><div class="tcal-wk-timecol">종일</div>';
+  for(let i=0;i<7;i++){
+    const day=_tcalAddDays(start,i);
+    const evs=_tcalEventsOn(day).filter(e=>e.allDay);
+    if(evs.length) hasAllDay=true;
+    ad+='<div class="tcal-wk-adcell" ondblclick="tcalNewOn(\''+_tcalYmd(day)+'\')">'
+      +evs.map(ev=>`<div class="tcal-ev allday" onclick="event.stopPropagation();tcalOpen('${ev.id}')">${esc(ev.subject)}</div>`).join('')+'</div>';
+  }
+  ad+='</div>';
+  if(hasAllDay) h+=ad;
+  // 시간 그리드 (07~21시 위주, 전체 0~24)
+  h+='<div class="tcal-wk-body">';
+  for(let hr=0;hr<24;hr++){
+    h+='<div class="tcal-wk-hrow"><div class="tcal-wk-timecol">'+String(hr).padStart(2,'0')+':00</div>';
+    for(let i=0;i<7;i++){
+      const day=_tcalAddDays(start,i);
+      const cellDate=new Date(day.getFullYear(),day.getMonth(),day.getDate(),hr);
+      h+=`<div class="tcal-wk-cell" ondblclick="tcalNewAt('${_tcalYmd(day)}',${hr})">`;
+      // 이 시간대에 시작하는 이벤트
+      const evs=_tcalEventsOn(day).filter(e=>!e.allDay && e.start.getHours()===hr);
+      for(const ev of evs){
+        h+=`<div class="tcal-wk-ev" onclick="event.stopPropagation();tcalOpen('${ev.id}')" title="${esc(ev.subject)}">`
+          +`<b>${_tcalHm(ev.start)}</b> ${esc(ev.subject)}</div>`;
+      }
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  h+='</div></div>';
+  grid.innerHTML=h;
+  // 오전 8시로 스크롤
+  setTimeout(()=>{ const b=grid.querySelector('.tcal-wk-body'); if(b) b.scrollTop=8*b.querySelector('.tcal-wk-hrow')?.offsetHeight||0; },30);
+}
+
+// ── 네비게이션 ──
+function tcalPrev(){ if(_tcalView==='month'){ _tcalCursor=new Date(_tcalCursor.getFullYear(),_tcalCursor.getMonth()-1,1); } else { _tcalCursor=_tcalAddDays(_tcalCursor,-7); } tcalLoad(); }
+function tcalNext(){ if(_tcalView==='month'){ _tcalCursor=new Date(_tcalCursor.getFullYear(),_tcalCursor.getMonth()+1,1); } else { _tcalCursor=_tcalAddDays(_tcalCursor,7); } tcalLoad(); }
+function tcalToday(){ _tcalCursor=new Date(); tcalLoad(); }
+function tcalSetView(v){ _tcalView=v; tcalLoad(); }
+
+// ── 하루 이벤트 전체 목록 (+N개 더) ──
+function tcalDayList(ymd){
+  const [y,m,d]=ymd.split('-').map(Number);
+  const day=new Date(y,m-1,d);
+  const evs=_tcalEventsOn(day);
+  let h=`<div class="tcal-modal-h">${m}월 ${d}일 일정 <span style="color:var(--t3);font-size:12px">${evs.length}건</span></div>`;
+  h+='<div style="max-height:340px;overflow:auto">';
+  if(!evs.length) h+='<div style="padding:20px;text-align:center;color:var(--t3)">일정이 없습니다</div>';
+  for(const ev of evs){
+    h+=`<div class="tcal-daylist-row" onclick="tcalOpen('${ev.id}')">
+      <span class="tcal-daylist-time">${ev.allDay?'종일':_tcalHm(ev.start)+'~'+_tcalHm(ev.end)}</span>
+      <span>${esc(ev.subject)}</span></div>`;
+  }
+  h+='</div>';
+  h+=`<div style="text-align:right;margin-top:12px"><button class="btn sm" onclick="tcalNewOn('${ymd}')">＋ 이 날 일정 추가</button> <button class="btn sm" onclick="tcalCloseModal()">닫기</button></div>`;
+  _tcalShowModal(h);
+}
+
+// ── 이벤트 상세/수정 열기 ──
+function tcalOpen(id){
+  const ev=_tcalEvents.find(e=>e.id===id); if(!ev) return;
+  _tcalEditId=id;
+  _tcalShowForm(ev);
+}
+// 새 이벤트 (특정 날, 기본 09:00~10:00)
+function tcalNewOn(ymd){
+  const [y,m,d]=ymd.split('-').map(Number);
+  _tcalEditId=null;
+  _tcalShowForm({ subject:'', start:new Date(y,m-1,d,9,0), end:new Date(y,m-1,d,10,0), allDay:false, location:'', preview:'' });
+}
+// 새 이벤트 (특정 시각)
+function tcalNewAt(ymd,hr){
+  const [y,m,d]=ymd.split('-').map(Number);
+  _tcalEditId=null;
+  _tcalShowForm({ subject:'', start:new Date(y,m-1,d,hr,0), end:new Date(y,m-1,d,hr+1,0), allDay:false, location:'', preview:'' });
+}
+
+// ── 이벤트 폼 (추가/수정 공용) ──
+function _tcalShowForm(ev){
+  const sd=ev.start||new Date(), ed=ev.end||new Date();
+  const dateVal=_tcalYmd(sd);
+  const edDateVal=_tcalYmd(ed);
+  const stVal=_tcalHm(sd), etVal=_tcalHm(ed);
+  const isEdit=!!_tcalEditId;
+  let h=`<div class="tcal-modal-h">${isEdit?'일정 수정':'새 일정'}</div>`;
+  h+=`<div class="tcal-form">`;
+  h+=`<label>제목</label><input id="tcf-subject" type="text" value="${esc(ev.subject||'')}" placeholder="일정 제목" autofocus>`;
+  h+=`<label class="tcf-check"><input id="tcf-allday" type="checkbox" ${ev.allDay?'checked':''} onchange="tcalToggleAllDay()"> 종일</label>`;
+  h+=`<div class="tcf-row"><div><label>시작 날짜</label><input id="tcf-sdate" type="date" value="${dateVal}"></div>`;
+  h+=`<div id="tcf-stimewrap"><label>시작 시간</label><input id="tcf-stime" type="time" value="${stVal}"></div></div>`;
+  h+=`<div class="tcf-row"><div><label>종료 날짜</label><input id="tcf-edate" type="date" value="${edDateVal}"></div>`;
+  h+=`<div id="tcf-etimewrap"><label>종료 시간</label><input id="tcf-etime" type="time" value="${etVal}"></div></div>`;
+  h+=`<label>장소</label><input id="tcf-loc" type="text" value="${esc(ev.location||'')}" placeholder="(선택)">`;
+  h+=`<label>메모</label><textarea id="tcf-body" rows="3" placeholder="(선택)">${esc(ev.preview||'')}</textarea>`;
+  h+=`<div id="tcf-err" class="tcf-err"></div>`;
+  h+=`</div>`;
+  h+=`<div class="tcf-actions">`;
+  if(isEdit) h+=`<button class="btn sm danger" onclick="tcalDelete()">🗑 삭제</button>`;
+  h+=`<div style="flex:1"></div>`;
+  h+=`<button class="btn sm" onclick="tcalCloseModal()">취소</button>`;
+  h+=`<button class="btn sm primary" onclick="tcalSave()">${isEdit?'저장':'추가'}</button>`;
+  h+=`</div>`;
+  _tcalShowModal(h);
+  tcalToggleAllDay();
+}
+function tcalToggleAllDay(){
+  const all=$('tcf-allday')?.checked;
+  const sw=$('tcf-stimewrap'), ew=$('tcf-etimewrap');
+  if(sw) sw.style.display=all?'none':'';
+  if(ew) ew.style.display=all?'none':'';
+}
+
+// ── 저장 (추가/수정) ──
+async function tcalSave(){
+  const subject=($('tcf-subject').value||'').trim();
+  const err=$('tcf-err');
+  if(!subject){ if(err) err.textContent='제목을 입력하세요'; return; }
+  const allDay=$('tcf-allday').checked;
+  const sdate=$('tcf-sdate').value, edate=$('tcf-edate').value;
+  const stime=allDay?'00:00':($('tcf-stime').value||'09:00');
+  const etime=allDay?'00:00':($('tcf-etime').value||'10:00');
+  if(!sdate){ if(err) err.textContent='시작 날짜를 입력하세요'; return; }
+  const [sy,sm,sd]=sdate.split('-').map(Number);
+  const [ey,em,ed]=(edate||sdate).split('-').map(Number);
+  const [sh,smin]=stime.split(':').map(Number);
+  const [eh,emin]=etime.split(':').map(Number);
+  let startDt=new Date(sy,sm-1,sd,sh,smin);
+  let endDt=allDay? _tcalAddDays(new Date(ey,em-1,ed,0,0),1) : new Date(ey,em-1,ed,eh,emin);
+  if(!allDay && endDt<=startDt){ if(err) err.textContent='종료가 시작보다 빨라요'; return; }
+  if(err) err.textContent='저장 중…';
+  const body={
+    subject,
+    start:{ dateTime:_tcalToGraph(allDay?new Date(sy,sm-1,sd,0,0):startDt), timeZone:'Korea Standard Time' },
+    end:{ dateTime:_tcalToGraph(allDay?_tcalAddDays(new Date(ey,em-1,ed,0,0),1):endDt), timeZone:'Korea Standard Time' },
+    isAllDay:allDay,
+    location:{ displayName:($('tcf-loc').value||'').trim() },
+    body:{ contentType:'text', content:($('tcf-body').value||'').trim() }
+  };
+  try{
+    const t=await calToken();
+    let url,method;
+    if(_tcalEditId){ url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/events/${_tcalEditId}`; method='PATCH'; }
+    else{ url=`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/events`; method='POST'; }
+    const r=await fetch(url,{method,headers:{Authorization:"Bearer "+t,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('Graph '+r.status+': '+(await r.text()).slice(0,200));
+    tcalCloseModal();
+    toast(_tcalEditId?'일정 수정됨':'일정 추가됨','ok');
+    tcalLoad();
+  }catch(e){ if(err) err.textContent='실패: '+(e.message||e); }
+}
+
+// ── 삭제 ──
+async function tcalDelete(){
+  if(!_tcalEditId) return;
+  if(!confirm('이 일정을 삭제할까요?')) return;
+  const err=$('tcf-err'); if(err) err.textContent='삭제 중…';
+  try{
+    const t=await calToken();
+    const r=await fetch(`https://graph.microsoft.com/v1.0/groups/${TIC_TEAM_GROUP}/events/${_tcalEditId}`,
+      {method:'DELETE',headers:{Authorization:"Bearer "+t}});
+    if(!r.ok && r.status!==204) throw new Error('Graph '+r.status);
+    tcalCloseModal(); toast('일정 삭제됨','ok'); tcalLoad();
+  }catch(e){ if(err) err.textContent='삭제 실패: '+(e.message||e); }
+}
+
+// ── 모달 헬퍼 ──
+function _tcalShowModal(html){
+  let ov=$('tcalModal');
+  if(!ov){ ov=document.createElement('div'); ov.id='tcalModal'; ov.className='tcal-modal-ov';
+    ov.onclick=(e)=>{ if(e.target===ov) tcalCloseModal(); };
+    document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="tcal-modal-box">${html}</div>`;
+  ov.style.display='flex';
+  setTimeout(()=>{ $('tcf-subject')?.focus(); },50);
+}
+function tcalCloseModal(){ const ov=$('tcalModal'); if(ov) ov.style.display='none'; }
+
+// ── 페이지 진입 ──
+function ticcalInit(){
+  _tcalCursor=new Date();
+  tcalLoad();
+}
+
 
 async function schInit(){ return schxInit(); }
 
