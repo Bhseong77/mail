@@ -2524,6 +2524,7 @@ body.embed-prnew{background:#fff}
   <div class="ci" onclick="ftAct('mail')">✉ 첨부해서 새 메일</div>
   <div class="ci" id="ftCtxUnzip" onclick="ftAct('unzip')" style="display:none">🗜 여기에 압축 풀기</div>
   <div class="ci" id="ftCtxDownload" onclick="ftAct('download')">⬇ 다운로드</div>
+  <div class="ci" id="ftCtxClmImp" onclick="ftAct('clmimport')">📁 클라우디움으로 확정</div>
   <div class="ci" onclick="ftAct('link')">🔗 링크 복사 (내부)</div>
   <div class="sep"></div>
   <div class="ci" onclick="ftAct('newfolder')">📁 새 폴더</div>
@@ -3288,7 +3289,7 @@ async function projFileBoard(host, opts){
         <td class="c">${i===0?'<span title="최신" style="color:#2563eb">●</span>':''}</td>
         <td><span class="file-link" style="cursor:pointer" onclick="projBoardPreview('${f.id}','${esc(f.name)}')">${esc(f.name)}</span></td>
         <td class="c">${esc(dt)}</td><td class="c">${esc(who)}</td><td class="r">${kb}</td>
-        <td class="c"><button class="an-mini" title="미리보기" onclick="projBoardPreview('${f.id}','${esc(f.name)}')">👁</button><button class="an-mini" title="다운로드" onclick="projBoardDownload('${f.id}')">⬇</button><button class="an-mini del" title="삭제" onclick="projBoardDelete('${f.id}','${esc(f.name)}')">🗑</button></td>
+        <td class="c"><button class="an-mini" title="미리보기" onclick="projBoardPreview('${f.id}','${esc(f.name)}')">👁</button><button class="an-mini" title="다운로드" onclick="projBoardDownload('${f.id}')">⬇</button><button class="an-mini" title="클라우디움으로 확정" onclick="projBoardClmImport('${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📁</button><button class="an-mini del" title="삭제" onclick="projBoardDelete('${f.id}','${esc(f.name)}')">🗑</button></td>
       </tr>`;
     });
   }
@@ -3358,6 +3359,12 @@ async function model3DPreviewDrive(box,itemId,name,driveId){
 }
 async function projBoardDownload(itemId){
   try{ const t=await graphToken(); const d=_projBoardCtx.driveId; const r=await fetch(`https://graph.microsoft.com/v1.0/drives/${d}/items/${itemId}`,{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); const u=j["@microsoft.graph.downloadUrl"]; if(u)window.open(u); }catch(e){ toast('다운로드 실패','bad'); }
+}
+function projBoardClmImport(itemId, name){
+  if(!_projBoardCtx||!_projBoardCtx.driveId){ toast('드라이브 정보 없음','bad'); return; }
+  _clmImpTarget={driveId:_projBoardCtx.driveId, itemId:itemId, filename:name};
+  _clmImpFiles=null;
+  _clmImpOpenPicker(name);
 }
 async function projBoardDelete(itemId,name){
   if(!confirm(`"${name}" 삭제할까요?`)) return;
@@ -7772,6 +7779,7 @@ function ftMenu(e,p,path,isFolder,itemId,name,size){
   const isZip = !isFolder && /\.zip$/i.test(name||'');
   const uz=$('ftCtxUnzip'); if(uz) uz.style.display = (isZip && !isClm) ? '' : 'none';
   const dl=$('ftCtxDownload'); if(dl) dl.style.display = (!isFolder && itemId && !isClm) ? '' : 'none';
+  const ci_imp=$('ftCtxClmImp'); if(ci_imp) ci_imp.style.display = (!isFolder && itemId && !isClm) ? '' : 'none';
   // 클라우디움 파일: SP 전용 작업은 숨김. 삭제/URL복사만 표시.
   m.querySelectorAll('.ci').forEach(ci=>{
     ci.classList.remove('ci-disabled');
@@ -7905,6 +7913,15 @@ async function ftAct(action){
     if(!t.itemId){ toast('다운로드 불가','bad'); return; }
     try{ const u=await spDownloadUrl(t.itemId); if(u) window.open(u,'_blank'); else toast('링크 없음','bad'); }
     catch(e){ toast('다운로드 실패: '+e.message,'bad'); }
+  }
+  else if(action==='clmimport'){
+    if(!t.itemId){ toast('이관 불가 (파일 아님)','bad'); return; }
+    try{
+      const d=await spDrive();
+      _clmImpTarget={driveId:d, itemId:t.itemId, filename:t.name};
+      _clmImpFiles=null;
+      _clmImpOpenPicker(t.name);
+    }catch(e){ toast('드라이브 조회 실패: '+e.message,'bad'); }
   }
   else if(action==='link'){
     try{
