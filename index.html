@@ -11712,6 +11712,7 @@ function _loadGmaps(){
 }
 let _gmap=null, _gmapMarker=null, _gmapGeocoder=null, _gmapPicked='';
 let _gmapPlaces=null, _gmapResults=[], _gmapChosen=[];
+let _gmapPickedName='', _gmapPickedUrl='';   // 현재 핀의 장소명 + 구글맵 링크
 async function tcalPickLocation(){
   let ov=$('tcalMapOv');
   if(!ov){ ov=document.createElement('div'); ov.id='tcalMapOv'; ov.className='tcal-modal-ov'; ov.style.zIndex='100003';
@@ -11725,18 +11726,24 @@ async function tcalPickLocation(){
       <button class="btn sm primary" onclick="tcalMapSearch()">검색</button>
     </div>
     <div id="tcMapResults" style="display:none;max-height:130px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"></div>
-    <div id="tcMapCanvas" style="width:100%;height:300px;border-radius:10px;background:#eef2f7"></div>
-    <div id="tcMapPicked" style="font-size:13px;color:var(--t2);margin-top:8px;min-height:20px">📍 현재 핀: <span style="color:var(--t3)">아직 없음</span> <button class="btn sm" style="margin-left:6px" onclick="tcalMapAddPicked()">＋ 이 장소 추가</button></div>
-    <div id="tcMapChosen" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+    <div id="tcMapCanvas" style="width:100%;height:280px;border-radius:10px;background:#eef2f7"></div>
+    <div id="tcMapPicked" style="font-size:13px;color:var(--t2);margin-top:8px;min-height:20px">📍 현재 핀: <span style="color:var(--t3)">아직 없음</span></div>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+      <select id="tcMapLabel" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="호텔">호텔</option><option value="공장">공장</option><option value="공항">공항</option>
+        <option value="사무실">사무실</option><option value="식당">식당</option><option value="미팅">미팅</option>
+        <option value="장소">기타</option>
+      </select>
+      <input id="tcMapLabelEtc" type="text" placeholder="직접 입력(선택)" style="width:120px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <button class="btn sm primary" onclick="tcalMapAddPicked()">＋ 이 장소 추가</button>
+    </div>
+    <div id="tcMapChosen" style="display:flex;flex-direction:column;gap:5px;margin-top:10px"></div>
     <div style="text-align:right;margin-top:12px">
       <button class="btn sm" onclick="document.getElementById('tcalMapOv').style.display='none'">취소</button>
-      <button class="btn sm primary" onclick="tcalMapConfirm()">완료 (장소 넣기)</button>
+      <button class="btn sm primary" onclick="tcalMapConfirm()">완료 (메모에 넣기)</button>
     </div>
   </div>`;
   _gmapChosen=[];
-  // 기존 입력값이 있으면 콤마로 나눠 미리 담기
-  const cur0=($('tcf-loc')?.value||'').trim();
-  if(cur0){ cur0.split(/\s*[;,]\s*|\s*→\s*/).filter(Boolean).forEach(s=>_gmapChosen.push(s)); }
   _gmapRenderChosen();
   try{
     await _loadGmaps();
@@ -11767,39 +11774,62 @@ function tcalMapPickResult(i){
   const r=(_gmapResults||[])[i]; if(!r||!r.geometry) return;
   _gmap.setCenter(r.geometry.location); _gmap.setZoom(16);
   _gmapMarker.setPosition(r.geometry.location);
+  _gmapPickedName=r.name||r.formatted_address||'';
   _gmapPicked=r.name?`${r.name}${r.formatted_address?' ('+r.formatted_address+')':''}`:(r.formatted_address||'');
+  // 구글맵 링크 (place_id 있으면 그걸로, 없으면 좌표)
+  const ll=r.geometry.location;
+  _gmapPickedUrl = r.place_id
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(_gmapPickedName)}&query_place_id=${r.place_id}`
+    : `https://www.google.com/maps/search/?api=1&query=${ll.lat()},${ll.lng()}`;
   _gmapShowPicked(_gmapPicked);
   const box=$('tcMapResults'); if(box) box.style.display='none';
 }
 function _gmapSetPin(latLng){
   _gmapMarker.setPosition(latLng);
   if(_gmapGeocoder) _gmapGeocoder.geocode({location:latLng},(res,st)=>{
-    if(st==='OK'&&res[0]){ _gmapPicked=res[0].formatted_address; }
-    else{ _gmapPicked=`${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`; }
+    if(st==='OK'&&res[0]){ _gmapPicked=res[0].formatted_address; _gmapPickedName=res[0].formatted_address; }
+    else{ _gmapPicked=`${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`; _gmapPickedName=_gmapPicked; }
+    _gmapPickedUrl=`https://www.google.com/maps/search/?api=1&query=${latLng.lat()},${latLng.lng()}`;
     _gmapShowPicked(_gmapPicked);
   });
 }
 function _gmapShowPicked(txt){
-  const el=$('tcMapPicked'); if(el) el.innerHTML=`📍 현재 핀: <b style="color:var(--t1)">${esc(txt||'아직 없음')}</b> <button class="btn sm" style="margin-left:6px" onclick="tcalMapAddPicked()">＋ 이 장소 추가</button>`;
+  const el=$('tcMapPicked'); if(el) el.innerHTML=`📍 현재 핀: <b style="color:var(--t1)">${esc(txt||'아직 없음')}</b>`;
 }
 function tcalMapAddPicked(){
-  if(!_gmapPicked){ toast('먼저 장소를 검색하거나 지도를 클릭하세요','bad'); return; }
-  if(!_gmapChosen.includes(_gmapPicked)) _gmapChosen.push(_gmapPicked);
+  if(!_gmapPickedName){ toast('먼저 장소를 검색하거나 지도를 클릭하세요','bad'); return; }
+  const etc=($('tcMapLabelEtc')?.value||'').trim();
+  const label=etc || ($('tcMapLabel')?.value||'장소');
+  _gmapChosen.push({label, name:_gmapPickedName, url:_gmapPickedUrl});
   _gmapRenderChosen();
-  toast('장소 추가됨','ok');
+  const etcEl=$('tcMapLabelEtc'); if(etcEl) etcEl.value='';
+  toast(`${label} 추가됨`,'ok');
 }
 function _gmapRenderChosen(){
   const box=$('tcMapChosen'); if(!box) return;
-  if(!_gmapChosen.length){ box.innerHTML='<span style="font-size:12px;color:var(--t3)">담긴 장소 없음 — 검색/클릭 후 [＋ 이 장소 추가]</span>'; return; }
-  box.innerHTML=_gmapChosen.map((s,i)=>`<span class="tcal-att-chip" style="background:#dcfce7;color:#166534">📍 ${esc(s.length>28?s.slice(0,28)+'…':s)}<span class="x" onclick="_gmapChosen.splice(${i},1);_gmapRenderChosen()">✕</span></span>`).join('');
+  if(!_gmapChosen.length){ box.innerHTML='<span style="font-size:12px;color:var(--t3)">담긴 장소 없음 — 검색/클릭 → 종류 고르고 [＋ 이 장소 추가]</span>'; return; }
+  box.innerHTML=_gmapChosen.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;font-size:13px">
+    <b style="color:#166534;min-width:44px">${esc(x.label)}</b>
+    <span style="flex:1">${esc(x.name)}</span>
+    <span style="cursor:pointer;color:var(--t3)" onclick="_gmapChosen.splice(${i},1);_gmapRenderChosen()">✕</span>
+  </div>`).join('');
 }
 function tcalMapConfirm(){
-  // 현재 핀도 안 담았으면 자동 포함
-  if(_gmapPicked && !_gmapChosen.includes(_gmapPicked)) _gmapChosen.push(_gmapPicked);
   if(!_gmapChosen.length){ toast('장소를 하나 이상 추가하세요','bad'); return; }
-  const loc=$('tcf-loc'); if(loc) loc.value=_gmapChosen.join(' → ');
+  // 1) 장소 칸: "호텔: 로터스한인호텔 → 공장: 타타" 형태 요약
+  const loc=$('tcf-loc'); if(loc) loc.value=_gmapChosen.map(x=>`${x.label}: ${x.name}`).join(' → ');
+  // 2) 메모(tcf-body) 맨 위에 한 줄씩 하이퍼링크로 삽입
+  const memo=$('tcf-body');
+  if(memo){
+    const lines=_gmapChosen.map(x=>{
+      const link=x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`:esc(x.name);
+      return `<div>📍 <b>${esc(x.label)}:</b> ${link}</div>`;
+    }).join('');
+    // 기존 내용 위에 붙이기 (구분선 포함)
+    memo.innerHTML = lines + (memo.innerHTML?('<div><br></div>'+memo.innerHTML):'');
+  }
   const ov=$('tcalMapOv'); if(ov) ov.style.display='none';
-  toast(`장소 ${_gmapChosen.length}곳 선택됨`,'ok');
+  toast(`장소 ${_gmapChosen.length}곳 메모에 추가됨`,'ok');
 }
 
 // ── 일정 요약 텍스트 (Teams/메일/DM 공용) ──
