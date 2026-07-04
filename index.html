@@ -11695,12 +11695,80 @@ function tcalHoverShow(e, id){
 function tcalHoverHide(){ _tcalHoverTimer=setTimeout(()=>{ const c=$('tcalHoverCard'); if(c) c.style.display='none'; },80); }
 
 // ── 장소 구글맵 조회 (검색 팝업) ──
+// ── 장소 선택: 구글맵 지도 모달 (검색 + 핀 클릭/드래그로 선택) ──
+const _GMAPS_KEY='AIzaSyCLjqmT95OlVhGd2YcjIyjLDP9miwMCjMM';
+let _gmapsLoaded=false, _gmapPromise=null;
+function _loadGmaps(){
+  if(_gmapsLoaded) return Promise.resolve();
+  if(_gmapPromise) return _gmapPromise;
+  _gmapPromise=new Promise((res,rej)=>{
+    window.__gmapsCb=()=>{ _gmapsLoaded=true; res(); };
+    const s=document.createElement('script');
+    s.src=`https://maps.googleapis.com/maps/api/js?key=${_GMAPS_KEY}&libraries=places&language=ko&callback=__gmapsCb`;
+    s.async=true; s.defer=true; s.onerror=()=>rej(new Error('구글맵 로드 실패'));
+    document.head.appendChild(s);
+  });
+  return _gmapPromise;
+}
+let _gmap=null, _gmapMarker=null, _gmapGeocoder=null, _gmapPicked='';
 async function tcalPickLocation(){
-  const q=($('tcf-loc').value||'').trim();
-  if(!q){ toast('먼저 장소명을 입력하세요','bad'); return; }
-  // 구글맵 검색 URL (외부 브라우저) — 대시보드가 새창링크를 브라우저로 열어줌
-  const url='https://www.google.com/maps/search/'+encodeURIComponent(q);
-  window.open(url,'_blank');
+  let ov=$('tcalMapOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='tcalMapOv'; ov.className='tcal-modal-ov'; ov.style.zIndex='100003';
+    ov.onclick=(e)=>{ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov); }
+  ov.style.display='flex';
+  ov.innerHTML=`<div class="tcal-modal-box" style="width:640px;max-width:94vw">
+    <div class="tcal-modal-h">🗺️ 장소 선택 <span style="color:var(--t3);font-size:12px;font-weight:400">검색하거나 지도를 클릭해 핀을 놓으세요</span></div>
+    <input id="tcMapSearch" type="text" placeholder="🔍 장소·주소 검색 (예: 인천국제공항)" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:14px">
+    <div id="tcMapCanvas" style="width:100%;height:360px;border-radius:10px;background:#eef2f7"></div>
+    <div id="tcMapPicked" style="font-size:13px;color:var(--t2);margin-top:8px;min-height:20px">📍 선택된 장소: <span style="color:var(--t3)">아직 없음</span></div>
+    <div style="text-align:right;margin-top:12px">
+      <button class="btn sm" onclick="document.getElementById('tcalMapOv').style.display='none'">취소</button>
+      <button class="btn sm primary" onclick="tcalMapConfirm()">이 장소 선택</button>
+    </div>
+  </div>`;
+  try{
+    await _loadGmaps();
+    _gmapGeocoder=new google.maps.Geocoder();
+    // 초기 중심: 기존 입력값 있으면 그 위치, 없으면 서울
+    const cur=($('tcf-loc')?.value||'').trim();
+    const center={lat:37.5665,lng:126.9780};
+    _gmap=new google.maps.Map($('tcMapCanvas'),{center,zoom:11,mapTypeControl:false,streetViewControl:false});
+    _gmapMarker=new google.maps.Marker({map:_gmap,draggable:true,position:center});
+    _gmapPicked='';
+    // 지도 클릭 → 핀 이동 + 역지오코딩
+    _gmap.addListener('click',(e)=>_gmapSetPin(e.latLng));
+    _gmapMarker.addListener('dragend',(e)=>_gmapSetPin(e.latLng));
+    // 검색 자동완성
+    const inp=$('tcMapSearch');
+    const ac=new google.maps.places.Autocomplete(inp,{fields:['geometry','name','formatted_address']});
+    ac.addListener('place_changed',()=>{
+      const p=ac.getPlace();
+      if(!p.geometry){ return; }
+      _gmap.setCenter(p.geometry.location); _gmap.setZoom(16);
+      _gmapMarker.setPosition(p.geometry.location);
+      _gmapPicked=p.name?`${p.name}${p.formatted_address?' ('+p.formatted_address+')':''}`:(p.formatted_address||'');
+      _gmapShowPicked(_gmapPicked);
+    });
+    if(cur){ inp.value=cur; }
+  }catch(e){ toast('지도 로드 실패: '+e.message,'bad'); }
+}
+function _gmapSetPin(latLng){
+  _gmapMarker.setPosition(latLng);
+  if(_gmapGeocoder) _gmapGeocoder.geocode({location:latLng},(res,st)=>{
+    if(st==='OK'&&res[0]){ _gmapPicked=res[0].formatted_address; }
+    else{ _gmapPicked=`${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`; }
+    _gmapShowPicked(_gmapPicked);
+  });
+}
+function _gmapShowPicked(txt){
+  const el=$('tcMapPicked'); if(el) el.innerHTML=`📍 선택된 장소: <b style="color:var(--t1)">${esc(txt||'아직 없음')}</b>`;
+}
+function tcalMapConfirm(){
+  if(!_gmapPicked){ toast('먼저 장소를 검색하거나 지도를 클릭하세요','bad'); return; }
+  const loc=$('tcf-loc'); if(loc) loc.value=_gmapPicked;
+  const ov=$('tcalMapOv'); if(ov) ov.style.display='none';
+  toast('장소 선택됨','ok');
 }
 
 // ── 일정 요약 텍스트 (Teams/메일/DM 공용) ──
