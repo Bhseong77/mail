@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v469</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v470</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -8361,12 +8361,36 @@ function anPickCustomer(p,customer,el){
   AN_FILTER[p].customer=customer;
   anRender(p);
 }
+// ── 카드영수증 이용상점 OCR 오독 교정 ──────────────────────────────
+// 카드영수증(토스/네이버)은 텍스트 없는 이미지 PDF라 gpt-4o 비전이 한글 상호를
+// 자주 뭉갬(예: 한국미스미→한코미스/한크미스미). 자주 나오는 정식 상호를 아래에
+// 등록해두면, 파싱된 이름을 음절 유사도로 비교해 정식 상호로 자동 스냅한다.
+// ★ 새 이용상점이 계속 틀리게 나오면 여기에 정식 상호만 추가하면 됨.
+const CARD_MERCHANTS = [
+  '(주)한국미스미',
+];
+function _mstrip(s){ return String(s||'').replace(/\(주\)|주식회사|㈜|[()（）\s·.\-]/g,''); }
+function _mSim(a,b){   // 음절(문자) 다중집합 Dice 유사도 0~1
+  a=_mstrip(a); b=_mstrip(b);
+  if(!a||!b) return 0;
+  const B=b.split(''); let m=0;
+  for(const ch of a.split('')){ const i=B.indexOf(ch); if(i>=0){ m++; B.splice(i,1); } }
+  return 2*m/(a.length+b.length);
+}
+function canonMerchant(name){
+  const n=String(name||'').trim(); if(!n) return name;
+  let best=null, bs=0;
+  for(const c of CARD_MERCHANTS){ const s=_mSim(n,c); if(s>bs){ bs=s; best=c; } }
+  return (best && bs>=0.55) ? best : name;   // 0.55 이상만 스냅(다른 거래처 오교정 방지)
+}
 function anRender(p){
   const data=AN_DATA[p]||{};
   const q=($('anq-'+p)?.value||'').trim().toLowerCase();
   const cust=AN_FILTER[p]?.customer||'';
   const monthSel=$('anmonth-'+p)?.value||'';
   let rows=Object.entries(data).map(([fid,d])=>({fid,...d}));
+  // 카드 상호 OCR 오독 → 정식 상호 스냅 (정렬·그룹·소계·총합 전에 적용, 재분석 불필요)
+  if(p==='doc-tax') rows.forEach(r=>{ r.company=canonMerchant(r.company); });
   // 월별 필터 드롭다운 옵션 갱신 (작성일 quoteDate 기준, 없으면 파일일자)
   const monthEl=$('anmonth-'+p);
   if(monthEl){
@@ -9144,6 +9168,7 @@ ${text.slice(0,6000)}`;
   const _isCard = p==='doc-tax' && info && info.docType==='card';
   // 회사명(발행처)에서 엔젯 제외: company→customer→prev 순으로 엔젯 아닌 첫 값
   let _company=[ (info&&info.company), f.customer, prev.company ].find(x=>x && !_isEnjet(x)) || "";
+  if(_isCard) _company=canonMerchant(_company);   // 카드 이용상점 OCR 오독 → 정식 상호 스냅
   if(_isCard){
     // ── 카드영수증: 결제일=작성일, 승인번호=법인카드결제, VAT는 영수증 값 ──
     AN_DATA[p][f.id]={
@@ -9440,8 +9465,9 @@ ${text.slice(0,6000)}`;
         AN_DATA[p][f.id]=_vendorStore(f, info, AN_DATA[p][f.id]);
       }else{
         const _isEnjet=s=>/엔젯|enjet/i.test(String(s||""));
-        const _company=[ (info&&info.company), f.customer ].find(x=>x && !_isEnjet(x)) || "";
+        let _company=[ (info&&info.company), f.customer ].find(x=>x && !_isEnjet(x)) || "";
         const _isCard = info && info.docType==='card';
+        if(_isCard) _company=canonMerchant(_company);   // 카드 이용상점 OCR 오독 → 정식 상호 스냅
         AN_DATA[p][f.id]={
           company:_company,
           quoteDate: _isCard ? ((info&&info.quoteDate)||pafQuoteDate(text)||'') : (pafQuoteDate(text) || (info&&info.quoteDate) || ''),
