@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v471</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v472</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -23156,7 +23156,7 @@ function prnewInit(){
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
             <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
-            <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="선택한 행에 가공도면 첨부 (99.가공도면 업로드 · 대표행에 개수)">📐 도면첨부</button>
+            <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="클라우디움에서 도면 선택 → 대표행에 연결 (여러 개 가능 · 사본 아님 · 클릭하면 폴더 열림)">📐 도면첨부</button>
             <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
             <button class="acc-period-btn" onclick="prnewDrawMail()" style="color:#b45309;border-color:#fde68a;background:#fffbeb;" title="선택행에 첨부된 도면을 모아 견적요청 메일 작성 (받는사람은 직접 선택)">📧 선택행(도면) 메일보내기</button>
@@ -23194,7 +23194,7 @@ function prnewInit(){
             <button class="acc-period-btn today" onclick="prnewAddRow()">＋ 행 추가</button>
             <button class="acc-period-btn" onclick="prnewDelChecked()" style="color:#dc2626;border-color:#fecaca;">🗑 행 삭제 (선택)</button>
             <button class="acc-period-btn" onclick="prnewTaskPickMulti()" style="color:#4338ca;border-color:#c7d2fe;" title="체크한 행들에 업무 한번에 지정">📋 선택행 업무</button>
-            <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="선택한 행에 가공도면 첨부 (99.가공도면 업로드 · 대표행에 개수)">📐 도면첨부</button>
+            <button class="acc-period-btn" onclick="prnewDrawAttach()" style="color:#0369a1;border-color:#bae6fd;" title="클라우디움에서 도면 선택 → 대표행에 연결 (여러 개 가능 · 사본 아님 · 클릭하면 폴더 열림)">📐 도면첨부</button>
             <button class="acc-period-btn" onclick="prnewShareChat('multi')" style="color:#4b53bc;border-color:#c7d2fe;" title="체크한 행 정보를 요약해 Teams 채팅방에 공유">🔗 채팅 공유</button>
             <button class="acc-period-btn" onclick="prnewPasteBox()" style="color:#15803d;border-color:#bbf7d0;">📋 엑셀 붙여넣기</button>
             <button class="acc-period-btn" onclick="prnewDrawMail()" style="color:#b45309;border-color:#fde68a;background:#fffbeb;" title="선택행에 첨부된 도면을 모아 견적요청 메일 작성 (받는사람은 직접 선택)">📧 선택행(도면) 메일보내기</button>
@@ -23378,6 +23378,8 @@ function prnewDrawCell(r,i){
   if(n) return `<td style="text-align:center;white-space:nowrap;"><span onclick="prnewDrawView(${i})" title="첨부도면 보기/관리 (${n}건)" style="cursor:pointer;color:#0369a1;background:#e0f2fe;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;">📐 첨부</span></td>`;
   return `<td style="text-align:center;color:#cbd5e1;font-size:11px;">–</td>`;
 }
+// 📐 도면첨부 = 클라우디움에서 도면(파일) 여러 개 골라 대표행에 "링크"로 연결 (사본 복사 아님).
+//   첨부된 도면 클릭 → techClmOpen 으로 그 도면이 든 클라우디움 폴더를 탐색기로 열어줌.
 function prnewDrawAttach(forceIdx){
   let idxs;
   if(Array.isArray(forceIdx)) idxs=forceIdx;
@@ -23386,29 +23388,83 @@ function prnewDrawAttach(forceIdx){
   if(!idxs.length){ toast("도면 첨부할 행을 선택하세요","bad"); return; }
   const pjt=(document.getElementById("prnew-pjt")||{}).value||"";
   if(!pjt){ toast("프로젝트를 먼저 선택/조회하세요","bad"); return; }
-  const rep=idxs[0];   // 대표행 = 첫 선택행
-  const inp=document.createElement("input");
-  inp.type="file"; inp.multiple=true;
-  inp.accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.tif,.tiff,.zip,.step,.stp,.igs,.iges,.x_t,.sldprt,.sldasm";
-  inp.onchange=async()=>{
-    const files=[...(inp.files||[])]; if(!files.length) return;
-    const _jid=_J(`도면 업로드 ${files.length}건`);
-    const r0=prnewRows[rep]; r0._draw=r0._draw||[];
-    let ok=0;
-    for(const f of files){
-      try{
-        const buf=await f.arrayBuffer();
-        const fname=`${pjt}_${f.name}`;
-        const item=await spUploadFile(`${PRNEW_DRAW_FOLDER}/${fname}`, buf, f.type||"application/octet-stream");
-        r0._draw.push({name:f.name, file:fname, path:`${PRNEW_DRAW_FOLDER}/${fname}`, url:(item&&item.webUrl)||"", itemId:(item&&item.id)||"", ctype:f.type||"application/octet-stream", size:f.size});
-        ok++;
-      }catch(e){ toast(`업로드 실패: ${f.name} (${(e&&e.message)||e})`,"bad"); }
-    }
-    if(ok){ _Jok(_jid,`도면 ${ok}건 업로드`); toast(`도면 ${ok}건 첨부됨 → 대표행 ${rep+1}번 (총 ${r0._draw.length})`,"ok"); try{ await prnewMetaPersist(pjt); }catch(_){} }
-    else _Jno(_jid,"업로드 실패");
-    prnewRenderRows();
-  };
-  inp.click();
+  prnewClmPick(idxs[0]);   // 대표행 = 첫 선택행
+}
+// ── 클라우디움 도면 피커 (폴더 탐색 + 파일 다중선택) ──
+let _prnewClmState=null;   // {rep, cur, stack:[{oid,name}], sel:Map(oid->{oid,name,folderOid})}
+function prnewClmPick(rep){
+  _prnewClmState={rep, cur:CLM_ROOT, stack:[{oid:CLM_ROOT,name:'전사 루트'}], sel:new Map()};
+  let ov=document.getElementById("prnewClmOv"); if(ov)ov.remove();
+  ov=document.createElement("div"); ov.id="prnewClmOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:1000099;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center";
+  ov.innerHTML=`<div style="width:min(700px,95vw);max-height:86vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 18px;background:#0369a1;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <b>📐 클라우디움 도면 선택 · 대표행 ${rep+1}번 (여러 개 선택 가능)</b>
+      <span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewClmOv').remove()">✕</span></div>
+    <div id="prnewClmCrumb" style="padding:8px 16px;font-size:12px;color:var(--t2);border-bottom:1px solid #eef0f3;white-space:nowrap;overflow:auto"></div>
+    <div id="prnewClmBody" style="padding:8px 12px;overflow:auto;flex:1;min-height:240px"><div class="an-empty">불러오는 중…</div></div>
+    <div style="padding:10px 16px;border-top:1px solid #eef0f3;display:flex;justify-content:space-between;align-items:center">
+      <span id="prnewClmSelCnt" style="font-size:12px;color:var(--t2)">선택 0개</span>
+      <div style="display:flex;gap:8px">
+        <button class="acc-period-btn" onclick="document.getElementById('prnewClmOv').remove()">취소</button>
+        <button class="acc-period-btn today" onclick="prnewClmConfirm()">✅ 선택 도면 연결</button>
+      </div>
+    </div></div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov)ov.remove(); });
+  document.body.appendChild(ov);
+  prnewClmNav(CLM_ROOT,true);
+}
+function _prnewClmName(oid,isRoot){ const st=_prnewClmState; if(isRoot) return '전사 루트'; return (st&&st.names&&st.names[oid]) || ((st&&st.stack.find(x=>x.oid===oid))||{}).name || '폴더'; }
+async function prnewClmNav(oid, isRoot){
+  const st=_prnewClmState; if(!st) return;
+  const name=_prnewClmName(oid,isRoot);
+  if(isRoot){ st.stack=[{oid,name}]; }
+  else{ const ix=st.stack.findIndex(x=>x.oid===oid); if(ix>=0) st.stack=st.stack.slice(0,ix+1); else st.stack.push({oid,name}); }
+  st.cur=oid;
+  const cb=document.getElementById("prnewClmCrumb");
+  if(cb) cb.innerHTML=st.stack.map(x=>`<span style="cursor:pointer;color:#0369a1" onclick="prnewClmNav('${x.oid}')">${esc(x.name)}</span>`).join(' <span style="color:#cbd5e1">›</span> ');
+  const body=document.getElementById("prnewClmBody"); if(body) body.innerHTML='<div class="an-empty">불러오는 중…</div>';
+  const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(oid)}`);
+  if(!d||!d.ok){ if(body) body.innerHTML='<div class="an-empty">목록을 불러오지 못했습니다 (서버/에이전트 확인)</div>'; return; }
+  prnewClmRenderBody(d.items||[]);
+}
+function prnewClmRenderBody(items){
+  const st=_prnewClmState; const body=document.getElementById("prnewClmBody"); if(!st||!body) return;
+  st.names=st.names||{}; items.forEach(it=>{ st.names[it.oid]=it.name; });   // oid→이름 (onclick엔 oid만 전달)
+  const folders=items.filter(i=>i.isFolder), files=items.filter(i=>!i.isFolder);
+  let h='';
+  h+=folders.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''" onclick="prnewClmNav('${f.oid}')">
+    <span style="font-size:17px">📁</span><span style="flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span style="color:#94a3b8;font-size:12px">폴더 ›</span></div>`).join('');
+  h+=files.map(f=>{ const on=st.sel.has(f.oid);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;${on?'background:#e0f2fe':''}">
+    <input type="checkbox" ${on?'checked':''} onchange="prnewClmToggle('${f.oid}',this.checked)">
+    <span style="font-size:16px">${taIcon(f.fileName||f.name)}</span>
+    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+    <span style="color:#94a3b8;font-size:11px">${f.version?('v'+esc(f.version)+' · '):''}${taFmtSize(f.size)}</span></label>`; }).join('');
+  body.innerHTML = h || '<div class="an-empty">빈 폴더</div>';
+}
+function prnewClmToggle(oid,on){
+  const st=_prnewClmState; if(!st) return;
+  const name=(st.names&&st.names[oid])||'도면';
+  if(on) st.sel.set(oid,{oid,name,folderOid:st.cur}); else st.sel.delete(oid);
+  const c=document.getElementById("prnewClmSelCnt"); if(c) c.textContent=`선택 ${st.sel.size}개`;
+}
+function prnewClmConfirm(){
+  const st=_prnewClmState; if(!st) return;
+  if(!st.sel.size){ toast("첨부할 도면을 선택하세요","bad"); return; }
+  const r0=prnewRows[st.rep]; if(!r0){ toast("대표행을 찾을 수 없음","bad"); return; }
+  r0._draw=r0._draw||[];
+  let added=0;
+  for(const [oid,v] of st.sel){
+    if(r0._draw.some(d=>d.clm && d.oid===oid)) continue;   // 중복 방지
+    r0._draw.push({name:v.name, oid:v.oid, folderOid:v.folderOid, clm:true});
+    added++;
+  }
+  const ov=document.getElementById("prnewClmOv"); if(ov)ov.remove();
+  _prnewClmState=null;
+  toast(`클라우디움 도면 ${added}건 연결 → 대표행 ${st.rep+1}번 (총 ${r0._draw.length})`,"ok");
+  const pjt=(document.getElementById("prnew-pjt")||{}).value||""; if(pjt) prnewMetaPersist(pjt).catch(()=>{});
+  prnewRenderRows();
 }
 function prnewDrawView(i){
   const r=prnewRows[i]; const buf=(r&&r._draw)||[];
@@ -23419,9 +23475,9 @@ function prnewDrawView(i){
   ov.innerHTML=`<div style="width:min(520px,94vw);max-height:80vh;background:#fff;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:12px 18px;background:#0369a1;color:#fff;display:flex;justify-content:space-between;align-items:center"><b>📐 첨부 도면 · ${esc((r._task&&r._task.name)||r["품명"]||(i+1)+"번 행")} (${buf.length})</b><span style="cursor:pointer;font-size:18px" onclick="document.getElementById('prnewDrawOv').remove()">✕</span></div>
     <div style="padding:12px 16px;overflow:auto;flex:1">${buf.map((d,di)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px">
-      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc(d.name)}</span>
-      ${d.url?`<a href="${esc(d.url)}" target="_blank" style="color:#0369a1;font-size:12px">열기</a>`:""}
-      <span onclick="prnewDrawDel(${i},${di})" title="목록에서 제거 (SharePoint 파일은 유지)" style="cursor:pointer;color:#ef4444">✕</span>
+      <span ${d.clm?`onclick="techClmOpen('${d.folderOid}','${esc(String(d.name)).replace(/'/g,"\\'")}')" title="클릭 → 클라우디움 폴더 열기"`:''} style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${d.clm?'cursor:pointer;color:#0369a1':''}">${d.clm?'🔗':'📄'} ${esc(d.name)}</span>
+      ${d.clm?`<button class="btn sm" onclick="techClmOpen('${d.folderOid}','${esc(String(d.name)).replace(/'/g,"\\'")}')" title="클라우디움 폴더 열기" style="color:#0369a1">📂 폴더 열기</button>`:(d.url?`<a href="${esc(d.url)}" target="_blank" style="color:#0369a1;font-size:12px">열기</a>`:"")}
+      <span onclick="prnewDrawDel(${i},${di})" title="목록에서 제거 (원본은 유지)" style="cursor:pointer;color:#ef4444">✕</span>
     </div>`).join("")}</div>
     <div style="padding:10px 16px;border-top:1px solid #eef0f3;text-align:right">
       <button class="acc-period-btn" onclick="document.getElementById('prnewDrawOv').remove()">닫기</button>
