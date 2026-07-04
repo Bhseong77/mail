@@ -8476,25 +8476,26 @@ function anRender(p){
       <td colspan="3"></td></tr></tfoot></table>`;
     wrap.innerHTML=h; return;
   }
-  // ── 세금계산서 전용: 회사명·작성일·분류·품목·수량·단가·공급가액·VAT·합계 (납기/보증기간 없음) ──
+  // ── 세금계산서 전용: 🧾 세금계산서 / 💳 법인카드 섹션 구분 + 섹션소계 + 전체 총합 ──
   if(p==='doc-tax'){
     const cats=allCategories();
-    let sumSupply=0, sumVat=0, sumTot=0;
+    const isCardRow=r=> r.docType==='card' || r.approvalNo==='법인카드결제';
+    const taxRows=rows.filter(r=>!isCardRow(r));
+    const cardRows=rows.filter(r=>isCardRow(r));
+    let gSupply=0, gVat=0, gTot=0;   // 전체 총합
     let h=`<table class="an-tbl"><thead><tr>
       <th>회사명</th><th class="c">작성일</th><th class="c">승인번호</th><th class="c">분류</th><th class="item">품목</th><th class="c">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">VAT</th><th class="r">합계</th><th>파일</th><th class="c">작업</th></tr></thead><tbody>`;
-    for(const r of rows){
+    // 한 파일(행) 렌더 → {supply,vat,tot} 반환 (세금계산서/법인카드 공통)
+    const emitRow=(r)=>{
       const items=r.items&&r.items.length?r.items:[{item:r.item||'',qty:r.qty||'',price:r.price||'',amount:r.amount||''}];
       const rowspan=items.length;
       const _cat=r.category||guessCategory((r.company||'')+' '+items.map(x=>x.item||'').join(' ')+' '+(r.folder||''));
-      // 이 회사 소계 (품목 여러개일 때 표시용)
-      let rSupply=0;
+      let rSupply=0, rVat=0;
       items.forEach((it,ix)=>{
         const supply=Number(String(it.amount==null?'':it.amount).replace(/[, ]/g,''))||0;
-        // 카드영수증 등 VAT가 명시되면 그 값, 아니면 공급가액×0.1
         const _vExplicit = it.vat!=null && String(it.vat).trim()!=='' ? Number(String(it.vat).replace(/[, ]/g,'')) : null;
         const vat = (_vExplicit!=null && !isNaN(_vExplicit)) ? _vExplicit : Math.round(supply*0.1);
-        sumSupply+=supply; sumVat+=vat; sumTot+=supply+vat;
-        rSupply+=supply;
+        rSupply+=supply; rVat+=vat;
         h+=`<tr>`;
         if(ix===0){
           h+=`<td rowspan="${rowspan}"><span class="an-co">${esc(r.company||'?')}</span></td>`;
@@ -8510,24 +8511,39 @@ function anRender(p){
         }
         h+=`</tr>`;
       });
-      // 품목 2개 이상이면 회사 소계 행
+      // 품목 2개 이상이면 이 파일 소계 (money 컬럼에 정렬)
       if(items.length>1){
-        const rVat=Math.round(rSupply*0.1);
         h+=`<tr style="background:#fafbfc;font-weight:600;font-size:11px;color:#475569">
-          <td class="r" style="border-top:1px solid #cbd5e1">소계 (${items.length}건)</td>
-          <td class="c" style="border-top:1px solid #cbd5e1"></td>
-          <td class="r" style="border-top:1px solid #cbd5e1"></td>
+          <td colspan="7" class="r" style="border-top:1px solid #cbd5e1">소계 (${items.length}건)</td>
           <td class="r" style="border-top:1px solid #cbd5e1">${esc(fmtNum(rSupply))}</td>
           <td class="r" style="border-top:1px solid #cbd5e1">${esc(fmtNum(rVat))}</td>
           <td class="r" style="border-top:1px solid #cbd5e1;color:#0f4c81">${esc(fmtNum(rSupply+rVat))}</td>
+          <td colspan="2" style="border-top:1px solid #cbd5e1"></td>
         </tr>`;
       }
-    }
-    h+=`</tbody><tfoot><tr style="background:#f1f4f8;font-weight:700;">
-      <td colspan="7" class="r">합계</td>
-      <td class="r">${esc(fmtNum(sumSupply))}</td>
-      <td class="r">${esc(fmtNum(sumVat))}</td>
-      <td class="r" style="color:#0f4c81;">${esc(fmtNum(sumTot))}</td>
+      return {supply:rSupply, vat:rVat, tot:rSupply+rVat};
+    };
+    // 구분 섹션 렌더 (헤더 + 행들 + 섹션 소계)
+    const emitSection=(label,bg,secRows)=>{
+      if(!secRows.length) return;
+      let sS=0,sV=0,sT=0;
+      h+=`<tr><td colspan="12" style="background:${bg};font-weight:800;color:#0f172a;padding:7px 10px;font-size:12.5px;border-top:2px solid #94a3b8">${label} <span style="color:#64748b;font-weight:600;font-size:11px">${secRows.length}건</span></td></tr>`;
+      for(const r of secRows){ const t=emitRow(r); sS+=t.supply; sV+=t.vat; sT+=t.tot; }
+      h+=`<tr style="background:#eef2f7;font-weight:700">
+        <td colspan="7" class="r">${label} 소계</td>
+        <td class="r">${esc(fmtNum(sS))}</td>
+        <td class="r">${esc(fmtNum(sV))}</td>
+        <td class="r" style="color:#0f4c81">${esc(fmtNum(sT))}</td>
+        <td colspan="2"></td></tr>`;
+      gSupply+=sS; gVat+=sV; gTot+=sT;
+    };
+    emitSection('🧾 세금계산서','#e8f0fe',taxRows);
+    emitSection('💳 법인카드','#fef3e8',cardRows);
+    h+=`</tbody><tfoot><tr style="background:#dbe4f0;font-weight:800;font-size:13px">
+      <td colspan="7" class="r">전체 총합</td>
+      <td class="r">${esc(fmtNum(gSupply))}</td>
+      <td class="r">${esc(fmtNum(gVat))}</td>
+      <td class="r" style="color:#0f4c81">${esc(fmtNum(gTot))}</td>
       <td colspan="2"></td></tr></tfoot></table>`;
     wrap.innerHTML=h; return;
   }
