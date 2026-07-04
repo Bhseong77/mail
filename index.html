@@ -12033,12 +12033,17 @@ async function tcalOpenMail(folder, uid){
       try{
         const r=await fetch(`${SERVER}/api/mail/body?folder=${encodeURIComponent(fo)}&uid=${encodeURIComponent(uid)}`);
         const dd=await r.json();
-        if(dd&&dd.ok&&(dd.html||dd.text)){ d=dd; break; }
+        // 서버 응답 필드: bodyHtml / body / isHtml (대시보드 openMail 과 동일)
+        if(dd&&dd.ok&&(dd.bodyHtml||dd.body)){ d=dd; break; }
         if(!d) d=dd;
       }catch(_){}
     }
     const bodyEl=$('tcalMailBody');
-    if(d&&d.ok&&(d.html||d.text)){ bodyEl.innerHTML = d.html || ('<pre style="white-space:pre-wrap;font-family:inherit">'+esc(d.text)+'</pre>'); }
+    if(d&&d.ok&&(d.bodyHtml||d.body)){
+      bodyEl.innerHTML = (d.isHtml&&d.bodyHtml)
+        ? `<iframe sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${esc(d.bodyHtml)}" style="width:100%;border:0;min-height:300px" onload="try{this.style.height=this.contentWindow.document.body.scrollHeight+20+'px'}catch(_){}"></iframe>`
+        : `<pre style="white-space:pre-wrap;font-family:inherit">${esc(d.body||d.bodyHtml||'')}</pre>`;
+    }
     else bodyEl.innerHTML='<div style="color:#dc2626">본문을 불러올 수 없습니다'+((d&&d.error)?': '+esc(d.error):'')+'</div>';
   }catch(e){ const b=$('tcalMailBody'); if(b) b.innerHTML='<div style="color:#dc2626">로드 실패: '+esc(e.message||e)+'</div>'; }
 }
