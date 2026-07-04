@@ -1378,7 +1378,7 @@ body.embed-prnew{background:#fff}
 
 /* 모달 */
 .tcal-modal-ov{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.65); backdrop-filter:blur(2px); z-index:99999; align-items:center; justify-content:center; }
-.tcal-modal-box{ background:#ffffff; border:1px solid #e5e7eb; border-radius:16px; padding:22px 24px; width:440px; max-width:92vw; max-height:88vh; overflow:auto; box-shadow:0 24px 64px rgba(0,0,0,.45); }
+.tcal-modal-box{ background:#ffffff; border:1px solid #e5e7eb; border-radius:16px; padding:22px 24px; width:640px; max-width:94vw; max-height:88vh; overflow:auto; box-shadow:0 24px 64px rgba(0,0,0,.45); }
 .tcal-modal-h{ font-size:16px; font-weight:700; margin-bottom:14px; }
 .tcal-form{ display:flex; flex-direction:column; gap:4px; }
 .tcal-form label{ font-size:12px; color:var(--t2); margin-top:8px; }
@@ -11905,7 +11905,7 @@ function tcalPickMail(uid){
   const subj=(m.subject||'(제목 없음)').replace(/"/g,'&quot;');
   const from=_tcalMailFrom(m).replace(/"/g,'&quot;');
   // 첨부 카드: data 속성에 folder/uid. 클릭은 위임으로 처리(뷰 시)
-  const card=`<div class="tcal-mailcard" data-mailuid="${esc(String(uid))}" data-mailfolder="inbox" contenteditable="false">📧 <b>${esc(m.subject||'(제목 없음)')}</b><br><span style="color:#64748b;font-size:12px">${esc(from)} · ${esc(m.date||'')}</span></div><br>`;
+  const card=`<div class="tcal-mailcard" data-mailuid="${esc(String(uid))}" data-mailfolder="${esc(_tcalMailFolder||'inbox')}" contenteditable="false">📧 <b>${esc(m.subject||'(제목 없음)')}</b><br><span style="color:#64748b;font-size:12px">${esc(from)} · ${esc(m.date||'')}</span></div><br>`;
   // 커서 위치에 삽입
   memo.focus();
   document.execCommand('insertHTML', false, card);
@@ -11927,11 +11927,20 @@ async function tcalOpenMail(folder, uid){
     <div id="tcalMailBody" style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.6"><div class="spin"></div>불러오는 중…</div>
     <div style="text-align:right;margin-top:12px"><button class="btn sm" onclick="document.getElementById('tcalMailView').style.display='none'">닫기</button></div></div>`;
   try{
-    const r=await fetch(`${SERVER}/api/mail/body?folder=${encodeURIComponent(folder||'inbox')}&uid=${encodeURIComponent(uid)}`);
-    const d=await r.json();
+    let d=null;
+    // 우선 저장된 folder로 조회, 실패/빈본문이면 다른 폴더로 재시도
+    const tryFolders=[folder||'inbox', (folder==='sent'?'inbox':'sent')];
+    for(const fo of tryFolders){
+      try{
+        const r=await fetch(`${SERVER}/api/mail/body?folder=${encodeURIComponent(fo)}&uid=${encodeURIComponent(uid)}`);
+        const dd=await r.json();
+        if(dd&&dd.ok&&(dd.html||dd.text)){ d=dd; break; }
+        if(!d) d=dd;
+      }catch(_){}
+    }
     const bodyEl=$('tcalMailBody');
-    if(d&&d.ok){ bodyEl.innerHTML = d.html || (d.text?('<pre style="white-space:pre-wrap;font-family:inherit">'+esc(d.text)+'</pre>'):'(내용 없음)'); }
-    else bodyEl.innerHTML='<div style="color:#dc2626">본문 조회 실패: '+esc((d&&d.error)||'')+'</div>';
+    if(d&&d.ok&&(d.html||d.text)){ bodyEl.innerHTML = d.html || ('<pre style="white-space:pre-wrap;font-family:inherit">'+esc(d.text)+'</pre>'); }
+    else bodyEl.innerHTML='<div style="color:#dc2626">본문을 불러올 수 없습니다'+((d&&d.error)?': '+esc(d.error):'')+'</div>';
   }catch(e){ const b=$('tcalMailBody'); if(b) b.innerHTML='<div style="color:#dc2626">로드 실패: '+esc(e.message||e)+'</div>'; }
 }
 // 메모 안 메일카드 클릭 위임 (읽기용 — 폼 메모, 호버카드 등)
