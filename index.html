@@ -11711,47 +11711,65 @@ function _loadGmaps(){
   return _gmapPromise;
 }
 let _gmap=null, _gmapMarker=null, _gmapGeocoder=null, _gmapPicked='';
+let _gmapPlaces=null, _gmapResults=[], _gmapChosen=[];
 async function tcalPickLocation(){
   let ov=$('tcalMapOv');
   if(!ov){ ov=document.createElement('div'); ov.id='tcalMapOv'; ov.className='tcal-modal-ov'; ov.style.zIndex='100003';
     ov.onclick=(e)=>{ if(e.target===ov) ov.style.display='none'; };
     document.body.appendChild(ov); }
   ov.style.display='flex';
-  ov.innerHTML=`<div class="tcal-modal-box" style="width:640px;max-width:94vw">
-    <div class="tcal-modal-h">🗺️ 장소 선택 <span style="color:var(--t3);font-size:12px;font-weight:400">검색하거나 지도를 클릭해 핀을 놓으세요</span></div>
-    <input id="tcMapSearch" type="text" placeholder="🔍 장소·주소 검색 (예: 인천국제공항)" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:14px">
-    <div id="tcMapCanvas" style="width:100%;height:360px;border-radius:10px;background:#eef2f7"></div>
-    <div id="tcMapPicked" style="font-size:13px;color:var(--t2);margin-top:8px;min-height:20px">📍 선택된 장소: <span style="color:var(--t3)">아직 없음</span></div>
+  ov.innerHTML=`<div class="tcal-modal-box" style="width:680px;max-width:94vw">
+    <div class="tcal-modal-h">🗺️ 장소 선택 <span style="color:var(--t3);font-size:12px;font-weight:400">검색·지도클릭으로 고르고 [추가]로 여러 곳 담기</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input id="tcMapSearch" type="text" placeholder="🔍 장소·주소 검색 (예: 인천공항, Tata Electronics)" style="flex:1;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px" onkeydown="if(event.key==='Enter'){event.preventDefault();tcalMapSearch();}">
+      <button class="btn sm primary" onclick="tcalMapSearch()">검색</button>
+    </div>
+    <div id="tcMapResults" style="display:none;max-height:130px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"></div>
+    <div id="tcMapCanvas" style="width:100%;height:300px;border-radius:10px;background:#eef2f7"></div>
+    <div id="tcMapPicked" style="font-size:13px;color:var(--t2);margin-top:8px;min-height:20px">📍 현재 핀: <span style="color:var(--t3)">아직 없음</span> <button class="btn sm" style="margin-left:6px" onclick="tcalMapAddPicked()">＋ 이 장소 추가</button></div>
+    <div id="tcMapChosen" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
     <div style="text-align:right;margin-top:12px">
       <button class="btn sm" onclick="document.getElementById('tcalMapOv').style.display='none'">취소</button>
-      <button class="btn sm primary" onclick="tcalMapConfirm()">이 장소 선택</button>
+      <button class="btn sm primary" onclick="tcalMapConfirm()">완료 (장소 넣기)</button>
     </div>
   </div>`;
+  _gmapChosen=[];
+  // 기존 입력값이 있으면 콤마로 나눠 미리 담기
+  const cur0=($('tcf-loc')?.value||'').trim();
+  if(cur0){ cur0.split(/\s*[;,]\s*|\s*→\s*/).filter(Boolean).forEach(s=>_gmapChosen.push(s)); }
+  _gmapRenderChosen();
   try{
     await _loadGmaps();
     _gmapGeocoder=new google.maps.Geocoder();
-    // 초기 중심: 기존 입력값 있으면 그 위치, 없으면 서울
-    const cur=($('tcf-loc')?.value||'').trim();
+    _gmapPlaces=new google.maps.places.PlacesService(document.createElement('div'));
     const center={lat:37.5665,lng:126.9780};
     _gmap=new google.maps.Map($('tcMapCanvas'),{center,zoom:11,mapTypeControl:false,streetViewControl:false});
     _gmapMarker=new google.maps.Marker({map:_gmap,draggable:true,position:center});
     _gmapPicked='';
-    // 지도 클릭 → 핀 이동 + 역지오코딩
     _gmap.addListener('click',(e)=>_gmapSetPin(e.latLng));
     _gmapMarker.addListener('dragend',(e)=>_gmapSetPin(e.latLng));
-    // 검색 자동완성
-    const inp=$('tcMapSearch');
-    const ac=new google.maps.places.Autocomplete(inp,{fields:['geometry','name','formatted_address']});
-    ac.addListener('place_changed',()=>{
-      const p=ac.getPlace();
-      if(!p.geometry){ return; }
-      _gmap.setCenter(p.geometry.location); _gmap.setZoom(16);
-      _gmapMarker.setPosition(p.geometry.location);
-      _gmapPicked=p.name?`${p.name}${p.formatted_address?' ('+p.formatted_address+')':''}`:(p.formatted_address||'');
-      _gmapShowPicked(_gmapPicked);
-    });
-    if(cur){ inp.value=cur; }
   }catch(e){ toast('지도 로드 실패: '+e.message,'bad'); }
+}
+// 텍스트 검색 → 결과 목록 표시 (전 세계, 강력)
+function tcalMapSearch(){
+  const q=($('tcMapSearch')?.value||'').trim(); if(!q){ return; }
+  if(!_gmapPlaces){ toast('지도 준비 중…','bad'); return; }
+  const box=$('tcMapResults'); if(box){ box.style.display='block'; box.innerHTML='<div style="padding:14px;text-align:center;color:var(--t3);font-size:13px">검색 중…</div>'; }
+  _gmapPlaces.textSearch({query:q},(results,status)=>{
+    if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){
+      if(box) box.innerHTML='<div style="padding:14px;text-align:center;color:var(--t3);font-size:13px">검색 결과 없음</div>'; return;
+    }
+    if(box) box.innerHTML=results.slice(0,8).map((r,i)=>`<div class="tcMapRes" onclick="tcalMapPickResult(${i})" style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px"><b>${esc(r.name||'')}</b> <span style="color:var(--t3);font-size:12px">${esc(r.formatted_address||'')}</span></div>`).join('');
+    _gmapResults=results;
+  });
+}
+function tcalMapPickResult(i){
+  const r=(_gmapResults||[])[i]; if(!r||!r.geometry) return;
+  _gmap.setCenter(r.geometry.location); _gmap.setZoom(16);
+  _gmapMarker.setPosition(r.geometry.location);
+  _gmapPicked=r.name?`${r.name}${r.formatted_address?' ('+r.formatted_address+')':''}`:(r.formatted_address||'');
+  _gmapShowPicked(_gmapPicked);
+  const box=$('tcMapResults'); if(box) box.style.display='none';
 }
 function _gmapSetPin(latLng){
   _gmapMarker.setPosition(latLng);
@@ -11762,13 +11780,26 @@ function _gmapSetPin(latLng){
   });
 }
 function _gmapShowPicked(txt){
-  const el=$('tcMapPicked'); if(el) el.innerHTML=`📍 선택된 장소: <b style="color:var(--t1)">${esc(txt||'아직 없음')}</b>`;
+  const el=$('tcMapPicked'); if(el) el.innerHTML=`📍 현재 핀: <b style="color:var(--t1)">${esc(txt||'아직 없음')}</b> <button class="btn sm" style="margin-left:6px" onclick="tcalMapAddPicked()">＋ 이 장소 추가</button>`;
+}
+function tcalMapAddPicked(){
+  if(!_gmapPicked){ toast('먼저 장소를 검색하거나 지도를 클릭하세요','bad'); return; }
+  if(!_gmapChosen.includes(_gmapPicked)) _gmapChosen.push(_gmapPicked);
+  _gmapRenderChosen();
+  toast('장소 추가됨','ok');
+}
+function _gmapRenderChosen(){
+  const box=$('tcMapChosen'); if(!box) return;
+  if(!_gmapChosen.length){ box.innerHTML='<span style="font-size:12px;color:var(--t3)">담긴 장소 없음 — 검색/클릭 후 [＋ 이 장소 추가]</span>'; return; }
+  box.innerHTML=_gmapChosen.map((s,i)=>`<span class="tcal-att-chip" style="background:#dcfce7;color:#166534">📍 ${esc(s.length>28?s.slice(0,28)+'…':s)}<span class="x" onclick="_gmapChosen.splice(${i},1);_gmapRenderChosen()">✕</span></span>`).join('');
 }
 function tcalMapConfirm(){
-  if(!_gmapPicked){ toast('먼저 장소를 검색하거나 지도를 클릭하세요','bad'); return; }
-  const loc=$('tcf-loc'); if(loc) loc.value=_gmapPicked;
+  // 현재 핀도 안 담았으면 자동 포함
+  if(_gmapPicked && !_gmapChosen.includes(_gmapPicked)) _gmapChosen.push(_gmapPicked);
+  if(!_gmapChosen.length){ toast('장소를 하나 이상 추가하세요','bad'); return; }
+  const loc=$('tcf-loc'); if(loc) loc.value=_gmapChosen.join(' → ');
   const ov=$('tcalMapOv'); if(ov) ov.style.display='none';
-  toast('장소 선택됨','ok');
+  toast(`장소 ${_gmapChosen.length}곳 선택됨`,'ok');
 }
 
 // ── 일정 요약 텍스트 (Teams/메일/DM 공용) ──
