@@ -14381,11 +14381,20 @@ async function wpCopyLink(projId, id){
   const n=wpFind(projId,id);
   const url=`${location.origin}${location.pathname}?page=workplan&proj=${encodeURIComponent(projId)}&task=${encodeURIComponent(id)}&week=${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}`;
   const label=`📋 [${projId}] ${n.name} (${n.owner||"미지정"}${n.role?"·"+n.role:""}, ${n.prog||0}%)`;
+  // 이 작업에 연결된 클라우디움 폴더들 → "폴더 열기" 하이퍼링크 줄로 추가
+  const clmBase="https://doc.enjet.co.kr/csmanage/documentManage/folder?documentOID=";
+  const links=(n.files||[]).filter(f=>f&&f.kind==='clmfolderlink'&&f.oid).map(f=>({
+    name:f.name||'클라우디움 폴더', url:clmBase+encodeURIComponent(f.oid)
+  }));
   // 제목에 하이퍼링크 → URL 숨김 (채팅창 깔끔). 평문 폴백엔 URL 포함.
-  const html=`<a href="${esc(url)}">${esc(label)}</a>`;
-  const plain=`${label}\n${url}`;
+  let html=`<a href="${esc(url)}">${esc(label)}</a>`;
+  let plain=`${label}\n${url}`;
+  for(const l of links){
+    html+=`<br><a href="${esc(l.url)}">📁 ${esc(l.name)} — 클라우디움 폴더 열기</a>`;
+    plain+=`\n📁 ${l.name} — 클라우디움 폴더 열기\n${l.url}`;
+  }
   const ok=await copyHtmlToClipboard(html, plain);
-  toast(ok?"링크 복사됨 · Teams에 붙여넣기":"복사 실패 — 수동 복사: "+url, ok?"ok":"bad");
+  toast(ok?(links.length?`링크 복사됨 (폴더 ${links.length}개 포함) · Teams에 붙여넣기`:"링크 복사됨 · Teams에 붙여넣기"):"복사 실패 — 수동 복사: "+url, ok?"ok":"bad");
 }
 function wpCopyNode(projId, id){ const n=wpFind(projId,id); WP_CLIP=JSON.parse(JSON.stringify(n)); toast(`복사됨: ${n.name} (붙여넣기 가능)`,"ok"); }
 function wpReId(node, projId){ // 붙여넣을 때 새 id 부여(자손 포함)
