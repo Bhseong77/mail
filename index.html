@@ -11866,9 +11866,12 @@ function _tcalMemoText(ev){
     const t=a.textContent||''; const h=a.getAttribute('href')||'';
     a.replaceWith(document.createTextNode(h&&h!==t?`${t} (${h})`:t));
   });
+  const _base=`${location.origin}${location.pathname}`;
   tmp.querySelectorAll('.tcal-mailcard').forEach(c=>{
     const subj=(c.querySelector('b')?.textContent)||'메일';
-    c.replaceWith(document.createTextNode('📧 '+subj+'\n'));
+    const uid=c.getAttribute('data-mailuid')||'';
+    const txt = uid ? `📧 ${subj} (${_base}?uid=${encodeURIComponent(uid)})` : `📧 ${subj}`;
+    c.replaceWith(document.createTextNode(txt+'\n'));
   });
   tmp.querySelectorAll('br,div').forEach(el=>el.replaceWith(...[...el.childNodes], document.createTextNode('\n')));
   return (tmp.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
@@ -11900,10 +11903,18 @@ function _tcalMemoForSummary(ev){
   let src = ev.bodyHtml || (ev.preview? esc(ev.preview).replace(/\n/g,'<br>') : '');
   if(!src) return '';
   const tmp=document.createElement('div'); tmp.innerHTML=src;
-  // 메일 첨부 카드(.tcal-mailcard)는 클릭 불가 링크라 → 텍스트 제목만 남기거나 대시보드 링크로
+  // 메일 첨부 카드(.tcal-mailcard) → 대시보드 메일 딥링크(?uid=)로 하이퍼링크 변환
+  const base=`${location.origin}${location.pathname}`;
   tmp.querySelectorAll('.tcal-mailcard').forEach(card=>{
     const subj=(card.querySelector('b')?.textContent)||'메일';
-    const span=document.createElement('span'); span.innerHTML='📧 '+esc(subj);
+    const uid=card.getAttribute('data-mailuid')||'';
+    const span=document.createElement('span');
+    if(uid){
+      const url=`${base}?uid=${encodeURIComponent(uid)}`;
+      span.innerHTML=`📧 <a href="${esc(url)}">${esc(subj)}</a>`;
+    }else{
+      span.innerHTML='📧 '+esc(subj);
+    }
     card.replaceWith(span, document.createElement('br'));
   });
   return tmp.innerHTML;
