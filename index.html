@@ -13003,6 +13003,11 @@ function startApp(){
   showPage('mail');  // SharePoint에서 최신 서버 주소 받아온 뒤 시작 (실패해도 기존값으로 진행)
   // 업무계획 딥링크 (?page=workplan&proj=&task=&week=) → 바로 열기
   try{ if(new URLSearchParams(location.search).get('page')==='workplan'){ showPage('workplan'); } }catch(_){}
+  // 클라우디움 폴더 열기 딥링크 (?clmopen=OID) → 탐색기로 그 폴더 열기 (공유 링크 클릭 시)
+  try{
+    const _co=new URLSearchParams(location.search).get('clmopen');
+    if(_co){ setTimeout(()=>{ try{ techClmOpen(_co); }catch(e){ toast('폴더 열기 실패','bad'); } }, 800); }
+  }catch(_){}
   // 딥링크: ?tab=spec / schedule / contacts / doc-tech 등 → 해당 탭 바로 열기 (팀즈 채널 게시용)
   try{
     const _q=new URLSearchParams(location.search);
@@ -14381,17 +14386,17 @@ async function wpCopyLink(projId, id){
   const n=wpFind(projId,id);
   const url=`${location.origin}${location.pathname}?page=workplan&proj=${encodeURIComponent(projId)}&task=${encodeURIComponent(id)}&week=${wpWeekKey(WP_WEEK.year,WP_WEEK.week)}`;
   const label=`📋 [${projId}] ${n.name} (${n.owner||"미지정"}${n.role?"·"+n.role:""}, ${n.prog||0}%)`;
-  // 이 작업에 연결된 클라우디움 폴더들 → "폴더 열기" 하이퍼링크 줄로 추가
-  const clmBase="https://doc.enjet.co.kr/csmanage/documentManage/folder?documentOID=";
+  // 이 작업에 연결된 클라우디움 폴더 → 클릭 시 대시보드 열리며 탐색기로 폴더 열기(?clmopen=OID)
   const links=(n.files||[]).filter(f=>f&&f.kind==='clmfolderlink'&&f.oid).map(f=>({
-    name:f.name||'클라우디움 폴더', url:clmBase+encodeURIComponent(f.oid)
+    name:f.name||'클라우디움 폴더',
+    url:`${location.origin}${location.pathname}?clmopen=${encodeURIComponent(f.oid)}`
   }));
   // 제목에 하이퍼링크 → URL 숨김 (채팅창 깔끔). 평문 폴백엔 URL 포함.
   let html=`<a href="${esc(url)}">${esc(label)}</a>`;
   let plain=`${label}\n${url}`;
   for(const l of links){
-    html+=`<br><a href="${esc(l.url)}">📁 ${esc(l.name)} — 클라우디움 폴더 열기</a>`;
-    plain+=`\n📁 ${l.name} — 클라우디움 폴더 열기\n${l.url}`;
+    html+=`<br><a href="${esc(l.url)}">📁 ${esc(l.name)} — 폴더 열기(탐색기)</a>`;
+    plain+=`\n📁 ${l.name} — 폴더 열기: ${l.url}`;
   }
   const ok=await copyHtmlToClipboard(html, plain);
   toast(ok?(links.length?`링크 복사됨 (폴더 ${links.length}개 포함) · Teams에 붙여넣기`:"링크 복사됨 · Teams에 붙여넣기"):"복사 실패 — 수동 복사: "+url, ok?"ok":"bad");
