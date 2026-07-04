@@ -4498,22 +4498,25 @@ async function taDownload(idx){
   }catch(e){ const url=it.webUrl||it.downloadUrl||it.contentUrl; if(url) window.open(url,'_blank'); else toast('다운로드 링크 없음','bad'); }
 }
 // ── 팀즈 파일 → 클라우디움으로 확정 이관 ──
-let _clmImpTarget=null;   // {driveId, itemId, filename}
+let _clmImpTarget=null;   // {driveId, itemId, filename}  (팀즈탭 단일)
+let _clmImpFiles=null;    // [{shareUrl,itemId,filename}]  (채팅 첨부 복수)
 async function taClmImport(idx){
   const it=(TA_DATA.items||[])[idx]; if(!it) return;
   if(!it.driveId || !it.itemId){ toast('이 파일은 SharePoint 정보가 없어 이관할 수 없습니다','bad'); return; }
   _clmImpTarget={driveId:it.driveId, itemId:it.itemId, filename:taName(it)};
+  _clmImpFiles=null;
   _clmImpOpenPicker();
 }
 // 클라우디움 폴더 선택 모달 (트리 펼치며 폴더 하나 선택)
-async function _clmImpOpenPicker(){
+async function _clmImpOpenPicker(label){
+  const lbl = label || (_clmImpTarget&&_clmImpTarget.filename) || '선택 파일';
   let ov=$('clmImpOv');
   if(!ov){ ov=document.createElement('div'); ov.id='clmImpOv'; ov.className='tcal-modal-ov'; ov.style.zIndex='100004';
     ov.onclick=(e)=>{ if(e.target===ov) ov.style.display='none'; };
     document.body.appendChild(ov); }
   ov.style.display='flex';
   ov.innerHTML=`<div class="tcal-modal-box" style="width:560px;max-width:94vw">
-    <div class="tcal-modal-h">📁 클라우디움 폴더 선택 <span style="color:var(--t3);font-size:12px;font-weight:400">「${esc(_clmImpTarget.filename)}」 이관할 폴더</span></div>
+    <div class="tcal-modal-h">📁 클라우디움 폴더 선택 <span style="color:var(--t3);font-size:12px;font-weight:400">「${esc(lbl)}」 이관할 폴더</span></div>
     <div id="clmImpTree" style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:13px">불러오는 중…</div>
     <div id="clmImpSel" style="font-size:12px;color:var(--t2);margin-top:8px;min-height:18px">선택된 폴더: <span style="color:var(--t3)">없음</span></div>
     <div style="text-align:right;margin-top:12px">
@@ -4570,24 +4573,31 @@ function _clmImpRow(label, oid, name, depth, expandable){
 }
 async function _clmImpConfirm(){
   if(!_clmImpPickedOid){ toast('폴더를 선택하세요','bad'); return; }
-  if(!_clmImpTarget){ return; }
+  if(!_clmImpTarget && !(_clmImpFiles&&_clmImpFiles.length)){ return; }
   const btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent='이관 중…'; }
+  // 요청 본문: 팀즈탭 단일(_clmImpTarget) 또는 채팅 복수(_clmImpFiles)
+  let body, label;
+  if(_clmImpFiles&&_clmImpFiles.length){
+    body={ files:_clmImpFiles.map(f=>({shareUrl:f.shareUrl, itemId:f.itemId, filename:f.filename})),
+           targetFolderOID:_clmImpPickedOid };
+    label=_clmImpFiles.length===1?_clmImpFiles[0].filename:`${_clmImpFiles.length}개 파일`;
+  }else{
+    body={ driveId:_clmImpTarget.driveId, itemId:_clmImpTarget.itemId,
+           filename:_clmImpTarget.filename, targetFolderOID:_clmImpPickedOid };
+    label=_clmImpTarget.filename;
+  }
   try{
     const r=await fetch(`${SERVER}/api/cloudium/import-from-sp`,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        driveId:_clmImpTarget.driveId,
-        itemId:_clmImpTarget.itemId,
-        filename:_clmImpTarget.filename,
-        targetFolderOID:_clmImpPickedOid
-      })
+      body:JSON.stringify(body)
     });
     const j=await r.json();
     if(j&&j.ok){
-      const act=(j.results&&j.results[0]&&j.results[0].action)||'완료';
-      toast(`✅ 클라우디움 확정: ${_clmImpTarget.filename} (${act}) → ${_clmImpPickedName}`,'ok');
-      try{ actLog(`📁 클라우디움 확정 이관: ${_clmImpTarget.filename} → ${_clmImpPickedName}`); }catch(_){}
+      const okN=j.success||0, failN=j.failed||0;
+      toast(`✅ 클라우디움 확정: ${label} — 성공 ${okN}${failN?` · 실패 ${failN}`:''} → ${_clmImpPickedName}`,'ok');
+      try{ actLog(`📁 클라우디움 확정 이관: ${label} → ${_clmImpPickedName} (성공 ${okN}/${okN+failN})`); }catch(_){}
       const ov=$('clmImpOv'); if(ov) ov.style.display='none';
+      _clmImpTarget=null; _clmImpFiles=null;
     }else{
       const msg=(j&&j.results&&j.results[0]&&j.results[0].msg)||(j&&j.msg)||'실패';
       toast('이관 실패: '+msg,'bad');
@@ -6772,6 +6782,12 @@ function tcMsgMenu(ev, idx){
     h+=item('✏️','편집',`tcEdit(${idx})`);
     h+=item('🗑','삭제',`tcDelete(${idx})`,true);
   }
+  // 첨부파일 있으면 클라우디움 확정 이관
+  const _fatts=(m.attachments||[]).filter(a=>(a.contentType==='reference'||a.name)&&(a.contentUrl||a.id));
+  if(_fatts.length){
+    h+=`<div style="border-top:1px solid #f1f5f9"></div>`;
+    h+=item('📁','클라우디움으로 확정',`tcClmImport(${idx})`);
+  }
   pop.innerHTML=h;
   _tcDoc().body.appendChild(pop);
   // 위치 (화면 밖 안 나가게)
@@ -6781,6 +6797,17 @@ function tcMsgMenu(ev, idx){
   setTimeout(()=>_tcDoc().addEventListener('click',_tcCloseMenu),10);
 }
 function _tcCloseMenu(){ _tcEl('tcMenuPop')?.remove(); _tcDoc().removeEventListener('click',_tcCloseMenu); }
+// 채팅 메시지 첨부 → 클라우디움 확정 이관 (공유 URL 기반)
+function tcClmImport(idx){
+  _tcCloseMenu();
+  const m=_tc.msgs[idx]; if(!m) return;
+  const atts=(m.attachments||[]).filter(a=>(a.contentType==='reference'||a.name)&&(a.contentUrl||a.id));
+  if(!atts.length){ toast('이 메시지에 첨부파일이 없습니다','bad'); return; }
+  // 첨부가 여러 개면 전부, 하나면 그거. shareUrl(contentUrl)로 이관.
+  _clmImpFiles=atts.map(a=>({shareUrl:a.contentUrl||'', itemId:a.id||'', filename:a.name||'파일'}));
+  _clmImpTarget=null;  // 단일 target 대신 files 배열 사용
+  _clmImpOpenPicker(atts.length===1?atts[0].name:`${atts.length}개 파일`);
+}
 async function tcReact(idx,reaction){
   _tcCloseMenu();
   const m=_tc.msgs[idx]; if(!m) return;
