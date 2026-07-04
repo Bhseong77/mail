@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v470</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v471</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -4488,6 +4488,20 @@ async function taLoad(){
   if(typeof atUpdateNav==='function') atUpdateNav();
   taRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
 }
+// 숨김/복원 후 SP 리로드 없이 인메모리(TA_DATA/TA_HIDDEN/TA_MOVED)로 카운트+렌더만 갱신
+// (저장 직후 SP 재조회는 read-after-write 지연으로 방금 숨긴 id를 날려 항목이 부활하는 버그 유발)
+function taRefreshLocal(){
+  if(!TA_DATA){ if(typeof taRender==='function') taRender(); return; }
+  const all=(TA_DATA.items||[]);
+  const visN=all.filter(it=>!TA_HIDDEN.includes(it.id)).length;
+  const movedN=all.filter(it=>TA_MOVED[it.id]).length;
+  const upd=TA_DATA.updatedAt?new Date(TA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
+  TA_SUBTEXT=`T Project 채팅 첨부파일 · ${visN}건${movedN?` · ✅이동 ${movedN}`:''}${TA_HIDDEN.length?` · 숨김 ${TA_HIDDEN.length}`:''} · 수집 ${upd}`; atUpdateSub();
+  const unsorted=all.filter(it=>!TA_HIDDEN.includes(it.id)&&!TA_MOVED[it.id]).length; TA_UNSORTED=unsorted;
+  const tb=$('atTeamsCnt'); if(tb){ if(unsorted>0){ tb.textContent=unsorted; tb.style.display='inline-block'; } else tb.style.display='none'; }
+  if(typeof atUpdateNav==='function') atUpdateNav();
+  taRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
+}
 async function taSaveHidden(){
   try{ await spPutJson(TA_HIDDEN_PATH,{hidden:TA_HIDDEN,renames:TA_RENAME,updatedAt:new Date().toISOString()}); }
   catch(e){ toast('숨김 저장 실패: '+e.message,'bad'); }
@@ -4682,13 +4696,13 @@ function taRender(){
 }
 async function taHide(id){
   if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id);
-  await taSaveHidden();
-  taLoad();
+  taRefreshLocal();          // 즉시 반영 (인메모리)
+  await taSaveHidden();      // 영속화는 백그라운드
 }
 async function taUnhide(id){
   TA_HIDDEN=TA_HIDDEN.filter(x=>x!==id);
+  taRefreshLocal();
   await taSaveHidden();
-  taLoad();
 }
 async function taDelete(idx){
   if(!atIsAdmin()){ toast('영구삭제는 관리자만 가능합니다','bad'); return; }
@@ -4957,6 +4971,18 @@ async function maLoad(){
   const setB=(id,n)=>{ const b=$(id); if(b){ if(n>0){b.textContent=n;b.style.display='inline-block';} else b.style.display='none'; } };
   const ib=cnt('inbox'), sb=cnt('sent');
   setB('maInboxCnt',ib); setB('maSentCnt',sb);
+  MA_UNSORTED=ib+sb; if(typeof atUpdateNav==='function') atUpdateNav();
+  maRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
+}
+// 숨김/복원 후 SP 리로드 없이 인메모리(MA_DATA/MA_HIDDEN/MA_MOVED)로 카운트+렌더만 갱신
+function maRefreshLocal(){
+  if(!MA_DATA){ if(typeof maRender==='function') maRender(); return; }
+  const all=(MA_DATA.items||[]);
+  const upd=MA_DATA.updatedAt?new Date(MA_DATA.updatedAt).toLocaleString('ko-KR'):'-';
+  MA_SUBTEXT=`enjet_ed 메일 첨부파일 · 총 ${all.length}건 · 수집 ${upd}`; atUpdateSub();
+  const cnt=(folder)=>all.filter(it=>it.folder===folder&&!MA_HIDDEN.includes(it.id)&&!MA_MOVED[it.id]).length;
+  const setB=(id,n)=>{ const b=$(id); if(b){ if(n>0){b.textContent=n;b.style.display='inline-block';} else b.style.display='none'; } };
+  const ib=cnt('inbox'), sb=cnt('sent'); setB('maInboxCnt',ib); setB('maSentCnt',sb);
   MA_UNSORTED=ib+sb; if(typeof atUpdateNav==='function') atUpdateNav();
   maRender(); if(typeof atUpdateTrashCnt==='function') atUpdateTrashCnt(); if(AT_MODE==='trash' && typeof atTrashRender==='function') atTrashRender();
 }
@@ -7124,8 +7150,8 @@ function maOpen(idx){
   if(isImageFile(it.name) || /\.pdf$/i.test(it.name)){ previewInModal({name:it.name, directUrl:url}); return; }
   window.open(url,'_blank');
 }
-async function maHide(id){ if(!MA_HIDDEN.includes(id))MA_HIDDEN.push(id); await maSaveHidden(); maLoad(); }
-async function maUnhide(id){ MA_HIDDEN=MA_HIDDEN.filter(x=>x!==id); await maSaveHidden(); maLoad(); }
+async function maHide(id){ if(!MA_HIDDEN.includes(id))MA_HIDDEN.push(id); maRefreshLocal(); await maSaveHidden(); }
+async function maUnhide(id){ MA_HIDDEN=MA_HIDDEN.filter(x=>x!==id); maRefreshLocal(); await maSaveHidden(); }
 function _maMoveCtxFor(it, reload){
   return {
     name: maName(it),
@@ -7263,7 +7289,7 @@ function maBatchMove(){
     rename:it=>taRename((TA_DATA.items||[]).indexOf(it)),
     batchMove:()=>taBatchMove(),
     copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((TA_DATA&&TA_DATA.items)||[]).find(x=>x.id===id); return it?{name:it.name||'첨부', url:(it.webUrl||it.contentUrl||'')}:null; }),
-    delMany:ids=>{ ids.forEach(id=>{ if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id); }); _taSel.clear(); taSaveHidden().then(taLoad); }
+    delMany:ids=>{ ids.forEach(id=>{ if(!TA_HIDDEN.includes(id)) TA_HIDDEN.push(id); }); _taSel.clear(); taRefreshLocal(); taSaveHidden(); }
   };};
   window.expCfgMail=function(){ return {
     listId:'maList', sel:_maSel, render:maRender,
@@ -7272,7 +7298,7 @@ function maBatchMove(){
     rename:it=>maRename((MA_DATA.items||[]).indexOf(it)),
     batchMove:()=>maBatchMove(),
     copyLinks:ids=>expCopyLinks(ids, id=>{ const it=((MA_DATA&&MA_DATA.items)||[]).find(x=>x.id===id); return it?{name:it.name||'첨부', url:maDlUrl(it)}:null; }),
-    delMany:ids=>{ ids.forEach(id=>{ if(!MA_HIDDEN.includes(id)) MA_HIDDEN.push(id); }); _maSel.clear(); maSaveHidden().then(maLoad); }
+    delMany:ids=>{ ids.forEach(id=>{ if(!MA_HIDDEN.includes(id)) MA_HIDDEN.push(id); }); _maSel.clear(); maRefreshLocal(); maSaveHidden(); }
   };};
   window.expCopyLinks=async function(ids,getter){
     const boxes=ids.map(getter).filter(x=>x&&x.url).map(x=>({name:x.name, editUrl:x.url}));
