@@ -11171,7 +11171,13 @@ function _tcalDashUrl(evId){
 }
 let _tcalSelAtt = [];             // 현재 폼에서 선택된 참석자 이메일
 let _tcalMembers = null;          // TIC 멤버 캐시 [{id,email,name}]
-function _tcalMemName(email){ const m=(_tcalMembers||[]).find(x=>x.email===String(email).toLowerCase()); return m?m.name:email; }
+function _tcalMemName(email){
+  const e=String(email||'').toLowerCase();
+  const m=(_tcalMembers||[]).find(x=>String(x.email||'').toLowerCase()===e);
+  if(m&&m.name) return m.name;
+  // 멤버 목록에 없으면 이메일 @ 앞부분이라도 (계정 전체보다 나음)
+  return e.includes('@')? e.split('@')[0] : (email||'');
+}
 
 // ── 캘린더용 토큰 (그룹 캘린더 읽기/쓰기 권한 증분 요청) ──
 async function calToken(){
@@ -11845,9 +11851,27 @@ function _tcalSummaryText(ev){
   }
   if(ev.location) L.push('📍 '+ev.location);
   if(ev.attendees&&ev.attendees.length) L.push('👥 '+ev.attendees.map(e=>_tcalMemName(e)).join(', '));
-  if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+t.slice(0,120)+(t.length>120?'…':'')); }
+  // 메모 전체 텍스트 (자르지 않음, 링크는 텍스트로)
+  const memoTxt=_tcalMemoText(ev);
+  if(memoTxt) L.push('📝 '+memoTxt);
   const _du=ev.id?_tcalDashUrl(ev.id):(ev.webLink||''); if(_du) L.push('🔗 '+_du);
-  return L.join('\\n');
+  return L.join('\n');
+}
+// 메모 HTML → 순수 텍스트 (링크는 "텍스트 (URL)" 형태로 살림)
+function _tcalMemoText(ev){
+  let src = ev.bodyHtml || '';
+  if(!src) return (ev.preview||'').replace(/\s+/g,' ').trim();
+  const tmp=document.createElement('div'); tmp.innerHTML=src;
+  tmp.querySelectorAll('a').forEach(a=>{
+    const t=a.textContent||''; const h=a.getAttribute('href')||'';
+    a.replaceWith(document.createTextNode(h&&h!==t?`${t} (${h})`:t));
+  });
+  tmp.querySelectorAll('.tcal-mailcard').forEach(c=>{
+    const subj=(c.querySelector('b')?.textContent)||'메일';
+    c.replaceWith(document.createTextNode('📧 '+subj+'\n'));
+  });
+  tmp.querySelectorAll('br,div').forEach(el=>el.replaceWith(...[...el.childNodes], document.createTextNode('\n')));
+  return (tmp.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
 }
 // HTML 요약 (Teams DM용) — 제목에 하이퍼링크, 긴 URL 숨김
 function _tcalSummaryHtml(ev){
@@ -11865,9 +11889,24 @@ function _tcalSummaryHtml(ev){
   }
   if(ev.location) L.push('📍 '+E(ev.location));
   if(ev.attendees&&ev.attendees.length) L.push('👥 '+E(ev.attendees.map(e=>_tcalMemName(e)).join(', ')));
-  if(ev.preview){ const t=ev.preview.replace(/\\s+/g,' ').trim(); if(t) L.push('📝 '+E(t.slice(0,120))+(t.length>120?'…':'')); }
+  // 메모 전체를 HTML 그대로 (구글맵/메일 하이퍼링크 유지, 자르지 않음)
+  const memoHtml=_tcalMemoForSummary(ev);
+  if(memoHtml) L.push('📝<br>'+memoHtml);
   if(_durl) L.push('🔗 <a href="'+E(_durl)+'">대시보드에서 열기</a>');
   return L.join('<br>');
+}
+// 메모를 요약용 HTML로 — 링크는 살리고, 메일 첨부 카드는 대시보드 링크로 변환
+function _tcalMemoForSummary(ev){
+  let src = ev.bodyHtml || (ev.preview? esc(ev.preview).replace(/\n/g,'<br>') : '');
+  if(!src) return '';
+  const tmp=document.createElement('div'); tmp.innerHTML=src;
+  // 메일 첨부 카드(.tcal-mailcard)는 클릭 불가 링크라 → 텍스트 제목만 남기거나 대시보드 링크로
+  tmp.querySelectorAll('.tcal-mailcard').forEach(card=>{
+    const subj=(card.querySelector('b')?.textContent)||'메일';
+    const span=document.createElement('span'); span.innerHTML='📧 '+esc(subj);
+    card.replaceWith(span, document.createElement('br'));
+  });
+  return tmp.innerHTML;
 }
 
 // ── 이벤트 우클릭 메뉴 ──
@@ -11911,6 +11950,7 @@ async function tcalCopyLink(id){
 // ── 요약 전체 복사 ──
 async function tcalCopySummary(id){
   const ev=_tcalEvents.find(x=>x.id===id); if(!ev) return;
+  if(!_tcalMembers){ try{ _tcalMembers=await loadTicMembers(); }catch(_){ _tcalMembers=[]; } }
   const html=_tcalSummaryHtml(ev);      // 제목=하이퍼링크, URL 숨김
   const txt=_tcalSummaryText(ev);       // 텍스트 폴백
   try{
