@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v473</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v474</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7379,16 +7379,24 @@ async function ftLoadChildren(p,path){
   const root=DOC_MAP[p];
   const full=path?`${root}/${path}`:root;
   let items=await spList(full);
-  // 기술자료 탭만: 같은 경로 클라우디움 파일 합치기(라벨용 _clm)
+  // 기술자료 탭만: 같은 경로 클라우디움 폴더+파일 합치기(라벨용 _clm)
   if(p==='doc-tech'){
     try{
       const coid=await techClmResolveOid(path);
       if(coid){
-        const clmFiles=await techClmFiles(coid);
-        // 이름 중복 시 SP 우선(중복 표시 방지) — 클라우디움만 따로 추가
-        const spNames=new Set(items.filter(x=>x.file).map(x=>String(x.name).toLowerCase()));
-        const add=clmFiles.filter(f=>!spNames.has(String(f.name).toLowerCase()));
-        items=items.concat(add);
+        const rf=_techRefresh?'&refresh=1':'';
+        let cdocs=[];
+        try{ const d=await clmApi(`/api/cloudium/docs?oid=${encodeURIComponent(coid)}${rf}`); cdocs=(d&&d.ok)?(d.items||[]):[]; }catch(_){}
+        const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+        // 클라우디움 하위폴더 → 트리에 폴더로 추가 (SP에 같은 이름 폴더 없을 때만)
+        const spFolderN=new Set(items.filter(x=>x.folder).map(x=>norm(x.name)));
+        const clmFolders=cdocs.filter(x=>x.isFolder).filter(f=>!spFolderN.has(norm(f.name)))
+          .map(x=>({ id:'CLM:'+x.oid, name:x.name, folder:{}, _clm:true, _clmOid:x.oid, _clmParentOid:coid }));
+        // 클라우디움 파일 (SP에 같은 이름 파일 없을 때만)
+        const spFileN=new Set(items.filter(x=>x.file).map(x=>norm(x.name)));
+        const clmFiles=cdocs.filter(x=>!x.isFolder).filter(f=>!spFileN.has(norm(f.fileName||f.name)))
+          .map(x=>({ id:'CLM:'+x.oid, name:x.fileName||x.name, file:{}, size:x.size||0, _clm:true, _clmParentOid:coid, oid:x.oid, fileOID:x.fileOID, storageFileID:x.storageFileID, fileName:x.fileName||x.name, lastModifiedDateTime:x.modifiedAt||x.createdAt||'' }));
+        items=items.concat(clmFolders, clmFiles);
       }
     }catch(e){ console.warn('클라우디움 합치기 실패',path,e); }
   }
@@ -7434,20 +7442,26 @@ async function ftNodeHtml(p,path,depth){
     const isProjTree = (p==='doc-tech') && (childPath==='02.프로젝트' || childPath.startsWith('02.프로젝트/'));
     // 02.프로젝트 바로 아래(BR26002/BP26009 등) → 클라우디움 전용 라벨
     const isProjRoot = (p==='doc-tech') && /^02\.프로젝트\/[^/]+$/.test(childPath);
-    const clmLbl = isProjRoot ? `<span class="ft-clmlbl">클라우디움</span>` : '';
+    const isClmFolder=!!f._clm;
+    const clmLbl = (isProjRoot || isClmFolder) ? `<span class="ft-clmlbl">클라우디움</span>` : '';
     const clmBtn = isProjTree
       ? `<button class="ft-clmopen" title="클라우디움에서 이 폴더 열기" onclick="event.stopPropagation();techClmOpenFolder('${p}','${esc(childPath).replace(/'/g,"\\'")}')">🗄️</button>`
       : '';
-    html+=`<div class="ft-node"><div class="ft-row ${sel}${isProjRoot?' ft-clm':''}" draggable="true"
-      ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"
+    const fDrag = isClmFolder ? 'false' : 'true';
+    const fDragStart = isClmFolder ? '' : `ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',true,'${esc(childPath).replace(/'/g,"\\'")}')"`;
+    const fClmData = isClmFolder ? ` data-ftclm="1" data-ftclmoid="${esc(f._clmOid||'')}" data-ftclmparent="${esc(f._clmParentOid||'')}"` : '';
+    html+=`<div class="ft-node"><div class="ft-row ${sel}${(isProjRoot||isClmFolder)?' ft-clm':''}" draggable="${fDrag}"
+      ${fDragStart}
       ondragover="ftDragOver(event,this)" ondragleave="ftDragLeave(this)" ondrop="ftDrop(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',this)"
-      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',true,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',0)" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span>${clmLbl}${clmBtn}</div>`;
+      onclick="ftToggle('${p}','${esc(childPath)}')" oncontextmenu="ftMenu(event,'${p}','${esc(childPath).replace(/'/g,"\\'")}',true,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',0)" data-ftp="${esc(p)}" data-ftpath="${esc(childPath)}" data-ftfolder="1" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}"${fClmData}><span class="ft-caret ${open?'open':''}">▶</span><span class="ft-ico">📂</span><span class="ft-name">${esc(f.name)}</span>${clmLbl}${clmBtn}</div>`;
     if(open) html+=await ftNodeHtml(p,childPath,depth+1);
     html+=`</div>`;
   }
   for(const f of files){
     const isClm=!!f._clm;
     const clmLbl=isClm?`<span class="ft-clmlbl">클라우디움</span>`:'';
+    // 대시보드에서 올린 SP 파일(02.프로젝트 하위) → SP 배지 (나중에 클라우디움 이관 대상)
+    const spLbl=(!isClm && p==='doc-tech' && (path==='02.프로젝트' || path.startsWith('02.프로젝트/')))?`<span class="ft-splbl">SP</span>`:'';
     const clmData=isClm?` data-ftclm="1" data-ftclmparent="${esc(f._clmParentOid||'')}"`:'';
     // 클라우디움 파일: 클릭=탐색기 열기, SP파일: 미리보기
     const clickH=isClm
@@ -7457,7 +7471,7 @@ async function ftNodeHtml(p,path,depth){
     const btns=isClm?'' : `<button class="ft-move" title="첨부해서 메일" onclick="event.stopPropagation();ftMailAttach('${f.id}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})">✉</button><button class="ft-move" title="다른 폴더로 이동" onclick="event.stopPropagation();ftMoveFile('${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}')">📂</button>`;
     html+=`<div class="ft-row file${isClm?' ft-clm':''}" draggable="${isClm?'false':'true'}"
       ${isClm?'':`ondragstart="ftDragStart(event,'${p}','${f.id}','${esc(f.name).replace(/'/g,"\\'")}',false,'${esc(path).replace(/'/g,"\\'")}')"`}
-      onclick="${clickH}" ${dblH} oncontextmenu="ftMenu(event,'${p}','${esc(path).replace(/'/g,"\\'")}',false,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"${clmData}><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span>${clmLbl}${btns}</div>`;
+      onclick="${clickH}" ${dblH} oncontextmenu="ftMenu(event,'${p}','${esc(path).replace(/'/g,"\\'")}',false,'${esc(f.id)}','${esc(f.name).replace(/'/g,"\\'")}',${f.size||0})" data-ftp="${esc(p)}" data-ftpath="${esc(path)}" data-ftfolder="0" data-ftid="${esc(f.id)}" data-ftname="${esc(f.name)}" data-ftsize="${f.size||0}"${clmData}><span class="ft-caret"></span><span class="ft-ico">${taIcon(f.name)}</span><span class="ft-name" title="${esc(f.name)}">${esc(f.name)}</span>${clmLbl}${spLbl}${btns}</div>`;
   }
   html+='</div>';
   return html;
@@ -7545,6 +7559,7 @@ function _ftgStyle(){ if(document.getElementById('ftg-style')) return; const s=d
 .ftg-lbl.sp{background:#dbeafe;color:#1d4ed8}
 .ftg-lbl.clm{background:#ccfbf1;color:#0f766e}
 .ft-clmlbl{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:0 5px;border-radius:6px;background:#ccfbf1;color:#0f766e;line-height:1.5;vertical-align:middle;pointer-events:none}
+.ft-splbl{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:0 5px;border-radius:6px;background:#dbeafe;color:#1d4ed8;line-height:1.5;vertical-align:middle;pointer-events:none}
 .ft-row.ft-clm .ft-name{color:#0f766e}
 .ftg-ic{font-size:34px;line-height:1;pointer-events:none}
 .ftg-nm{font-size:11.5px;text-align:center;word-break:break-word;line-height:1.25;max-height:2.6em;overflow:hidden;pointer-events:none}
