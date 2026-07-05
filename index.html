@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v474</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v476</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -7438,10 +7438,10 @@ async function ftNodeHtml(p,path,depth){
     const childPath=path?`${path}/${f.name}`:f.name;
     const open=FT_OPEN[ftKey(p,childPath)];
     const sel=FT_SEL[p]===childPath?'sel':'';
-    // 02.프로젝트 아래 모든 폴더 → 클라우디움 폴더열기 아이콘
-    const isProjTree = (p==='doc-tech') && (childPath==='02.프로젝트' || childPath.startsWith('02.프로젝트/'));
+    // 02.프로젝트 아래 모든 폴더 → 클라우디움 폴더열기 아이콘 (실제 폴더명 '02. 프로젝트' 공백 허용)
+    const isProjTree = (p==='doc-tech') && /^02\.\s*프로젝트(\/|$)/.test(childPath);
     // 02.프로젝트 바로 아래(BR26002/BP26009 등) → 클라우디움 전용 라벨
-    const isProjRoot = (p==='doc-tech') && /^02\.프로젝트\/[^/]+$/.test(childPath);
+    const isProjRoot = (p==='doc-tech') && /^02\.\s*프로젝트\/[^/]+$/.test(childPath);
     const isClmFolder=!!f._clm;
     const clmLbl = (isProjRoot || isClmFolder) ? `<span class="ft-clmlbl">클라우디움</span>` : '';
     const clmBtn = isProjTree
@@ -7461,7 +7461,7 @@ async function ftNodeHtml(p,path,depth){
     const isClm=!!f._clm;
     const clmLbl=isClm?`<span class="ft-clmlbl">클라우디움</span>`:'';
     // 대시보드에서 올린 SP 파일(02.프로젝트 하위) → SP 배지 (나중에 클라우디움 이관 대상)
-    const spLbl=(!isClm && p==='doc-tech' && (path==='02.프로젝트' || path.startsWith('02.프로젝트/')))?`<span class="ft-splbl">SP</span>`:'';
+    const spLbl=(!isClm && p==='doc-tech' && /^02\.\s*프로젝트(\/|$)/.test(path))?`<span class="ft-splbl">SP</span>`:'';
     const clmData=isClm?` data-ftclm="1" data-ftclmparent="${esc(f._clmParentOid||'')}"`:'';
     // 클라우디움 파일: 클릭=탐색기 열기, SP파일: 미리보기
     const clickH=isClm
@@ -7893,8 +7893,9 @@ async function ftAct(action){
         let grandOid='', parentFolderName='';
         try{
           const segs=(t.path||'').split('/').filter(Boolean);
-          parentFolderName = segs[segs.length-1]||'';
-          const grandPath = segs.slice(0,-1).join('/');
+          const nameSegs = t.isFolder ? segs.slice(0,-1) : segs;   // 폴더는 path에 자기 이름 포함 → 부모까지만 사용
+          parentFolderName = nameSegs[nameSegs.length-1]||'';
+          const grandPath = nameSegs.slice(0,-1).join('/');
           grandOid = grandPath ? (await techClmResolveOid(grandPath)) : '1PwNjUiWO2e';
         }catch(_){}
         const r=await clmApi('/api/cloudium/share_url_shell',{method:'POST',
