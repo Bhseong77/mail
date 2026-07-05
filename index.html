@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v472</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v473</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -15050,6 +15050,7 @@ function wpDetailHtml(projId, n, ind){
       // 렌더 후 비동기로 채움 (wpLoadClmLinkFiles)
       setTimeout(()=>{ try{ wpLoadClmLinkFiles(projId, n.id, i, f.oid); }catch(_){} }, 30);
       return `<div class="wp-fchip" style="background:#fef9e7;border-color:#fde68a">
+        <span onclick="var b=document.getElementById('${phId}');if(b){var h=b.style.display!=='none';b.style.display=h?'none':'';this.textContent=h?'▸':'▾';}" style="cursor:pointer;color:var(--t3);width:12px;text-align:center;user-select:none" title="접기/펼치기">▾</span>
         <span>🔗</span><span style="flex:1">${esc(f.name)} <span style="font-size:10px;color:#92660b">(연결된 폴더)</span></span>
         <span onclick='wpClmOpenFolder("${esc(f.oid)}")' style="cursor:pointer;color:var(--p);font-size:11px" title="탐색기에서 폴더 열기">📂 열기</span>
         ${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)" title="연결 해제">✕</span>`:""}
@@ -15059,11 +15060,13 @@ function wpDetailHtml(projId, n, ind){
     if(f.kind==='cloudium'){
       const _cm=JSON.stringify(f).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
       const icon=f.isFolder?'📁':'📄';
+      const _foid=f.isFolder?(f.parentOid||f.oid):(f.parentOid||'');
+      const _nmJs=esc(String(f.name)).replace(/'/g,"\\'");
       const openBtns = f.isFolder
         ? `<span onclick='wpClmOpenFolder("${esc(f.parentOid||f.oid)}")' style="cursor:pointer;color:var(--p);font-size:11px" title="탐색기에서 폴더 열기">📂 폴더 열기</span>`
-        : `<span onclick='wpClmOpenFolder("${esc(f.parentOid||"")}")' style="cursor:pointer;color:var(--p);font-size:11px" title="이 파일이 있는 폴더를 탐색기로 열기">📂 폴더 열기</span><span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--t2);font-size:11px" title="파일 바로 열기">📄 파일 열기</span>`;
-      return `<div class="wp-fchip" style="background:#f0f9ff;border-color:#bae6fd">
-        <span>${icon}</span><span style="flex:1">${esc(f.name)}</span>
+        : `<span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--t2);font-size:11px" title="파일 바로 열기">📄 파일 열기</span>`;
+      return `<div class="wp-fchip" style="background:#f0f9ff;border-color:#bae6fd" ${!f.isFolder?`oncontextmenu="event.preventDefault();wpClmCopyLink('${esc(f.oid)}','${_nmJs}')"`:''} title="${f.isFolder?'폴더':'파일명 클릭=폴더 열기 · 우클릭=링크만 복사'}">
+        <span>${icon}</span><span onclick='wpClmOpenFolder("${esc(_foid)}")' style="flex:1;cursor:pointer;color:var(--p);text-decoration:underline;text-underline-offset:2px" title="탐색기에서 이 폴더 열기">${esc(f.name)}</span>
         <span style="font-size:10px;color:#0369a1;background:#e0f2fe;padding:1px 6px;border-radius:99px">클라우디움</span>
         ${openBtns}
         ${canEdit?`<span onclick="wpRemoveFile('${projId}','${n.id}',${i})" style="cursor:pointer;color:var(--t3)">✕</span>`:""}</div>`;
@@ -16540,9 +16543,11 @@ function _wpClmTreeHtml(node, parentOid){
   }
   for(const f of node.files){
     const _cm=JSON.stringify({name:f.name,kind:'cloudium',oid:f.oid,parentOid,isFolder:false,fileOID:f.fileOID||'',storageFileID:f.storageFileID||'',fileName:f.fileName||f.name||'',fdcs:f.fdcs||''}).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-    h+=`<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2);margin:1px 0">
-      <span style="width:11px"></span><span>📄</span><span style="flex:1">${esc(f.name)}</span>
-      <span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--p);font-size:11px" title="파일 열기">열기</span></div>`;
+    const nmJs=esc(String(f.name)).replace(/'/g,"\\'");
+    h+=`<div oncontextmenu="event.preventDefault();wpClmCopyLink('${f.oid}','${nmJs}')" title="파일명 클릭=폴더 열기 · 우클릭=링크만 복사" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2);margin:1px 0">
+      <span style="width:11px"></span><span>📄</span>
+      <span onclick="wpClmOpenFolder('${parentOid}')" style="flex:1;cursor:pointer;color:var(--p);text-decoration:underline;text-underline-offset:2px" title="탐색기에서 이 폴더 열기">${esc(f.name)}</span>
+      <span onclick='wpClmOpenFile(${_cm})' style="cursor:pointer;color:var(--t3);font-size:11px" title="파일 바로 열기">파일</span></div>`;
   }
   return h;
 }
@@ -16551,6 +16556,17 @@ function _wpClmToggle(fid, el){
   const hide=box.style.display!=='none';
   box.style.display=hide?'none':'';
   const car=el.querySelector('.clm-caret'); if(car) car.textContent=hide?'▸':'▾';
+}
+// 클라우디움 첨부/연결 파일: 링크만 복사 (Teams/메일 붙여넣기용 URL)
+async function wpClmCopyLink(oid, name){
+  if(!oid){ toast('링크 대상 없음','warn'); return; }
+  try{
+    toast('링크 생성 중…');
+    const r=await fetch(`${SERVER}/api/cloudium/share_url?oid=${encodeURIComponent(oid)}`);
+    const j=await r.json();
+    if(j&&j.ok&&j.url){ await _clipLink(`📄 ${name||'파일'}`, j.url, '🔗 링크 복사됨 (Teams/메일에 붙여넣기)'); }
+    else toast('링크 생성 실패'+(j&&j.msg?': '+j.msg:''),'warn');
+  }catch(e){ toast('링크 생성 오류','warn'); }
 }
 // cloudium 항목을 작업 n.files 에 추가 (영구)
 function wpClmPick(f){
