@@ -1487,7 +1487,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v476</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v477</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -5346,7 +5346,10 @@ function clmAgentCall(cmd, params, cb){
 // 분기: 로컬 서빙(Flask)이면 프록시 경유(에이전트가 Referer=doc.enjet 요구 → Flask 가 박아줌),
 //       그 외(github.io 등)는 직접 JSONP(브라우저 Referer 라 에이전트가 거부할 수 있음 — 안내).
 function _clmAgentDispatch(cmd, params, cb){
-  if((typeof _isLocalServe!=='undefined' && _isLocalServe) || (typeof isTauriEnv==='function' && isTauriEnv())){
+  // 탐색기 열기/파일 열기는 반드시 "사용자가 지금 쓰는 PC"에서 실행돼야 함 → 로컬 에이전트(127.0.0.1) 직접 호출.
+  //  (프록시 경유는 서버 PC의 에이전트를 때려서 서버에서 탐색기가 열리는 문제 발생)
+  const mustLocal = /openFolderByExplorer|viewFile|openFile/i.test(cmd||'');
+  if(!mustLocal && ((typeof _isLocalServe!=='undefined' && _isLocalServe) || (typeof isTauriEnv==='function' && isTauriEnv()))){
     _clmAgentViaProxy(cmd, params, cb);
   }else{
     _clmAgentCallRaw(cmd, params, cb);
