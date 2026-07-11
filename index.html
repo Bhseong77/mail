@@ -1686,6 +1686,7 @@ body.embed-prnew{background:#fff}
       <div class="psb-section">
         <div class="psb-title">현황</div>
         <div class="psb-item active" data-p="status" onclick="pShowPage('status')">📋 구매현황 <span class="psb-badge p" id="pcnt-status">·</span></div>
+        <div class="psb-item" data-p="pipeline" onclick="pShowPage('pipeline')">🔀 구매 파이프라인 <span class="psb-badge" style="background:#0ea5e9">NEW</span></div>
       </div>
       <div class="psb-section">
         <div class="psb-title">작성 (영림원 직접 저장)</div>
@@ -1706,6 +1707,9 @@ body.embed-prnew{background:#fff}
 
       <!-- 구매현황 (진행 추적) -->
       <div class="psub on" id="p-status"></div>
+
+      <!-- 구매 파이프라인 (목업 통합 · iframe) -->
+      <div class="psub" id="p-pipeline"></div>
 
       <!-- 조회 6종 -->
       <div class="psub" id="p-pr"></div>
@@ -16760,8 +16764,17 @@ function pShowPage(name){
   document.querySelectorAll("#page-purchase .psb-item").forEach(s=>s.classList.toggle("active", s.dataset.p===name));
   pRenderCurrent();
 }
+function pRenderPipeline(){
+  const box=document.getElementById("p-pipeline");
+  if(!box || box.dataset.loaded) return;
+  box.dataset.loaded="1";
+  const base=(typeof SERVER!=="undefined" && SERVER) ? SERVER : "";
+  box.innerHTML=`<iframe src="${base}/purchase-mockup" title="구매 파이프라인"
+    style="width:100%;height:calc(100vh - 155px);min-height:560px;border:0;border-radius:8px;background:#fff"></iframe>`;
+}
 function pRenderCurrent(){
   const n = pCur;
+  if(n==="pipeline") return pRenderPipeline();
   if(n==="settings") return pRenderSettings();
   if(n==="status") return pRenderStatus();
   if(P_FILES.includes(n)) return pRenderTable(n);
