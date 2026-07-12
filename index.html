@@ -1524,6 +1524,22 @@ body.embed-prnew{background:#fff}
   /* [12] 상단 헤더 보조 액션(서버/로그아웃)은 '더보기' 시트로 이동 → 헤더에서 숨김.
          (권한/관리자/클라우디움은 v287 규칙에서 이미 숨김, 새로고침은 유지) */
   .btn-hdr.hdr-to-sheet{display:none!important}
+
+  /* [13] 메일 읽기 화면: 하위탭 줄(거래처/견적서/…)도 숨겨 본문 상단 공간 확보.
+         (툴바는 body.reading-mail 규칙으로 이미 숨김) 인라인 display:flex 를
+         JS가 넣으므로 !important 로 덮는다. 목록 복귀 시 클래스가 빠져 자동 복원. */
+  body.reading-mail .mail-subtabs{display:none!important}
+
+  /* [14] 리더: 긴 첨부 파일명·이메일 주소가 오른쪽으로 넘치지 않게.
+         .rd-meta 는 grid(auto 1fr) 라 셀 min-width:0 을 줘야 실제 줄바꿈이 먹는다. */
+  .rd-meta>*{min-width:0}
+  .rd-atts .att{max-width:100%;overflow-wrap:anywhere}
+
+  /* [15] 작성창: 파일 선택 input 폭 넘침 방지 + 라벨의 float 버튼(주소록/AI/첨부)
+         가로 넘침 방지(overflow:hidden 으로 float 컨테인). 하단 액션줄은 .mbox .row
+         sticky 규칙으로 이미 항상 도달 가능. */
+  #compose #cFiles{max-width:100%}
+  #compose .mbox-b label{overflow:hidden}
 }
 
 @media (max-width:430px){
@@ -1534,6 +1550,9 @@ body.embed-prnew{background:#fff}
   .btn-hdr{padding:5px 7px;font-size:11px}
   .panel{padding-left:10px;padding-right:10px}
   .rd-body pre{padding:12px 12px}
+  /* 매우 좁은 폰: 작성창 서식 툴바 버튼 촘촘히(줄바꿈 줄이기, 터치높이 min-height 는 유지) */
+  #cRTE .btn.sm{padding:4px 7px}
+  #cRTE{gap:3px;padding:3px}
 }
 /* ===== /MOBILE SUPPLEMENTAL LAYER v479 ===== */
 
@@ -1560,7 +1579,7 @@ body.embed-prnew{background:#fff}
   <div class="hdr-row">
     <div>
       <div class="hdr-title">📧 ENJET T 프로젝트</div>
-      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v479</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
+      <div class="hdr-sub">enjet_ed@enjet.co.kr · 실시간 연동 · <span style="opacity:.7">v480</span> <button onclick="clearAppCache()" title="캐시 삭제 후 새로고침 (다른 PC 옛 캐시 정리)" style="margin-left:6px;padding:1px 7px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:5px;font-size:10px;cursor:pointer;vertical-align:middle;">🔄 캐시삭제</button></div>
       <div class="hdr-clock" id="hdrClock"></div>
     </div>
     <div class="spacer"></div>
@@ -10850,7 +10869,7 @@ function bindMailSwipe(){
     });
   });
 }
-function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
+function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
 async function openMail(uid){SELECTED=uid;_markSeen(uid);renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');const known=MAILS.find(x=>String(x.uid)===String(uid));if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 열 수 없습니다</div><div style="font-size:13px;line-height:1.6">${known?'이 메일의 본문을 불러오지 못했습니다.<br>잠시 후 다시 시도하거나 목록에서 다시 선택해 주세요.':'알림에서 넘어온 메일이 이미 이동·삭제되었거나<br>주소가 만료되었을 수 있습니다. 왼쪽 목록에서 확인해 주세요.'}</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 불러오지 못했습니다</div><div style="font-size:13px;line-height:1.6">네트워크 또는 서버 연결을 확인해 주세요.<br>목록에서 다시 선택하면 대부분 해결됩니다.</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
 function autoSizeIframe(ifr){
