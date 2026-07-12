@@ -17323,6 +17323,14 @@ function pActPick(i, code, stage){
   // 칩 sel 갱신
   const acc=document.getElementById('pacc-'+i); if(acc) acc.querySelectorAll('.pstage').forEach(el=>el.classList.toggle('sel', el.textContent.trim().startsWith(_PSTAGES.find(s=>s[0]===stage)[1])));
 }
+/* 연구비/원재료 납품구분 배지 — 입고(rc)/출고(mr) 품명에 표시. item_no '연_' 또는 asset_name=연구비 */
+function pAssetBadge(r, stage){
+  const research = String(r.item_no||'').startsWith('연_') || String(r.asset_name||r.AssetName||'')==='연구비';
+  const st='display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;font-size:10px;font-weight:700;vertical-align:middle';
+  if(research) return `<span style="${st};background:#e0edff;color:#1c4fd6" title="연구비로 납품확인됨">연구비</span>`;
+  if(stage==='rc'||stage==='mr') return `<span style="${st};background:#e3f7e8;color:#1a7f37" title="원재료로 납품확인됨">원재료</span>`;
+  return '';
+}
 function pActStageTable(code, stage){
   const rows=(pData[stage]||[]).filter(r=>pProjCode(r)===code).slice(0,12);
   if(!rows.length) return `<div class="pempty">${_PSTAGES.find(s=>s[0]===stage)[1]} 내역 없음</div>`;
@@ -17339,7 +17347,7 @@ function pActStageTable(code, stage){
     else if(c[2]==='amt')return `<td class="num">${pAmt(_pNum(v))}</td>`;
     else if(c[2]==='badge')return `<td>${pStatusBadge(v)}</td>`;
     else if(c[2]==='slip')return `<td>${r.slip_id?'<span class="pbadge g">완료</span>':'<span class="pbadge y">미처리</span>'}</td>`;
-    return `<td class="${c[2]==='wrap'?'wrap':''}">${pEsc(v==null?'':v)}</td>`;
+    return `<td class="${c[2]==='wrap'?'wrap':''}">${pEsc(v==null?'':v)}${c[1]==='item_name'?pAssetBadge(r,stage):''}</td>`;
   }).join('')}</tr>`).join('');
   return `<table class="ptbl">${head}<tbody>${body}</tbody></table>`;
 }
