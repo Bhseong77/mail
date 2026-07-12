@@ -199,6 +199,16 @@ body{display:flex;flex-direction:column;height:100vh}
 #compose.min .cbox{max-height:none;}
 #compose .cmin{background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:15px;margin-right:6px;}
 @media(max-width:640px){ #compose{right:0;left:0;} #compose .cbox{width:100vw;max-width:100vw;} }
+/* ── 전체화면(지메일식) 새 메일 ── */
+#compose.full.on{display:flex;align-items:center;justify-content:center;inset:0;right:0;bottom:0;left:0;top:0;background:rgba(15,23,42,.45);padding:24px}
+#compose.full .cbox{width:960px;max-width:calc(100vw - 48px);height:90vh;max-height:90vh;border-radius:14px}
+#compose.full .mbox-b{max-height:none}
+#compose.full #cRich{min-height:320px;max-height:62vh}
+/* ── 서식 툴바 버튼 균일화 (들쭉날쭉 줄바꿈 정돈) ── */
+#cRTE{align-items:center}
+#cRTE .btn.sm,#cRTE label.btn.sm{min-width:28px;height:28px;padding:2px 5px;display:inline-flex;align-items:center;justify-content:center;line-height:1;box-sizing:border-box}
+#cRTE select.btn.sm{height:28px;width:auto;min-width:58px}
+#cRTE .rte-sep{height:20px;align-self:center}
 .cfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .cfiles .chip{font-size:12px;background:var(--pd);border:1px solid #c7ddf7;border-radius:7px;padding:4px 9px;display:inline-flex;gap:6px;align-items:center;color:var(--p2)}
 .cfiles .chip b{font-weight:600}
@@ -2522,7 +2532,7 @@ body.embed-prnew{background:#fff}
 </div>
 <div class="modal" id="compose">
   <div class="mbox cbox">
-    <div class="mbox-h" onclick="composeHeaderClick()"><span id="cTitle">새 메일</span><div style="display:flex;align-items:center"><button class="cmin" title="내리기 / 올리기" onclick="event.stopPropagation();composeToggleMin()">▁</button><button class="x" onclick="event.stopPropagation();closeCompose()">✕</button></div></div>
+    <div class="mbox-h" onclick="composeHeaderClick()"><span id="cTitle">새 메일</span><div style="display:flex;align-items:center"><button class="cmin" id="cFullBtn" title="전체화면 / 창모드" onclick="event.stopPropagation();composeToggleFull()">⤢</button><button class="cmin" title="내리기 / 올리기" onclick="event.stopPropagation();composeToggleMin()">▁</button><button class="x" onclick="event.stopPropagation();closeCompose()">✕</button></div></div>
     <div class="mbox-b">
       <label>받는사람 <span style="font-weight:400;color:var(--t3)">(쉼표로 여러 명)</span> <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="openContactPicker('cTo')">📇 주소록</button></label>
       <div class="ac-wrap"><input id="cTo" type="text" placeholder="someone@enjet.co.kr, ..." autocomplete="off" oninput="composeAC('cTo')" onkeydown="composeACKey(event,'cTo')" onblur="composeACHide('cTo')"><div class="ac-dd" id="cToAC"></div></div>
@@ -11393,10 +11403,11 @@ function mailPrint(){
   try{ actLog(`🖨 메일 인쇄: ${(m.subject||'').slice(0,40)}`); }catch(e){}
 }
 async function openCompose(mode){COMPOSE_ATT=[];REPLY_CTX={};_composeDraft={};$('compose').classList.remove('min');$('cFiles').value='';$('cFileList').innerHTML='';$('cMsg').textContent='';$('cTo').value='';$('cCc').value='';$('cSubj').value='';$('cBody').value='';if(mode==='new'){$('cTitle').textContent='새 메일';$('compose').classList.add('on');$('cTo').focus();return;}if(!SELECTED){alert('먼저 메일을 선택하세요');return;}$('cTitle').textContent=mode==='forward'?'전달':'답장';$('compose').classList.add('on');$('cMsg').style.color='var(--t2)';$('cMsg').textContent='원본 불러오는 중…';try{const r=await fetch(`${SERVER}/api/mail/original?folder=${FOLDER}&uid=${encodeURIComponent(SELECTED)}`);const d=await r.json();$('cMsg').textContent='';if(!d.ok){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 실패: '+(d.error||'');return;}const o=d.original;REPLY_CTX={inReplyTo:o.messageId||'',references:o.references||''};const subj=o.subject||'';if(mode==='forward'){$('cSubj').value=/^fwd?:/i.test(subj)?subj:('Fwd: '+subj);$('cBody').value=fmtQuote(o);}else{$('cSubj').value=/^re:/i.test(subj)?subj:('Re: '+subj);const sender=(o.from&&o.from[0])?o.from[0].email:'';$('cTo').value=sender;if(mode==='replyAll'){const others=[...(o.to||[]),...(o.cc||[])].map(a=>a.email).filter(e=>e&&e.toLowerCase()!=='enjet_ed@enjet.co.kr'&&e!==sender);$('cCc').value=[...new Set(others)].join(', ');}$('cBody').value=fmtQuote(o);$('cBody').setSelectionRange(0,0);$('cBody').focus();}}catch(e){$('cMsg').style.color='var(--r)';$('cMsg').textContent='원본 로드 오류: '+e.message;}}
-function closeCompose(){$('compose').classList.remove('on');$('compose').classList.remove('min');}
+function closeCompose(){$('compose').classList.remove('on');$('compose').classList.remove('min');$('compose').classList.remove('full');}
+function composeToggleFull(){ const c=$('compose'); c.classList.toggle('full'); if(c.classList.contains('full')) c.classList.remove('min'); const b=$('cFullBtn'); if(b) b.textContent=c.classList.contains('full')?'⤡':'⤢'; }
 
 // ── Gmail식 도킹 작성창: 내리기/올리기 ──
-function composeToggleMin(){ $('compose').classList.toggle('min'); }
+function composeToggleMin(){ const c=$('compose'); if(c.classList.contains('full')){ c.classList.remove('full'); const b=$('cFullBtn'); if(b) b.textContent='⤢'; } c.classList.toggle('min'); }
 function composeHeaderClick(){ const c=$('compose'); if(c.classList.contains('min')) c.classList.remove('min'); }
 
 // ── 임시저장 (97.임시저장함) ──
