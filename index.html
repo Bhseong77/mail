@@ -1464,6 +1464,79 @@ body.embed-prnew{background:#fff}
 .tcal-mail-item mark{ background:#fef08a; color:inherit; padding:0 1px; border-radius:2px; }
 .tcal-mailview-box{ width:640px; }
 
+/* ============================================================
+   MOBILE SUPPLEMENTAL LAYER v479 (additive · PC 영향 없음)
+   기존 모바일 규칙(v287/v291/v478)이 못 덮은 잔여 문제만 보강.
+   전부 @media(max-width:640px)/(430px) 안에서만 적용된다.
+   ============================================================ */
+@media (max-width:640px){
+  /* [1] 전역: 가로 페이지 스크롤 차단 + 박스사이징 통일 */
+  html,body{max-width:100%;overflow-x:hidden}
+  *{box-sizing:border-box}
+  img,video,iframe,canvas{max-width:100%}
+  /* 긴 URL·문자열 줄바꿈(오른쪽 잘림/넘침 방지) */
+  .rd-meta,.rd-subj,.mr-subj,.mr-from,.gc-subj,.ac-sub,.hdr-sub{overflow-wrap:anywhere}
+
+  /* [2] 입력요소: iOS 포커스 확대 방지(16px) — 기존 타입목록을 전 타입으로 확장 */
+  input,textarea,select,[contenteditable="true"],#cRich{font-size:16px}
+  input[type=checkbox],input[type=radio]{font-size:initial}   /* 체크박스/라디오는 제외 */
+
+  /* [3] 터치 타겟 최소 높이(≈40px) */
+  .btn,.folders button,.mailsub,.proj-subtab,.nav-dropdown button,.acc-period-btn,.proj-side-btn{min-height:40px}
+  .btn-hdr,.btn.sm{min-height:36px}
+
+  /* [4] 상단 헤더 툴바: 자동 줄바꿈으로 넘침 방지(기존 flex-wrap 유지 보강) */
+  .hdr-row{gap:6px 8px}
+
+  /* [5] KPI/요약 카드 그리드: 고정 3~4열 → 폰에서 접기
+         (인라인 style 그리드는 !important 로만 덮을 수 있음) */
+  .acc-kpi-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px}
+  [style*="grid-template-columns:repeat(3,1fr)"]{grid-template-columns:1fr!important}
+  [style*="grid-template-columns: repeat(3, 1fr)"]{grid-template-columns:1fr!important}
+
+  /* [6] 와이드 테이블: 스크롤 컨테이너가 없는 표는 자체 가로 스크롤 */
+  .acc-table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .ptbl-wrap,.tbl-wrap,.an-tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .ptbl{min-width:640px}
+
+  /* [7] 모달/오버레이: 화면 폭 안에 맞춤 */
+  .modal{padding:10px}
+  .mbox{max-width:96vw}
+  /* 인라인 구매 폼 모달(직원/거래처 선택 팝업) 카드 폭 제한 */
+  #ppnew-emp-modal>div,#ppnew-cust-modal>div,#ponew-emp-modal>div,#dvnew-emp-modal>div{max-width:94vw!important;max-height:86vh!important;overflow:auto}
+
+  /* [8] 구매 파이프라인 iframe: 하단바 높이 고려해 축소(가로 100%) */
+  [title="구매 파이프라인"]{width:100%!important;height:calc(100vh - 210px)!important;min-height:420px!important}
+
+  /* [9] 작성창 리치에디터/툴바: 폰에서 더 넉넉히 + 툴바 줄바꿈 */
+  #cRich{max-height:none!important;min-height:34vh}
+  #cRTE{flex-wrap:wrap}
+
+  /* [10] 새메일 FAB: 하단바 + 세이프에어리어 위로 */
+  #composeFab{bottom:calc(74px + env(safe-area-inset-bottom))}
+
+  /* [11] 발주/작업 임시저장 편집표(9열 그리드): 폰에서 가로 스와이프 스크롤
+         래퍼가 overflow:hidden 인라인이라 !important 로 덮고, 헤더/그룹/행 모두
+         같은 min-width 를 줘 컬럼 정렬을 유지한다. */
+  .wp-ord-tbl{overflow-x:auto!important;overflow-y:visible!important;-webkit-overflow-scrolling:touch}
+  .wp-ord-tbl>div{min-width:720px}
+
+  /* [12] 상단 헤더 보조 액션(서버/로그아웃)은 '더보기' 시트로 이동 → 헤더에서 숨김.
+         (권한/관리자/클라우디움은 v287 규칙에서 이미 숨김, 새로고침은 유지) */
+  .btn-hdr.hdr-to-sheet{display:none!important}
+}
+
+@media (max-width:430px){
+  /* 더 좁은 폰(≤430): 여백·폰트 추가 축소 */
+  .acc-kpi-grid{grid-template-columns:1fr!important}
+  [style*="grid-template-columns:repeat(2,1fr)"]{grid-template-columns:1fr!important}
+  .hdr-title{font-size:14.5px}
+  .btn-hdr{padding:5px 7px;font-size:11px}
+  .panel{padding-left:10px;padding-right:10px}
+  .rd-body pre{padding:12px 12px}
+}
+/* ===== /MOBILE SUPPLEMENTAL LAYER v479 ===== */
+
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1500,11 +1573,11 @@ body.embed-prnew{background:#fff}
     <button class="btn-hdr" id="adminNavBtn" style="display:none" onclick="showPage('admin')">⚙️ 관리자설정</button>
     <button class="btn-hdr" id="clmNavBtn" style="display:none" onclick="showPage('cloudium')">📁 클라우디움</button>
     <button class="btn-hdr" id="pushBtn" style="display:none;opacity:.5" onclick="pushToggle()" title="알림 켜기">🔔</button>
-    <button class="btn-hdr" onclick="openSettings()">⚙ 서버</button>
+    <button class="btn-hdr hdr-to-sheet" onclick="openSettings()">⚙ 서버</button>
     <button class="btn-hdr hide-mobile" onclick="tcToggle()" title="T Project 메신저" style="position:relative">💬 메신저<span id="tcBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:10px;min-width:16px;height:16px;line-height:16px;border-radius:8px;padding:0 4px;font-weight:700"></span></button>
     <button class="btn-hdr hide-mobile" onclick="openCompose('new')">✏ 메일쓰기</button>
     <button class="btn-hdr primary" onclick="loadList()">↻ 새로고침</button>
-    <button class="btn-hdr" onclick="logout()">로그아웃</button>
+    <button class="btn-hdr hdr-to-sheet" onclick="logout()">로그아웃</button>
   </div>
 </div>
 <div class="topnav">
@@ -3173,7 +3246,20 @@ function mobSheetOpen(group){
       if(upn==='baekhoon@enjet.co.kr'){ cfg.items.push(['🔐','권한설정','perm'],['⚙️','관리자설정','admin'],['📁','클라우디움','cloudium']); }
     }
     ttl.textContent=cfg.title;
-    body.innerHTML=cfg.items.map(([ic,label,pg])=>`<div class="ms-item" onclick="mobNavGo('${pg}')"><span class="ms-ic">${ic}</span>${label}</div>`).join('');
+    let _h=cfg.items.map(([ic,label,pg])=>`<div class="ms-item" onclick="mobNavGo('${pg}')"><span class="ms-ic">${ic}</span>${label}</div>`).join('');
+    // 헤더에서 숨긴 보조 액션(서버설정/메신저/새로고침/캐시삭제/로그아웃)을 '더보기' 시트에 노출.
+    // 원본 헤더 버튼과 동일한 함수를 호출한다(중복 정의 없음).
+    if(group==='more'){
+      const _acts=[
+        ['⚙','서버 설정','openSettings()'],
+        ['💬','메신저','tcToggle()'],
+        ['↻','새로고침','loadList()'],
+        ['🔄','캐시삭제','clearAppCache()'],
+        ['🚪','로그아웃','logout()']
+      ];
+      _h+=_acts.map(([ic,label,fn])=>`<div class="ms-item" onclick="mobSheetClose();${fn}"><span class="ms-ic">${ic}</span>${label}</div>`).join('');
+    }
+    body.innerHTML=_h;
   }
   sh.classList.add('on');
 }
@@ -14147,7 +14233,7 @@ function wpRenderOrder(){
         <button class="btn sm" onclick="wpOrderDiscard()">버리기</button>
         <button class="btn primary sm" onclick="wpOrderCommitEdited('${esc(d.projId)}')">✅ 확정 저장</button>
       </div>
-      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div class="wp-ord-tbl" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
         <div style="display:grid;grid-template-columns:26px 1fr 86px 96px 120px 120px 1fr 52px 26px;gap:5px;align-items:center;padding:7px 10px;background:var(--p);color:#fff;font-size:11px;font-weight:600">
           <span title="작업 번호">#</span><span>작업명</span><span>직무</span><span>담당자</span><span>시작일</span><span>마감일</span><span>선행작업(먼저 끝나야 함)</span><span style="text-align:right">진행%</span><span></span>
         </div>
