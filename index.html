@@ -129,7 +129,26 @@ body{display:flex;flex-direction:column;height:100vh}
 .rd-fwd-h{font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:6px}
 .rd-fwd .rd-meta{color:#78350f}
 .rd-fwd .rd-meta b{color:#78350f}
-.rd-actions{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border)}
+.rd-actions{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+/* ── Gmail식 추가: 리치에디터 팝오버(표/이모지) ── */
+.rte-sep{width:1px;align-self:stretch;background:var(--border,#ddd);margin:2px 3px}
+.rte-pop{background:#fff;border:1px solid var(--border,#ddd);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px}
+.rte-tgrid{display:grid;grid-template-columns:repeat(8,18px);grid-auto-rows:18px;gap:2px}
+.rte-tgrid .rtc{border:1px solid #cbd5e1;border-radius:2px;background:#fff;cursor:pointer}
+.rte-tgrid .rtc.on{background:#bfdbfe;border-color:#3b82f6}
+.rte-tlabel{margin-top:6px;text-align:center;font-size:12px;color:var(--t2,#555)}
+.rte-emojipop{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-width:300px}
+.rte-emo{border:none;background:none;font-size:18px;line-height:1;padding:4px;cursor:pointer;border-radius:6px}
+.rte-emo:hover{background:#eef2ff}
+/* ── Gmail식 추가: 메일 목록 별표 + hover 빠른작업 ── */
+.mailrow{position:relative}
+.mr-star{border:none;background:none;cursor:pointer;font-size:15px;line-height:1;padding:0 6px 0 0;color:#cbd5e1;flex-shrink:0;align-self:center}
+.mr-star.on{color:#f59e0b}
+.mr-actions{position:absolute;top:0;right:6px;bottom:0;display:none;align-items:center;gap:1px;padding-left:30px;background:linear-gradient(90deg,transparent,var(--bg3) 26px,var(--bg3))}
+.mailrow:hover .mr-actions{display:flex}
+.mr-actions .qa{border:none;background:none;cursor:pointer;font-size:14px;padding:4px 5px;border-radius:6px;color:var(--t2)}
+.mr-actions .qa:hover{background:rgba(0,0,0,.09)}
+.mr-subj.new{font-weight:700;color:var(--t1)}
 .btn{font-family:inherit;font-size:13px;border:1px solid var(--border);background:#fff;color:var(--t1);padding:7px 13px;border-radius:8px;cursor:pointer;transition:.12s;font-weight:600}
 .btn:hover{background:var(--bg3);border-color:var(--border2)}
 .btn.primary{background:var(--p);color:#fff;border-color:var(--p)}
@@ -2529,6 +2548,19 @@ body.embed-prnew{background:#fff}
         <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rteLink()" title="링크 삽입">🔗</button>
         <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('formatBlock','blockquote')" title="인용">❝</button>
         <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('removeFormat')" title="서식 지우기">✕</button>
+        <span class="rte-sep"></span>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rteTablePop(this)" title="표 삽입">▦</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rteImgPick()" oncontextmenu="rteImageUrl();return false;" title="이미지 삽입 (우클릭: URL로 삽입)">🖼</button>
+        <select class="btn sm" onchange="rte('fontSize',this.value);this.selectedIndex=0" title="글꼴 크기" style="min-width:56px;padding:2px 4px">
+          <option value="">글꼴</option><option value="2">작게</option><option value="3">보통</option><option value="5">크게</option><option value="6">아주크게</option>
+        </select>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('justifyLeft')" title="왼쪽 정렬">⯇</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('justifyCenter')" title="가운데 정렬">≡</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('justifyRight')" title="오른쪽 정렬">⯈</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('outdent')" title="내어쓰기">⇤</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('indent')" title="들여쓰기">⇥</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rteEmojiPop(this)" title="이모지">😊</button>
+        <input id="cImgFile" type="file" accept="image/*" style="display:none" onchange="rteImageFile(this)">
       </div>
       <div id="cRich" contenteditable="true" style="min-height:180px;max-height:40vh;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:0 0 6px 6px;padding:10px 12px;font-size:13.5px;line-height:1.6;outline:none;background:#fff" oninput="cbSync()"></div>
       <textarea id="cBody" style="display:none"></textarea>
@@ -3735,6 +3767,27 @@ function cbSync(){ const r=$('cRich'), b=$('cBody'); if(r&&b){ b.value=r.innerHT
 function cbSetBody(v){ const r=$('cRich'), b=$('cBody'); if(!r||!b)return; const html=/<[a-z!][\s\S]*>/i.test(v||'')?(v||''):_mailEsc(v).replace(/\n/g,'<br>'); r.innerHTML=html; b.value=html; r.setAttribute('data-sync',html); }
 function rte(cmd,val){ const r=$('cRich'); if(r) r.focus(); try{document.execCommand(cmd,false,val||null);}catch(e){} cbSync(); }
 function rteLink(){ const u=prompt('링크 URL:','https://'); if(u) rte('createLink',u); }
+// ── Gmail식 추가 서식(표·이미지·이모지) : 선택영역 저장/복원 + 팝오버 ──
+let _rteSavedRange=null, _rtePopCloseBound=false;
+function _rteSaveSel(){ try{ const s=window.getSelection(); const r=$('cRich'); if(s&&s.rangeCount&&r&&r.contains(s.anchorNode)){ _rteSavedRange=s.getRangeAt(0).cloneRange(); } }catch(_){}
+}
+function _rteRestoreSel(){ const r=$('cRich'); if(!r)return; r.focus(); if(_rteSavedRange){ try{ const s=window.getSelection(); s.removeAllRanges(); s.addRange(_rteSavedRange); }catch(_){} } }
+(function(){ const r=$('cRich'); if(r){ ['keyup','mouseup','blur'].forEach(ev=>r.addEventListener(ev,_rteSaveSel)); } })();
+function positionRtePop(pop,btn){ const b=btn.getBoundingClientRect(); pop.style.position='fixed'; pop.style.zIndex='1000060'; pop.style.top=(b.bottom+4)+'px'; pop.style.left=Math.max(6,Math.min(b.left, window.innerWidth-pop.offsetWidth-8))+'px'; }
+function closeRtePops(){ document.querySelectorAll('.rte-pop').forEach(p=>p.remove()); _rtePopCloseBound=false; document.removeEventListener('mousedown',_rtePopOutside,true); document.removeEventListener('keydown',_rtePopEsc,true); }
+function _rtePopOutside(e){ if(!e.target.closest('.rte-pop')) closeRtePops(); }
+function _rtePopEsc(e){ if(e.key==='Escape') closeRtePops(); }
+function _bindRtePopClose(){ if(_rtePopCloseBound)return; _rtePopCloseBound=true; setTimeout(()=>{ document.addEventListener('mousedown',_rtePopOutside,true); document.addEventListener('keydown',_rtePopEsc,true); },0); }
+// 표 삽입: 8×8 그리드에서 hover→클릭
+function rteTablePop(btn){ closeRtePops(); _rteSaveSel(); const N=8; const pop=document.createElement('div'); pop.className='rte-pop rte-tablepop'; let cells=''; for(let r=1;r<=N;r++)for(let c=1;c<=N;c++)cells+=`<div class="rtc" data-r="${r}" data-c="${c}"></div>`; pop.innerHTML=`<div class="rte-tgrid">${cells}</div><div class="rte-tlabel">0 × 0</div>`; document.body.appendChild(pop); positionRtePop(pop,btn); const grid=pop.querySelector('.rte-tgrid'), lab=pop.querySelector('.rte-tlabel'); grid.addEventListener('mouseover',e=>{ const t=e.target.closest('.rtc'); if(!t)return; const R=+t.dataset.r,C=+t.dataset.c; grid.querySelectorAll('.rtc').forEach(x=>x.classList.toggle('on',(+x.dataset.r<=R)&&(+x.dataset.c<=C))); lab.textContent=C+' × '+R; }); grid.addEventListener('click',e=>{ const t=e.target.closest('.rtc'); if(!t)return; rteInsertTable(+t.dataset.r,+t.dataset.c); closeRtePops(); }); _bindRtePopClose(); }
+function rteInsertTable(rows,cols){ _rteRestoreSel(); let html='<table style="border-collapse:collapse;width:auto" cellspacing="0"><tbody>'; for(let i=0;i<rows;i++){ html+='<tr>'; for(let j=0;j<cols;j++) html+='<td style="border:1px solid #ccc;padding:6px;min-width:40px">&nbsp;</td>'; html+='</tr>'; } html+='</tbody></table><p><br></p>'; try{document.execCommand('insertHTML',false,html);}catch(e){} cbSync(); }
+// 이미지 삽입: 파일(dataURL) 또는 URL
+function rteImgPick(){ _rteSaveSel(); const el=$('cImgFile'); if(el){ el.value=''; el.click(); } }
+function rteImageFile(input){ const f=input&&input.files&&input.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>{ _rteRestoreSel(); try{document.execCommand('insertHTML',false,'<img src="'+rd.result+'" style="max-width:100%">');}catch(e){} cbSync(); }; rd.readAsDataURL(f); input.value=''; }
+function rteImageUrl(){ _rteSaveSel(); const u=prompt('이미지 URL:','https://'); if(!u)return; _rteRestoreSel(); const src=String(u).replace(/"/g,'&quot;'); try{document.execCommand('insertHTML',false,'<img src="'+src+'" style="max-width:100%">');}catch(e){} cbSync(); }
+// 이모지 팝오버
+const RTE_EMOJIS='😀 😃 😄 😁 😆 😅 😂 🙂 😉 😊 😍 😘 😎 🤔 😐 😴 😢 😭 😡 👍 👎 👏 🙏 💪 🎉 ✅ ❌ ⭐ 🔥 💡 📌 📎 📞 📧 💰 ✔️'.split(' ');
+function rteEmojiPop(btn){ closeRtePops(); _rteSaveSel(); const pop=document.createElement('div'); pop.className='rte-pop rte-emojipop'; pop.innerHTML=RTE_EMOJIS.map(e=>`<button type="button" class="rte-emo" onmousedown="event.preventDefault()">${e}</button>`).join(''); document.body.appendChild(pop); positionRtePop(pop,btn); pop.addEventListener('click',e=>{ const b=e.target.closest('.rte-emo'); if(!b)return; _rteRestoreSel(); const em=b.textContent; try{document.execCommand('insertText',false,em);}catch(_){ try{document.execCommand('insertHTML',false,em);}catch(e2){} } cbSync(); closeRtePops(); }); _bindRtePopClose(); }
 // 외부 코드가 cBody(textarea)를 바꾸면(답장/전달·초안·첨부링크) 리치에디터에 자동 반영
 if(!window._cbSyncTimer){ window._cbSyncTimer=setInterval(function(){ const b=$('cBody'), r=$('cRich'), c=$('compose'); if(!b||!r||!c||!c.classList.contains('on'))return; if(b.value!==(r.getAttribute('data-sync')||'')){ const v=b.value; r.innerHTML=/<[a-z!][\s\S]*>/i.test(v)?v:_mailEsc(v).replace(/\n/g,'<br>'); r.setAttribute('data-sync',v);} }, 350); }
 async function mailAI(mode){
@@ -10659,6 +10712,20 @@ function _updateNewBadge(){
   if(n>0){ if(!bd){ bd=document.createElement('span'); bd.className='f-newcnt'; b.appendChild(bd); } bd.textContent=n; bd.style.display='inline-block'; }
   else if(bd){ bd.style.display='none'; }
 }
+// ── Gmail식 추가: 별표(클라이언트 localStorage) ──
+const MAIL_STAR_KEY='mailStarUids';
+let MAIL_STAR=new Set();
+try{ MAIL_STAR=new Set(JSON.parse(localStorage.getItem(MAIL_STAR_KEY)||'[]')); }catch(_){}
+function _isStar(uid){ return MAIL_STAR.has(String(uid)); }
+function _persistStar(){ try{ localStorage.setItem(MAIL_STAR_KEY, JSON.stringify([...MAIL_STAR])); }catch(_){}
+}
+function toggleStar(ev,uid){ if(ev&&ev.stopPropagation)ev.stopPropagation(); const k=String(uid); if(MAIL_STAR.has(k))MAIL_STAR.delete(k); else MAIL_STAR.add(k); _persistStar(); renderList(); if(String(SELECTED)===k) _syncReaderStar(); }
+function _syncReaderStar(){ const b=document.getElementById('rdStar'); if(b&&CUR_MAIL){ const on=_isStar(CUR_MAIL.uid); b.textContent=on?'★ 별표':'☆ 별표'; b.classList.toggle('on',on); } }
+// ── Gmail식 추가: 읽음/미확인 토글(클라이언트 MAIL_SEEN 재사용) + 행 빠른작업 ──
+function _toggleSeen(uid){ const k='inbox:'+uid; if(MAIL_SEEN.has(k))MAIL_SEEN.delete(k); else MAIL_SEEN.add(k); try{ localStorage.setItem(MAIL_SEEN_KEY, JSON.stringify([...MAIL_SEEN])); }catch(_){}
+}
+function qaToggleRead(ev,uid){ if(ev&&ev.stopPropagation)ev.stopPropagation(); _toggleSeen(uid); _updateNewBadge(); renderList(); }
+function qaDelete(ev,uid){ if(ev&&ev.stopPropagation)ev.stopPropagation(); deleteOne(uid); }
 function toggleGroup(k){OPEN_GROUPS[k]=!OPEN_GROUPS[k];const el=document.querySelector(`.grp[data-k="${CSS.escape(k)}"]`);if(el)el.classList.toggle('open',!!OPEN_GROUPS[k]);}
 // 검색: 제목·발신자는 즉시, 본문은 서버(IMAP)에서 디바운스 검색해 병합
 let _searchExtra=[], _searchTimer=null, _searchQ="";
@@ -10735,11 +10802,16 @@ function renderList(){
     html+=`<div class="grp${open}" data-k="${esc(k)}">
       <div class="mailrow${sel}" ${onclick} oncontextmenu="mailRowCtx(event,'${head.uid}')">
         <div class="mr-row">
+          <button type="button" class="mr-star${_isStar(head.uid)?' on':''}" title="별표" onclick="toggleStar(event,'${head.uid}')">${_isStar(head.uid)?'★':'☆'}</button>
           ${avHtml}<input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
           <div class="mr-body">
             <div class="mr-top"><span class="mr-from${isNew?' new':''}">${newDot}${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
-            <div class="mr-subj">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
+            <div class="mr-subj${isNew?' new':''}">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
           </div>
+        </div>
+        <div class="mr-actions">
+          <button type="button" class="qa" title="${isNew?'읽음으로 표시':'미확인으로 표시'}" onclick="qaToggleRead(event,'${head.uid}')">${isNew?'📖':'✉️'}</button>
+          <button type="button" class="qa" title="삭제(휴지통)" onclick="qaDelete(event,'${head.uid}')">🗑</button>
         </div>
       </div>`;
     if(multi){
@@ -10923,7 +10995,7 @@ function renderBody(m,d){
     }
   }catch(e){}
   const moveBtn=totalAtt?`<button class="btn sm primary" onclick="openMove()">📁 문서함 이송 (${totalAtt})</button><button class="btn sm" onclick="mailAllAttSpLinks()" title="첨부를 SharePoint에 올리고 링크 복사">🔗 SP링크 복사</button>`:'';
-  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button><button class="btn sm" onclick="mailPrint()">🖨 인쇄</button><button class="btn sm" onclick="mailSavePdf()">📄 PDF저장</button>${moveBtn}</div>`;
+  const actions=`<div class="rd-actions"><button class="btn sm" onclick="openCompose('reply')">↩ 답장</button><button class="btn sm" onclick="openCompose('replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="openCompose('forward')">➡ 전달</button><button class="btn sm" id="rdStar" onclick="toggleStar(event,'${m.uid}')">${_isStar(m.uid)?'★ 별표':'☆ 별표'}</button><button class="btn sm" onclick="qaToggleRead(event,'${m.uid}')">✉️ 미확인</button><button class="btn sm" onclick="deleteOne('${m.uid}')">🗑 삭제</button><button class="btn sm" onclick="mailPrint()">🖨 인쇄</button><button class="btn sm" onclick="mailSavePdf()">📄 PDF저장</button>${moveBtn}</div>`;
   $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>`+head+actions+fwdHtml+attHtml+bodyHtml;
 }
 
