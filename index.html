@@ -10750,6 +10750,47 @@ function mailSearchInput(){
     }catch(_){}
   }, 500);
 }
+// ══════════ 대화 스레드(지메일식) ══════════
+let THREADS={};   // key → {key,msgs,latest,uids,count,unread,hasAtt,star,dateRaw}
+function _normSubj(s){
+  let t=String(s||'').trim();
+  // 앞머리의 Re:/RE:/Fwd:/FW:/답장:/전달: 반복 제거
+  while(/^\s*(re|rere|fwd?|fw|답장|회신|전달)\s*[:：]/i.test(t)) t=t.replace(/^\s*(re|rere|fwd?|fw|답장|회신|전달)\s*[:：]\s*/i,'');
+  return t.replace(/[\[\]()]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function _mailEmails(m){return new Set([...(m.from||[]),...(m.to||[]),...(m.cc||[])].map(a=>String(a&&a.email||'').toLowerCase().trim()).filter(Boolean));}
+// 참조그래프(Message-ID/References/In-Reply-To) + 제목·참여자 보강으로 대화 묶기
+function buildThreads(rows){
+  const parent={};
+  const find=x=>{while(parent[x]!==x)x=parent[x]=parent[parent[x]];return x;};
+  const union=(a,b)=>{if(!(a in parent))parent[a]=a;if(!(b in parent))parent[b]=b;a=find(a);b=find(b);if(a!==b)parent[a]=b;};
+  rows.forEach(m=>{const id=(m.messageId||'').trim()||('uid:'+m.uid);m._node=id;if(!(id in parent))parent[id]=id;});
+  // 1) 참조 헤더로 연결
+  rows.forEach(m=>{
+    const refs=[String(m.inReplyTo||'')].concat(String(m.references||'').split(/\s+/)).map(s=>s.trim()).filter(Boolean);
+    refs.forEach(r=>union(m._node,r));
+  });
+  // 2) 제목 정규화 동일 + 참여자 1명 이상 겹치면 연결 (헤더 없는 답장 보강, 포괄과합 방지)
+  const bySubj={};
+  rows.forEach(m=>{const k=_normSubj(m.subject);if(!k)return;(bySubj[k]=bySubj[k]||[]).push(m);});
+  Object.values(bySubj).forEach(g=>{
+    for(let i=0;i<g.length;i++){const A=_mailEmails(g[i]);
+      for(let j=i+1;j<g.length;j++){const B=_mailEmails(g[j]);let share=false;for(const e of A){if(B.has(e)){share=true;break;}}if(share)union(g[i]._node,g[j]._node);}}
+  });
+  // 3) 묶기
+  const map={};
+  rows.forEach(m=>{const root=find(m._node);(map[root]=map[root]||[]).push(m);});
+  const list=Object.keys(map).map(root=>{
+    const msgs=map[root].slice().sort((a,b)=>String(a.dateRaw||a.date||'').localeCompare(String(b.dateRaw||b.date||'')));
+    const latest=msgs[msgs.length-1];
+    return {key:'th:'+root, msgs, latest, uids:msgs.map(x=>String(x.uid)), count:msgs.length,
+      unread:msgs.some(x=>_isNewMail(x)), hasAtt:msgs.some(x=>x.hasAttachment),
+      star:msgs.some(x=>_isStar(x.uid)), dateRaw:latest.dateRaw||latest.date||''};
+  });
+  list.sort((a,b)=>String(b.dateRaw||'').localeCompare(String(a.dateRaw||'')));
+  return list;
+}
+function _threadKeyOfUid(uid){uid=String(uid);for(const k in THREADS){if(THREADS[k].uids.includes(uid))return k;}return null;}
 function renderList(){
   const subtabs=$('mailSubtabs'); if(subtabs) subtabs.style.display=(FOLDER==='draft')?'none':'flex';
   const q=$('q').value.trim().toLowerCase();
@@ -10782,50 +10823,53 @@ function renderList(){
   if(!rows.length){
     const emptyMsg={customer:'고객사 메일이 없습니다',quote:'견적서 메일이 없습니다',invoice:'거래명세서 메일이 없습니다',tax:'세금계산서 메일이 없습니다',vendor:'거래처 메일이 없습니다'}[MAIL_SUB]||'메일이 없습니다';
     $('list').innerHTML=`<div class="empty">${FOLDER==='draft'?'메일이 없습니다':emptyMsg}</div>`;return;}
-  // 보낸사람 기준 그룹핑 (입력 순서 = 최신순 유지)
-  const groups=new Map();
-  for(const m of rows){const k=senderKey(m);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);}
+  // ── 대화 스레드로 묶어 최신순 렌더 (지메일식) ──
+  THREADS={};
+  const threads=buildThreads(rows);
   let html='';
-  for(const [k,arr] of groups){
-    const head=arr[0]; // 가장 최신(목록이 최신순)
-    const open=OPEN_GROUPS[k]?' open':'';
-    const multi=arr.length>1;
-    const sel=(SELECTED===head.uid)?' sel':'';
-    const cnt=multi?`<span class="mr-cnt">${arr.length}</span>`:'';
-    const isNew=arr.some(_isNewMail);
-    const newDot=isNew?`<span class="mr-new" title="신규"></span>`:'';
-    const caret=multi?`<span class="mr-caret">▶</span>`:'';
-    const onclick=multi?`onclick="groupHeadClick(event,'${esc(k).replace(/'/g,"\\'")}','${head.uid}')"`:`onclick="openMail('${head.uid}')"`;
-    const hck=SELECTED_UIDS.has(String(head.uid))?'checked':'';
+  for(const th of threads){
+    THREADS[th.key]=th;
+    const head=th.latest;
+    const multi=th.count>1;
+    const sel=(SELECTED&&th.uids.includes(String(SELECTED)))?' sel':'';
+    const isNew=th.unread;
+    const newDot=isNew?`<span class="mr-new" title="안읽음"></span>`:'';
+    const cnt=multi?`<span class="mr-cnt" title="대화 ${th.count}통">${th.count}</span>`:'';
+    const keyEsc=esc(th.key).replace(/'/g,"\\'");
+    const hck=(th.uids.length&&th.uids.every(u=>SELECTED_UIDS.has(u)))?'checked':'';
     const _av=avatarFor(partyName(head));
     const avHtml=`<div class="mr-av" style="background:${_av.color}">${esc(_av.ch)}</div>`;
-    html+=`<div class="grp${open}" data-k="${esc(k)}">
-      <div class="mailrow${sel}" ${onclick} oncontextmenu="mailRowCtx(event,'${head.uid}')">
+    html+=`<div class="grp" data-k="${esc(th.key)}">
+      <div class="mailrow${sel}" onclick="openThread('${keyEsc}')" oncontextmenu="mailRowCtx(event,'${head.uid}')">
         <div class="mr-row">
-          <button type="button" class="mr-star${_isStar(head.uid)?' on':''}" title="별표" onclick="toggleStar(event,'${head.uid}')">${_isStar(head.uid)?'★':'☆'}</button>
-          ${avHtml}<input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();toggleSelect('${head.uid}',this.checked)">
+          <button type="button" class="mr-star${th.star?' on':''}" title="별표" onclick="toggleStar(event,'${head.uid}')">${th.star?'★':'☆'}</button>
+          ${avHtml}<input type="checkbox" class="mr-chk" ${hck} onclick="event.stopPropagation();threadSelect('${keyEsc}',this.checked)">
           <div class="mr-body">
-            <div class="mr-top"><span class="mr-from${isNew?' new':''}">${newDot}${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}${caret}</span></div>
-            <div class="mr-subj${isNew?' new':''}">${esc(head.subject||'(제목 없음)')}${head.hasAttachment?'<span class="mr-clip">📎</span>':''}</div>
+            <div class="mr-top"><span class="mr-from${isNew?' new':''}">${newDot}${esc(partyName(head))}${cnt}${labelHtml(head)}</span><span class="mr-date">${esc(head.date||'')}</span></div>
+            <div class="mr-subj${isNew?' new':''}">${esc(head.subject||'(제목 없음)')}${th.hasAtt?'<span class="mr-clip">📎</span>':''}</div>
           </div>
         </div>
         <div class="mr-actions">
-          <button type="button" class="qa" title="${isNew?'읽음으로 표시':'미확인으로 표시'}" onclick="qaToggleRead(event,'${head.uid}')">${isNew?'📖':'✉️'}</button>
-          <button type="button" class="qa" title="삭제(휴지통)" onclick="qaDelete(event,'${head.uid}')">🗑</button>
+          <button type="button" class="qa" title="${isNew?'읽음으로 표시':'안읽음으로 표시'}" onclick="qaThreadRead(event,'${keyEsc}')">${isNew?'📖':'✉️'}</button>
+          <button type="button" class="qa" title="대화 삭제(휴지통)" onclick="qaThreadDelete(event,'${keyEsc}')">🗑</button>
         </div>
-      </div>`;
-    if(multi){
-      html+=`<div class="grp-children">`+arr.map(m=>{const cs=(SELECTED===m.uid)?' sel':'';const cck=SELECTED_UIDS.has(String(m.uid))?'checked':'';return `<div class="grp-child${cs}" onclick="openMail('${m.uid}')" oncontextmenu="mailRowCtx(event,'${m.uid}')"><div class="mr-row"><input type="checkbox" class="mr-chk" ${cck} onclick="event.stopPropagation();toggleSelect('${m.uid}',this.checked)"><div class="mr-body"><div class="gc-subj">${esc(m.subject||'(제목 없음)')}${m.hasAttachment?'<span class="mr-clip">📎</span>':''}</div><div class="gc-date">${esc(m.date||'')}</div></div></div></div>`;}).join('')+`</div>`;
-    }
-    html+=`</div>`;
+      </div>
+    </div>`;
   }
   $('list').innerHTML=html;
   updateDelBtn();
   _updateNewBadge();
   bindMailSwipe();
 }
-// 그룹 대표 클릭: 카드 토글 + 최신메일 열기
-function groupHeadClick(ev,k,uid){toggleGroup(k);openMail(uid);}
+// 스레드 단위 선택/읽음/삭제
+function threadSelect(key,on){const th=THREADS[key];if(!th)return;th.uids.forEach(u=>{if(on)SELECTED_UIDS.add(u);else SELECTED_UIDS.delete(u);});updateDelBtn();renderList();}
+function qaThreadRead(ev,key){if(ev&&ev.stopPropagation)ev.stopPropagation();const th=THREADS[key];if(!th)return;const makeRead=th.unread;th.uids.forEach(u=>{const isnew=!MAIL_SEEN.has('inbox:'+u);if(makeRead&&isnew)_markSeen(u);else if(!makeRead&&!isnew)_toggleSeen(u);});_updateNewBadge();renderList();}
+async function qaThreadDelete(ev,key){if(ev&&ev.stopPropagation)ev.stopPropagation();const th=THREADS[key];if(!th)return;const uids=th.uids.slice();
+  if(th.count>1&&!confirm(`이 대화의 ${th.count}통을 모두 휴지통으로 이동할까요?`))return;
+  try{const r=await fetch(`${SERVER}/api/mail/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:FOLDER,uids})});const d=await r.json();
+    if(d.ok){toast(`${d.count}통 휴지통 이동`,'ok');if(SELECTED&&uids.includes(String(SELECTED))){SELECTED=null;renderReaderEmpty();}loadList();}
+    else toast('삭제 실패: '+(d.error||''),'bad');
+  }catch(e){toast('삭제 오류: '+e.message,'bad');}}
 
 // ── 메일 선택 삭제 (휴지통 이동) ──
 let SELECTED_UIDS=new Set();
@@ -10933,17 +10977,103 @@ function bindMailSwipe(){
     },{passive:false});
     row.addEventListener('touchend',()=>{
       row.style.transition='transform .2s,background .2s';
-      const uid=(row.getAttribute('onclick')||'').match(/openMail\('([^']+)'\)|groupHeadClick\([^,]+,[^,]+,'([^']+)'\)/);
-      const id=uid?(uid[1]||uid[2]):null;
-      if(drag && dx<-90 && id){ row.style.transform='translateX(-100%)'; setTimeout(()=>deleteOne(id),160); }
-      else if(drag && dx>90 && id){ _markSeen(id); row.style.transform=''; row.style.background=''; _updateNewBadge(); renderList(); }
+      const mt=(row.getAttribute('onclick')||'').match(/openThread\('([^']+)'\)/);
+      const key=mt?mt[1]:null;
+      if(drag && dx<-90 && key){ row.style.transform='translateX(-100%)'; setTimeout(()=>qaThreadDelete(null,key),160); }
+      else if(drag && dx>90 && key){ qaThreadRead(null,key); row.style.transform=''; row.style.background=''; }
       else { row.style.transform=''; row.style.background=''; }
     });
   });
 }
 function renderReaderEmpty(){document.querySelector('.main')?.classList.remove('reading');document.body.classList.remove('reading-mail');$('reader').innerHTML='<div class="rd-empty"><div class="big">✉️</div>메일을 선택하세요</div>';}
-async function openMail(uid){SELECTED=uid;_markSeen(uid);renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');const known=MAILS.find(x=>String(x.uid)===String(uid));if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 열 수 없습니다</div><div style="font-size:13px;line-height:1.6">${known?'이 메일의 본문을 불러오지 못했습니다.<br>잠시 후 다시 시도하거나 목록에서 다시 선택해 주세요.':'알림에서 넘어온 메일이 이미 이동·삭제되었거나<br>주소가 만료되었을 수 있습니다. 왼쪽 목록에서 확인해 주세요.'}</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 불러오지 못했습니다</div><div style="font-size:13px;line-height:1.6">네트워크 또는 서버 연결을 확인해 주세요.<br>목록에서 다시 선택하면 대부분 해결됩니다.</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;}}
+// 대화 스레드가 있으면 스레드 열기, 없으면 단일 열람 (알림/딥링크 폴백)
+function openMail(uid){ const key=_threadKeyOfUid(uid); if(key) return openThread(key,uid); return openMailSingle(uid); }
+async function openMailSingle(uid){SELECTED=uid;_markSeen(uid);renderList();document.querySelector('.main')?.classList.add('reading');document.body.classList.add('reading-mail');window.scrollTo(0,0);const m=MAILS.find(x=>x.uid===uid)||{};$('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div><div class="rd-head"><h2 class="rd-subj">${esc(m.subject||'(제목 없음)')}</h2><div class="rd-meta"><b>보낸사람</b><span>${addrLine(m.from)}</span><b>받는사람</b><span>${addrLine(m.to)}</span>${m.cc&&m.cc.length?`<b>참조</b><span>${addrLine(m.cc)}</span>`:''}<b>날짜</b><span>${esc(m.date||'')}</span></div></div><div class="spin"></div>`;try{const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);const d=await r.json();if(SELECTED!==uid)return;if(!d.ok){const sp=document.querySelector('.spin');const known=MAILS.find(x=>String(x.uid)===String(uid));if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 열 수 없습니다</div><div style="font-size:13px;line-height:1.6">${known?'이 메일의 본문을 불러오지 못했습니다.<br>잠시 후 다시 시도하거나 목록에서 다시 선택해 주세요.':'알림에서 넘어온 메일이 이미 이동·삭제되었거나<br>주소가 만료되었을 수 있습니다. 왼쪽 목록에서 확인해 주세요.'}</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;return;}renderBody(m,d);}catch(e){const sp=document.querySelector('.spin');if(sp)sp.outerHTML=`<div style="padding:32px 24px;text-align:center;color:var(--t2)"><div style="font-size:40px;margin-bottom:12px">📭</div><div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">메일을 불러오지 못했습니다</div><div style="font-size:13px;line-height:1.6">네트워크 또는 서버 연결을 확인해 주세요.<br>목록에서 다시 선택하면 대부분 해결됩니다.</div><button class="btn sm" style="margin-top:16px" onclick="loadList()">📥 받은편지함 새로고침</button></div>`;}}
 function backToList(){ SELECTED=null; document.querySelector('.main')?.classList.remove('reading'); document.body.classList.remove('reading-mail'); renderList(); window.scrollTo(0,0); }
+// ══════════ 대화 스레드 열람 (지메일식: 관련메일 접힘 → 클릭 시 펼침, 최신 자동 펼침) ══════════
+let THREAD_BODY={};
+(function(){ if(document.getElementById('threadCss'))return; const s=document.createElement('style'); s.id='threadCss'; s.textContent=`
+.thread-wrap{padding:4px 0 48px}
+.tmsg{border:1px solid #e5e7eb;border-radius:10px;margin:8px 12px;background:#fff;overflow:hidden}
+.tmsg-h{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}
+.tmsg-h:hover{background:#f8fafc}
+.tmsg.open .tmsg-h{border-bottom:1px solid #eef2f7}
+.tmsg-av{width:32px;height:32px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.tmsg-hb{flex:1;min-width:0}
+.tmsg-r1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tmsg-from{font-weight:600;font-size:14px;color:#0f172a}
+.tmsg-from.new{font-weight:800}
+.tmsg-date{font-size:12px;color:#94a3b8;white-space:nowrap}
+.tmsg-r2{font-size:12px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tmsg-caret{transition:transform .15s;color:#94a3b8;font-size:12px}
+.tmsg.open .tmsg-caret{transform:rotate(180deg)}
+.tmsg-b{display:none;padding:4px 12px 12px}
+.tmsg.open .tmsg-b{display:block}
+.th-count{display:inline-block;background:#e5edff;color:#3651d4;border-radius:10px;font-size:12px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+`; document.head.appendChild(s); })();
+async function openThread(key, focusUid){
+  const th=THREADS[key]; if(!th) return openMailSingle(focusUid||String(key||'').replace(/^th:/,''));
+  const focus=focusUid?String(focusUid):String(th.latest.uid);
+  SELECTED=focus; _markSeen(focus);
+  document.querySelector('.main')?.classList.add('reading'); document.body.classList.add('reading-mail'); window.scrollTo(0,0);
+  renderList();
+  const subj=esc(th.latest.subject||'(제목 없음)');
+  const cards=th.msgs.map(m=>{
+    const isFocus=String(m.uid)===focus; const nw=_isNewMail(m);
+    const toStr=(m.to||[]).map(a=>a.name||a.email||'').filter(Boolean).join(', ');
+    return `<div class="tmsg${isFocus?' open':''}" id="tmsg-${m.uid}" data-uid="${m.uid}">
+      <div class="tmsg-h" onclick="threadMsgToggle('${m.uid}')">
+        <div class="tmsg-av" style="background:${avatarFor(partyName(m)).color}">${esc(avatarFor(partyName(m)).ch)}</div>
+        <div class="tmsg-hb">
+          <div class="tmsg-r1"><span class="tmsg-from${nw?' new':''}">${esc(partyName(m))}</span><span class="tmsg-date">${esc(m.date||'')}${m.hasAttachment?' 📎':''}</span></div>
+          <div class="tmsg-r2">${toStr?('받는사람: '+esc(toStr)):''}</div>
+        </div>
+        <span class="tmsg-caret">▾</span>
+      </div>
+      <div class="tmsg-b" id="tbody-${m.uid}"></div>
+    </div>`;
+  }).join('');
+  $('reader').innerHTML=`<div class="mobile-back" onclick="backToList()">← 목록으로</div>
+    <div class="rd-head thread"><h2 class="rd-subj">${subj}${th.count>1?` <span class="th-count">대화 ${th.count}통</span>`:''}</h2></div>
+    <div class="thread-wrap">${cards}</div>`;
+  threadLoadBody(focus);
+}
+function threadMsgToggle(uid){
+  const card=document.getElementById('tmsg-'+uid); if(!card)return;
+  const opening=!card.classList.contains('open');
+  card.classList.toggle('open',opening);
+  if(opening){ SELECTED=String(uid); _markSeen(uid); _updateNewBadge(); threadLoadBody(uid); }
+}
+async function threadLoadBody(uid){
+  const host=document.getElementById('tbody-'+uid); if(!host||host.dataset.loaded==='1')return;
+  host.innerHTML='<div class="spin"></div>';
+  try{
+    const r=await fetch(`${SERVER}/api/mail/body?folder=${FOLDER}&uid=${encodeURIComponent(uid)}`);
+    const d=await r.json();
+    if(!d.ok){ host.innerHTML='<div style="padding:14px;color:var(--t2)">본문을 불러올 수 없습니다.</div>'; return; }
+    host.dataset.loaded='1';
+    const m=MAILS.find(x=>String(x.uid)===String(uid))||{uid};
+    THREAD_BODY[uid]=d; CUR_BODY=d; CUR_MAIL=m;
+    host.innerHTML=threadBodyHtml(uid,m,d);
+  }catch(e){ host.innerHTML='<div style="padding:14px;color:var(--r)">오류: '+esc(e.message)+'</div>'; }
+}
+function threadBodyHtml(uid,m,d){
+  const atts=(d.attachments||[]), large=(d.largeAttachments||[]); const totalAtt=atts.length+large.length;
+  let attHtml='';
+  if(totalAtt){
+    const normal=atts.map(a=>{const nm=esc(a.name).replace(/'/g,"\\'");return `<span class="att" title="좌클릭: 미리보기 · 우클릭: 다운로드/SP링크"><span onclick="mailAttPreview('${uid}',${a.idx},'${nm}')" oncontextmenu="mailAttCtx(event,'${uid}',${a.idx},'${nm}');return false;">📎 ${esc(a.name)}</span></span>`;}).join('');
+    const big=large.map(a=>`<span class="att" onclick="window.open('${esc(a.url)}','_blank')">🔗 ${esc(a.name)} <span class="badge-lg">대용량</span></span>`).join('');
+    attHtml=`<div class="rd-att-box"><div class="rd-att-toggle" onclick="this.parentNode.classList.toggle('open')"><span>📎 첨부파일 ${totalAtt}개</span><span class="rd-att-caret">▼</span></div><div class="rd-atts">${normal}${big}</div></div>`;
+  }
+  let bodyHtml;
+  if(d.isHtml&&d.bodyHtml){const safe=esc(d.bodyHtml);bodyHtml=`<div class="rd-body"><iframe sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${safe}" onload="autoSizeIframe(this)"></iframe></div>`;}
+  else{bodyHtml=`<div class="rd-body"><pre>${esc(d.body||'(본문 없음)')}</pre></div>`;}
+  const moveBtn=totalAtt?`<button class="btn sm primary" onclick="threadFocus('${uid}');openMove()">📁 문서함 이송 (${totalAtt})</button>`:'';
+  const actions=`<div class="rd-actions"><button class="btn sm" onclick="threadReply('${uid}','reply')">↩ 답장</button><button class="btn sm" onclick="threadReply('${uid}','replyAll')">↩↩ 전체답장</button><button class="btn sm" onclick="threadReply('${uid}','forward')">➡ 전달</button><button class="btn sm" onclick="toggleStar(event,'${uid}');this.textContent=_isStar('${uid}')?'★ 별표':'☆ 별표'">${_isStar(uid)?'★ 별표':'☆ 별표'}</button><button class="btn sm" onclick="deleteOne('${uid}')">🗑 삭제</button><button class="btn sm" onclick="threadFocus('${uid}');mailPrint()">🖨 인쇄</button><button class="btn sm" onclick="threadFocus('${uid}');mailSavePdf()">📄 PDF저장</button>${moveBtn}</div>`;
+  return actions+attHtml+bodyHtml;
+}
+function threadFocus(uid){ SELECTED=String(uid); const d=THREAD_BODY[uid]; if(d){ CUR_BODY=d; CUR_MAIL=MAILS.find(x=>String(x.uid)===String(uid))||{uid}; } }
+function threadReply(uid,mode){ threadFocus(uid); openCompose(mode); }
 function autoSizeIframe(ifr){
   try{
     const doc=ifr.contentDocument||ifr.contentWindow.document;
