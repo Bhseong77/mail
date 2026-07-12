@@ -2419,8 +2419,27 @@ body.embed-prnew{background:#fff}
       <div class="ac-wrap"><input id="cCc" type="text" placeholder="(선택)" autocomplete="off" oninput="composeAC('cCc')" onkeydown="composeACKey(event,'cCc')" onblur="composeACHide('cCc')"><div class="ac-dd" id="cCcAC"></div></div>
       <label>제목</label>
       <input id="cSubj" type="text">
-      <label>내용</label>
-      <textarea id="cBody" rows="11"></textarea>
+      <label>내용 <span style="float:right;font-weight:400">
+        <button type="button" class="btn sm" onclick="mailAI('draft')" title="요청을 입력하면 Copilot이 초안 작성">🪄 초안</button>
+        <button type="button" class="btn sm" onclick="mailAI('polish')" title="문법·어투 다듬기">✨ 다듬기</button>
+        <button type="button" class="btn sm" onclick="mailAI('en')" title="영어로 번역">EN</button>
+        <button type="button" class="btn sm" onclick="mailAI('ko')" title="한국어로 번역">KO</button>
+      </span></label>
+      <div id="cRTE" style="display:flex;flex-wrap:wrap;gap:2px;padding:4px;border:1px solid var(--border,#ddd);border-bottom:none;border-radius:6px 6px 0 0;background:#f8fafc">
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('bold')" title="굵게" style="font-weight:800;min-width:24px">B</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('italic')" title="기울임" style="font-style:italic;min-width:24px">I</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('underline')" title="밑줄" style="text-decoration:underline;min-width:24px">U</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('strikeThrough')" title="취소선" style="text-decoration:line-through;min-width:24px">S</button>
+        <label class="btn sm" style="min-width:24px;padding:2px 4px;position:relative;overflow:hidden" title="글자색"><b>A</b><input type="color" onchange="rte('foreColor',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>
+        <label class="btn sm" style="min-width:24px;padding:2px 4px;position:relative;overflow:hidden;background:#fff3a0" title="형광펜">H<input type="color" value="#fff275" onchange="rte('hiliteColor',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('insertUnorderedList')" title="글머리 목록">•</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('insertOrderedList')" title="번호 목록">1.</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rteLink()" title="링크 삽입">🔗</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('formatBlock','blockquote')" title="인용">❝</button>
+        <button type="button" class="btn sm" onmousedown="event.preventDefault()" onclick="rte('removeFormat')" title="서식 지우기">✕</button>
+      </div>
+      <div id="cRich" contenteditable="true" style="min-height:180px;max-height:40vh;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:0 0 6px 6px;padding:10px 12px;font-size:13.5px;line-height:1.6;outline:none;background:#fff" oninput="cbSync()"></div>
+      <textarea id="cBody" style="display:none"></textarea>
       <label>첨부파일 <button type="button" class="btn sm" style="float:right;margin-top:-3px" onclick="composeSPAttach()">📎 대시보드 자료 첨부</button></label>
       <input id="cFiles" type="file" multiple onchange="onFiles()">
       <div id="cFileList" class="cfiles"></div>
@@ -3605,6 +3624,31 @@ function renderContacts(){
   </tr>`).join('');
 }
 // 주소록에서 메일쓰기: 받는사람 채워서 열기
+// ── 리치에디터(cRich) 헬퍼: 숨은 textarea(cBody)를 미러로 유지 ──
+function _mailEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function cbSync(){ const r=$('cRich'), b=$('cBody'); if(r&&b){ b.value=r.innerHTML; r.setAttribute('data-sync',b.value); } }
+function cbSetBody(v){ const r=$('cRich'), b=$('cBody'); if(!r||!b)return; const html=/<[a-z!][\s\S]*>/i.test(v||'')?(v||''):_mailEsc(v).replace(/\n/g,'<br>'); r.innerHTML=html; b.value=html; r.setAttribute('data-sync',html); }
+function rte(cmd,val){ const r=$('cRich'); if(r) r.focus(); try{document.execCommand(cmd,false,val||null);}catch(e){} cbSync(); }
+function rteLink(){ const u=prompt('링크 URL:','https://'); if(u) rte('createLink',u); }
+// 외부 코드가 cBody(textarea)를 바꾸면(답장/전달·초안·첨부링크) 리치에디터에 자동 반영
+if(!window._cbSyncTimer){ window._cbSyncTimer=setInterval(function(){ const b=$('cBody'), r=$('cRich'), c=$('compose'); if(!b||!r||!c||!c.classList.contains('on'))return; if(b.value!==(r.getAttribute('data-sync')||'')){ const v=b.value; r.innerHTML=/<[a-z!][\s\S]*>/i.test(v)?v:_mailEsc(v).replace(/\n/g,'<br>'); r.setAttribute('data-sync',v);} }, 350); }
+async function mailAI(mode){
+  const r=$('cRich'); if(!r) return;
+  const cur=r.innerText||'';
+  let payload;
+  if(mode==='draft'){ const p=prompt('무엇에 대한 메일 초안을 만들까요? (요청 입력)', cur.slice(0,200)); if(!p)return; payload={mode:'draft',prompt:p}; }
+  else if(mode==='polish'){ if(!cur.trim()){ if(window.toast)toast('본문을 먼저 입력하세요','warn'); return; } payload={mode:'polish',text:cur}; }
+  else if(mode==='en'){ if(!cur.trim())return; payload={mode:'translate',text:cur,target:'영어'}; }
+  else if(mode==='ko'){ if(!cur.trim())return; payload={mode:'translate',text:cur,target:'한국어'}; }
+  else return;
+  const old=r.innerHTML; r.innerHTML='<span style="color:#888">🤖 Copilot 처리 중…</span>';
+  try{
+    const rr=await fetch(`${SERVER}/api/mail/ai`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await rr.json();
+    if(d&&d.ok&&d.result){ cbSetBody(d.result); }
+    else { r.innerHTML=old; if(window.toast)toast('AI 처리 실패: '+((d&&d.error)||'응답 없음'),'bad'); }
+  }catch(e){ r.innerHTML=old; if(window.toast)toast('AI 오류: '+(e.message||e),'bad'); }
+}
 function composeTo(email,name){
   if(!email){ toast('이메일이 없는 연락처입니다','bad'); return; }
   openCompose('new');
@@ -10521,11 +10565,18 @@ function mailSearchInput(){
   if(q.length<2){ if(_searchExtra.length){ _searchExtra=[]; _searchQ=""; renderList(); } return; }
   _searchTimer=setTimeout(async()=>{
     try{
-      const r=await fetch(`${SERVER}/api/mail/list?folder=${FOLDER}&q=${encodeURIComponent(q)}&limit=100`);
+      // 파워풀 검색: 전체함·본문·한↔영(Copilot 쿼리확장) — /api/mail/search
+      const r=await fetch(`${SERVER}/api/mail/search?folder=${FOLDER}&q=${encodeURIComponent(q)}&ai=1`);
       const d=await r.json();
-      if(d&&d.ok){ _searchExtra=d.mails||[]; _searchQ=q; if($('q').value.trim()===q) renderList(); }
+      if(d&&d.ok){
+        _searchExtra=(d.rows||[]).map(x=>({uid:x.uid, subject:x.subject||'(제목없음)',
+          from:[{name:x.sender||'', email:''}], to:[{name:x.sender||'', email:''}],
+          date:x.date, preview:x.snippet||'', _xsearch:true, _hit:x.hit}));
+        _searchQ=q; window._searchVariants=d.variants||[];
+        if($('q').value.trim()===q) renderList();
+      }
     }catch(_){}
-  }, 450);
+  }, 500);
 }
 function renderList(){
   const subtabs=$('mailSubtabs'); if(subtabs) subtabs.style.display=(FOLDER==='draft')?'none':'flex';
@@ -11322,7 +11373,7 @@ function renderBigChips(big){
 }
 function renderFileChips(){$('cFileList').innerHTML=COMPOSE_ATT.map((a,i)=>`<span class="chip"><b>📎 ${esc(a.filename)}</b><span onclick="rmFile(${i})">✕</span></span>`).join('');}
 function rmFile(i){COMPOSE_ATT.splice(i,1);renderFileChips();}
-async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:$('cBody').value,attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');if(_composeDraft&&_composeDraft.path){spDeleteByPath(_composeDraft.path).catch(()=>{});const _wasDraft=(FOLDER==='draft');_composeDraft={};if(_wasDraft)setTimeout(loadDrafts,600);}$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
+async function sendMail(){if(!$('cTo').value.trim()&&!$('cCc').value.trim()){$('cMsg').style.color='var(--r)';$('cMsg').textContent='받는사람을 입력하세요';return;}const btn=$('cSend');btn.disabled=true;btn.textContent='보내는 중…';$('cMsg').style.color='var(--t2)';$('cMsg').textContent='⏳ 발송 중…';const _j=_J('메일 발송: '+(($('cSubj').value||'(제목없음)').slice(0,30)));try{const payload={to:$('cTo').value,cc:$('cCc').value,subject:$('cSubj').value,body:($('cRich')?($('cRich').innerText||''):$('cBody').value),bodyHtml:($('cRich')?$('cRich').innerHTML:''),attachments:COMPOSE_ATT,inReplyTo:REPLY_CTX.inReplyTo||'',references:REPLY_CTX.references||''};const r=await fetch(`${SERVER}/api/mail/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(d.ok){_Jok(_j,'발송 완료');if(_composeDraft&&_composeDraft.path){spDeleteByPath(_composeDraft.path).catch(()=>{});const _wasDraft=(FOLDER==='draft');_composeDraft={};if(_wasDraft)setTimeout(loadDrafts,600);}$('cMsg').style.color='var(--g)';$('cMsg').textContent='✅ 발송 완료';actLog(`✉ 메일발송: ${($('cSubj').value||'(제목없음)').slice(0,40)} → ${($('cTo').value||'').slice(0,40)}`);setTimeout(closeCompose,900);}else{_Jno(_j,d.error||'발송 실패');$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 실패: '+(d.error||'');}}catch(e){_Jno(_j,e.message);$('cMsg').style.color='var(--r)';$('cMsg').textContent='발송 오류: '+e.message;}btn.disabled=false;btn.textContent='✉ 보내기';}
 let DEEPLINK_UID=null;
 // ════════ 통합일정관리 (엑셀 멀티시트 기반) ════════
 const SCH_SITE="enjetco.sharepoint.com:/sites/TIC";
